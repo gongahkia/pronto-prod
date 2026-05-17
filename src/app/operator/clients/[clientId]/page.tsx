@@ -249,9 +249,49 @@ export default async function ClientOperatorPage({
               <form action="/api/operator/reviews" method="post" className="mt-4 grid gap-3 sm:grid-cols-2">
                 <input type="hidden" name="clientId" value={client.id} />
                 <input type="hidden" name="conversationId" value={firstConversation.id} />
+                <select name="answerLabel" className="rounded-md border border-line px-3 py-2 text-sm">
+                  <option value="">Review label</option>
+                  <option value="answered_correctly">Answered correctly</option>
+                  <option value="should_have_escalated">Should have escalated</option>
+                  <option value="over_escalated">Over-escalated</option>
+                  <option value="hallucinated">Hallucinated</option>
+                  <option value="needs_knowledge_update">Needs knowledge update</option>
+                </select>
+                <select name="failureSeverity" className="rounded-md border border-line px-3 py-2 text-sm">
+                  <option value="">Severity</option>
+                  <option value="p0">P0 launch blocker</option>
+                  <option value="p1">P1 high risk</option>
+                  <option value="p2">P2 normal fix</option>
+                  <option value="p3">P3 polish</option>
+                </select>
+                <select name="rootCause" className="rounded-md border border-line px-3 py-2 text-sm">
+                  <option value="">Root cause</option>
+                  <option value="missing_source">Missing source</option>
+                  <option value="bad_retrieval">Bad retrieval</option>
+                  <option value="guardrail_gap">Guardrail gap</option>
+                  <option value="prompt_gap">Prompt gap</option>
+                  <option value="integration_gap">Integration gap</option>
+                  <option value="channel_issue">Channel issue</option>
+                  <option value="human_process">Human process</option>
+                </select>
+                <select name="fixOwner" className="rounded-md border border-line px-3 py-2 text-sm">
+                  <option value="">Fix owner</option>
+                  <option value="gabriel">Gabriel</option>
+                  <option value="keith">Keith</option>
+                  <option value="astin">Astin</option>
+                  <option value="client">Client</option>
+                </select>
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" name="hallucination" />
                   Hallucination incident
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="knowledgeUpdateNeeded" />
+                  Knowledge update needed
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="pilotBlocker" />
+                  Pilot blocker
                 </label>
                 <select name="escalationWasNeeded" className="rounded-md border border-line px-3 py-2 text-sm">
                   <option value="">Escalation accuracy</option>
