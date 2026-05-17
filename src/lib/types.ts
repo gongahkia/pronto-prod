@@ -37,6 +37,11 @@ export type Channel = {
   external_id: string | null;
   credentials: Record<string, unknown>;
   settings: Record<string, unknown>;
+  last_health_check_at: Date | null;
+  last_health_status: string | null;
+  last_health_error: string | null;
+  last_outbound_at: Date | null;
+  last_outbound_error: string | null;
 };
 
 export type AgentConfig = {
@@ -97,4 +102,3 @@ export type Escalation = {
   created_at: Date;
   resolved_at: Date | null;
 };
-

@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { recordOutboundHealth } from "@/lib/channels/health";
 import { sendTelegramText } from "@/lib/channels/telegram";
 import { sendWhatsAppText } from "@/lib/channels/whatsapp";
 import type { Channel } from "@/lib/types";
@@ -16,13 +17,19 @@ export async function sendChannelText(input: {
     throw new Error(`Channel not found: ${input.channelId}`);
   }
 
-  if (channel.kind === "whatsapp") {
-    await sendWhatsAppText({ channel, externalThreadId: input.externalThreadId, text: input.text });
-    return;
-  }
+  try {
+    if (channel.kind === "whatsapp") {
+      await sendWhatsAppText({ channel, externalThreadId: input.externalThreadId, text: input.text });
+      await recordOutboundHealth(input.channelId);
+      return;
+    }
 
-  if (channel.kind === "telegram") {
-    await sendTelegramText({ channel, externalThreadId: input.externalThreadId, text: input.text });
+    if (channel.kind === "telegram") {
+      await sendTelegramText({ channel, externalThreadId: input.externalThreadId, text: input.text });
+      await recordOutboundHealth(input.channelId);
+    }
+  } catch (error) {
+    await recordOutboundHealth(input.channelId, error);
+    throw error;
   }
 }
-

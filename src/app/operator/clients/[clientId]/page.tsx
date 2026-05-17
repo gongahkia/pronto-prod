@@ -110,10 +110,19 @@ export default async function ClientOperatorPage({
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">{channel.name}</p>
-                    <p className="text-sm text-muted">{channel.kind}</p>
+                    <p className="text-sm text-muted">
+                      {channel.kind}
+                      {channel.last_health_status ? ` · health ${channel.last_health_status}` : ""}
+                    </p>
                   </div>
                   <Badge tone={channel.status === "active" ? "green" : "amber"}>{channel.status}</Badge>
                 </div>
+                {channel.last_health_error ? (
+                  <p className="rounded-md bg-red-50 p-2 text-xs text-danger">{channel.last_health_error}</p>
+                ) : null}
+                {channel.last_outbound_error ? (
+                  <p className="rounded-md bg-red-50 p-2 text-xs text-danger">Last send failed: {channel.last_outbound_error}</p>
+                ) : null}
                 {channel.kind === "whatsapp" || channel.kind === "telegram" ? (
                   <div className="rounded-md bg-stone-50 p-3 text-xs text-muted">
                     <p className="font-medium text-foreground">
@@ -158,6 +167,18 @@ export default async function ClientOperatorPage({
                 <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-medium">
                   Save channel
                 </button>
+                <button
+                  form={`health-${channel.id}`}
+                  className="ml-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-medium"
+                >
+                  Check health
+                </button>
+              </form>
+            ))}
+            {channels.map((channel) => (
+              <form key={`health-${channel.id}`} id={`health-${channel.id}`} action="/api/operator/channel-health" method="post">
+                <input type="hidden" name="clientId" value={client.id} />
+                <input type="hidden" name="channelId" value={channel.id} />
               </form>
             ))}
           </div>
