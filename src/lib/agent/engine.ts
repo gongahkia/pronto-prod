@@ -6,7 +6,7 @@ import {
   evaluateRetrievalConfidence,
 } from "@/lib/agent/guardrails";
 import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
-import { llmProvider } from "@/lib/llm/openai";
+import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
 import type { AgentConfig, Client, KnowledgeChunk, Message } from "@/lib/types";
 
 export type AgentRunResult = {
@@ -92,7 +92,14 @@ export async function runAgentForMessage(input: {
     });
   }
 
-  const [embedding] = await llmProvider.embed(
+  const responseProvider =
+    process.env.PRONTO_LLM_PROVIDER ?? config.response_provider ?? "openai";
+  const responseModel =
+    responseProvider === "anthropic"
+      ? process.env.ANTHROPIC_RESPONSE_MODEL ?? config.response_model ?? "claude-sonnet-4-5"
+      : process.env.OPENAI_RESPONSE_MODEL ?? config.response_model ?? "gpt-5.5";
+
+  const [embedding] = await getEmbeddingProvider(config.embedding_provider).embed(
     [input.customerMessage],
     config.embedding_model,
   );
@@ -112,7 +119,7 @@ export async function runAgentForMessage(input: {
     });
   }
 
-  const decision = await llmProvider.generateGroundedAnswer({
+  const decision = await getGenerationProvider(responseProvider).generateGroundedAnswer({
     clientName: client.name,
     brandVoice: client.brand_voice,
     promptPreamble: config.prompt_preamble,
@@ -122,8 +129,7 @@ export async function runAgentForMessage(input: {
       body: message.body,
     })),
     retrievedChunks: chunks,
-    responseModel:
-      process.env.OPENAI_RESPONSE_MODEL ?? config.response_model ?? "gpt-5.5",
+    responseModel,
   });
 
   const citedChunks = chunks.filter((chunk) =>

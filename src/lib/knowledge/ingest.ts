@@ -1,6 +1,6 @@
 import { query, transaction, vectorLiteral } from "@/lib/db";
 import { chunkText } from "@/lib/knowledge/chunk";
-import { llmProvider } from "@/lib/llm/openai";
+import { getEmbeddingProvider } from "@/lib/llm";
 
 export async function ingestKnowledgeSource(input: {
   clientId: string;
@@ -10,8 +10,8 @@ export async function ingestKnowledgeSource(input: {
   metadata?: Record<string, unknown>;
   actorUserId?: string;
 }) {
-  const config = await query<{ embedding_model: string }>(
-    "select embedding_model from agent_configs where client_id = $1",
+  const config = await query<{ embedding_model: string; embedding_provider: string }>(
+    "select embedding_model, embedding_provider from agent_configs where client_id = $1",
     [input.clientId],
   );
   const embeddingModel =
@@ -23,7 +23,9 @@ export async function ingestKnowledgeSource(input: {
     maxCharacters: 900,
     overlap: 120,
   });
-  const embeddings = await llmProvider.embed(
+  const embeddings = await getEmbeddingProvider(
+    config.rows[0]?.embedding_provider,
+  ).embed(
     chunks.map((chunk) => chunk.content),
     embeddingModel,
   );

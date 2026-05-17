@@ -47,7 +47,9 @@ export type Channel = {
 export type AgentConfig = {
   id: string;
   client_id: string;
+  response_provider: string;
   response_model: string;
+  embedding_provider: string;
   embedding_model: string;
   retrieval_threshold: string;
   prompt_preamble: string;

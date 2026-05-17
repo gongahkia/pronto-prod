@@ -90,12 +90,14 @@ async function main() {
 
   await pool.query(
     `
-      insert into agent_configs (client_id, prompt_preamble, escalation_rules, retrieval_threshold)
-      values ($1, $2, $3, 0.0500)
+      insert into agent_configs (client_id, prompt_preamble, escalation_rules, retrieval_threshold, response_provider, embedding_provider)
+      values ($1, $2, $3, 0.0500, 'openai', 'openai')
       on conflict (client_id) do update set
         prompt_preamble = excluded.prompt_preamble,
         escalation_rules = excluded.escalation_rules,
         retrieval_threshold = excluded.retrieval_threshold,
+        response_provider = excluded.response_provider,
+        embedding_provider = excluded.embedding_provider,
         updated_at = now()
     `,
     [

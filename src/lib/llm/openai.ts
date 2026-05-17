@@ -2,6 +2,11 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { shouldUseMockAi } from "@/lib/env";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
+import {
+  buildGroundedAnswerInstructions,
+  buildGroundedAnswerUserInput,
+  parseJsonObject,
+} from "@/lib/llm/prompt";
 import type {
   GenerateAnswerInput,
   GroundedAnswerDecision,
@@ -22,41 +27,6 @@ function getOpenAiClient(): OpenAI {
     apiKey: process.env.OPENAI_API_KEY,
     baseURL: process.env.OPENAI_BASE_URL || undefined,
   });
-}
-
-function buildInstructions(input: GenerateAnswerInput): string {
-  const sources = input.retrievedChunks
-    .map(
-      (chunk, index) =>
-        `[${index + 1}] chunk_id=${chunk.id} score=${chunk.score?.toFixed(3) ?? "n/a"}\n${chunk.content}`,
-    )
-    .join("\n\n");
-
-  return `
-${input.promptPreamble}
-
-Business: ${input.clientName}
-Brand voice: ${input.brandVoice}
-
-Product contract:
-- You are a purpose-driven business customer-service agent, not a general assistant.
-- Answer only from the supplied source chunks and recent conversation context.
-- If any claim is not traceable to a source chunk, escalate.
-- Do not pretend to be human. If directly asked, disclose that you are an AI assistant for the business.
-- Never process payments, issue refunds, cancel or modify bookings, or mutate any client system.
-- Always escalate complaints, refund disputes, legal/medical topics, severe allergy issues, urgent frustration, and out-of-scope requests.
-
-Return strict JSON only with:
-action: "answer" or "escalate"
-answer: customer-facing answer or null
-confidence: 0 to 1
-reasonCode: snake_case reason
-reasonDetail: concise internal explanation
-citedChunkIds: source chunk IDs used
-
-Sources:
-${sources || "No source chunks returned."}
-`.trim();
 }
 
 export class OpenAiProvider implements LlmProvider {
@@ -84,16 +54,14 @@ export class OpenAiProvider implements LlmProvider {
     const client = getOpenAiClient();
     const response = await client.responses.create({
       model: input.responseModel,
-      instructions: buildInstructions(input),
+      instructions: buildGroundedAnswerInstructions(input),
       input: [
         {
           role: "user",
           content: [
             {
               type: "input_text",
-              text: `Recent messages:\n${input.recentMessages
-                .map((message) => `${message.senderRole}: ${message.body}`)
-                .join("\n")}\n\nCurrent customer message:\n${input.customerMessage}`,
+              text: buildGroundedAnswerUserInput(input),
             },
           ],
         },
@@ -128,7 +96,7 @@ export class OpenAiProvider implements LlmProvider {
       },
     });
 
-    const parsedJson = JSON.parse(response.output_text);
+    const parsedJson = parseJsonObject(response.output_text);
     const parsed = answerDecisionSchema.parse(parsedJson);
 
     if (parsed.action === "answer" && (!parsed.answer || !parsed.citedChunkIds.length)) {
@@ -146,5 +114,3 @@ export class OpenAiProvider implements LlmProvider {
     return parsed;
   }
 }
-
-export const llmProvider = new OpenAiProvider();
