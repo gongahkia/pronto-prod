@@ -77,7 +77,19 @@ export default async function OperatorPage() {
             ) : (
               escalations.map((escalation) => (
                 <div key={escalation.id} className="p-4">
-                  <Badge tone="red">{escalation.reason_code}</Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={escalation.status === "claimed" ? "amber" : "red"}>
+                      {escalation.status}
+                    </Badge>
+                    <Badge tone="red">{escalation.reason_code}</Badge>
+                  </div>
+                  <a
+                    href={`/operator/clients/${escalation.client_id}#escalation-${escalation.id}`}
+                    className="mt-2 block text-sm font-medium text-accent"
+                  >
+                    {escalation.client_name}
+                  </a>
+                  <p className="mt-1 text-sm text-muted">{escalation.customer_message}</p>
                   <p className="mt-2 text-sm text-muted">{escalation.reason_detail}</p>
                 </div>
               ))
@@ -107,4 +119,3 @@ export default async function OperatorPage() {
     </AppShell>
   );
 }
-

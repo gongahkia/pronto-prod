@@ -103,9 +103,42 @@ export default async function ClientPage() {
                 <p className="p-4 text-sm text-muted">No active escalations.</p>
               ) : (
                 escalations.map((escalation) => (
-                  <div key={escalation.id} className="p-4">
-                    <Badge tone="red">{escalation.reason_code}</Badge>
-                    <p className="mt-2 text-sm text-muted">{escalation.reason_detail}</p>
+                  <div key={escalation.id} id={`escalation-${escalation.id}`} className="space-y-3 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={escalation.status === "claimed" ? "amber" : "red"}>
+                        {escalation.status}
+                      </Badge>
+                      <Badge tone="red">{escalation.reason_code}</Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Customer question</p>
+                      <p className="mt-1 text-sm text-muted">{escalation.customer_message}</p>
+                    </div>
+                    <p className="text-sm text-muted">{escalation.reason_detail}</p>
+                    {escalation.status === "open" ? (
+                      <form action="/api/escalations" method="post">
+                        <input type="hidden" name="action" value="claim" />
+                        <input type="hidden" name="escalationId" value={escalation.id} />
+                        <input type="hidden" name="returnTo" value={`/client#escalation-${escalation.id}`} />
+                        <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-medium">
+                          Claim
+                        </button>
+                      </form>
+                    ) : null}
+                    <form action="/api/escalations" method="post" className="space-y-2">
+                      <input type="hidden" name="action" value="resolve" />
+                      <input type="hidden" name="escalationId" value={escalation.id} />
+                      <input type="hidden" name="returnTo" value="/client" />
+                      <textarea
+                        name="reply"
+                        rows={3}
+                        className="w-full rounded-md border border-line px-3 py-2 text-sm"
+                        placeholder="Reply to customer before resolving"
+                      />
+                      <button className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white">
+                        Send reply and resolve
+                      </button>
+                    </form>
                   </div>
                 ))
               )}
@@ -130,4 +163,3 @@ export default async function ClientPage() {
     </AppShell>
   );
 }
-

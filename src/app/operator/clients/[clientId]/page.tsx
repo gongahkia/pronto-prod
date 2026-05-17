@@ -9,6 +9,7 @@ import {
   getOpenEscalations,
   getRecentConversations,
 } from "@/lib/dashboard";
+import { appBaseUrl } from "@/lib/env";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
 import { PilotConsole } from "@/components/pilot-console";
@@ -106,6 +107,22 @@ export default async function ClientOperatorPage({
                   </div>
                   <Badge tone={channel.status === "active" ? "green" : "amber"}>{channel.status}</Badge>
                 </div>
+                {channel.kind === "whatsapp" || channel.kind === "telegram" ? (
+                  <div className="rounded-md bg-stone-50 p-3 text-xs text-muted">
+                    <p className="font-medium text-foreground">
+                      {channel.kind === "whatsapp" ? "Meta webhook URL" : "Telegram webhook URL"}
+                    </p>
+                    <p className="mt-1 break-all font-mono">
+                      {appBaseUrl()}/api/webhooks/{channel.kind}/{channel.id}
+                    </p>
+                    <p className="mt-2">
+                      {channel.kind === "whatsapp"
+                        ? "Use the verify token in settings.verifyToken and the app secret in credentials.appSecret for X-Hub-Signature-256 checks."
+                        : "Register this URL with setWebhook and pass settings.webhookSecret as X-Telegram-Bot-Api-Secret-Token."}
+                    </p>
+                    <p className="mt-1">For local testing, expose port 3000 with an HTTPS tunnel and set APP_BASE_URL to that public URL.</p>
+                  </div>
+                ) : null}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <select name="status" defaultValue={channel.status} className="rounded-md border border-line px-3 py-2 text-sm">
                     <option value="draft">draft</option>
@@ -166,9 +183,42 @@ export default async function ClientOperatorPage({
               <p className="p-4 text-sm text-muted">No open escalations.</p>
             ) : (
               escalations.map((escalation) => (
-                <div key={escalation.id} className="p-4">
-                  <Badge tone="red">{escalation.reason_code}</Badge>
-                  <p className="mt-2 text-sm text-muted">{escalation.reason_detail}</p>
+                <div key={escalation.id} id={`escalation-${escalation.id}`} className="space-y-3 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={escalation.status === "claimed" ? "amber" : "red"}>
+                      {escalation.status}
+                    </Badge>
+                    <Badge tone="red">{escalation.reason_code}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Customer question</p>
+                    <p className="mt-1 text-sm text-muted">{escalation.customer_message}</p>
+                  </div>
+                  <p className="text-sm text-muted">{escalation.reason_detail}</p>
+                  {escalation.status === "open" ? (
+                    <form action="/api/escalations" method="post">
+                      <input type="hidden" name="action" value="claim" />
+                      <input type="hidden" name="escalationId" value={escalation.id} />
+                      <input type="hidden" name="returnTo" value={`/operator/clients/${client.id}#escalation-${escalation.id}`} />
+                      <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-medium">
+                        Claim
+                      </button>
+                    </form>
+                  ) : null}
+                  <form action="/api/escalations" method="post" className="space-y-2">
+                    <input type="hidden" name="action" value="resolve" />
+                    <input type="hidden" name="escalationId" value={escalation.id} />
+                    <input type="hidden" name="returnTo" value={`/operator/clients/${client.id}`} />
+                    <textarea
+                      name="reply"
+                      rows={3}
+                      className="w-full rounded-md border border-line px-3 py-2 text-sm"
+                      placeholder="Owner reply to send back before resolving"
+                    />
+                    <button className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white">
+                      Send reply and resolve
+                    </button>
+                  </form>
                 </div>
               ))
             )}
@@ -216,4 +266,3 @@ export default async function ClientOperatorPage({
     </AppShell>
   );
 }
-

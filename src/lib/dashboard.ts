@@ -16,6 +16,13 @@ export type ConversationWithLastMessage = Conversation & {
   last_sender_role: string | null;
 };
 
+export type EscalationWithContext = Escalation & {
+  client_name: string;
+  customer_message: string;
+  customer_handle: string | null;
+  channel_kind: Channel["kind"];
+};
+
 export async function getMetrics(clientId?: string): Promise<ClientMetricSummary> {
   const params = clientId ? [clientId] : [];
   const clientFilter = clientId ? "where id = $1" : "";
@@ -108,12 +115,24 @@ export async function getConversationMessages(
   return result.rows;
 }
 
-export async function getOpenEscalations(clientId?: string): Promise<Escalation[]> {
-  const result = await query<Escalation>(
+export async function getOpenEscalations(
+  clientId?: string,
+): Promise<EscalationWithContext[]> {
+  const result = await query<EscalationWithContext>(
     `
-      select * from escalations
-      ${clientId ? "where client_id = $1 and" : "where"} status = 'open'
-      order by created_at desc
+      select
+        e.*,
+        cl.name as client_name,
+        m.body as customer_message,
+        c.customer_handle,
+        ch.kind as channel_kind
+      from escalations e
+      join clients cl on cl.id = e.client_id
+      join conversations c on c.id = e.conversation_id
+      join channels ch on ch.id = c.channel_id
+      join messages m on m.id = e.message_id
+      ${clientId ? "where e.client_id = $1 and" : "where"} e.status <> 'resolved'
+      order by e.created_at desc
       limit 20
     `,
     clientId ? [clientId] : [],
@@ -146,4 +165,3 @@ export async function getKnowledgeSources(clientId: string) {
   );
   return result.rows;
 }
-
