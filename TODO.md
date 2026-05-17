@@ -2,21 +2,21 @@
 (A) 2026-05-17 Configure live Meta WhatsApp Cloud API app, phone number ID, app secret, access token, and webhook verify token +Channels @engineering phase:pilot
 (A) 2026-05-17 Configure live Telegram bot token, webhook secret, and HTTPS tunnel registration instructions +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add staging environment variables checklist for OpenAI, WhatsApp, Telegram, auth secret, app base URL, and database URL +Ops @engineering phase:pilot
-(A) 2026-05-17 Build golden eval set for opening hours, menu, reservation explanation, refund complaint, unknown policy, allergy, urgency, and out-of-scope requests +Pilot @quality phase:pilot
-(A) 2026-05-17 Add automated eval runner that replays golden customer questions against seeded client knowledge and records answer versus escalation +Pilot @quality phase:pilot
-(A) 2026-05-17 Add eval assertions that every answer includes cited source chunks and every unsupported claim escalates +AgentCore @quality phase:pilot
-(A) 2026-05-17 Add conversation review labels for answered correctly, should have escalated, over-escalated, hallucinated, and needs knowledge update +Dashboard @quality phase:pilot
+x 2026-05-17 (A) 2026-05-17 Build golden eval set for opening hours, menu, reservation explanation, refund complaint, unknown policy, allergy, urgency, and out-of-scope requests +Pilot @quality phase:pilot
+x 2026-05-17 (A) 2026-05-17 Add automated eval runner that replays golden customer questions against seeded client knowledge and records answer versus escalation +Pilot @quality phase:pilot
+x 2026-05-17 (A) 2026-05-17 Add eval assertions that every answer includes cited source chunks and every unsupported claim escalates +AgentCore @quality phase:pilot
+x 2026-05-17 (A) 2026-05-17 Add conversation review labels for answered correctly, should have escalated, over-escalated, hallucinated, and needs knowledge update +Dashboard @quality phase:pilot
 x 2026-05-17 (A) 2026-05-17 Implement escalation claim, owner takeover, owner reply logging, and escalation resolution states +Escalation @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add owner handoff response path so resolved escalations can send an owner-authored reply back to the original customer channel +Escalation @engineering phase:pilot
 (A) 2026-05-17 Add webhook retry handling and idempotent processing for duplicate WhatsApp and Telegram delivery attempts +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add unsupported media handling for images, audio, files, stickers, locations, and contact cards with safe escalation or fallback copy +Channels @engineering phase:pilot
-(A) 2026-05-17 Add channel health checks for webhook verification, credential validity, outbound send success, and recent delivery failures +Channels @engineering phase:pilot
+x 2026-05-17 (A) 2026-05-17 Add channel health checks for webhook verification, credential validity, outbound send success, and recent delivery failures +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add channel setup UI copy for Meta webhook URL, Telegram webhook URL, local HTTPS tunnel, and secret headers +Channels @docs phase:pilot
 (A) 2026-05-17 Add production-safe webhook logging with payload redaction for customer phone numbers and message content +Security @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add per-client rate limits and inbound message size limits for webhook and console endpoints +Security @engineering phase:pilot
 (A) 2026-05-17 Add real website URL ingestion with crawl depth controls, content extraction, and robots-aware operator warnings +RAG @engineering phase:pilot
-(A) 2026-05-17 Add uploaded document ingestion for PDF, DOCX, TXT, Markdown, and CSV knowledge sources +RAG @engineering phase:pilot
-(A) 2026-05-17 Add menu or product CSV ingestion mapped to structured source metadata for F&B and e-commerce demos +RAG @engineering phase:pilot
+x 2026-05-17 (A) 2026-05-17 Add uploaded document ingestion for PDF, DOCX, TXT, Markdown, and CSV knowledge sources +RAG @engineering phase:pilot
+x 2026-05-17 (A) 2026-05-17 Add menu or product CSV ingestion mapped to structured source metadata for F&B and e-commerce demos +RAG @engineering phase:pilot
 (A) 2026-05-17 Add knowledge source versioning so policy changes can be traced to the exact answer source +RAG @engineering phase:pilot
 (A) 2026-05-17 Add knowledge refresh workflow for monthly check-ins and client policy updates +RAG @ops phase:pilot
 (A) 2026-05-17 Add per-client retrieval threshold UI and pilot tuning history +AgentCore @dashboard phase:pilot
@@ -47,13 +47,13 @@ x 2026-05-17 (A) 2026-05-17 Add sentiment trigger detection for frustration, urg
 (A) 2026-05-17 Draft written internal Data Protection policy for client customer data +Compliance @legal phase:pilot
 x 2026-05-17 (A) 2026-05-17 Draft incident response plan for PDPA breach, hallucination incident, and channel policy breach +Compliance @ops phase:pilot
 x 2026-05-17 (A) 2026-05-17 Draft data retention limits for conversation logs, knowledge sources, embeddings, audit logs, and deleted client data +Compliance @legal phase:pilot
-(A) 2026-05-17 Add offboarding export for conversation history, knowledge base, brand voice document, and client configuration +Offboarding @engineering phase:pilot
-(A) 2026-05-17 Add offboarding deletion workflow with 30-day data return, integration shutdown, deletion confirmation, and audit log +Offboarding @engineering phase:pilot
+x 2026-05-17 (A) 2026-05-17 Add offboarding export for conversation history, knowledge base, brand voice document, and client configuration +Offboarding @engineering phase:pilot
+x 2026-05-17 (A) 2026-05-17 Add offboarding deletion workflow with 30-day data return, integration shutdown, deletion confirmation, and audit log +Offboarding @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add encryption-at-rest and encryption-in-transit checklist for local, staging, and production environments +Security @ops phase:pilot
 (A) 2026-05-17 Add audit log coverage for login, channel update, knowledge ingestion, review creation, escalation claim, escalation resolution, and data export +Security @engineering phase:pilot
-(A) 2026-05-17 Add role-based access tests proving client users cannot access other client data or operator-only routes +Security @quality phase:pilot
-(A) 2026-05-17 Add Anthropic provider adapter interface implementation for Claude Sonnet, Haiku routing, and future Opus fallback +ProviderPortability @engineering phase:tighten
-(A) 2026-05-17 Add provider selection per client and per task with model defaults, cost labels, and failover behavior +ProviderPortability @engineering phase:tighten
+x 2026-05-17 (A) 2026-05-17 Add role-based access tests proving client users cannot access other client data or operator-only routes +Security @quality phase:pilot
+x 2026-05-17 (A) 2026-05-17 Add Anthropic provider adapter interface implementation for Claude Sonnet, Haiku routing, and future Opus fallback +ProviderPortability @engineering phase:tighten
+x 2026-05-17 (A) 2026-05-17 Add provider selection per client and per task with model defaults, cost labels, and failover behavior +ProviderPortability @engineering phase:tighten
 (A) 2026-05-17 Add provider pricing monitor task for OpenAI, Anthropic, and Gemini model cost changes cadence:monthly +Risk @ops phase:tighten
 (A) 2026-05-17 Add Meta WhatsApp Business policy monitor task and compliance posture notes cadence:monthly +Risk @ops phase:tighten
 x 2026-05-17 (A) 2026-05-17 Document Pronto as purpose-driven business AI and not a general-purpose chatbot in product, contract, and channel setup docs +Compliance @docs phase:pilot
