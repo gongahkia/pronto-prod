@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { query, transaction } from "@/lib/db";
 import { sendChannelText } from "@/lib/channels/dispatch";
+import { canAccessClient } from "@/lib/rbac";
 import type { ChannelKind, EscalationStatus } from "@/lib/types";
 
 type EscalationActionRecord = {
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
   if (!escalation) {
     return NextResponse.json({ error: "Escalation not found." }, { status: 404 });
   }
-  if (user.role === "client" && escalation.client_id !== user.clientId) {
+  if (!canAccessClient(user, escalation.client_id)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
