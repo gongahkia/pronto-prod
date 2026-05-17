@@ -7,6 +7,8 @@ import {
 } from "@/lib/agent/guardrails";
 import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
+import { failoverModelChoice, selectModel } from "@/lib/llm/catalog";
+import type { GroundedAnswerDecision } from "@/lib/llm/types";
 import type { AgentConfig, Client, KnowledgeChunk, Message } from "@/lib/types";
 
 export type AgentRunResult = {
@@ -94,10 +96,11 @@ export async function runAgentForMessage(input: {
 
   const responseProvider =
     process.env.PRONTO_LLM_PROVIDER ?? config.response_provider ?? "openai";
-  const responseModel =
-    responseProvider === "anthropic"
-      ? process.env.ANTHROPIC_RESPONSE_MODEL ?? config.response_model ?? "claude-sonnet-4-5"
-      : process.env.OPENAI_RESPONSE_MODEL ?? config.response_model ?? "gpt-5.5";
+  const responseModel = selectModel({
+    provider: responseProvider,
+    configuredModel: config.response_model,
+    task: "agent_answer",
+  });
 
   const [embedding] = await getEmbeddingProvider(config.embedding_provider).embed(
     [input.customerMessage],
@@ -119,7 +122,7 @@ export async function runAgentForMessage(input: {
     });
   }
 
-  const decision = await getGenerationProvider(responseProvider).generateGroundedAnswer({
+  const generationInput = {
     clientName: client.name,
     brandVoice: client.brand_voice,
     promptPreamble: config.prompt_preamble,
@@ -129,8 +132,28 @@ export async function runAgentForMessage(input: {
       body: message.body,
     })),
     retrievedChunks: chunks,
-    responseModel,
-  });
+    responseModel: responseModel.model,
+  };
+
+  let decision: GroundedAnswerDecision;
+  try {
+    decision = await getGenerationProvider(responseModel.provider).generateGroundedAnswer(
+      generationInput,
+    );
+  } catch (error) {
+    if (
+      responseModel.provider === "openai" ||
+      process.env.PRONTO_ENABLE_PROVIDER_FAILOVER === "0"
+    ) {
+      throw error;
+    }
+
+    const fallback = failoverModelChoice();
+    decision = await getGenerationProvider(fallback.provider).generateGroundedAnswer({
+      ...generationInput,
+      responseModel: fallback.model,
+    });
+  }
 
   const citedChunks = chunks.filter((chunk) =>
     decision.citedChunkIds.includes(chunk.id),

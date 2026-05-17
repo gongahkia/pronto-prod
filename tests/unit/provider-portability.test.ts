@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { normalizeProviderName } from "@/lib/llm";
+import { failoverModelChoice, selectModel } from "@/lib/llm/catalog";
 import { parseJsonObject } from "@/lib/llm/prompt";
 
 describe("provider portability", () => {
@@ -13,6 +14,22 @@ describe("provider portability", () => {
   it("extracts JSON from provider text responses", () => {
     expect(parseJsonObject('Here is the JSON: {"action":"escalate"}')).toEqual({
       action: "escalate",
+    });
+  });
+
+  it("selects per-task provider model defaults and cost labels", () => {
+    expect(selectModel({ provider: "anthropic", task: "routing" })).toMatchObject({
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+      costLabel: "low",
+    });
+    expect(selectModel({ provider: "openai", task: "agent_answer" })).toMatchObject({
+      provider: "openai",
+      costLabel: "standard",
+    });
+    expect(failoverModelChoice()).toMatchObject({
+      provider: "openai",
+      costLabel: "premium",
     });
   });
 });

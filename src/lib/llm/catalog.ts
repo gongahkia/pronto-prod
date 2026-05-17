@@ -1,0 +1,51 @@
+import { normalizeProviderName, type LlmProviderName } from "@/lib/llm";
+
+export type LlmTask = "agent_answer" | "routing" | "fallback";
+
+export type ModelChoice = {
+  provider: LlmProviderName;
+  model: string;
+  costLabel: "low" | "standard" | "premium";
+};
+
+const modelCatalog: Record<Exclude<LlmProviderName, "mock">, Record<LlmTask, ModelChoice>> = {
+  openai: {
+    agent_answer: { provider: "openai", model: "gpt-5.5", costLabel: "standard" },
+    routing: { provider: "openai", model: "gpt-5.4-mini", costLabel: "low" },
+    fallback: { provider: "openai", model: "gpt-5.5", costLabel: "premium" },
+  },
+  anthropic: {
+    agent_answer: { provider: "anthropic", model: "claude-sonnet-4-5", costLabel: "standard" },
+    routing: { provider: "anthropic", model: "claude-haiku-4-5", costLabel: "low" },
+    fallback: { provider: "anthropic", model: "claude-opus-4-1", costLabel: "premium" },
+  },
+};
+
+export function selectModel(input: {
+  provider: string | null | undefined;
+  configuredModel?: string | null;
+  task: LlmTask;
+}): ModelChoice {
+  const provider = normalizeProviderName(input.provider);
+  if (provider === "mock") {
+    return { provider: "mock", model: "mock", costLabel: "low" };
+  }
+
+  const envModel =
+    provider === "anthropic"
+      ? process.env.ANTHROPIC_RESPONSE_MODEL
+      : process.env.OPENAI_RESPONSE_MODEL;
+  const catalogChoice = modelCatalog[provider][input.task];
+
+  return {
+    ...catalogChoice,
+    model: envModel ?? input.configuredModel ?? catalogChoice.model,
+  };
+}
+
+export function failoverModelChoice(): ModelChoice {
+  return {
+    ...modelCatalog.openai.fallback,
+    model: process.env.OPENAI_RESPONSE_MODEL ?? modelCatalog.openai.fallback.model,
+  };
+}
