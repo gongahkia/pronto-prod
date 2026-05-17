@@ -5,6 +5,11 @@ export type GuardrailResult = {
   confidence: number;
 };
 
+export type AiDisclosureResult = {
+  shouldDisclose: boolean;
+  answer: string | null;
+};
+
 const refundComplaintPatterns = [
   /\brefund\b/i,
   /\bcomplain/i,
@@ -53,6 +58,27 @@ const outOfScopePatterns = [
   /\bnews\b/i,
   /\bcode\b/i,
 ];
+
+const aiDisclosurePatterns = [
+  /\bare you (a )?(bot|robot|ai|artificial intelligence)\b/i,
+  /\bam i (talking|speaking) to (a )?(bot|robot|ai|human|person)\b/i,
+  /\bis this (a )?(bot|robot|ai|human|person)\b/i,
+  /\bhuman or (ai|bot|robot)\b/i,
+];
+
+export function evaluateAiDisclosure(
+  customerMessage: string,
+  clientName: string,
+): AiDisclosureResult {
+  if (!aiDisclosurePatterns.some((pattern) => pattern.test(customerMessage))) {
+    return { shouldDisclose: false, answer: null };
+  }
+
+  return {
+    shouldDisclose: true,
+    answer: `I am Pronto's AI assistant for ${clientName}. I can help with verified business information, and I will escalate to the team when a human should take over.`,
+  };
+}
 
 export function evaluatePreGenerationGuardrails(
   customerMessage: string,
@@ -145,4 +171,3 @@ export function evaluateRetrievalConfidence(
     confidence: score,
   };
 }
-

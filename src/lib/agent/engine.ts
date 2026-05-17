@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { query, transaction } from "@/lib/db";
-import { evaluatePreGenerationGuardrails, evaluateRetrievalConfidence } from "@/lib/agent/guardrails";
+import {
+  evaluateAiDisclosure,
+  evaluatePreGenerationGuardrails,
+  evaluateRetrievalConfidence,
+} from "@/lib/agent/guardrails";
 import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
 import { llmProvider } from "@/lib/llm/openai";
 import type { AgentConfig, Client, KnowledgeChunk, Message } from "@/lib/types";
@@ -43,6 +47,39 @@ export async function runAgentForMessage(input: {
   const config = configResult.rows[0];
   if (!client || !config) {
     throw new Error("Agent cannot run without client and config records.");
+  }
+
+  const aiDisclosure = evaluateAiDisclosure(input.customerMessage, client.name);
+  if (aiDisclosure.shouldDisclose && aiDisclosure.answer) {
+    const agentMessage = await query<{ id: string }>(
+      `
+        insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
+        values ($1, $2, $3, $4, 'agent', $5, $6)
+        returning id
+      `,
+      [
+        input.conversationId,
+        input.clientId,
+        input.channelId,
+        `agent-${randomUUID()}`,
+        aiDisclosure.answer,
+        {
+          confidence: 1,
+          reasonCode: "ai_disclosure",
+          policy: "direct_customer_disclosure",
+        },
+      ],
+    );
+
+    return {
+      action: "answered",
+      responseText: aiDisclosure.answer,
+      reasonCode: "ai_disclosure",
+      reasonDetail: "Customer directly asked whether the agent is AI or human.",
+      confidence: 1,
+      citedChunks: [],
+      agentMessageId: agentMessage.rows[0].id,
+    };
   }
 
   const precheck = evaluatePreGenerationGuardrails(input.customerMessage);
@@ -145,7 +182,7 @@ export async function runAgentForMessage(input: {
   };
 }
 
-async function createEscalation(input: {
+export async function createEscalation(input: {
   clientId: string;
   channelId: string;
   conversationId: string;
