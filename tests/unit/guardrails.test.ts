@@ -24,11 +24,28 @@ describe("agent guardrails", () => {
     expect(result.reasonCode).toBe("transactional_action");
   });
 
+  it("allows process questions about reservations", () => {
+    const result = evaluatePreGenerationGuardrails(
+      "How do I reserve a table for four tonight?",
+    );
+
+    expect(result.shouldEscalate).toBe(false);
+  });
+
   it("allows ordinary F&B questions before retrieval", () => {
     const result = evaluatePreGenerationGuardrails("Are you open this Sunday?");
 
     expect(result.shouldEscalate).toBe(false);
     expect(result.reasonCode).toBe("in_scope");
+  });
+
+  it("escalates clearly unrelated scope requests", () => {
+    const result = evaluatePreGenerationGuardrails(
+      "Do you have a private karaoke room policy?",
+    );
+
+    expect(result.shouldEscalate).toBe(true);
+    expect(result.reasonCode).toBe("out_of_scope");
   });
 
   it("detects direct AI disclosure questions", () => {

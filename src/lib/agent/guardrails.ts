@@ -25,8 +25,8 @@ const transactionalPatterns = [
   /\bcancel (my )?(booking|reservation|order)\b/i,
   /\bchange (my )?(booking|reservation|order)\b/i,
   /\bmodify (my )?(booking|reservation|order)\b/i,
-  /\bbook (a )?(table|reservation)\b/i,
-  /\breserve (a )?table\b/i,
+  /\b(can you|please|help me) (book|reserve) (a )?(table|reservation)\b/i,
+  /\b(make|create) (a )?(booking|reservation)\b/i,
 ];
 
 const medicalLegalPatterns = [
@@ -57,6 +57,7 @@ const outOfScopePatterns = [
   /\bweather\b/i,
   /\bnews\b/i,
   /\bcode\b/i,
+  /\bkaraoke\b/i,
 ];
 
 const aiDisclosurePatterns = [
