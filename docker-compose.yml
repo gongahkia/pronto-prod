@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.0-pg16
+    container_name: pronto-postgres
+    environment:
+      POSTGRES_DB: pronto
+      POSTGRES_USER: pronto
+      POSTGRES_PASSWORD: pronto
+    ports:
+      - "55432:5432"
+    volumes:
+      - pronto-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pronto -d pronto"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pronto-postgres-data:
