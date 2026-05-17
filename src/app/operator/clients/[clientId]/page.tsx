@@ -68,21 +68,28 @@ export default async function ClientOperatorPage({
           <div className="border-b border-line p-4">
             <h2 className="text-base font-semibold">Knowledge ingestion</h2>
           </div>
-          <form action="/api/operator/knowledge" method="post" className="space-y-3 p-4">
+          <form action="/api/operator/knowledge" method="post" encType="multipart/form-data" className="space-y-3 p-4">
             <input type="hidden" name="clientId" value={client.id} />
             <input
               name="title"
-              required
               className="w-full rounded-md border border-line px-3 py-2 text-sm"
-              placeholder="Source title"
+              placeholder="Source title, optional for uploads"
             />
             <textarea
               name="content"
-              required
               rows={7}
               className="w-full rounded-md border border-line px-3 py-2 text-sm"
               placeholder="Paste FAQ, menu, policy, or brand content"
             />
+            <input
+              name="file"
+              type="file"
+              accept=".pdf,.docx,.txt,.md,.markdown,.csv,text/plain,text/markdown,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              className="w-full rounded-md border border-line px-3 py-2 text-sm"
+            />
+            <p className="text-xs text-muted">
+              Supports PDF, DOCX, TXT, Markdown, and CSV up to 8 MB. Uploaded files are converted into source text before embedding.
+            </p>
             <button className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white">
               Ingest source
             </button>

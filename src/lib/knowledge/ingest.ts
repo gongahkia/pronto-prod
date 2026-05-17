@@ -7,6 +7,7 @@ export async function ingestKnowledgeSource(input: {
   title: string;
   sourceType: string;
   content: string;
+  metadata?: Record<string, unknown>;
   actorUserId?: string;
 }) {
   const config = await query<{ embedding_model: string }>(
@@ -30,11 +31,17 @@ export async function ingestKnowledgeSource(input: {
   return transaction(async (client) => {
     const source = await client.query<{ id: string }>(
       `
-        insert into knowledge_sources (client_id, title, source_type, content)
-        values ($1, $2, $3, $4)
+        insert into knowledge_sources (client_id, title, source_type, content, metadata)
+        values ($1, $2, $3, $4, $5)
         returning id
       `,
-      [input.clientId, input.title, input.sourceType, input.content],
+      [
+        input.clientId,
+        input.title,
+        input.sourceType,
+        input.content,
+        input.metadata ?? {},
+      ],
     );
 
     const sourceId = source.rows[0].id;
@@ -64,11 +71,10 @@ export async function ingestKnowledgeSource(input: {
         input.clientId,
         input.actorUserId ?? null,
         sourceId,
-        { title: input.title, chunks: chunks.length },
+        { title: input.title, sourceType: input.sourceType, chunks: chunks.length },
       ],
     );
 
     return { sourceId, chunkCount: chunks.length };
   });
 }
-
