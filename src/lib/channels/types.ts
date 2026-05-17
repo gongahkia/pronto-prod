@@ -8,6 +8,7 @@ export type NormalizedInboundMessage = {
   customerHandle: string;
   customerName?: string;
   text: string;
+  unsupportedMediaType?: string;
   raw: unknown;
 };
 
@@ -20,4 +21,3 @@ export type ChannelSendInput = {
 export type ChannelAdapter = {
   sendText(input: ChannelSendInput): Promise<void>;
 };
-

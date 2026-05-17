@@ -5,6 +5,7 @@ import {
   normalizeWhatsAppPayload,
   verifyWhatsAppSignature,
 } from "@/lib/channels/whatsapp";
+import { checkRateLimit, isBodyWithinLimit } from "@/lib/http-limits";
 
 type Context = {
   params: Promise<{ channelId: string }>;
@@ -40,6 +41,18 @@ export async function POST(request: Request, context: Context) {
   }
 
   const rawBody = await request.text();
+  if (!isBodyWithinLimit(rawBody)) {
+    return new NextResponse("Payload too large", { status: 413 });
+  }
+
+  const rateLimit = checkRateLimit(`webhook:whatsapp:${channelId}`);
+  if (!rateLimit.allowed) {
+    return new NextResponse("Rate limit exceeded", {
+      status: 429,
+      headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+    });
+  }
+
   const appSecret =
     (channel.credentials.appSecret as string | undefined) ??
     process.env.WHATSAPP_APP_SECRET;
@@ -54,7 +67,12 @@ export async function POST(request: Request, context: Context) {
     return new NextResponse("Invalid signature", { status: 401 });
   }
 
-  const payload = JSON.parse(rawBody);
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return new NextResponse("Invalid JSON", { status: 400 });
+  }
   const messages = normalizeWhatsAppPayload(channelId, payload);
   const results = [];
   for (const message of messages) {
@@ -63,4 +81,3 @@ export async function POST(request: Request, context: Context) {
 
   return NextResponse.json({ ok: true, processed: results.length, results });
 }
-

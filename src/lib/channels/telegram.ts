@@ -17,12 +17,15 @@ export function normalizeTelegramPayload(
   payload: Record<string, unknown>,
 ): NormalizedInboundMessage[] {
   const candidate = payload.message ?? payload.business_message;
-  if (!isRecord(candidate) || typeof candidate.text !== "string") {
+  if (!isRecord(candidate)) {
     return [];
   }
 
   const chat = isRecord(candidate.chat) ? candidate.chat : {};
-  if (typeof chat.id !== "string" && typeof chat.id !== "number") {
+  if (
+    (typeof chat.id !== "string" && typeof chat.id !== "number") ||
+    (typeof candidate.message_id !== "string" && typeof candidate.message_id !== "number")
+  ) {
     return [];
   }
 
@@ -30,6 +33,15 @@ export function normalizeTelegramPayload(
   const username = typeof from.username === "string" ? from.username : "";
   const firstName = typeof from.first_name === "string" ? from.first_name : "";
   const lastName = typeof from.last_name === "string" ? from.last_name : "";
+  const unsupportedMediaType =
+    typeof candidate.text === "string" ? undefined : telegramUnsupportedType(candidate);
+  if (typeof candidate.text !== "string" && !unsupportedMediaType) {
+    return [];
+  }
+  const text =
+    typeof candidate.text === "string"
+      ? candidate.text
+      : `[Unsupported Telegram ${unsupportedMediaType} message]`;
 
   return [
     {
@@ -39,10 +51,29 @@ export function normalizeTelegramPayload(
       externalThreadId: String(chat.id),
       customerHandle: username ? `@${username}` : String(chat.id),
       customerName: [firstName, lastName].filter(Boolean).join(" ") || undefined,
-      text: candidate.text,
+      text,
+      unsupportedMediaType,
       raw: payload,
     },
   ];
+}
+
+function telegramUnsupportedType(message: Record<string, unknown>): string | undefined {
+  const supportedUnsupportedTypes = [
+    "photo",
+    "voice",
+    "audio",
+    "document",
+    "sticker",
+    "video",
+    "video_note",
+    "location",
+    "contact",
+    "animation",
+    "poll",
+    "venue",
+  ];
+  return supportedUnsupportedTypes.find((type) => type in message);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

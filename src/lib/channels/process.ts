@@ -1,5 +1,5 @@
 import { query, transaction } from "@/lib/db";
-import { runAgentForMessage } from "@/lib/agent/engine";
+import { createEscalation, runAgentForMessage } from "@/lib/agent/engine";
 import { sendChannelText } from "@/lib/channels/dispatch";
 import { notifyOwnerOfEscalation } from "@/lib/escalations";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
@@ -73,13 +73,24 @@ export async function processInboundMessage(
     return { conversation: conversation.rows[0], message: message.rows[0] };
   });
 
-  const result = await runAgentForMessage({
-    clientId: channel.client_id,
-    channelId: inbound.channelId,
-    conversationId: created.conversation.id,
-    customerMessageId: created.message.id,
-    customerMessage: inbound.text,
-  });
+  const result = inbound.unsupportedMediaType
+    ? await createEscalation({
+        clientId: channel.client_id,
+        channelId: inbound.channelId,
+        conversationId: created.conversation.id,
+        customerMessageId: created.message.id,
+        customerMessage: inbound.text,
+        reasonCode: "unsupported_media",
+        reasonDetail: `Customer sent unsupported ${inbound.channelKind} ${inbound.unsupportedMediaType} content.`,
+        confidence: 1,
+      })
+    : await runAgentForMessage({
+        clientId: channel.client_id,
+        channelId: inbound.channelId,
+        conversationId: created.conversation.id,
+        customerMessageId: created.message.id,
+        customerMessage: inbound.text,
+      });
 
   if (result.action === "answered" && result.responseText && inbound.channelKind !== "console") {
     await sendChannelText({
@@ -102,4 +113,3 @@ export async function processInboundMessage(
     reasonCode: result.reasonCode,
   };
 }
-

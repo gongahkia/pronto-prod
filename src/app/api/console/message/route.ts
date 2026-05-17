@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { processInboundMessage } from "@/lib/channels/process";
+import { checkRateLimit, isTextWithinLimit } from "@/lib/http-limits";
 import type { Channel } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -14,8 +15,21 @@ export async function POST(request: Request) {
   if (!text) {
     return NextResponse.json({ error: "Message text is required." }, { status: 400 });
   }
+  if (!isTextWithinLimit(text)) {
+    return NextResponse.json({ error: "Message text is too large." }, { status: 413 });
+  }
   if (user.role === "client" && requestedClientId !== user.clientId) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+  const rateLimit = checkRateLimit(`console:${requestedClientId}:${user.userId}`);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      },
+    );
   }
 
   const channelResult = await query<Channel>(
@@ -45,4 +59,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json(result);
 }
-

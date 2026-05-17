@@ -52,6 +52,35 @@ describe("channel verification and normalization", () => {
     });
   });
 
+  it("normalizes unsupported WhatsApp media into escalation-ready messages", () => {
+    const messages = normalizeWhatsAppPayload("channel-1", {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  {
+                    id: "wamid.image",
+                    from: "6590000000",
+                    type: "image",
+                    image: { id: "media-1" },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({
+      text: "[Unsupported WhatsApp image message]",
+      unsupportedMediaType: "image",
+    });
+  });
+
   it("verifies and normalizes Telegram webhook messages", () => {
     expect(verifyTelegramSecret("abc", "abc")).toBe(true);
     expect(verifyTelegramSecret("abc", "def")).toBe(false);
@@ -72,5 +101,20 @@ describe("channel verification and normalization", () => {
       customerHandle: "@alicia",
     });
   });
-});
 
+  it("normalizes unsupported Telegram media into escalation-ready messages", () => {
+    const messages = normalizeTelegramPayload("channel-2", {
+      message: {
+        message_id: 89,
+        photo: [{ file_id: "photo-1" }],
+        chat: { id: 12345 },
+        from: { first_name: "Alicia", username: "alicia" },
+      },
+    });
+
+    expect(messages[0]).toMatchObject({
+      text: "[Unsupported Telegram photo message]",
+      unsupportedMediaType: "photo",
+    });
+  });
+});

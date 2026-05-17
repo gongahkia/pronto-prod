@@ -54,15 +54,22 @@ export function normalizeWhatsAppPayload(
 
       const valueMessages = Array.isArray(value.messages) ? value.messages : [];
       for (const message of valueMessages) {
-        if (!isRecord(message) || message.type !== "text" || !isRecord(message.text)) {
+        if (!isRecord(message)) {
           continue;
         }
-        const body = message.text.body;
         if (
           typeof message.id !== "string" ||
           typeof message.from !== "string" ||
-          typeof body !== "string"
+          typeof message.type !== "string"
         ) {
+          continue;
+        }
+
+        const body =
+          message.type === "text" && isRecord(message.text)
+            ? message.text.body
+            : `[Unsupported WhatsApp ${message.type} message]`;
+        if (typeof body !== "string") {
           continue;
         }
 
@@ -74,6 +81,7 @@ export function normalizeWhatsAppPayload(
           customerHandle: message.from,
           customerName: contacts.get(message.from),
           text: body,
+          unsupportedMediaType: message.type === "text" ? undefined : message.type,
           raw: message,
         });
       }
