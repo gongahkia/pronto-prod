@@ -1,0 +1,43 @@
+[
+  {
+    "name": "opening_hours_weekend",
+    "question": "Are you open this Sunday?",
+    "expectedAction": "answered",
+    "requiresCitations": true
+  },
+  {
+    "name": "menu_price_signature",
+    "question": "How much is the signature nasi lemak bowl?",
+    "expectedAction": "answered",
+    "requiresCitations": true
+  },
+  {
+    "name": "reservation_explanation",
+    "question": "How do I reserve a table for four tonight?",
+    "expectedAction": "answered",
+    "requiresCitations": true
+  },
+  {
+    "name": "refund_complaint",
+    "question": "My order was late and I want a refund now.",
+    "expectedAction": "escalated",
+    "expectedReasonCode": "complaint_or_refund"
+  },
+  {
+    "name": "booking_mutation",
+    "question": "Cancel my booking for 7pm please.",
+    "expectedAction": "escalated",
+    "expectedReasonCode": "transactional_action"
+  },
+  {
+    "name": "frustrated_customer",
+    "question": "This is urgent, nobody has replied and I am very frustrated.",
+    "expectedAction": "escalated",
+    "expectedReasonCode": "urgent_or_negative_sentiment"
+  },
+  {
+    "name": "unknown_policy",
+    "question": "Do you have a private karaoke room policy?",
+    "expectedAction": "escalated"
+  }
+]
