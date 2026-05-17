@@ -1,0 +1,39 @@
+import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
+import {
+  buildClientOffboardingExport,
+  deleteClientForOffboarding,
+} from "@/lib/offboarding";
+
+export async function POST(request: Request) {
+  const user = await requireUser("operator");
+  const form = await request.formData();
+  const action = String(form.get("action") ?? "");
+  const clientId = String(form.get("clientId") ?? "");
+
+  if (!clientId) {
+    return NextResponse.json({ error: "clientId is required." }, { status: 400 });
+  }
+
+  if (action === "export") {
+    const exported = await buildClientOffboardingExport(clientId);
+    return new Response(JSON.stringify(exported, null, 2), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${exported.client.slug}-offboarding-export.json"`,
+      },
+    });
+  }
+
+  if (action === "delete") {
+    const confirmSlug = String(form.get("confirmSlug") ?? "");
+    await deleteClientForOffboarding({
+      clientId,
+      confirmSlug,
+      actorUserId: user.userId,
+    });
+    return NextResponse.redirect(new URL("/operator", request.url), 303);
+  }
+
+  return NextResponse.json({ error: "Unsupported offboarding action." }, { status: 400 });
+}

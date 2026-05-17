@@ -331,6 +331,36 @@ export default async function ClientOperatorPage({
           )}
         </div>
       </section>
+
+      <section className="mt-6 rounded-lg border border-line bg-panel">
+        <div className="border-b border-line p-4">
+          <h2 className="text-base font-semibold">Offboarding</h2>
+        </div>
+        <div className="grid gap-4 p-4 md:grid-cols-2">
+          <form action="/api/operator/offboarding" method="post" className="space-y-3">
+            <input type="hidden" name="action" value="export" />
+            <input type="hidden" name="clientId" value={client.id} />
+            <p className="text-sm text-muted">
+              Export conversations, knowledge sources, brand voice, configuration, reviews, and redacted channel setup.
+            </p>
+            <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-medium">
+              Export client data
+            </button>
+          </form>
+          <form action="/api/operator/offboarding" method="post" className="space-y-3">
+            <input type="hidden" name="action" value="delete" />
+            <input type="hidden" name="clientId" value={client.id} />
+            <input
+              name="confirmSlug"
+              className="w-full rounded-md border border-line px-3 py-2 text-sm"
+              placeholder={`Type ${client.slug} to delete`}
+            />
+            <button className="rounded-md bg-danger px-3 py-2 text-sm font-semibold text-white">
+              Delete client data
+            </button>
+          </form>
+        </div>
+      </section>
     </AppShell>
   );
 }
