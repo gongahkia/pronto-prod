@@ -8,16 +8,19 @@ x 2026-05-17 (A) 2026-05-17 Add eval assertions that every answer includes cited
 x 2026-05-17 (A) 2026-05-17 Add conversation review labels for answered correctly, should have escalated, over-escalated, hallucinated, and needs knowledge update +Dashboard @quality phase:pilot
 x 2026-05-17 (A) 2026-05-17 Implement escalation claim, owner takeover, owner reply logging, and escalation resolution states +Escalation @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add owner handoff response path so resolved escalations can send an owner-authored reply back to the original customer channel +Escalation @engineering phase:pilot
-(A) 2026-05-17 Add webhook retry handling and idempotent processing for duplicate WhatsApp and Telegram delivery attempts +Channels @engineering phase:pilot
+(A) 2026-06-04 Make escalation owner reply and resolution idempotent around outbound sends so a successful customer send cannot be lost if the DB update fails afterward +Escalation @engineering phase:pilot
+(A) 2026-05-17 Add webhook retry handling and race-safe idempotent processing for duplicate WhatsApp and Telegram delivery attempts, including concurrent duplicate insert tests +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add unsupported media handling for images, audio, files, stickers, locations, and contact cards with safe escalation or fallback copy +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add channel health checks for webhook verification, credential validity, outbound send success, and recent delivery failures +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add channel setup UI copy for Meta webhook URL, Telegram webhook URL, local HTTPS tunnel, and secret headers +Channels @docs phase:pilot
 (A) 2026-05-17 Add production-safe webhook logging with payload redaction for customer phone numbers and message content +Security @engineering phase:pilot
+(A) 2026-06-04 Add webhook batch partial-failure handling so one bad inbound message cannot cause already-processed messages in the same provider delivery to be retried blindly +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add per-client rate limits and inbound message size limits for webhook and console endpoints +Security @engineering phase:pilot
 (A) 2026-05-17 Add real website URL ingestion with crawl depth controls, content extraction, and robots-aware operator warnings +RAG @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add uploaded document ingestion for PDF, DOCX, TXT, Markdown, and CSV knowledge sources +RAG @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add menu or product CSV ingestion mapped to structured source metadata for F&B and e-commerce demos +RAG @engineering phase:pilot
 (A) 2026-05-17 Add knowledge source versioning so policy changes can be traced to the exact answer source +RAG @engineering phase:pilot
+(A) 2026-06-04 Add operator-scoped knowledge source view, edit, and delete screens so Pronto admins can fix client knowledge without switching into a client session +RAG @dashboard phase:pilot
 (A) 2026-05-17 Add knowledge refresh workflow for monthly check-ins and client policy updates +RAG @ops phase:pilot
 (A) 2026-05-17 Add per-client retrieval threshold UI and pilot tuning history +AgentCore @dashboard phase:pilot
 (A) 2026-05-17 Add prompt preview UI showing system preamble, brand voice, escalation rules, and allowed scope +AgentCore @dashboard phase:pilot
@@ -50,7 +53,8 @@ x 2026-05-17 (A) 2026-05-17 Draft data retention limits for conversation logs, k
 x 2026-05-17 (A) 2026-05-17 Add offboarding export for conversation history, knowledge base, brand voice document, and client configuration +Offboarding @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add offboarding deletion workflow with 30-day data return, integration shutdown, deletion confirmation, and audit log +Offboarding @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add encryption-at-rest and encryption-in-transit checklist for local, staging, and production environments +Security @ops phase:pilot
-(A) 2026-05-17 Add audit log coverage for login, channel update, knowledge ingestion, review creation, escalation claim, escalation resolution, and data export +Security @engineering phase:pilot
+(A) 2026-06-04 Fail closed when AUTH_SECRET is missing or left as the local default in production +Security @engineering phase:pilot
+(A) 2026-05-17 Complete remaining audit log coverage for login/logout, failed auth attempts, client notification settings, and offboarding data export; channel update, knowledge ingestion/update/delete, review creation, escalation claim, escalation resolution, and offboarding deletion already log +Security @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add role-based access tests proving client users cannot access other client data or operator-only routes +Security @quality phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add Anthropic provider adapter interface implementation for Claude Sonnet, Haiku routing, and future Opus fallback +ProviderPortability @engineering phase:tighten
 x 2026-05-17 (A) 2026-05-17 Add provider selection per client and per task with model defaults, cost labels, and failover behavior +ProviderPortability @engineering phase:tighten
