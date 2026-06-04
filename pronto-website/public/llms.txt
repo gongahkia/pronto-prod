@@ -1,0 +1,32 @@
+# Pronto
+
+Pronto builds, deploys, and maintains custom AI customer service agents for Singapore SMEs.
+
+## Positioning
+
+Pronto is a done-for-you service, not a self-serve chatbot builder. The team handles scoping, data ingestion, brand voice configuration, deployment, monitoring, and ongoing support.
+
+## Core Offer
+
+- AI customer service agents trained on each client's verified business sources
+- Launch channels include WhatsApp and Telegram, with email, Messenger, and Instagram DMs as expansion paths
+- Agents escalate to humans when an answer is not grounded, out of scope, sensitive, urgent, or better handled by the business owner
+- Multilingual support covers English, Mandarin, Bahasa Melayu, and natural Singapore code-switching
+- Target launch timeline is under one week after scope is locked
+
+## Pricing
+
+- Standard setup starts at SGD 2,500
+- Custom setup starts at SGD 5,000+
+- Starter is SGD 200/month
+- Growth is SGD 500/month
+- Scale is SGD 1,200/month
+- Enterprise is custom
+- Scoped paid trials are SGD 500 and credited toward setup if the client converts
+
+## Team
+
+- Keith Tang, Product Strategist: https://www.linkedin.com/in/keibtang/
+- Gabriel Ong, Technical Lead: https://www.linkedin.com/in/gabriel-zmong/
+- Astin Tay, Technical Lead: https://www.linkedin.com/in/astintay/
+
