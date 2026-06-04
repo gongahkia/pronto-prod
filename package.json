@@ -1,55 +1,23 @@
 {
-  "name": "pronto-prerelease",
+  "name": "pronto-website",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "eval:golden": "tsx scripts/eval.ts",
-    "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts"
+    "dev": "vite --host 127.0.0.1 --port 3000",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173"
   },
   "dependencies": {
-    "lucide-react": "^1.16.0",
-    "mammoth": "^1.12.0",
-    "next": "16.2.7",
-    "openai": "^6.38.0",
-    "pdf-parse": "^2.4.5",
-    "pg": "^8.20.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "zod": "^4.4.3"
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^20",
-    "@types/pg": "^8.20.0",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.7",
-    "jsdom": "^29.1.1",
-    "tailwindcss": "^4",
-    "tsx": "^4.22.0",
-    "typescript": "^5",
-    "vitest": "^4.1.6"
-  },
-  "pnpm": {
-    "overrides": {
-      "postcss": "8.5.14"
-    },
-    "onlyBuiltDependencies": [
-      "sharp",
-      "unrs-resolver",
-      "esbuild"
-    ]
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
   }
 }

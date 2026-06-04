@@ -7,12 +7,24 @@ export function buildGroundedAnswerInstructions(input: GenerateAnswerInput): str
         `[${index + 1}] chunk_id=${chunk.id} score=${chunk.score?.toFixed(3) ?? "n/a"}\n${chunk.content}`,
     )
     .join("\n\n");
+  const examples = input.fewShotExamples?.length
+    ? input.fewShotExamples
+        .map(
+          (example, index) =>
+            `Example ${index + 1}\nCustomer: ${example.customerMessage}\nPreferred reply: ${example.idealResponse}${
+              example.notes ? `\nNotes: ${example.notes}` : ""
+            }`,
+        )
+        .join("\n\n")
+    : "No few-shot examples configured.";
 
   return `
 ${input.promptPreamble}
 
 Business: ${input.clientName}
 Brand voice: ${input.brandVoice}
+Brand voice document:
+${input.brandVoiceDocument || "No extended brand voice document configured."}
 
 Product contract:
 - You are a purpose-driven business customer-service agent, not a general assistant.
@@ -21,6 +33,9 @@ Product contract:
 - Do not pretend to be human. If directly asked, disclose that you are an AI assistant for the business.
 - Never process payments, issue refunds, cancel or modify bookings, or mutate any client system.
 - Always escalate complaints, refund disputes, legal/medical topics, severe allergy issues, urgent frustration, and out-of-scope requests.
+
+Few-shot response examples:
+${examples}
 
 Return strict JSON only with:
 action: "answer" or "escalate"

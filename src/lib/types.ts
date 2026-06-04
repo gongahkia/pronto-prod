@@ -57,6 +57,51 @@ export type AgentConfig = {
   escalation_rules: Record<string, unknown>;
 };
 
+export type BrandVoiceDocument = {
+  id: string;
+  client_id: string;
+  title: string;
+  content: string;
+  attributes: Record<string, unknown>;
+  source_notes: string | null;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export type BrandVoiceExample = {
+  id: string;
+  client_id: string;
+  customer_message: string;
+  ideal_response: string;
+  notes: string | null;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export type ClientLaunchMilestones = {
+  client_id: string;
+  signed_contract_at: Date | null;
+  target_live_at: Date | null;
+  production_live_at: Date | null;
+  notes: string | null;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export type ClientCommercialAssumptions = {
+  client_id: string;
+  monthly_retainer_sgd: string;
+  setup_fee_sgd: string;
+  amortized_setup_months: number;
+  hosting_cost_sgd: string;
+  integration_cost_sgd: string;
+  included_conversations: number;
+  llm_cost_buffer_multiplier: string;
+  created_at: Date;
+  updated_at: Date;
+};
+
 export type Conversation = {
   id: string;
   client_id: string;

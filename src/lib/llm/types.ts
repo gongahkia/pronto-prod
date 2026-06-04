@@ -12,6 +12,12 @@ export type GroundedAnswerDecision = {
 export type GenerateAnswerInput = {
   clientName: string;
   brandVoice: string;
+  brandVoiceDocument?: string | null;
+  fewShotExamples?: Array<{
+    customerMessage: string;
+    idealResponse: string;
+    notes?: string | null;
+  }>;
   promptPreamble: string;
   customerMessage: string;
   recentMessages: { senderRole: string; body: string }[];
@@ -23,4 +29,3 @@ export type LlmProvider = {
   generateGroundedAnswer(input: GenerateAnswerInput): Promise<GroundedAnswerDecision>;
   embed(texts: string[], model: string): Promise<number[][]>;
 };
-
