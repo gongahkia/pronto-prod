@@ -55,7 +55,7 @@ export default async function ClientKnowledgePage() {
             <p className="text-xs text-muted">
               Supports PDF, DOCX, TXT, Markdown, and CSV up to 8 MB.
             </p>
-            <button className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white">
+            <button className="ui-primary-button px-4 py-2">
               Add source
             </button>
           </form>

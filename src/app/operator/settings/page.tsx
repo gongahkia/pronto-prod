@@ -31,7 +31,7 @@ export default async function OperatorSettingsPage() {
             </p>
             <Link
               href={prontoBoardUrl}
-              className="inline-flex rounded-md border border-line bg-panel px-3 py-2 font-medium text-accent"
+              className="ui-button px-3 py-2 text-accent"
             >
               Open PRONTO board
             </Link>

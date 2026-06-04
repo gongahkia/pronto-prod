@@ -65,7 +65,7 @@ export default async function ClientEscalationsPage() {
                     <input type="hidden" name="action" value="claim" />
                     <input type="hidden" name="escalationId" value={escalation.id} />
                     <input type="hidden" name="returnTo" value={`/client/escalations#escalation-${escalation.id}`} />
-                    <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium">
+                    <button className="ui-button px-3 py-2">
                       Claim
                     </button>
                   </form>
@@ -80,7 +80,7 @@ export default async function ClientEscalationsPage() {
                     className="w-full rounded-md border border-line px-3 py-2 text-sm"
                     placeholder="Reply to customer before resolving"
                   />
-                  <button className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white">
+                  <button className="ui-primary-button px-3 py-2">
                     Send reply and resolve
                   </button>
                 </form>
