@@ -15,6 +15,7 @@ export type ProcessedInboundMessage = {
   responseText?: string | null;
   action?: "answered" | "escalated";
   reasonCode?: string;
+  csatUrl?: string;
   outboundError?: string;
 };
 
@@ -192,6 +193,7 @@ export async function processInboundMessage(
     responseText: result.responseText,
     action: result.action,
     reasonCode: result.reasonCode,
+    csatUrl: result.csatUrl,
     outboundError,
   };
 }
