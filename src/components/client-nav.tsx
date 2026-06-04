@@ -18,15 +18,15 @@ const items: ClientNavItem[] = [
 
 export function ClientNav({ active }: { active: ClientTab }) {
   return (
-    <nav className="mb-6 flex flex-wrap gap-2 border-b border-line pb-3 text-sm">
+    <nav className="mb-5 flex flex-wrap gap-1 rounded-md border border-line bg-panel p-1 text-sm">
       {items.map((item) => (
         <Link
           key={item.key}
           href={item.href}
-          className={`rounded-md px-3 py-2 font-medium ${
+          className={`rounded-[5px] px-3 py-1.5 font-medium ${
             active === item.key
-              ? "bg-accent text-white"
-              : "text-muted hover:bg-stone-100 hover:text-foreground"
+              ? "bg-surface text-foreground shadow-[0_1px_1px_rgba(15,23,42,0.05)]"
+              : "text-muted hover:bg-surface-hover hover:text-foreground"
           }`}
         >
           {item.label}

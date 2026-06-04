@@ -16,8 +16,8 @@ export default async function OperatorEscalationsPage() {
 
   return (
     <AppShell user={user} active="operator">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Escalation queue</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">Escalation queue</h1>
         <p className="text-sm text-muted">
           Cross-client queue for Pronto operators to claim, reply, and resolve issues.
         </p>
@@ -30,8 +30,8 @@ export default async function OperatorEscalationsPage() {
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
       </section>
 
-      <section className="mt-6 rounded-lg border border-line bg-panel">
-        <div className="border-b border-line p-4">
+      <section className="mt-6 ui-panel">
+        <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Active escalations</h2>
         </div>
         <OperatorEscalationList

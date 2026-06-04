@@ -14,16 +14,16 @@ export default async function OperatorConversationsPage() {
 
   return (
     <AppShell user={user} active="operator">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Conversations</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">Conversations</h1>
         <p className="text-sm text-muted">
           Cross-client transcript queue for debugging, QA review, and escalation follow-up.
         </p>
       </div>
       <OperatorNav active="conversations" />
 
-      <section className="rounded-lg border border-line bg-panel">
-        <div className="border-b border-line p-4">
+      <section className="ui-panel">
+        <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Recent conversations</h2>
         </div>
         <div className="divide-y divide-line">
@@ -34,7 +34,7 @@ export default async function OperatorConversationsPage() {
               <Link
                 key={conversation.id}
                 href={`/operator/clients/${conversation.client_id}/conversations?conversationId=${conversation.id}`}
-                className="flex flex-col gap-4 p-4 hover:bg-stone-50 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-4 p-4 hover:bg-surface-hover sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">

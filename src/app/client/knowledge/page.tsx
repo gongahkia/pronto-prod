@@ -23,15 +23,15 @@ export default async function ClientKnowledgePage() {
 
   return (
     <AppShell user={user} active="client">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">{client.name}</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
         <p className="text-sm text-muted">Keep the assistant grounded in current business information.</p>
       </div>
       <ClientNav active="knowledge" />
 
       <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-lg border border-line bg-panel">
-          <div className="border-b border-line p-4">
+        <div className="ui-panel">
+          <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Add knowledge</h2>
           </div>
           <form action="/api/client/knowledge" method="post" encType="multipart/form-data" className="space-y-3 p-4">
@@ -61,8 +61,8 @@ export default async function ClientKnowledgePage() {
           </form>
         </div>
 
-        <div className="rounded-lg border border-line bg-panel">
-          <div className="border-b border-line p-4">
+        <div className="ui-panel">
+          <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Knowledge base</h2>
           </div>
           <div className="divide-y divide-line">
@@ -73,7 +73,7 @@ export default async function ClientKnowledgePage() {
                 <Link
                   key={source.id}
                   href={`/client/knowledge/${source.id}`}
-                  className="flex items-center justify-between gap-4 p-4 hover:bg-stone-50"
+                  className="flex items-center justify-between gap-4 p-4 hover:bg-surface-hover"
                 >
                   <div>
                     <p className="font-medium">{source.title}</p>

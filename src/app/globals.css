@@ -1,14 +1,59 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f4ef;
-  --foreground: #202124;
-  --muted: #626a6f;
+  color-scheme: light;
+  --background: #f7f8fb;
+  --foreground: #17181d;
+  --muted: #69707d;
   --panel: #ffffff;
-  --line: #ded8cf;
-  --accent: #0f766e;
-  --accent-dark: #115e59;
-  --danger: #b42318;
+  --surface: #f1f3f8;
+  --surface-hover: #eaedf5;
+  --input: #ffffff;
+  --line: #dce0ea;
+  --line-strong: #c9cedb;
+  --sidebar: #0e1016;
+  --sidebar-foreground: #f6f7fb;
+  --sidebar-muted: #888fa0;
+  --sidebar-line: #20232d;
+  --sidebar-active: #1a1d27;
+  --accent: #5e6ad2;
+  --accent-dark: #4f5bbe;
+  --accent-soft: #eef0ff;
+  --danger: #d92d20;
+  --danger-bg: #fff1f0;
+  --success: #087443;
+  --success-bg: #ecfdf3;
+  --warning: #a15c07;
+  --warning-bg: #fffaeb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --background: #111217;
+    --foreground: #f4f5f8;
+    --muted: #969baa;
+    --panel: #17191f;
+    --surface: #1d2028;
+    --surface-hover: #252934;
+    --input: #12141a;
+    --line: #2a2e39;
+    --line-strong: #383d4b;
+    --sidebar: #090a0e;
+    --sidebar-foreground: #f6f7fb;
+    --sidebar-muted: #7f8594;
+    --sidebar-line: #1b1d25;
+    --sidebar-active: #171a22;
+    --accent: #8b92ff;
+    --accent-dark: #a0a6ff;
+    --accent-soft: #222645;
+    --danger: #ff7a70;
+    --danger-bg: #301916;
+    --success: #68d391;
+    --success-bg: #12251b;
+    --warning: #f6b85a;
+    --warning-bg: #2d2111;
+  }
 }
 
 @theme inline {
@@ -16,9 +61,25 @@
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-panel: var(--panel);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-input: var(--input);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-line: var(--sidebar-line);
+  --color-sidebar-active: var(--sidebar-active);
   --color-accent: var(--accent);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
   --font-sans: var(--font-sans);
 }
 
@@ -35,4 +96,94 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--foreground);
+}
+
+button,
+a {
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  background: var(--input);
+  color: var(--foreground);
+  border-color: var(--line);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.72;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 72%, transparent);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .ui-panel {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 6%, transparent);
+  }
+
+  .ui-panel-header {
+    border-bottom: 1px solid var(--line);
+    padding: 0.875rem 1rem;
+  }
+
+  .ui-row {
+    transition: background-color 140ms ease;
+  }
+
+  .ui-row:hover {
+    background: var(--surface-hover);
+  }
+
+  .ui-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+    color: var(--foreground);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .ui-button:hover {
+    background: var(--surface-hover);
+  }
+
+  .ui-primary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .ui-primary-button:hover {
+    background: var(--accent-dark);
+  }
 }

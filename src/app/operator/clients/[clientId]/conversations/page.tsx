@@ -52,8 +52,8 @@ export default async function OperatorClientConversationsPage({
       <OperatorClientNav clientId={client.id} active="conversations" />
 
       <section className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-        <div className="rounded-lg border border-line bg-panel">
-          <div className="border-b border-line p-4">
+        <div className="ui-panel">
+          <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Conversation queue</h2>
           </div>
           <div className="divide-y divide-line">
@@ -66,7 +66,7 @@ export default async function OperatorClientConversationsPage({
                   <Link
                     key={conversation.id}
                     href={`/operator/clients/${client.id}/conversations?conversationId=${conversation.id}`}
-                    className={`block p-4 hover:bg-stone-50 ${selected ? "bg-stone-50" : ""}`}
+                    className={`block p-4 hover:bg-surface-hover ${selected ? "bg-surface" : ""}`}
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">{conversation.customer_name ?? conversation.customer_handle}</p>

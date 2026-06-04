@@ -20,15 +20,15 @@ const operatorItems: OperatorNavItem[] = [
 
 export function OperatorNav({ active }: { active: OperatorTab }) {
   return (
-    <nav className="mb-6 flex flex-wrap gap-2 border-b border-line pb-3 text-sm">
+    <nav className="mb-5 flex flex-wrap gap-1 rounded-md border border-line bg-panel p-1 text-sm">
       {operatorItems.map((item) => (
         <Link
           key={item.key}
           href={item.href}
-          className={`rounded-md px-3 py-2 font-medium ${
+          className={`rounded-[5px] px-3 py-1.5 font-medium ${
             active === item.key
-              ? "bg-accent text-white"
-              : "text-muted hover:bg-stone-100 hover:text-foreground"
+              ? "bg-surface text-foreground shadow-[0_1px_1px_rgba(15,23,42,0.05)]"
+              : "text-muted hover:bg-surface-hover hover:text-foreground"
           }`}
         >
           {item.label}
@@ -71,13 +71,13 @@ export function OperatorClientHeader({
   description?: string;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <Link href="/operator" className="text-sm text-accent">
+        <Link href="/operator" className="text-xs font-medium text-accent hover:text-accent-dark">
           Back to operator dashboard
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold">{client.name}</h1>
-        <p className="text-sm text-muted">{description ?? client.brand_voice}</p>
+        <h1 className="mt-1.5 text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
+        <p className="max-w-3xl text-sm text-muted">{description ?? client.brand_voice}</p>
       </div>
       <Badge tone="amber">{client.status}</Badge>
     </div>
@@ -92,15 +92,15 @@ export function OperatorClientNav({
   active: OperatorClientTab;
 }) {
   return (
-    <nav className="mb-6 flex flex-wrap gap-2 border-b border-line pb-3 text-sm">
+    <nav className="mb-5 flex flex-wrap gap-1 rounded-md border border-line bg-panel p-1 text-sm">
       {clientItems.map((item) => (
         <Link
           key={item.key}
           href={item.href(clientId)}
-          className={`rounded-md px-3 py-2 font-medium ${
+          className={`rounded-[5px] px-3 py-1.5 font-medium ${
             active === item.key
-              ? "bg-accent text-white"
-              : "text-muted hover:bg-stone-100 hover:text-foreground"
+              ? "bg-surface text-foreground shadow-[0_1px_1px_rgba(15,23,42,0.05)]"
+              : "text-muted hover:bg-surface-hover hover:text-foreground"
           }`}
         >
           {item.label}

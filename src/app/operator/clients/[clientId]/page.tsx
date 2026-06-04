@@ -78,8 +78,8 @@ export default async function ClientOperatorPage({
       </section>
 
       <section className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-lg border border-line bg-panel">
-          <div className="border-b border-line p-4">
+        <div className="ui-panel">
+          <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Launch readiness</h2>
           </div>
           <div className="space-y-4 p-4 text-sm">
@@ -106,8 +106,8 @@ export default async function ClientOperatorPage({
           </div>
         </div>
 
-        <div className="rounded-lg border border-line bg-panel">
-          <div className="border-b border-line p-4">
+        <div className="ui-panel">
+          <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Client workspace</h2>
           </div>
           <div className="divide-y divide-line">
@@ -115,7 +115,7 @@ export default async function ClientOperatorPage({
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center justify-between gap-4 p-4 hover:bg-stone-50"
+                className="flex items-center justify-between gap-4 p-4 hover:bg-surface-hover"
               >
                 <div>
                   <p className="font-medium">{item.label}</p>
@@ -128,8 +128,8 @@ export default async function ClientOperatorPage({
         </div>
       </section>
 
-      <section className="mt-6 rounded-lg border border-line bg-panel">
-        <div className="border-b border-line p-4">
+      <section className="mt-6 ui-panel">
+        <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Recent conversations</h2>
         </div>
         <div className="divide-y divide-line">
@@ -140,7 +140,7 @@ export default async function ClientOperatorPage({
               <Link
                 key={conversation.id}
                 href={`/operator/clients/${client.id}/conversations?conversationId=${conversation.id}`}
-                className="block p-4 hover:bg-stone-50"
+                className="block p-4 hover:bg-surface-hover"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium">{conversation.customer_name ?? conversation.customer_handle}</p>

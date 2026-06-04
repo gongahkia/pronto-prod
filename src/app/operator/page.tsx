@@ -26,8 +26,8 @@ export default async function OperatorPage() {
 
   return (
     <AppShell user={user} active="operator">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Operator dashboard</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">Operator dashboard</h1>
         <p className="text-sm text-muted">
           Internal Pronto view for client setup, launch readiness, and urgent operations.
         </p>
@@ -47,8 +47,8 @@ export default async function OperatorPage() {
       </section>
 
       <section className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-lg border border-line bg-panel">
-          <div className="border-b border-line p-4">
+        <div className="ui-panel">
+          <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Clients</h2>
           </div>
           <div className="divide-y divide-line">
@@ -56,7 +56,7 @@ export default async function OperatorPage() {
               <Link
                 key={client.id}
                 href={`/operator/clients/${client.id}`}
-                className="flex items-center justify-between gap-4 p-4 hover:bg-stone-50"
+                className="flex items-center justify-between gap-4 p-4 hover:bg-surface-hover"
               >
                 <div>
                   <p className="font-medium">{client.name}</p>
@@ -70,8 +70,8 @@ export default async function OperatorPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-line bg-panel">
-          <div className="flex items-center gap-2 border-b border-line p-4">
+        <div className="ui-panel">
+          <div className="flex items-center gap-2 ui-panel-header">
             <MessageSquareWarning size={17} className="text-danger" />
             <h2 className="text-base font-semibold">Open escalations</h2>
           </div>
@@ -107,8 +107,8 @@ export default async function OperatorPage() {
         </div>
       </section>
 
-      <section className="mt-6 rounded-lg border border-line bg-panel">
-        <div className="border-b border-line p-4">
+      <section className="mt-6 ui-panel">
+        <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Recent conversations</h2>
         </div>
         <div className="divide-y divide-line">
@@ -116,7 +116,7 @@ export default async function OperatorPage() {
             <Link
               key={conversation.id}
               href={`/operator/clients/${conversation.client_id}/conversations?conversationId=${conversation.id}`}
-              className="block p-4 hover:bg-stone-50"
+              className="block p-4 hover:bg-surface-hover"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium">{conversation.customer_name ?? conversation.customer_handle}</p>

@@ -26,8 +26,8 @@ export default async function OperatorQualityPage() {
 
   return (
     <AppShell user={user} active="operator">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Quality</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">Quality</h1>
         <p className="text-sm text-muted">
           Internal QA view for hallucinations, over-escalation, missing knowledge, and pilot blockers.
         </p>
@@ -42,8 +42,8 @@ export default async function OperatorQualityPage() {
       </section>
 
       <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-        <div className="rounded-lg border border-line bg-panel">
-          <div className="border-b border-line p-4">
+        <div className="ui-panel">
+          <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Review queue</h2>
           </div>
           <div className="divide-y divide-line">
@@ -54,7 +54,7 @@ export default async function OperatorQualityPage() {
                 <Link
                   key={conversation.id}
                   href={`/operator/clients/${conversation.client_id}/conversations?conversationId=${conversation.id}`}
-                  className="flex items-center justify-between gap-4 p-4 hover:bg-stone-50"
+                  className="flex items-center justify-between gap-4 p-4 hover:bg-surface-hover"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -75,8 +75,8 @@ export default async function OperatorQualityPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-line bg-panel">
-          <div className="border-b border-line p-4">
+        <div className="ui-panel">
+          <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Escalation QA</h2>
           </div>
           <div className="divide-y divide-line">
@@ -87,7 +87,7 @@ export default async function OperatorQualityPage() {
                 <Link
                   key={escalation.id}
                   href={`/operator/clients/${escalation.client_id}/escalations#escalation-${escalation.id}`}
-                  className="block p-4 hover:bg-stone-50"
+                  className="block p-4 hover:bg-surface-hover"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">{escalation.client_name}</p>

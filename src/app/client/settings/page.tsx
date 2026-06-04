@@ -22,8 +22,8 @@ export default async function ClientSettingsPage() {
 
   return (
     <AppShell user={user} active="client">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">{client.name}</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
         <p className="text-sm text-muted">Manage notifications and service setup.</p>
       </div>
       <ClientNav active="settings" />
@@ -35,8 +35,8 @@ export default async function ClientSettingsPage() {
         <StatCard label="CSAT" value="Pending" hint="Client-facing collection hook" />
       </section>
 
-      <section className="mt-6 rounded-lg border border-line bg-panel">
-        <div className="border-b border-line p-4">
+      <section className="mt-6 ui-panel">
+        <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Notification settings</h2>
         </div>
         <form action="/api/client/settings" method="post" className="space-y-3 p-4">

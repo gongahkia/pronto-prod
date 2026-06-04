@@ -70,7 +70,7 @@ export function OperatorEscalationList({
                   <input type="hidden" name="action" value="claim" />
                   <input type="hidden" name="escalationId" value={escalation.id} />
                   <input type="hidden" name="returnTo" value={returnPath} />
-                  <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-medium">
+                  <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium">
                     Claim
                   </button>
                 </form>
@@ -105,8 +105,8 @@ export function OperatorChannelSetup({
   channels: Channel[];
 }) {
   return (
-    <div className="rounded-lg border border-line bg-panel">
-      <div className="border-b border-line p-4">
+    <div className="ui-panel">
+      <div className="ui-panel-header">
         <h2 className="text-base font-semibold">Channel setup</h2>
       </div>
       <div className="divide-y divide-line">
@@ -129,15 +129,15 @@ export function OperatorChannelSetup({
                 <Badge tone={channel.status === "active" ? "green" : "amber"}>{channel.status}</Badge>
               </div>
               {channel.last_health_error ? (
-                <p className="rounded-md bg-red-50 p-2 text-xs text-danger">{channel.last_health_error}</p>
+                <p className="rounded-md bg-danger-bg p-2 text-xs text-danger">{channel.last_health_error}</p>
               ) : null}
               {channel.last_outbound_error ? (
-                <p className="rounded-md bg-red-50 p-2 text-xs text-danger">
+                <p className="rounded-md bg-danger-bg p-2 text-xs text-danger">
                   Last send failed: {channel.last_outbound_error}
                 </p>
               ) : null}
               {channel.kind === "whatsapp" || channel.kind === "telegram" ? (
-                <div className="rounded-md bg-stone-50 p-3 text-xs text-muted">
+                <div className="rounded-md bg-surface p-3 text-xs text-muted">
                   <p className="font-medium text-foreground">
                     {channel.kind === "whatsapp" ? "Meta webhook URL" : "Telegram webhook URL"}
                   </p>
@@ -196,12 +196,12 @@ export function OperatorChannelSetup({
                 defaultValue={JSON.stringify(channel.credentials, null, 2)}
                 className="w-full rounded-md border border-line px-3 py-2 font-mono text-xs"
               />
-              <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-medium">
+              <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium">
                 Save channel
               </button>
               <button
                 form={`health-${channel.id}`}
-                className="ml-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-medium"
+                className="ml-2 rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium"
               >
                 Check health
               </button>
@@ -222,8 +222,8 @@ export function OperatorChannelSetup({
 
 export function OperatorKnowledgeIngestion({ clientId }: { clientId: string }) {
   return (
-    <div className="rounded-lg border border-line bg-panel">
-      <div className="border-b border-line p-4">
+    <div className="ui-panel">
+      <div className="ui-panel-header">
         <h2 className="text-base font-semibold">Add knowledge</h2>
       </div>
       <form action="/api/operator/knowledge" method="post" encType="multipart/form-data" className="space-y-3 p-4">
@@ -265,8 +265,8 @@ export function OperatorKnowledgeSources({
   sources: KnowledgeSourceSummary[];
 }) {
   return (
-    <div className="rounded-lg border border-line bg-panel">
-      <div className="border-b border-line p-4">
+    <div className="ui-panel">
+      <div className="ui-panel-header">
         <h2 className="text-base font-semibold">Knowledge sources</h2>
       </div>
       <div className="divide-y divide-line">
@@ -309,8 +309,8 @@ export function OperatorConversationReview({
 }) {
   if (!conversation) {
     return (
-      <div className="rounded-lg border border-line bg-panel">
-        <div className="border-b border-line p-4">
+      <div className="ui-panel">
+        <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Conversation review</h2>
         </div>
         <p className="p-4 text-sm text-muted">No conversations yet.</p>
@@ -319,8 +319,8 @@ export function OperatorConversationReview({
   }
 
   return (
-    <div id={`conversation-${conversation.id}`} className="rounded-lg border border-line bg-panel">
-      <div className="border-b border-line p-4">
+    <div id={`conversation-${conversation.id}`} className="ui-panel">
+      <div className="ui-panel-header">
         <h2 className="text-base font-semibold">Conversation review</h2>
       </div>
       <div className="p-4">
@@ -330,7 +330,7 @@ export function OperatorConversationReview({
         </div>
         <div className="space-y-3">
           {messages.map((message) => (
-            <div key={message.id} className="rounded-md bg-stone-50 p-3 text-sm">
+            <div key={message.id} className="rounded-md bg-surface p-3 text-sm">
               <p className="mb-1 font-medium">{message.sender_role}</p>
               <p className="text-muted">{message.body}</p>
             </div>
@@ -402,8 +402,8 @@ export function OperatorConversationReview({
 
 export function OperatorOffboardingPanel({ client }: { client: Client }) {
   return (
-    <section className="rounded-lg border border-line bg-panel">
-      <div className="border-b border-line p-4">
+    <section className="ui-panel">
+      <div className="ui-panel-header">
         <h2 className="text-base font-semibold">Offboarding</h2>
       </div>
       <div className="grid gap-4 p-4 md:grid-cols-2">
@@ -413,7 +413,7 @@ export function OperatorOffboardingPanel({ client }: { client: Client }) {
           <p className="text-sm text-muted">
             Export conversations, knowledge sources, brand voice, configuration, reviews, and redacted channel setup.
           </p>
-          <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-medium">
+          <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium">
             Export client data
           </button>
         </form>

@@ -32,8 +32,8 @@ export default async function OperatorClientEscalationsPage({
       />
       <OperatorClientNav clientId={client.id} active="escalations" />
 
-      <section className="rounded-lg border border-line bg-panel">
-        <div className="border-b border-line p-4">
+      <section className="ui-panel">
+        <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Active escalations</h2>
         </div>
         <OperatorEscalationList

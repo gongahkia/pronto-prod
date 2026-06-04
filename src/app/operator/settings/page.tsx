@@ -12,8 +12,8 @@ export default async function OperatorSettingsPage() {
 
   return (
     <AppShell user={user} active="operator">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Operator settings</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">Operator settings</h1>
         <p className="text-sm text-muted">
           Internal references for setup, credential handling, and launch operations.
         </p>
@@ -21,8 +21,8 @@ export default async function OperatorSettingsPage() {
       <OperatorNav active="settings" />
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border border-line bg-panel">
-          <div className="border-b border-line p-4">
+        <div className="ui-panel">
+          <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Jira references</h2>
           </div>
           <div className="space-y-3 p-4 text-sm">
@@ -31,15 +31,15 @@ export default async function OperatorSettingsPage() {
             </p>
             <Link
               href={prontoBoardUrl}
-              className="inline-flex rounded-md border border-line bg-white px-3 py-2 font-medium text-accent"
+              className="inline-flex rounded-md border border-line bg-panel px-3 py-2 font-medium text-accent"
             >
               Open PRONTO board
             </Link>
           </div>
         </div>
 
-        <div className="rounded-lg border border-line bg-panel">
-          <div className="border-b border-line p-4">
+        <div className="ui-panel">
+          <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Credential checklist</h2>
           </div>
           <div className="space-y-3 p-4 text-sm text-muted">

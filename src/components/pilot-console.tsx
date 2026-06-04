@@ -45,8 +45,8 @@ export function PilotConsole({ clientId }: { clientId: string }) {
   }
 
   return (
-    <section className="rounded-lg border border-line bg-panel">
-      <div className="border-b border-line p-4">
+    <section className="ui-panel">
+      <div className="ui-panel-header">
         <h2 className="text-base font-semibold">Test assistant</h2>
         <p className="text-sm text-muted">Try customer questions without sending live channel traffic.</p>
       </div>
@@ -61,8 +61,8 @@ export function PilotConsole({ clientId }: { clientId: string }) {
               entry.sender === "customer"
                 ? "ml-auto bg-accent text-white"
                 : entry.sender === "agent"
-                  ? "bg-stone-100 text-foreground"
-                  : "bg-amber-50 text-amber-900"
+                  ? "bg-surface text-foreground"
+                  : "bg-warning-bg text-warning"
             }`}
           >
             {entry.text}
@@ -73,12 +73,12 @@ export function PilotConsole({ clientId }: { clientId: string }) {
         <input
           value={text}
           onChange={(event) => setText(event.target.value)}
-          className="min-w-0 flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+          className="min-w-0 flex-1 rounded-md border border-line bg-input px-3 py-2 text-sm outline-none focus:border-accent"
           placeholder="Send a customer question"
         />
         <button
           disabled={pending}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-accent text-white hover:bg-teal-800 disabled:opacity-50"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-accent text-white hover:bg-accent-dark disabled:opacity-50"
           title="Send"
         >
           <SendHorizonal size={16} />

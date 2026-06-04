@@ -15,7 +15,7 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
-      <section className="w-full max-w-md rounded-lg border border-line bg-panel p-6 shadow-sm">
+      <section className="w-full max-w-md ui-panel p-6 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-accent text-white">
             <BotMessageSquare size={22} />
@@ -26,7 +26,7 @@ export default async function LoginPage({
           </div>
         </div>
         {params.error ? (
-          <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p className="mb-4 rounded-md border border-danger/25 bg-danger-bg px-3 py-2 text-sm text-danger">
             Invalid email or password.
           </p>
         ) : null}
@@ -51,11 +51,11 @@ export default async function LoginPage({
               placeholder="pronto-operator"
             />
           </label>
-          <button className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800">
+          <button className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-dark">
             Sign in
           </button>
         </form>
-        <div className="mt-5 rounded-md bg-stone-50 p-3 text-xs text-muted">
+        <div className="mt-5 rounded-md bg-surface p-3 text-xs text-muted">
           <p>Seed credentials after `pnpm db:seed`:</p>
           <p>operator@pronto.sg / pronto-operator</p>
           <p>owner@northbridgenasi.sg / pronto-client</p>

@@ -32,14 +32,14 @@ export default async function ClientKnowledgeSourcePage({
 
   return (
     <AppShell user={user} active="client">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">{client.name}</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
         <p className="text-sm text-muted">Review and edit assistant knowledge sources.</p>
       </div>
       <ClientNav active="knowledge" />
 
-      <section className="rounded-lg border border-line bg-panel">
-        <div className="border-b border-line p-4">
+      <section className="ui-panel">
+        <div className="ui-panel-header">
           <Link href="/client/knowledge" className="text-sm text-accent">
             Back to knowledge
           </Link>

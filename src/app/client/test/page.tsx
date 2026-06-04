@@ -19,8 +19,8 @@ export default async function ClientTestPage() {
 
   return (
     <AppShell user={user} active="client">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">{client.name}</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
         <p className="text-sm text-muted">Try customer questions before they go live.</p>
       </div>
       <ClientNav active="test" />

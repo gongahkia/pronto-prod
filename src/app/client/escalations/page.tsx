@@ -23,14 +23,14 @@ export default async function ClientEscalationsPage() {
 
   return (
     <AppShell user={user} active="client">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">{client.name}</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
         <p className="text-sm text-muted">Claim customer issues and send final replies.</p>
       </div>
       <ClientNav active="escalations" />
 
-      <section className="rounded-lg border border-line bg-panel">
-        <div className="border-b border-line p-4">
+      <section className="ui-panel">
+        <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Active escalations</h2>
         </div>
         <div className="divide-y divide-line">
@@ -65,7 +65,7 @@ export default async function ClientEscalationsPage() {
                     <input type="hidden" name="action" value="claim" />
                     <input type="hidden" name="escalationId" value={escalation.id} />
                     <input type="hidden" name="returnTo" value={`/client/escalations#escalation-${escalation.id}`} />
-                    <button className="rounded-md border border-line bg-white px-3 py-2 text-sm font-medium">
+                    <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium">
                       Claim
                     </button>
                   </form>
