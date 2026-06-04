@@ -5,9 +5,22 @@ import {
   evaluatePreGenerationGuardrails,
   evaluateRetrievalConfidence,
 } from "@/lib/agent/guardrails";
+import { evaluatePostGenerationSelfCheck } from "@/lib/agent/self-check";
+import { getPromptBrandVoiceProfile } from "@/lib/brand-voice";
+import {
+  estimateEmbeddingCost,
+  estimateGenerationCost,
+  recordAgentUsageEvent,
+} from "@/lib/costing";
 import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
+import { appBaseUrl } from "@/lib/env";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
 import { failoverModelChoice, selectModel } from "@/lib/llm/catalog";
+import {
+  buildGroundedAnswerInstructions,
+  buildGroundedAnswerUserInput,
+} from "@/lib/llm/prompt";
+import { logWarn } from "@/lib/logger";
 import type { GroundedAnswerDecision } from "@/lib/llm/types";
 import type { AgentConfig, Client, KnowledgeChunk, Message } from "@/lib/types";
 
@@ -20,6 +33,7 @@ export type AgentRunResult = {
   citedChunks: KnowledgeChunk[];
   agentMessageId?: string;
   escalationId?: string;
+  csatUrl?: string;
 };
 
 export async function runAgentForMessage(input: {
@@ -29,7 +43,7 @@ export async function runAgentForMessage(input: {
   customerMessageId: string;
   customerMessage: string;
 }): Promise<AgentRunResult> {
-  const [clientResult, configResult, recentMessagesResult] = await Promise.all([
+  const [clientResult, configResult, recentMessagesResult, brandVoiceProfile] = await Promise.all([
     query<Client>("select * from clients where id = $1", [input.clientId]),
     query<AgentConfig>("select * from agent_configs where client_id = $1", [
       input.clientId,
@@ -43,6 +57,7 @@ export async function runAgentForMessage(input: {
       `,
       [input.conversationId],
     ),
+    getPromptBrandVoiceProfile(input.clientId),
   ]);
 
   const client = clientResult.rows[0];
@@ -109,6 +124,16 @@ export async function runAgentForMessage(input: {
     [input.customerMessage],
     config.embedding_model,
   );
+  await safeRecordUsage({
+    clientId: input.clientId,
+    conversationId: input.conversationId,
+    channelId: input.channelId,
+    provider: config.embedding_provider,
+    model: config.embedding_model,
+    operation: "embedding",
+    estimate: estimateEmbeddingCost(input.customerMessage),
+    metadata: { customerMessageId: input.customerMessageId },
+  });
   const chunks = await retrieveKnowledge(input.clientId, embedding, 5);
   const retrievalThreshold = Number(config.retrieval_threshold);
   const retrievalCheck = evaluateRetrievalConfidence(
@@ -128,6 +153,12 @@ export async function runAgentForMessage(input: {
   const generationInput = {
     clientName: client.name,
     brandVoice: client.brand_voice,
+    brandVoiceDocument: brandVoiceProfile.document?.content ?? null,
+    fewShotExamples: brandVoiceProfile.examples.map((example) => ({
+      customerMessage: example.customer_message,
+      idealResponse: example.ideal_response,
+      notes: example.notes,
+    })),
     promptPreamble: config.prompt_preamble,
     customerMessage: input.customerMessage,
     recentMessages: recentMessagesResult.rows.reverse().map((message) => ({
@@ -161,6 +192,36 @@ export async function runAgentForMessage(input: {
   const citedChunks = chunks.filter((chunk) =>
     decision.citedChunkIds.includes(chunk.id),
   );
+  await safeRecordUsage({
+    clientId: input.clientId,
+    conversationId: input.conversationId,
+    channelId: input.channelId,
+    provider: responseModel.provider,
+    model: responseModel.model,
+    operation: "generation",
+    estimate: estimateGenerationCost({
+      inputText: `${buildGroundedAnswerInstructions(generationInput)}\n\n${buildGroundedAnswerUserInput(generationInput)}`,
+      outputText: JSON.stringify(decision),
+      costLabel: responseModel.costLabel,
+    }),
+    metadata: {
+      customerMessageId: input.customerMessageId,
+      reasonCode: decision.reasonCode,
+    },
+  });
+
+  const selfCheck = evaluatePostGenerationSelfCheck({
+    decision,
+    retrievedChunks: chunks,
+  });
+  if (!selfCheck.passed) {
+    return createEscalation({
+      ...input,
+      reasonCode: selfCheck.reasonCode,
+      reasonDetail: selfCheck.reasonDetail,
+      confidence: selfCheck.confidence,
+    });
+  }
 
   if (decision.action === "escalate" || !decision.answer || !citedChunks.length) {
     return createEscalation({
@@ -174,6 +235,7 @@ export async function runAgentForMessage(input: {
     });
   }
 
+  const csatUrl = buildCsatUrl(input.conversationId);
   const agentMessage = await query<{ id: string }>(
     `
       insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
@@ -190,6 +252,11 @@ export async function runAgentForMessage(input: {
         confidence: decision.confidence,
         reasonCode: decision.reasonCode,
         citedChunkIds: decision.citedChunkIds,
+        postGenerationSelfCheck: {
+          reasonCode: selfCheck.reasonCode,
+          reasonDetail: selfCheck.reasonDetail,
+        },
+        csatUrl,
       },
     ],
   );
@@ -211,6 +278,7 @@ export async function runAgentForMessage(input: {
     confidence: decision.confidence,
     citedChunks,
     agentMessageId: agentMessage.rows[0].id,
+    csatUrl: `${csatUrl}?messageId=${agentMessage.rows[0].id}`,
   };
 }
 
@@ -265,4 +333,23 @@ export async function createEscalation(input: {
       escalationId: escalation.rows[0].id,
     };
   });
+}
+
+async function safeRecordUsage(
+  input: Parameters<typeof recordAgentUsageEvent>[0],
+): Promise<void> {
+  try {
+    await recordAgentUsageEvent(input);
+  } catch (error) {
+    logWarn("agent_usage_record_failed", {
+      clientId: input.clientId,
+      conversationId: input.conversationId,
+      operation: input.operation,
+      error,
+    });
+  }
+}
+
+function buildCsatUrl(conversationId: string): string {
+  return `${appBaseUrl().replace(/\/$/, "")}/csat/${conversationId}`;
 }

@@ -129,7 +129,7 @@ export async function processInboundMessage(
       await sendChannelText({
         channelId: inbound.channelId,
         externalThreadId: inbound.externalThreadId,
-        text: result.responseText,
+        text: appendCsatLink(result.responseText, result.csatUrl),
       });
     } catch (error) {
       outboundError = errorToMessage(error);
@@ -194,6 +194,13 @@ export async function processInboundMessage(
     reasonCode: result.reasonCode,
     outboundError,
   };
+}
+
+function appendCsatLink(responseText: string, csatUrl: string | undefined): string {
+  if (!csatUrl || process.env.PRONTO_DISABLE_CSAT_HOOK === "1") {
+    return responseText;
+  }
+  return `${responseText}\n\nRate this reply: ${csatUrl}`;
 }
 
 async function recordCustomerHandoffStatus(
