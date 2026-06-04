@@ -92,7 +92,7 @@ export async function requireUser(role?: UserRole): Promise<SessionUser> {
 }
 
 export async function login(email: string, password: string): Promise<SessionUser | null> {
-  const normalizedEmail = email.toLowerCase();
+  const normalizedEmail = email.trim().toLowerCase();
   const result = await query<User>("select * from users where email = $1", [
     normalizedEmail,
   ]);

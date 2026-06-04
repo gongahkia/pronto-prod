@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { sendChannelText } from "@/lib/channels/dispatch";
 import { query } from "@/lib/db";
+import { redactErrorMessage } from "@/lib/logger";
 
 type Queryable = Pick<Pool, "query">;
 
@@ -132,5 +133,5 @@ export async function flushOutboundMessage(
 }
 
 function errorToMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return redactErrorMessage(error);
 }

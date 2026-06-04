@@ -2,10 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   processInboundMessage: vi.fn(),
+  logWarn: vi.fn(),
 }));
 
 vi.mock("@/lib/channels/process", () => ({
   processInboundMessage: mocks.processInboundMessage,
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logWarn: mocks.logWarn,
 }));
 
 import { processWebhookBatch } from "@/lib/channels/webhook-batch";
@@ -38,10 +43,19 @@ describe("webhook batch processing", () => {
         {
           ok: false,
           externalMessageId: "wamid.2",
-          error: "agent failed",
+          error: "Message processing failed.",
         },
       ],
     });
+    expect(mocks.logWarn).toHaveBeenCalledWith(
+      "webhook_message_processing_failed",
+      expect.objectContaining({
+        channelId: "channel-1",
+        channelKind: "whatsapp",
+        externalMessageId: "wamid.2",
+        error: expect.any(Error),
+      }),
+    );
   });
 });
 

@@ -19,6 +19,13 @@ type EscalationActionRecord = {
   external_thread_id: string;
 };
 
+type OwnerReplyOutboundRecord = {
+  id: string;
+  client_id: string;
+  escalation_id: string | null;
+  status: "pending" | "sending" | "sent" | "failed";
+};
+
 export async function POST(request: Request) {
   const user = await requireUser();
   const form = await request.formData();
@@ -35,6 +42,34 @@ export async function POST(request: Request) {
   }
   if (!canAccessClient(user, escalation.client_id)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  if (action === "retry_outbound") {
+    const outboundMessageId = String(form.get("outboundMessageId") ?? "");
+    const outbound = await loadOwnerReplyOutbound(
+      outboundMessageId,
+      escalation.id,
+      escalation.client_id,
+    );
+    if (!outbound) {
+      return NextResponse.json({ error: "Outbound reply not found." }, { status: 404 });
+    }
+
+    const flushResult = await flushOutboundMessage(outbound.id);
+    await recordAuditLog({
+      clientId: escalation.client_id,
+      actorUserId: user.userId,
+      action: "escalation.outbound_retry",
+      targetType: "outbound_message",
+      targetId: outbound.id,
+      metadata: {
+        escalationId: escalation.id,
+        previousStatus: outbound.status,
+        result: flushResult.status,
+      },
+    });
+
+    return NextResponse.redirect(new URL(returnTo, request.url), 303);
   }
 
   if (action === "claim") {
@@ -169,6 +204,25 @@ async function loadEscalation(
       where e.id = $1
     `,
     [escalationId],
+  );
+  return result.rows[0] ?? null;
+}
+
+async function loadOwnerReplyOutbound(
+  outboundMessageId: string,
+  escalationId: string,
+  clientId: string,
+): Promise<OwnerReplyOutboundRecord | null> {
+  const result = await query<OwnerReplyOutboundRecord>(
+    `
+      select id, client_id, escalation_id, status
+      from outbound_messages
+      where id = $1
+        and escalation_id = $2
+        and client_id = $3
+        and metadata->>'purpose' = 'escalation_resolution_reply'
+    `,
+    [outboundMessageId, escalationId, clientId],
   );
   return result.rows[0] ?? null;
 }

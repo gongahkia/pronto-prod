@@ -7,7 +7,7 @@ export function DeliveryStatusBadge({
   error,
 }: {
   label: string;
-  status: DeliveryStatus;
+  status: DeliveryStatus | "sending";
   error: string | null;
 }) {
   return (
@@ -20,7 +20,7 @@ export function DeliveryStatusBadge({
   );
 }
 
-function deliveryTone(status: DeliveryStatus): "neutral" | "green" | "red" | "amber" {
+function deliveryTone(status: DeliveryStatus | "sending"): "neutral" | "green" | "red" | "amber" {
   if (status === "sent") {
     return "green";
   }

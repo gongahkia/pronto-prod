@@ -4,6 +4,7 @@ import { createEscalation, runAgentForMessage } from "@/lib/agent/engine";
 import { sendChannelText } from "@/lib/channels/dispatch";
 import { getEscalationHoldingReply } from "@/lib/channels/escalation-handoff";
 import { notifyOwnerOfEscalation } from "@/lib/escalations";
+import { logWarn, redactErrorMessage } from "@/lib/logger";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel, Conversation, Message } from "@/lib/types";
 
@@ -132,7 +133,12 @@ export async function processInboundMessage(
       });
     } catch (error) {
       outboundError = errorToMessage(error);
-      console.warn("Agent answer send failed after message processing.", error);
+      logWarn("agent_answer_send_failed", {
+        channelId: inbound.channelId,
+        conversationId: created.conversation.id,
+        externalMessageId: inbound.externalMessageId,
+        error,
+      });
     }
   }
 
@@ -148,7 +154,12 @@ export async function processInboundMessage(
         });
         await recordCustomerHandoffStatus(result.escalationId, "sent", null);
       } catch (error) {
-        console.warn("Escalation holding reply failed; continuing owner notification.", error);
+        logWarn("escalation_holding_reply_failed", {
+          channelId: inbound.channelId,
+          escalationId: result.escalationId,
+          externalMessageId: inbound.externalMessageId,
+          error,
+        });
         await recordCustomerHandoffStatus(
           result.escalationId,
           "failed",
@@ -166,7 +177,10 @@ export async function processInboundMessage(
     try {
       await notifyOwnerOfEscalation(result.escalationId);
     } catch (error) {
-      console.warn("Owner notification failed after escalation.", error);
+      logWarn("owner_notification_failed", {
+        escalationId: result.escalationId,
+        error,
+      });
       await recordOwnerNotificationFailure(result.escalationId, error);
     }
   }
@@ -214,7 +228,7 @@ async function recordOwnerNotificationFailure(
 }
 
 function errorToMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return redactErrorMessage(error);
 }
 
 async function sendEscalationHoldingReply(input: {

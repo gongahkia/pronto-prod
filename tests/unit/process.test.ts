@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   createEscalation: vi.fn(),
   sendChannelText: vi.fn(),
   notifyOwnerOfEscalation: vi.fn(),
+  logWarn: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -27,6 +28,12 @@ vi.mock("@/lib/channels/dispatch", () => ({
 
 vi.mock("@/lib/escalations", () => ({
   notifyOwnerOfEscalation: mocks.notifyOwnerOfEscalation,
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logWarn: mocks.logWarn,
+  redactErrorMessage: (error: unknown) =>
+    error instanceof Error ? error.message : String(error),
 }));
 
 import { processInboundMessage } from "@/lib/channels/process";

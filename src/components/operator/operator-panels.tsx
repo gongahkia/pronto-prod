@@ -13,6 +13,7 @@ import type {
 import type { Channel, Client, Message } from "@/lib/types";
 import { Badge } from "@/components/badge";
 import { DeliveryStatusBadge } from "@/components/delivery-status";
+import { EscalationOutboundStatus } from "@/components/escalation-outbound-status";
 
 export function OperatorEscalationList({
   escalations,
@@ -65,6 +66,14 @@ export function OperatorEscalationList({
                 <p className="mt-1 text-sm text-muted">{escalation.customer_message}</p>
               </div>
               <p className="text-sm text-muted">{escalation.reason_detail}</p>
+              <EscalationOutboundStatus
+                escalationId={escalation.id}
+                outboundMessageId={escalation.owner_resolution_outbound_id}
+                status={escalation.owner_resolution_outbound_status}
+                error={escalation.owner_resolution_outbound_error}
+                attemptCount={escalation.owner_resolution_outbound_attempt_count}
+                returnTo={returnPath}
+              />
               {escalation.status === "open" ? (
                 <form action="/api/escalations" method="post">
                   <input type="hidden" name="action" value="claim" />
@@ -75,20 +84,22 @@ export function OperatorEscalationList({
                   </button>
                 </form>
               ) : null}
-              <form action="/api/escalations" method="post" className="space-y-2">
-                <input type="hidden" name="action" value="resolve" />
-                <input type="hidden" name="escalationId" value={escalation.id} />
-                <input type="hidden" name="returnTo" value={returnPath} />
-                <textarea
-                  name="reply"
-                  rows={3}
-                  className="w-full rounded-md border border-line px-3 py-2 text-sm"
-                  placeholder="Owner reply to send back before resolving"
-                />
-                <button className="ui-primary-button px-3 py-2">
-                  Send reply and resolve
-                </button>
-              </form>
+              {escalation.status !== "resolved" ? (
+                <form action="/api/escalations" method="post" className="space-y-2">
+                  <input type="hidden" name="action" value="resolve" />
+                  <input type="hidden" name="escalationId" value={escalation.id} />
+                  <input type="hidden" name="returnTo" value={returnPath} />
+                  <textarea
+                    name="reply"
+                    rows={3}
+                    className="w-full rounded-md border border-line px-3 py-2 text-sm"
+                    placeholder="Owner reply to send back before resolving"
+                  />
+                  <button className="ui-primary-button px-3 py-2">
+                    Send reply and resolve
+                  </button>
+                </form>
+              ) : null}
             </div>
           );
         })
@@ -232,8 +243,37 @@ export function OperatorKnowledgeIngestion({ clientId }: { clientId: string }) {
         <input
           name="title"
           className="w-full rounded-md border border-line px-3 py-2 text-sm"
-          placeholder="Source title, optional for uploads"
+          placeholder="Source title, optional for uploads and websites"
         />
+        <input
+          name="url"
+          type="url"
+          className="w-full rounded-md border border-line px-3 py-2 text-sm"
+          placeholder="Website URL"
+        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <input
+            name="crawlDepth"
+            type="number"
+            min="0"
+            max="2"
+            defaultValue="1"
+            className="w-full rounded-md border border-line px-3 py-2 text-sm"
+            placeholder="Crawl depth"
+          />
+          <input
+            name="maxPages"
+            type="number"
+            min="1"
+            max="10"
+            defaultValue="5"
+            className="w-full rounded-md border border-line px-3 py-2 text-sm"
+            placeholder="Max pages"
+          />
+        </div>
+        <p className="text-xs text-muted">
+          Website ingestion fetches static same-origin HTML only.
+        </p>
         <textarea
           name="content"
           rows={8}

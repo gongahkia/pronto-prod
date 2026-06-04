@@ -9,14 +9,17 @@ x 2026-05-17 (A) 2026-05-17 Add conversation review labels for answered correctl
 x 2026-05-17 (A) 2026-05-17 Implement escalation claim, owner takeover, owner reply logging, and escalation resolution states +Escalation @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add owner handoff response path so resolved escalations can send an owner-authored reply back to the original customer channel +Escalation @engineering phase:pilot
 x 2026-06-04 (A) 2026-06-04 Make escalation owner reply and resolution idempotent around outbound sends so a successful customer send cannot be lost if the DB update fails afterward +Escalation @engineering phase:pilot
+x 2026-06-04 (A) 2026-06-04 Surface owner-resolution outbound outbox status in client and operator escalation history, including failed-send retry and clear not-sent copy +Escalation @dashboard phase:pilot
 x 2026-06-04 (A) 2026-05-17 Add webhook retry handling and race-safe idempotent processing for duplicate WhatsApp and Telegram delivery attempts, including concurrent duplicate insert tests +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add unsupported media handling for images, audio, files, stickers, locations, and contact cards with safe escalation or fallback copy +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add channel health checks for webhook verification, credential validity, outbound send success, and recent delivery failures +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add channel setup UI copy for Meta webhook URL, Telegram webhook URL, local HTTPS tunnel, and secret headers +Channels @docs phase:pilot
-(A) 2026-05-17 Add production-safe webhook logging with payload redaction for customer phone numbers and message content +Security @engineering phase:pilot
+x 2026-06-04 (A) 2026-05-17 Add production-safe webhook logging with payload redaction for customer phone numbers and message content +Security @engineering phase:pilot
 x 2026-06-04 (A) 2026-06-04 Add webhook batch partial-failure handling so one bad inbound message cannot cause already-processed messages in the same provider delivery to be retried blindly +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add per-client rate limits and inbound message size limits for webhook and console endpoints +Security @engineering phase:pilot
-(A) 2026-05-17 Add real website URL ingestion with crawl depth controls, content extraction, and robots-aware operator warnings +RAG @engineering phase:pilot
+(B) 2026-06-04 Move rate limits from process memory to a shared store before multi-instance or serverless deployment +Security @engineering phase:tighten
+x 2026-06-04 (A) 2026-05-17 Add real website URL ingestion with crawl depth controls, static content extraction, and robots-aware warnings stored on source metadata +RAG @engineering phase:pilot
+(A) 2026-06-04 Surface knowledge-source metadata warnings in client and operator source detail pages, especially website crawl robots and fetch warnings +RAG @dashboard phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add uploaded document ingestion for PDF, DOCX, TXT, Markdown, and CSV knowledge sources +RAG @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add menu or product CSV ingestion mapped to structured source metadata for F&B and e-commerce demos +RAG @engineering phase:pilot
 (A) 2026-05-17 Add knowledge source versioning so policy changes can be traced to the exact answer source +RAG @engineering phase:pilot
@@ -29,15 +32,16 @@ x 2026-06-04 (A) 2026-06-04 Add operator-scoped knowledge source view, edit, and
 (A) 2026-05-17 Add few-shot response examples per client and include them in prompt construction +BrandVoice @engineering phase:pilot
 (A) 2026-05-17 Add multilingual behavior tests for English, Mandarin, Bahasa Melayu, and Singapore code-switching +AgentCore @quality phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add AI disclosure behavior when a customer directly asks whether the agent is human +Compliance @engineering phase:pilot
-(A) 2026-05-17 Add topic guardrail configuration for complaints, refunds, medical, legal, bookings, payments, severe allergies, and out-of-scope requests +AgentCore @engineering phase:pilot
+(A) 2026-05-17 Wire per-client topic guardrail configuration from agent_configs.escalation_rules into pre-generation guardrails for complaints, refunds, medical, legal, bookings, payments, severe allergies, and out-of-scope requests +AgentCore @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add sentiment trigger detection for frustration, urgency, anger, repeated unanswered questions, and negative delivery experiences +AgentCore @engineering phase:pilot
-(A) 2026-05-17 Add final self-check step that verifies every drafted answer is traceable to retrieved static or live sources +AgentCore @engineering phase:pilot
-(A) 2026-05-17 Add hallucination incident workflow with severity, root cause, fix owner, and post-mortem notes +Quality @ops phase:pilot
+(A) 2026-05-17 Add explicit post-generation self-check step beyond citation validation that verifies every drafted answer is traceable to retrieved static or live sources +AgentCore @engineering phase:pilot
+x 2026-06-04 (A) 2026-05-17 Add hallucination incident workflow with severity, root cause, fix owner, and post-mortem notes +Quality @ops phase:pilot
 (A) 2026-05-17 Add pilot pass/fail dashboard for escalation accuracy, CSAT baseline, zero hallucinations, and launch readiness +Pilot @dashboard phase:pilot
 (A) 2026-05-17 Add time-to-live-agent target tracking from signed contract to production launch with target under 7 days +Metrics @dashboard phase:pilot
 (A) 2026-05-17 Add time-to-first-pilot-conversation metric +Metrics @dashboard phase:pilot
 (A) 2026-05-17 Add time-to-first-response metric for customer-facing conversations +Metrics @dashboard phase:pilot
 (A) 2026-05-17 Add escalation accuracy metric based on conversation review outcomes +Metrics @dashboard phase:pilot
+(A) 2026-06-04 Align dashboard open/actionable escalation metrics with active triage semantics, including claimed escalations and failed owner-reply outbox rows +Metrics @dashboard phase:pilot
 (A) 2026-05-17 Add customer-facing CSAT collection hook for agent-handled conversations +Metrics @engineering phase:pilot
 (A) 2026-05-17 Add gross margin tracking per client with retainer, amortized setup, LLM cost, hosting cost, and integration cost +Metrics @business phase:pilot
 (A) 2026-05-17 Add token usage and estimated LLM cost tracking per client, conversation, model, and channel +Costing @engineering phase:pilot
@@ -55,6 +59,7 @@ x 2026-05-17 (A) 2026-05-17 Add offboarding deletion workflow with 30-day data r
 x 2026-05-17 (A) 2026-05-17 Add encryption-at-rest and encryption-in-transit checklist for local, staging, and production environments +Security @ops phase:pilot
 x 2026-06-04 (A) 2026-06-04 Fail closed when AUTH_SECRET is missing or left as the local default in production +Security @engineering phase:pilot
 x 2026-06-04 (A) 2026-05-17 Complete remaining audit log coverage for login/logout, failed auth attempts, client notification settings, and offboarding data export; channel update, knowledge ingestion/update/delete, review creation, escalation claim, escalation resolution, and offboarding deletion already log +Security @engineering phase:pilot
+x 2026-06-04 (A) 2026-06-04 Add login rate limiting and failed-login backoff or lockout around password auth +Security @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add role-based access tests proving client users cannot access other client data or operator-only routes +Security @quality phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add Anthropic provider adapter interface implementation for Claude Sonnet, Haiku routing, and future Opus fallback +ProviderPortability @engineering phase:tighten
 x 2026-05-17 (A) 2026-05-17 Add provider selection per client and per task with model defaults, cost labels, and failover behavior +ProviderPortability @engineering phase:tighten
@@ -75,7 +80,7 @@ x 2026-05-17 (A) 2026-05-17 Document Pronto as purpose-driven business AI and no
 (B) 2026-05-17 Add email channel adapter through Postmark or Resend +Channels @engineering phase:v2
 (B) 2026-05-17 Add LINE and Zalo feasibility notes for SEA expansion after Singapore validation +Channels @research phase:scale
 (B) 2026-05-17 Build client dashboard analytics for conversation volume, escalation rate, response time, CSAT, and knowledge gaps +Dashboard @engineering phase:tighten
-(B) 2026-05-17 Build operator workflow for creating clients, assigning users, configuring channels, and selecting plan tier +Dashboard @engineering phase:tighten
+(B) 2026-05-17 Build operator workflow for creating clients, assigning users, and selecting plan tier; channel configuration screen already exists +Dashboard @engineering phase:tighten
 x 2026-05-17 (B) 2026-05-17 Build manual override workflow for operators and client owners +Dashboard @engineering phase:tighten
 (B) 2026-05-17 Build conversation search and filters by channel, status, escalation reason, date, customer, and review outcome +Dashboard @engineering phase:tighten
 (B) 2026-05-17 Add bulk escalation handling for clients with multiple staff +Dashboard @engineering phase:tighten
@@ -116,7 +121,7 @@ x 2026-05-17 (B) 2026-05-17 Create technical architecture runbook for templated 
 (B) 2026-05-17 Create onboarding guide so a second engineer can become productive on templated core in under 2 weeks +Docs @engineering phase:tighten
 (B) 2026-05-17 Create integration playbook for scoping, credential collection, API limits, read-only tools, error handling, and client signoff +Docs @engineering phase:tighten
 x 2026-05-17 (B) 2026-05-17 Create incident post-mortem template for hallucination, data breach, channel outage, and integration failure +Docs @ops phase:pilot
-(B) 2026-05-17 Add structured logging and request IDs across webhooks, agent runs, retrieval, provider calls, and outbound sends +Observability @engineering phase:pilot
+(B) 2026-05-17 Extend structured logging and request IDs from webhooks into agent runs, retrieval, provider calls, and background outbound sends +Observability @engineering phase:pilot
 (B) 2026-06-04 Add background outbound outbox retry worker for failed or stale sending messages beyond the immediate in-route local-release flush +Channels @engineering phase:tighten
 (B) 2026-05-17 Add error tracking and alerting for webhook failures, LLM failures, database errors, and outbound send failures +Observability @engineering phase:tighten
 (B) 2026-05-17 Add LangSmith or custom trace view for conversation review and model debugging +Observability @engineering phase:tighten

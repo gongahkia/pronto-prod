@@ -4,6 +4,7 @@ import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
 import { ClientNav } from "@/components/client-nav";
 import { DeliveryStatusBadge } from "@/components/delivery-status";
+import { EscalationOutboundStatus } from "@/components/escalation-outbound-status";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,14 @@ export default async function ClientEscalationsPage() {
                   <p className="mt-1 text-sm text-muted">{escalation.customer_message}</p>
                 </div>
                 <p className="text-sm text-muted">{escalation.reason_detail}</p>
+                <EscalationOutboundStatus
+                  escalationId={escalation.id}
+                  outboundMessageId={escalation.owner_resolution_outbound_id}
+                  status={escalation.owner_resolution_outbound_status}
+                  error={escalation.owner_resolution_outbound_error}
+                  attemptCount={escalation.owner_resolution_outbound_attempt_count}
+                  returnTo={`/client/escalations#escalation-${escalation.id}`}
+                />
                 {escalation.status === "open" ? (
                   <form action="/api/escalations" method="post">
                     <input type="hidden" name="action" value="claim" />
@@ -70,20 +79,22 @@ export default async function ClientEscalationsPage() {
                     </button>
                   </form>
                 ) : null}
-                <form action="/api/escalations" method="post" className="space-y-2">
-                  <input type="hidden" name="action" value="resolve" />
-                  <input type="hidden" name="escalationId" value={escalation.id} />
-                  <input type="hidden" name="returnTo" value="/client/escalations" />
-                  <textarea
-                    name="reply"
-                    rows={3}
-                    className="w-full rounded-md border border-line px-3 py-2 text-sm"
-                    placeholder="Reply to customer before resolving"
-                  />
-                  <button className="ui-primary-button px-3 py-2">
-                    Send reply and resolve
-                  </button>
-                </form>
+                {escalation.status !== "resolved" ? (
+                  <form action="/api/escalations" method="post" className="space-y-2">
+                    <input type="hidden" name="action" value="resolve" />
+                    <input type="hidden" name="escalationId" value={escalation.id} />
+                    <input type="hidden" name="returnTo" value="/client/escalations" />
+                    <textarea
+                      name="reply"
+                      rows={3}
+                      className="w-full rounded-md border border-line px-3 py-2 text-sm"
+                      placeholder="Reply to customer before resolving"
+                    />
+                    <button className="ui-primary-button px-3 py-2">
+                      Send reply and resolve
+                    </button>
+                  </form>
+                ) : null}
               </div>
             ))
           )}

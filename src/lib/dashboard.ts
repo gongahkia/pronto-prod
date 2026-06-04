@@ -1,6 +1,8 @@
 import { query } from "@/lib/db";
 import type { Channel, Client, Conversation, Escalation, Message } from "@/lib/types";
 
+export type OutboundDeliveryStatus = "pending" | "sending" | "sent" | "failed";
+
 export type ClientMetricSummary = {
   activeClients: number;
   conversations: number;
@@ -32,6 +34,11 @@ export type EscalationWithContext = Escalation & {
   customer_message: string;
   customer_handle: string | null;
   channel_kind: Channel["kind"];
+  owner_resolution_outbound_id: string | null;
+  owner_resolution_outbound_status: OutboundDeliveryStatus | null;
+  owner_resolution_outbound_error: string | null;
+  owner_resolution_outbound_attempt_count: number | null;
+  owner_resolution_outbound_sent_at: Date | null;
 };
 
 export type KnowledgeSourceSummary = {
@@ -222,13 +229,30 @@ export async function getOpenEscalations(
         cl.name as client_name,
         m.body as customer_message,
         c.customer_handle,
-        ch.kind as channel_kind
+        ch.kind as channel_kind,
+        owner_reply.id as owner_resolution_outbound_id,
+        owner_reply.status as owner_resolution_outbound_status,
+        owner_reply.last_error as owner_resolution_outbound_error,
+        owner_reply.attempt_count as owner_resolution_outbound_attempt_count,
+        owner_reply.sent_at as owner_resolution_outbound_sent_at
       from escalations e
       join clients cl on cl.id = e.client_id
       join conversations c on c.id = e.conversation_id
       join channels ch on ch.id = c.channel_id
       join messages m on m.id = e.message_id
-      ${clientId ? "where e.client_id = $1 and" : "where"} e.status <> 'resolved'
+      left join lateral (
+        select id, status, last_error, attempt_count, sent_at
+        from outbound_messages
+        where escalation_id = e.id
+          and metadata->>'purpose' = 'escalation_resolution_reply'
+        order by created_at desc
+        limit 1
+      ) owner_reply on true
+      ${clientId ? "where e.client_id = $1 and" : "where"}
+        (
+          e.status <> 'resolved'
+          or owner_reply.status in ('pending', 'sending', 'failed')
+        )
       order by e.created_at desc
       limit 20
     `,

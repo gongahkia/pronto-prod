@@ -105,4 +105,52 @@ describe("escalation route", () => {
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("http://localhost/operator/escalations");
   });
+
+  it("retries failed owner reply outbound messages", async () => {
+    mocks.query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: "outbound-1",
+          client_id: "client-1",
+          escalation_id: "escalation-1",
+          status: "failed",
+        },
+      ],
+    });
+    mocks.flushOutboundMessage.mockResolvedValueOnce({
+      status: "sent",
+      outboundMessageId: "outbound-1",
+    });
+
+    const form = new FormData();
+    form.set("action", "retry_outbound");
+    form.set("escalationId", "escalation-1");
+    form.set("outboundMessageId", "outbound-1");
+    form.set("returnTo", "/operator/escalations#escalation-1");
+
+    const response = await POST(
+      new Request("http://localhost/api/escalations", {
+        method: "POST",
+        body: form,
+      }),
+    );
+
+    expect(mocks.flushOutboundMessage).toHaveBeenCalledWith("outbound-1");
+    expect(mocks.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "escalation.outbound_retry",
+        targetType: "outbound_message",
+        targetId: "outbound-1",
+        metadata: expect.objectContaining({
+          escalationId: "escalation-1",
+          previousStatus: "failed",
+          result: "sent",
+        }),
+      }),
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/operator/escalations#escalation-1",
+    );
+  });
 });
