@@ -52,6 +52,24 @@ export function OperatorBrandVoicePanel({
         </button>
       </form>
 
+      <form action="/api/operator/brand-voice" method="post" className="space-y-3 border-t border-line p-4">
+        <input type="hidden" name="action" value="build_document" />
+        <input type="hidden" name="clientId" value={clientId} />
+        <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}`} />
+        <label className="block space-y-2 text-sm font-medium">
+          <span>Build from source samples</span>
+          <textarea
+            name="builderSources"
+            rows={4}
+            className="w-full rounded-md border border-line px-3 py-2 text-sm font-normal"
+            placeholder="Paste website copy, past chats, marketing copy, or founder writing samples"
+          />
+        </label>
+        <button className="ui-button px-3 py-2">
+          Build draft
+        </button>
+      </form>
+
       <div className="border-t border-line p-4">
         <h3 className="mb-3 text-sm font-semibold">Few-shot examples</h3>
         <form action="/api/operator/brand-voice" method="post" className="mb-4 grid gap-3">
@@ -132,7 +150,7 @@ export function ClientBrandVoicePreview({ profile }: { profile: BrandVoiceProfil
     <section className="mt-6 ui-panel">
       <div className="ui-panel-header">
         <h2 className="text-base font-semibold">Brand voice</h2>
-        <p className="text-sm text-muted">Read-only view of Pronto's current reply style guide.</p>
+        <p className="text-sm text-muted">Read-only view of Pronto&apos;s current reply style guide.</p>
       </div>
       <div className="space-y-3 p-4 text-sm">
         {profile.document ? (

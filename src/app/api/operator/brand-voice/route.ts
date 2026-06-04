@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import {
   addBrandVoiceExample,
+  buildBrandVoiceDraft,
   deleteBrandVoiceExample,
   parseBrandVoiceAttributes,
   setBrandVoiceExampleActive,
   updateBrandVoiceDocument,
 } from "@/lib/brand-voice";
+import { getClient } from "@/lib/dashboard";
 import { logWarn } from "@/lib/logger";
 
 export async function POST(request: Request) {
@@ -60,6 +62,33 @@ export async function POST(request: Request) {
     if (!updated) {
       return NextResponse.json({ error: "Client not found." }, { status: 404 });
     }
+    return NextResponse.redirect(new URL(returnTo, request.url), 303);
+  }
+
+  if (action === "build_document") {
+    const sourceText = String(form.get("builderSources") ?? "").trim();
+    if (!sourceText) {
+      return NextResponse.json(
+        { error: "Paste source samples before building a brand voice draft." },
+        { status: 400 },
+      );
+    }
+    const client = await getClient(clientId);
+    if (!client) {
+      return NextResponse.json({ error: "Client not found." }, { status: 404 });
+    }
+    const draft = buildBrandVoiceDraft({
+      clientName: client.name,
+      sourceText,
+    });
+    await updateBrandVoiceDocument({
+      clientId,
+      title: draft.title,
+      content: draft.content,
+      attributes: draft.attributes,
+      sourceNotes: draft.sourceNotes,
+      actorUserId: user.userId,
+    });
     return NextResponse.redirect(new URL(returnTo, request.url), 303);
   }
 

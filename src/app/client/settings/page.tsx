@@ -1,10 +1,12 @@
 import { requireUser } from "@/lib/auth";
 import { getAgentConfigDetail } from "@/lib/agent/config";
+import { getBrandVoiceProfile } from "@/lib/brand-voice";
 import { getClient, getMetrics } from "@/lib/dashboard";
 import { AppShell } from "@/components/shell";
 import { ClientNav } from "@/components/client-nav";
 import { StatCard } from "@/components/stat-card";
 import { ClientAgentConfigPreview } from "@/components/agent-config-panels";
+import { ClientBrandVoicePreview } from "@/components/local-release-panels";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +16,11 @@ export default async function ClientSettingsPage() {
     throw new Error("Client user is missing a client assignment.");
   }
 
-  const [client, metrics, agentConfig] = await Promise.all([
+  const [client, metrics, agentConfig, brandVoice] = await Promise.all([
     getClient(user.clientId),
     getMetrics(user.clientId),
     getAgentConfigDetail(user.clientId),
+    getBrandVoiceProfile(user.clientId),
   ]);
   if (!client) {
     throw new Error("Client record not found.");
@@ -68,6 +71,7 @@ export default async function ClientSettingsPage() {
       </section>
 
       <ClientAgentConfigPreview detail={agentConfig} />
+      <ClientBrandVoicePreview profile={brandVoice} />
     </AppShell>
   );
 }

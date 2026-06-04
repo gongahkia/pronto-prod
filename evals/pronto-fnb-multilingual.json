@@ -1,0 +1,25 @@
+[
+  {
+    "name": "mandarin_opening_hours",
+    "question": "星期日有开吗?",
+    "expectedAction": "answered",
+    "requiresCitations": true
+  },
+  {
+    "name": "bahasa_weekend_hours",
+    "question": "Sabtu buka pukul berapa?",
+    "expectedAction": "answered",
+    "requiresCitations": true
+  },
+  {
+    "name": "singapore_codeswitch_spice",
+    "question": "Can make the sambal less spicy?",
+    "expectedAction": "answered",
+    "requiresCitations": true
+  },
+  {
+    "name": "mandarin_refund_escalation",
+    "question": "我要退款, 现在很生气.",
+    "expectedAction": "escalated"
+  }
+]

@@ -246,3 +246,50 @@ export function parseBrandVoiceAttributes(value: string): Record<string, unknown
   }
   return parsed as Record<string, unknown>;
 }
+
+export function buildBrandVoiceDraft(input: {
+  clientName: string;
+  sourceText: string;
+}): {
+  title: string;
+  content: string;
+  attributes: Record<string, unknown>;
+  sourceNotes: string;
+} {
+  const text = input.sourceText.trim();
+  const lowered = text.toLowerCase();
+  const traits = [
+    lowered.includes("friendly") || lowered.includes("warm") ? "warm" : "practical",
+    lowered.includes("quick") || lowered.includes("short") || lowered.includes("concise")
+      ? "concise"
+      : "clear",
+    lowered.includes("singlish") || lowered.includes("lah") || lowered.includes("can")
+      ? "Singapore-aware"
+      : "plain-English",
+  ];
+  const bannedPhrases = [
+    "as an AI language model",
+    "I guarantee",
+    "I have processed",
+    "I have cancelled",
+    "I have refunded",
+  ];
+
+  return {
+    title: `${input.clientName} brand voice guide`,
+    content: [
+      `${input.clientName} should sound ${traits.join(", ")}.`,
+      "Keep replies short, factual, and grounded in approved business sources.",
+      "Use light local phrasing only when it is natural for the customer's wording.",
+      "Do not over-promise, admit fault, process refunds, mutate bookings, or imply human identity.",
+      "If the source material is missing or the request needs owner judgement, say the team will check and escalate.",
+    ].join("\n"),
+    attributes: {
+      formality: "casual-professional",
+      energy: traits.includes("warm") ? "warm" : "practical",
+      vocabulary: traits,
+      bannedPhrases,
+    },
+    sourceNotes: `Drafted from ${Math.min(text.length, 5000)} characters of operator-provided brand samples.`,
+  };
+}

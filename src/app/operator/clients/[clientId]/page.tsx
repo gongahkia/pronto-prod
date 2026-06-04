@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { getAgentConfigDetail } from "@/lib/agent/config";
+import { getBrandVoiceProfile } from "@/lib/brand-voice";
 import {
   getChannels,
   getClient,
@@ -11,9 +12,15 @@ import {
   getOpenEscalations,
   getRecentConversations,
 } from "@/lib/dashboard";
+import { getPilotReadinessSummary } from "@/lib/pilot-metrics";
 import { AppShell } from "@/components/shell";
 import { OperatorAgentConfigPanel } from "@/components/agent-config-panels";
 import { Badge } from "@/components/badge";
+import {
+  OperatorBrandVoicePanel,
+  OperatorCommercialPanel,
+  PilotReadinessPanel,
+} from "@/components/local-release-panels";
 import {
   OperatorClientHeader,
   OperatorClientNav,
@@ -34,13 +41,24 @@ export default async function ClientOperatorPage({
     notFound();
   }
 
-  const [metrics, channels, knowledge, escalations, conversations, agentConfig] = await Promise.all([
+  const [
+    metrics,
+    channels,
+    knowledge,
+    escalations,
+    conversations,
+    agentConfig,
+    brandVoice,
+    pilotSummary,
+  ] = await Promise.all([
     getMetrics(client.id),
     getChannels(client.id),
     getKnowledgeSources(client.id),
     getOpenEscalations(client.id),
     getRecentConversations(client.id, 5),
     getAgentConfigDetail(client.id),
+    getBrandVoiceProfile(client.id),
+    getPilotReadinessSummary(client.id),
   ]);
   const activeChannels = channels.filter((channel) => channel.status === "active").length;
   const setupChannels = channels.filter((channel) => channel.status !== "disabled").length;
@@ -156,6 +174,18 @@ export default async function ClientOperatorPage({
             ))
           )}
         </div>
+      </section>
+
+      <section className="mt-6">
+        <PilotReadinessPanel summary={pilotSummary} />
+      </section>
+
+      <section className="mt-6">
+        <OperatorCommercialPanel client={client} summary={pilotSummary} />
+      </section>
+
+      <section className="mt-6">
+        <OperatorBrandVoicePanel clientId={client.id} profile={brandVoice} />
       </section>
 
       <section className="mt-6">

@@ -47,10 +47,26 @@ export async function getPilotReadinessSummary(
           count(*) as reviewed,
           count(*) filter (where hallucination = true) as hallucinations,
           count(*) filter (where pilot_blocker = true) as blockers,
-          count(*) filter (where answer_label in ('answered_correctly', 'should_have_escalated', 'over_escalated')) as accuracy_total,
-          count(*) filter (where answer_label = 'answered_correctly') as accuracy_passed
-        from reviews
-        where client_id = $1
+          count(*) filter (
+            where escalation_was_needed is not null
+              or answer_label in ('answered_correctly', 'should_have_escalated', 'over_escalated')
+          ) as accuracy_total,
+          count(*) filter (
+            where case
+              when escalation_was_needed is not null then escalation_was_needed = escalation_outcome.was_escalated
+              when answer_label = 'answered_correctly' then true
+              else false
+            end
+          ) as accuracy_passed
+        from reviews r
+        left join lateral (
+          select exists (
+            select 1
+            from escalations e
+            where e.conversation_id = r.conversation_id
+          ) as was_escalated
+        ) escalation_outcome on true
+        where r.client_id = $1
       `,
       [clientId],
     ),

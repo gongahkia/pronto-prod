@@ -25,6 +25,9 @@ Monday to Friday: 11:00 AM to 9:30 PM.
 Saturday and Sunday: 10:00 AM to 10:00 PM.
 Last orders are 30 minutes before closing.
 Public holiday hours are posted on Instagram and should be escalated if not listed here.
+Mandarin opening-hours phrasing: 周六和周日营业时间是上午10点到晚上10点.
+Bahasa Melayu opening-hours phrasing: Sabtu dan Ahad dibuka dari 10:00 pagi hingga 10:00 malam.
+Singapore code-switching style: Keep it clear and friendly; light phrases like "can" are acceptable only when natural.
 
 Reservations:
 Tables for 1 to 6 guests can be reserved for lunch or dinner.
@@ -190,6 +193,89 @@ async function main() {
         sentimentTriggers: ["angry", "urgent", "frustrated"],
       },
     ],
+  );
+
+  await pool.query(
+    `
+      insert into brand_voice_documents (client_id, title, content, attributes, source_notes)
+      values ($1, 'North Bridge Nasi brand voice guide', $2, $3, $4)
+      on conflict (client_id) do update set
+        title = excluded.title,
+        content = excluded.content,
+        attributes = excluded.attributes,
+        source_notes = excluded.source_notes,
+        updated_at = now()
+    `,
+    [
+      CLIENT_ID,
+      `Warm, quick, practical, and Singapore-aware. Keep replies concise, use plain English with light Singlish only when natural, never sound like a generic chatbot, and avoid over-promising. If unsure, say the team will check. For Mandarin or Bahasa Melayu questions, answer only when the source wording clearly supports the reply; otherwise escalate.`,
+      {
+        formality: "casual-professional",
+        energy: "warm and practical",
+        vocabulary: ["plain English", "Singapore-aware", "concise"],
+        bannedPhrases: [
+          "as an AI language model",
+          "I guarantee",
+          "I have processed your refund",
+        ],
+      },
+      "Seeded from founder-style F&B pilot assumptions.",
+    ],
+  );
+
+  await pool.query(
+    "delete from brand_voice_examples where client_id = $1 and notes = 'seed'",
+    [CLIENT_ID],
+  );
+  await pool.query(
+    `
+      insert into brand_voice_examples (client_id, customer_message, ideal_response, notes, is_active)
+      values
+        ($1, 'Are you open this Sunday?', 'Yes. We open Saturday and Sunday from 10:00 AM to 10:00 PM, with last orders 30 minutes before closing.', 'seed', true),
+        ($1, '星期日有开吗?', '星期日有开。营业时间是上午10点到晚上10点。', 'seed', true),
+        ($1, 'Sabtu buka pukul berapa?', 'Sabtu kami buka dari 10:00 pagi hingga 10:00 malam.', 'seed', true),
+        ($1, 'Can make it less spicy?', 'Can. You may request less spicy sambal.', 'seed', true)
+    `,
+    [CLIENT_ID],
+  );
+
+  await pool.query(
+    `
+      insert into client_launch_milestones (client_id, signed_contract_at, target_live_at, production_live_at, notes)
+      values ($1, now() - interval '3 days', now() + interval '4 days', null, 'Seed local pilot timeline.')
+      on conflict (client_id) do update set
+        signed_contract_at = excluded.signed_contract_at,
+        target_live_at = excluded.target_live_at,
+        notes = excluded.notes,
+        updated_at = now()
+    `,
+    [CLIENT_ID],
+  );
+
+  await pool.query(
+    `
+      insert into client_commercial_assumptions (
+        client_id,
+        monthly_retainer_sgd,
+        setup_fee_sgd,
+        amortized_setup_months,
+        hosting_cost_sgd,
+        integration_cost_sgd,
+        included_conversations,
+        llm_cost_buffer_multiplier
+      )
+      values ($1, 1200, 2500, 6, 80, 150, 500, 2)
+      on conflict (client_id) do update set
+        monthly_retainer_sgd = excluded.monthly_retainer_sgd,
+        setup_fee_sgd = excluded.setup_fee_sgd,
+        amortized_setup_months = excluded.amortized_setup_months,
+        hosting_cost_sgd = excluded.hosting_cost_sgd,
+        integration_cost_sgd = excluded.integration_cost_sgd,
+        included_conversations = excluded.included_conversations,
+        llm_cost_buffer_multiplier = excluded.llm_cost_buffer_multiplier,
+        updated_at = now()
+    `,
+    [CLIENT_ID],
   );
 
   await pool.query(
