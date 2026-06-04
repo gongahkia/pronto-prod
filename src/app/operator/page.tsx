@@ -9,6 +9,7 @@ import {
 import { AppShell } from "@/components/shell";
 import { StatCard } from "@/components/stat-card";
 import { Badge } from "@/components/badge";
+import { DeliveryStatusBadge } from "@/components/delivery-status";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,11 @@ export default async function OperatorPage() {
                       {escalation.status}
                     </Badge>
                     <Badge tone="red">{escalation.reason_code}</Badge>
+                    <DeliveryStatusBadge
+                      label="owner"
+                      status={escalation.owner_notification_status}
+                      error={escalation.owner_notification_error}
+                    />
                   </div>
                   <a
                     href={`/operator/clients/${escalation.client_id}#escalation-${escalation.id}`}

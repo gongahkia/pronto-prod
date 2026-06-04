@@ -17,7 +17,12 @@ export async function POST(request: Request) {
     `
       update clients
       set business_profile = jsonb_set(
-        jsonb_set(business_profile, '{ownerChatId}', to_jsonb($2::text), true),
+        jsonb_set(
+          jsonb_set(business_profile, '{ownerChatId}', to_jsonb($2::text), true),
+          '{ownerPhone}',
+          to_jsonb($4::text),
+          true
+        ),
         '{location}',
         to_jsonb($3::text),
         true
@@ -25,7 +30,7 @@ export async function POST(request: Request) {
       updated_at = now()
       where id = $1
     `,
-    [user.clientId, ownerChatId, location],
+    [user.clientId, ownerChatId, location, ownerPhone],
   );
 
   await query(
@@ -40,4 +45,3 @@ export async function POST(request: Request) {
 
   return NextResponse.redirect(new URL("/client", request.url), 303);
 }
-

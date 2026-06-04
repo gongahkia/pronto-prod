@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { whatsAppGraphVersion } from "@/lib/env";
 import type { Channel } from "@/lib/types";
 
 export type ChannelHealthStatus = "healthy" | "degraded" | "unconfigured";
@@ -160,7 +161,7 @@ async function checkWhatsAppHealth(channel: Channel): Promise<ChannelHealthResul
   const phoneNumberId =
     (channel.credentials.phoneNumberId as string | undefined) ?? channel.external_id;
   const response = await fetch(
-    `https://graph.facebook.com/v20.0/${phoneNumberId}?fields=id,display_phone_number,verified_name`,
+    `https://graph.facebook.com/${whatsAppGraphVersion()}/${phoneNumberId}?fields=id,display_phone_number,verified_name`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
   if (!response.ok) {

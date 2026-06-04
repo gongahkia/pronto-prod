@@ -17,6 +17,10 @@ export function appBaseUrl(): string {
   return process.env.APP_BASE_URL ?? "http://localhost:3000";
 }
 
+export function whatsAppGraphVersion(): string {
+  return process.env.WHATSAPP_GRAPH_VERSION ?? "v20.0";
+}
+
 export function shouldUseMockAi(): boolean {
   return process.env.PRONTO_USE_MOCK_AI === "1" || !process.env.OPENAI_API_KEY;
 }

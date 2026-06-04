@@ -10,8 +10,13 @@ import {
   getRecentConversations,
 } from "@/lib/dashboard";
 import { appBaseUrl } from "@/lib/env";
+import {
+  getEscalationHoldingReply,
+  settingsWithoutEscalationHoldingReply,
+} from "@/lib/channels/escalation-handoff";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
+import { DeliveryStatusBadge } from "@/components/delivery-status";
 import { PilotConsole } from "@/components/pilot-console";
 import { StatCard } from "@/components/stat-card";
 
@@ -155,9 +160,26 @@ export default async function ClientOperatorPage({
                 <textarea
                   name="settings"
                   rows={3}
-                  defaultValue={JSON.stringify(channel.settings, null, 2)}
+                  defaultValue={JSON.stringify(
+                    channel.kind === "whatsapp"
+                      ? settingsWithoutEscalationHoldingReply(channel.settings)
+                      : channel.settings,
+                    null,
+                    2,
+                  )}
                   className="w-full rounded-md border border-line px-3 py-2 font-mono text-xs"
                 />
+                {channel.kind === "whatsapp" ? (
+                  <label className="block space-y-2 text-sm font-medium">
+                    <span>Escalation holding reply</span>
+                    <textarea
+                      name="escalationHoldingReply"
+                      rows={3}
+                      defaultValue={getEscalationHoldingReply(channel.settings)}
+                      className="w-full rounded-md border border-line px-3 py-2 text-sm font-normal"
+                    />
+                  </label>
+                ) : null}
                 <textarea
                   name="credentials"
                   rows={3}
@@ -217,6 +239,16 @@ export default async function ClientOperatorPage({
                       {escalation.status}
                     </Badge>
                     <Badge tone="red">{escalation.reason_code}</Badge>
+                    <DeliveryStatusBadge
+                      label="customer"
+                      status={escalation.customer_handoff_status}
+                      error={escalation.customer_handoff_error}
+                    />
+                    <DeliveryStatusBadge
+                      label="owner"
+                      status={escalation.owner_notification_status}
+                      error={escalation.owner_notification_error}
+                    />
                   </div>
                   <div>
                     <p className="text-sm font-medium">Customer question</p>

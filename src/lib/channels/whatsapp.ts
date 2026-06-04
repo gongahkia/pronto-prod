@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
+import { whatsAppGraphVersion } from "@/lib/env";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
 
@@ -108,12 +109,11 @@ export async function sendWhatsAppText(input: {
     input.channel.external_id;
 
   if (!token || !phoneNumberId) {
-    console.warn("WhatsApp credentials missing; skipping outbound send.");
-    return;
+    throw new Error("WhatsApp credentials missing; outbound send skipped.");
   }
 
   const response = await fetch(
-    `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+    `https://graph.facebook.com/${whatsAppGraphVersion()}/${phoneNumberId}/messages`,
     {
       method: "POST",
       headers: {

@@ -90,8 +90,7 @@ export async function sendTelegramText(input: {
     process.env.TELEGRAM_BOT_TOKEN;
 
   if (!token) {
-    console.warn("Telegram bot token missing; skipping outbound send.");
-    return;
+    throw new Error("Telegram bot token missing; outbound send skipped.");
   }
 
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {

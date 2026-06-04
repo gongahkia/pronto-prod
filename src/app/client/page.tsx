@@ -8,6 +8,7 @@ import {
 } from "@/lib/dashboard";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
+import { DeliveryStatusBadge } from "@/components/delivery-status";
 import { StatCard } from "@/components/stat-card";
 import { PilotConsole } from "@/components/pilot-console";
 
@@ -65,6 +66,7 @@ export default async function ClientPage() {
             />
             <input
               name="ownerPhone"
+              defaultValue={String(client.business_profile.ownerPhone ?? "")}
               className="w-full rounded-md border border-line px-3 py-2 text-sm"
               placeholder="Owner WhatsApp phone number"
             />
@@ -109,6 +111,16 @@ export default async function ClientPage() {
                         {escalation.status}
                       </Badge>
                       <Badge tone="red">{escalation.reason_code}</Badge>
+                      <DeliveryStatusBadge
+                        label="customer"
+                        status={escalation.customer_handoff_status}
+                        error={escalation.customer_handoff_error}
+                      />
+                      <DeliveryStatusBadge
+                        label="owner"
+                        status={escalation.owner_notification_status}
+                        error={escalation.owner_notification_error}
+                      />
                     </div>
                     <div>
                       <p className="text-sm font-medium">Customer question</p>

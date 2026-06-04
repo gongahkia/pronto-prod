@@ -32,6 +32,15 @@ describe("agent guardrails", () => {
     expect(result.shouldEscalate).toBe(false);
   });
 
+  it("escalates customer requests for a call or human handoff", () => {
+    const result = evaluatePreGenerationGuardrails(
+      "Can we hop on a short call?",
+    );
+
+    expect(result.shouldEscalate).toBe(true);
+    expect(result.reasonCode).toBe("human_handoff_requested");
+  });
+
   it("allows ordinary F&B questions before retrieval", () => {
     const result = evaluatePreGenerationGuardrails("Are you open this Sunday?");
 

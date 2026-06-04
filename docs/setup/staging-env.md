@@ -18,6 +18,7 @@ Set these before running a realistic pilot staging environment.
 
 ## WhatsApp Cloud API
 
+- `WHATSAPP_GRAPH_VERSION`: Meta Graph API version for WhatsApp send and health checks. Defaults to `v20.0` for current local-release compatibility.
 - `WHATSAPP_APP_SECRET`: Used to verify `X-Hub-Signature-256`.
 - `WHATSAPP_VERIFY_TOKEN`: Fallback webhook verification token.
 - `WHATSAPP_ACCESS_TOKEN`: Fallback outbound send token when not stored per channel.
@@ -27,6 +28,12 @@ Per-channel credentials should be preferred for real clients:
 - `appSecret`
 - `accessToken`
 - `phoneNumberId`
+
+For the live WhatsApp prototype, expose local port 3000 through an HTTPS tunnel,
+set `APP_BASE_URL` to that public URL, and register
+`https://<public-host>/api/webhooks/whatsapp/<channelId>` in Meta. Configure
+`settings.escalationHoldingReply` from the operator channel setup UI so escalated
+customer messages receive a brand-specific acknowledgement before owner takeover.
 
 ## Telegram
 
@@ -47,4 +54,3 @@ Per-channel credentials/settings should be preferred for real clients:
 - Confirm Telegram webhook sends a 200 response with the configured secret header.
 - Confirm an ordinary known F&B question answers from sources.
 - Confirm refund, complaint, and booking mutation requests escalate.
-

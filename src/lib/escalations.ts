@@ -1,8 +1,7 @@
 import { appBaseUrl } from "@/lib/env";
 import { query } from "@/lib/db";
-import { sendTelegramText } from "@/lib/channels/telegram";
-import { sendWhatsAppText } from "@/lib/channels/whatsapp";
-import type { Channel } from "@/lib/types";
+import { sendChannelText } from "@/lib/channels/dispatch";
+import type { Channel, DeliveryStatus } from "@/lib/types";
 
 type EscalationNotification = {
   id: string;
@@ -12,9 +11,20 @@ type EscalationNotification = {
   client_id: string;
   conversation_id: string;
   customer_handle: string | null;
+  business_profile: Record<string, unknown>;
 };
 
-export async function notifyOwnerOfEscalation(escalationId: string): Promise<void> {
+export type OwnerNotificationResult = {
+  status: DeliveryStatus;
+  detail: string;
+  channelId?: string;
+  channelKind?: Channel["kind"];
+  destination?: string;
+};
+
+export async function notifyOwnerOfEscalation(
+  escalationId: string,
+): Promise<OwnerNotificationResult> {
   const escalationResult = await query<EscalationNotification>(
     `
       select
@@ -24,8 +34,10 @@ export async function notifyOwnerOfEscalation(escalationId: string): Promise<voi
         e.client_id,
         e.conversation_id,
         m.body as customer_message,
-        c.customer_handle
+        c.customer_handle,
+        cl.business_profile
       from escalations e
+      join clients cl on cl.id = e.client_id
       join messages m on m.id = e.message_id
       join conversations c on c.id = e.conversation_id
       where e.id = $1
@@ -34,7 +46,10 @@ export async function notifyOwnerOfEscalation(escalationId: string): Promise<voi
   );
   const escalation = escalationResult.rows[0];
   if (!escalation) {
-    return;
+    return {
+      status: "skipped",
+      detail: "Escalation not found.",
+    };
   }
 
   const channelResult = await query<Channel>(
@@ -44,14 +59,22 @@ export async function notifyOwnerOfEscalation(escalationId: string): Promise<voi
         and status = 'active'
         and kind in ('telegram', 'whatsapp')
       order by case kind when 'telegram' then 0 else 1 end
-      limit 1
     `,
     [escalation.client_id],
   );
-  const channel = channelResult.rows[0];
-  if (!channel) {
-    return;
+  const channelSelection = selectOwnerNotificationChannel(
+    channelResult.rows,
+    escalation.business_profile,
+  );
+  if (!channelSelection) {
+    return recordOwnerNotificationResult(escalation.id, {
+      status: "skipped",
+      detail: channelResult.rows.length
+        ? "No owner notification destination configured."
+        : "No active owner notification channel configured.",
+    });
   }
+  const { channel, destination } = channelSelection;
 
   const takeoverUrl = `${appBaseUrl()}/operator/clients/${escalation.client_id}#conversation-${escalation.conversation_id}`;
   const text = [
@@ -62,22 +85,88 @@ export async function notifyOwnerOfEscalation(escalationId: string): Promise<voi
     `Take over: ${takeoverUrl}`,
   ].join("\n");
 
-  if (channel.kind === "telegram") {
-    const ownerChatId = channel.settings.ownerChatId as string | undefined;
-    if (ownerChatId) {
-      await sendTelegramText({ channel, externalThreadId: ownerChatId, text });
-    }
+  try {
+    await sendChannelText({
+      channelId: channel.id,
+      externalThreadId: destination,
+      text,
+    });
+  } catch (error) {
+    return recordOwnerNotificationResult(escalation.id, {
+      status: "failed",
+      detail: errorToMessage(error),
+      channelId: channel.id,
+      channelKind: channel.kind,
+      destination,
+    });
   }
 
-  if (channel.kind === "whatsapp") {
-    const ownerPhone = channel.settings.ownerPhone as string | undefined;
-    if (ownerPhone) {
-      await sendWhatsAppText({ channel, externalThreadId: ownerPhone, text });
-    }
-  }
-
-  await query("update escalations set owner_notified_at = now() where id = $1", [
-    escalationId,
-  ]);
+  return recordOwnerNotificationResult(escalation.id, {
+    status: "sent",
+    detail: "Owner notification sent.",
+    channelId: channel.id,
+    channelKind: channel.kind,
+    destination,
+  });
 }
 
+function selectOwnerNotificationChannel(
+  channels: Channel[],
+  businessProfile: Record<string, unknown>,
+): { channel: Channel; destination: string } | null {
+  const configured = channels
+    .map((channel) => ({ channel, destination: ownerDestination(channel) }))
+    .filter(
+      (candidate): candidate is { channel: Channel; destination: string } =>
+        Boolean(candidate.destination),
+    );
+  if (!configured.length) {
+    return null;
+  }
+
+  const preference = businessProfile.notificationPreference;
+  if (preference === "telegram" || preference === "whatsapp") {
+    return (
+      configured.find((candidate) => candidate.channel.kind === preference) ??
+      configured[0]
+    );
+  }
+
+  return configured[0];
+}
+
+function ownerDestination(channel: Channel): string | null {
+  const value =
+    channel.kind === "telegram"
+      ? channel.settings.ownerChatId
+      : channel.kind === "whatsapp"
+        ? channel.settings.ownerPhone
+        : null;
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+}
+
+async function recordOwnerNotificationResult(
+  escalationId: string,
+  result: OwnerNotificationResult,
+): Promise<OwnerNotificationResult> {
+  await query(
+    `
+      update escalations
+      set owner_notification_status = $2,
+          owner_notification_error = $3,
+          owner_notified_at = case when $2 = 'sent' then now() else owner_notified_at end
+      where id = $1
+    `,
+    [escalationId, result.status, result.status === "sent" ? null : result.detail],
+  );
+  return result;
+}
+
+function errorToMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

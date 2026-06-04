@@ -29,6 +29,14 @@ const transactionalPatterns = [
   /\b(make|create) (a )?(booking|reservation)\b/i,
 ];
 
+const humanHandoffPatterns = [
+  /\b(hop|jump|get) on (a )?(quick|short )?call\b/i,
+  /\b(can|could|may) (i|we) (speak|talk|chat) (to|with) (a )?(human|person|staff|team|manager|owner|representative|agent)\b/i,
+  /\b(connect|put|pass|transfer) me (to|with) (a )?(human|person|staff|team|manager|owner|representative|agent)\b/i,
+  /\b(call me|phone me|ring me)\b/i,
+  /\b(human|person|staff|team|manager|owner|representative) please\b/i,
+];
+
 const medicalLegalPatterns = [
   /\bdoctor\b/i,
   /\bmedical\b/i,
@@ -102,6 +110,16 @@ export function evaluatePreGenerationGuardrails(
         reasonCode: "transactional_action",
         reasonDetail:
           "The v1 agent may explain process but must not create, cancel, modify, pay, refund, or mutate systems.",
+        confidence: 1,
+      },
+    ],
+    [
+      humanHandoffPatterns,
+      {
+        shouldEscalate: true,
+        reasonCode: "human_handoff_requested",
+        reasonDetail:
+          "The customer asked for a call, staff member, or human takeover.",
         confidence: 1,
       },
     ],

@@ -4,6 +4,7 @@ export type ChannelStatus = "draft" | "active" | "disabled";
 export type ConversationStatus = "active" | "escalated" | "closed";
 export type SenderRole = "customer" | "agent" | "operator" | "system";
 export type EscalationStatus = "open" | "claimed" | "resolved";
+export type DeliveryStatus = "pending" | "sent" | "skipped" | "failed";
 
 export type Client = {
   id: string;
@@ -101,6 +102,10 @@ export type Escalation = {
   reason_detail: string;
   confidence: string | null;
   owner_notified_at: Date | null;
+  customer_handoff_status: DeliveryStatus;
+  customer_handoff_error: string | null;
+  owner_notification_status: DeliveryStatus;
+  owner_notification_error: string | null;
   created_at: Date;
   resolved_at: Date | null;
 };
