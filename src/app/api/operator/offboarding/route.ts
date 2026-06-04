@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordAuditLog } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
 import {
   buildClientOffboardingExport,
@@ -17,6 +18,17 @@ export async function POST(request: Request) {
 
   if (action === "export") {
     const exported = await buildClientOffboardingExport(clientId);
+    await recordAuditLog({
+      clientId,
+      actorUserId: user.userId,
+      action: "client.offboarding_exported",
+      targetType: "client",
+      targetId: clientId,
+      metadata: {
+        slug: exported.client.slug,
+        exportedAt: exported.exportedAt,
+      },
+    });
     return new Response(JSON.stringify(exported, null, 2), {
       headers: {
         "Content-Type": "application/json; charset=utf-8",

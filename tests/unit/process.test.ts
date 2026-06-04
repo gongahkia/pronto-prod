@@ -33,7 +33,7 @@ import { processInboundMessage } from "@/lib/channels/process";
 
 describe("inbound channel processing", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     mocks.transaction.mockImplementation(async (callback) => {
       const client = {
         query: vi
@@ -126,9 +126,38 @@ describe("inbound channel processing", () => {
     });
     expect(mocks.notifyOwnerOfEscalation).not.toHaveBeenCalled();
   });
+
+  it("does not run the agent when a concurrent duplicate insert is detected", async () => {
+    const channel = setupChannel();
+    mocks.transaction.mockImplementationOnce(async (callback) => {
+      const client = {
+        query: vi
+          .fn()
+          .mockResolvedValueOnce({ rows: [{ id: "conversation-1" }] })
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({
+            rows: [{ id: "existing-message-1", conversation_id: "conversation-1" }],
+          }),
+      };
+
+      return callback(client);
+    });
+
+    const result = await processInboundMessage(inboundWhatsAppMessage());
+
+    expect(channel.id).toBe("whatsapp-channel-1");
+    expect(result).toMatchObject({
+      duplicate: true,
+      conversationId: "conversation-1",
+      messageId: "existing-message-1",
+    });
+    expect(mocks.runAgentForMessage).not.toHaveBeenCalled();
+    expect(mocks.createEscalation).not.toHaveBeenCalled();
+    expect(mocks.sendChannelText).not.toHaveBeenCalled();
+  });
 });
 
-function setupChannel(overrides: Partial<Channel> = {}) {
+function setupChannel(overrides: Partial<Channel> = {}): Channel {
   const channel: Channel = {
     id: "whatsapp-channel-1",
     client_id: "client-1",
@@ -150,6 +179,8 @@ function setupChannel(overrides: Partial<Channel> = {}) {
     .mockResolvedValueOnce({ rows: [channel] })
     .mockResolvedValueOnce({ rows: [], rowCount: 0 })
     .mockResolvedValueOnce({ rows: [] });
+
+  return channel;
 }
 
 function inboundWhatsAppMessage() {

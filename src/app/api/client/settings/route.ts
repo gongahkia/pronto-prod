@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordAuditLog } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 
@@ -42,6 +43,16 @@ export async function POST(request: Request) {
     `,
     [user.clientId, JSON.stringify({ ownerChatId, ownerPhone })],
   );
+  await recordAuditLog({
+    clientId: user.clientId,
+    actorUserId: user.userId,
+    action: "client.settings.updated",
+    targetType: "client",
+    targetId: user.clientId,
+    metadata: {
+      fields: ["location", "ownerChatId", "ownerPhone"],
+    },
+  });
 
   return NextResponse.redirect(new URL("/client/settings", request.url), 303);
 }

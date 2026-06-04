@@ -282,9 +282,9 @@ export function OperatorKnowledgeSources({
                 </p>
               </div>
               <Link
-                href={`/operator/clients/${clientId}/knowledge#source-${source.id}`}
+                href={`/operator/clients/${clientId}/knowledge/${source.id}`}
                 className="text-sm font-medium text-accent"
-                title="Jump to source"
+                title="View source"
               >
                 View
               </Link>

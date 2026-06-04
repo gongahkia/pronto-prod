@@ -61,6 +61,7 @@ export async function processInboundMessage(
       `
         insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
         values ($1, $2, $3, $4, 'customer', $5, $6)
+        on conflict (channel_id, external_message_id) do nothing
         returning *
       `,
       [
@@ -72,9 +73,35 @@ export async function processInboundMessage(
         { raw: inbound.raw, channelKind: inbound.channelKind },
       ],
     );
+    const insertedMessage = message.rows[0];
+    if (!insertedMessage) {
+      const duplicate = await client.query<Message>(
+        "select * from messages where channel_id = $1 and external_message_id = $2",
+        [inbound.channelId, inbound.externalMessageId],
+      );
+      const duplicateMessage = duplicate.rows[0];
+      if (!duplicateMessage) {
+        throw new Error(
+          `Duplicate message insert was skipped but no existing row was found: ${inbound.externalMessageId}`,
+        );
+      }
+      return {
+        conversation: conversation.rows[0],
+        message: duplicateMessage,
+        duplicate: true,
+      };
+    }
 
-    return { conversation: conversation.rows[0], message: message.rows[0] };
+    return { conversation: conversation.rows[0], message: insertedMessage, duplicate: false };
   });
+
+  if (created.duplicate) {
+    return {
+      duplicate: true,
+      conversationId: created.message.conversation_id,
+      messageId: created.message.id,
+    };
+  }
 
   const result = inbound.unsupportedMediaType
     ? await createEscalation({

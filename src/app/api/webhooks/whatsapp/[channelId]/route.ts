@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { processInboundMessage } from "@/lib/channels/process";
 import {
   getWhatsAppChannel,
   normalizeWhatsAppPayload,
   verifyWhatsAppSignature,
 } from "@/lib/channels/whatsapp";
+import { processWebhookBatch } from "@/lib/channels/webhook-batch";
 import { checkRateLimit, isBodyWithinLimit } from "@/lib/http-limits";
 
 type Context = {
@@ -74,10 +74,5 @@ export async function POST(request: Request, context: Context) {
     return new NextResponse("Invalid JSON", { status: 400 });
   }
   const messages = normalizeWhatsAppPayload(channelId, payload);
-  const results = [];
-  for (const message of messages) {
-    results.push(await processInboundMessage(message));
-  }
-
-  return NextResponse.json({ ok: true, processed: results.length, results });
+  return NextResponse.json(await processWebhookBatch(messages));
 }

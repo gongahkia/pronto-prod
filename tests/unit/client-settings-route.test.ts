@@ -49,6 +49,14 @@ describe("client settings route", () => {
       "client-1",
       JSON.stringify({ ownerChatId: "12345", ownerPhone: "6590000000" }),
     ]);
+    expect(mocks.query.mock.calls[2][1]).toEqual([
+      "client-1",
+      "user-1",
+      "client.settings.updated",
+      "client",
+      "client-1",
+      { fields: ["location", "ownerChatId", "ownerPhone"] },
+    ]);
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("http://localhost/client/settings");
   });
