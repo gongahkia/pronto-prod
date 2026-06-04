@@ -70,7 +70,7 @@ export function OperatorEscalationList({
                   <input type="hidden" name="action" value="claim" />
                   <input type="hidden" name="escalationId" value={escalation.id} />
                   <input type="hidden" name="returnTo" value={returnPath} />
-                  <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium">
+                  <button className="ui-button px-3 py-2">
                     Claim
                   </button>
                 </form>
@@ -85,7 +85,7 @@ export function OperatorEscalationList({
                   className="w-full rounded-md border border-line px-3 py-2 text-sm"
                   placeholder="Owner reply to send back before resolving"
                 />
-                <button className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white">
+                <button className="ui-primary-button px-3 py-2">
                   Send reply and resolve
                 </button>
               </form>
@@ -196,12 +196,12 @@ export function OperatorChannelSetup({
                 defaultValue={JSON.stringify(channel.credentials, null, 2)}
                 className="w-full rounded-md border border-line px-3 py-2 font-mono text-xs"
               />
-              <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium">
+              <button className="ui-button px-3 py-2">
                 Save channel
               </button>
               <button
                 form={`health-${channel.id}`}
-                className="ml-2 rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium"
+                className="ml-2 ui-button px-3 py-2"
               >
                 Check health
               </button>
@@ -249,7 +249,7 @@ export function OperatorKnowledgeIngestion({ clientId }: { clientId: string }) {
         <p className="text-xs text-muted">
           Supports PDF, DOCX, TXT, Markdown, and CSV up to 8 MB. Uploaded files are converted into source text before embedding.
         </p>
-        <button className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white">
+        <button className="ui-primary-button px-4 py-2">
           Add source
         </button>
       </form>
@@ -391,7 +391,7 @@ export function OperatorConversationReview({
           </select>
           <input name="csat" type="number" min="1" max="5" className="rounded-md border border-line px-3 py-2 text-sm" placeholder="CSAT 1-5" />
           <input name="notes" className="rounded-md border border-line px-3 py-2 text-sm" placeholder="Review notes" />
-          <button className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white sm:col-span-2">
+          <button className="ui-primary-button px-4 py-2 sm:col-span-2">
             Save review
           </button>
         </form>
@@ -413,7 +413,7 @@ export function OperatorOffboardingPanel({ client }: { client: Client }) {
           <p className="text-sm text-muted">
             Export conversations, knowledge sources, brand voice, configuration, reviews, and redacted channel setup.
           </p>
-          <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium">
+          <button className="ui-button px-3 py-2">
             Export client data
           </button>
         </form>

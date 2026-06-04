@@ -68,7 +68,7 @@ export default async function ClientKnowledgeSourcePage({
               className="w-full rounded-md border border-line px-3 py-2 font-mono text-xs font-normal"
             />
           </label>
-          <button className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white">
+          <button className="ui-primary-button px-4 py-2">
             Save changes
           </button>
         </form>

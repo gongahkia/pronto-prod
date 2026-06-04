@@ -43,7 +43,7 @@ export default async function ClientPage() {
             conversations.map((conversation) => (
               <div
                 key={conversation.id}
-                className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-4 p-4 transition-colors hover:bg-surface-hover sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -64,7 +64,7 @@ export default async function ClientPage() {
                 {conversation.active_escalation_id ? (
                   <Link
                     href={`/client/escalations#escalation-${conversation.active_escalation_id}`}
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accent-dark"
+                    className="ui-primary-button shrink-0 gap-2 px-3 py-2"
                   >
                     Open triage
                     <ArrowRight size={16} />
