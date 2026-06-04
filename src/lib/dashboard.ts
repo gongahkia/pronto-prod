@@ -175,10 +175,19 @@ export async function getClientConversationTriage(
         limit 1
       ) lm on true
       left join lateral (
-        select id, status, reason_code
-        from escalations
-        where conversation_id = c.id and status <> 'resolved'
-        order by created_at desc
+        select e.id, e.status, e.reason_code
+        from escalations e
+        left join lateral (
+          select status
+          from outbound_messages
+          where escalation_id = e.id
+            and metadata->>'purpose' = 'escalation_resolution_reply'
+          order by created_at desc
+          limit 1
+        ) owner_reply on true
+        where e.conversation_id = c.id
+          and ${actionableEscalationCondition}
+        order by e.created_at desc
         limit 1
       ) ae on true
       where c.client_id = $1
@@ -215,10 +224,19 @@ export async function getOperatorConversationTriage(
         limit 1
       ) lm on true
       left join lateral (
-        select id, status, reason_code
-        from escalations
-        where conversation_id = c.id and status <> 'resolved'
-        order by created_at desc
+        select e.id, e.status, e.reason_code
+        from escalations e
+        left join lateral (
+          select status
+          from outbound_messages
+          where escalation_id = e.id
+            and metadata->>'purpose' = 'escalation_resolution_reply'
+          order by created_at desc
+          limit 1
+        ) owner_reply on true
+        where e.conversation_id = c.id
+          and ${actionableEscalationCondition}
+        order by e.created_at desc
         limit 1
       ) ae on true
       order by c.last_message_at desc
@@ -227,6 +245,52 @@ export async function getOperatorConversationTriage(
     [limit],
   );
   return result.rows;
+}
+
+export async function getConversationTriageDetail(input: {
+  clientId: string;
+  conversationId: string;
+}): Promise<ClientConversationTriage | null> {
+  const result = await query<ClientConversationTriage>(
+    `
+      select
+        c.*,
+        ch.kind as channel_kind,
+        lm.body as last_message,
+        lm.sender_role as last_sender_role,
+        ae.id as active_escalation_id,
+        ae.status as active_escalation_status,
+        ae.reason_code as active_escalation_reason_code
+      from conversations c
+      join channels ch on ch.id = c.channel_id
+      left join lateral (
+        select body, sender_role
+        from messages
+        where conversation_id = c.id
+        order by created_at desc
+        limit 1
+      ) lm on true
+      left join lateral (
+        select e.id, e.status, e.reason_code
+        from escalations e
+        left join lateral (
+          select status
+          from outbound_messages
+          where escalation_id = e.id
+            and metadata->>'purpose' = 'escalation_resolution_reply'
+          order by created_at desc
+          limit 1
+        ) owner_reply on true
+        where e.conversation_id = c.id
+          and ${actionableEscalationCondition}
+        order by e.created_at desc
+        limit 1
+      ) ae on true
+      where c.client_id = $1 and c.id = $2
+    `,
+    [input.clientId, input.conversationId],
+  );
+  return result.rows[0] ?? null;
 }
 
 export async function getConversationMessages(
@@ -276,6 +340,47 @@ export async function getOpenEscalations(
     clientId ? [clientId] : [],
   );
   return result.rows;
+}
+
+export async function getConversationActionableEscalation(input: {
+  clientId: string;
+  conversationId: string;
+}): Promise<EscalationWithContext | null> {
+  const result = await query<EscalationWithContext>(
+    `
+      select
+        e.*,
+        cl.name as client_name,
+        m.body as customer_message,
+        c.customer_handle,
+        ch.kind as channel_kind,
+        owner_reply.id as owner_resolution_outbound_id,
+        owner_reply.status as owner_resolution_outbound_status,
+        owner_reply.last_error as owner_resolution_outbound_error,
+        owner_reply.attempt_count as owner_resolution_outbound_attempt_count,
+        owner_reply.sent_at as owner_resolution_outbound_sent_at
+      from escalations e
+      join clients cl on cl.id = e.client_id
+      join conversations c on c.id = e.conversation_id
+      join channels ch on ch.id = c.channel_id
+      join messages m on m.id = e.message_id
+      left join lateral (
+        select id, status, last_error, attempt_count, sent_at
+        from outbound_messages
+        where escalation_id = e.id
+          and metadata->>'purpose' = 'escalation_resolution_reply'
+        order by created_at desc
+        limit 1
+      ) owner_reply on true
+      where e.client_id = $1
+        and e.conversation_id = $2
+        and ${actionableEscalationCondition}
+      order by e.created_at desc
+      limit 1
+    `,
+    [input.clientId, input.conversationId],
+  );
+  return result.rows[0] ?? null;
 }
 
 export async function getKnowledgeSources(

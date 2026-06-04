@@ -33,7 +33,7 @@ export default async function OperatorConversationsPage() {
             conversations.map((conversation) => (
               <Link
                 key={conversation.id}
-                href={`/operator/clients/${conversation.client_id}/conversations?conversationId=${conversation.id}`}
+                href={`/operator/clients/${conversation.client_id}/conversations/${conversation.id}`}
                 className="flex flex-col gap-4 p-4 hover:bg-surface-hover sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">

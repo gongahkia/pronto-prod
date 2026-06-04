@@ -63,7 +63,7 @@ export default async function ClientPage() {
 
                 {conversation.active_escalation_id ? (
                   <Link
-                    href={`/client/escalations#escalation-${conversation.active_escalation_id}`}
+                    href={`/client/conversations/${conversation.id}`}
                     className="ui-primary-button shrink-0 gap-2 px-3 py-2"
                   >
                     Open triage

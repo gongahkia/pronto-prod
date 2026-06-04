@@ -93,7 +93,7 @@ export default async function OperatorPage() {
                     />
                   </div>
                   <Link
-                    href={`/operator/clients/${escalation.client_id}/escalations#escalation-${escalation.id}`}
+                    href={`/operator/clients/${escalation.client_id}/conversations/${escalation.conversation_id}`}
                     className="mt-2 block text-sm font-medium text-accent"
                   >
                     {escalation.client_name}
@@ -115,7 +115,7 @@ export default async function OperatorPage() {
           {conversations.map((conversation) => (
             <Link
               key={conversation.id}
-              href={`/operator/clients/${conversation.client_id}/conversations?conversationId=${conversation.id}`}
+              href={`/operator/clients/${conversation.client_id}/conversations/${conversation.id}`}
               className="block p-4 hover:bg-surface-hover"
             >
               <div className="flex flex-wrap items-center gap-2">

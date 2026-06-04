@@ -8,11 +8,10 @@ type OperatorNavItem = {
   key: OperatorTab;
 };
 
-export type OperatorTab = "clients" | "escalations" | "conversations" | "quality" | "settings";
+export type OperatorTab = "clients" | "conversations" | "quality" | "settings";
 
 const operatorItems: OperatorNavItem[] = [
   { href: "/operator", label: "Clients", key: "clients" },
-  { href: "/operator/escalations", label: "Escalations", key: "escalations" },
   { href: "/operator/conversations", label: "Conversations", key: "conversations" },
   { href: "/operator/quality", label: "Quality", key: "quality" },
   { href: "/operator/settings", label: "Settings", key: "settings" },
@@ -48,7 +47,6 @@ export type OperatorClientTab =
   | "overview"
   | "channels"
   | "knowledge"
-  | "escalations"
   | "conversations"
   | "test"
   | "offboarding";
@@ -57,7 +55,6 @@ const clientItems: OperatorClientNavItem[] = [
   { href: (clientId) => `/operator/clients/${clientId}`, label: "Overview", key: "overview" },
   { href: (clientId) => `/operator/clients/${clientId}/channels`, label: "Channels", key: "channels" },
   { href: (clientId) => `/operator/clients/${clientId}/knowledge`, label: "Knowledge", key: "knowledge" },
-  { href: (clientId) => `/operator/clients/${clientId}/escalations`, label: "Escalations", key: "escalations" },
   { href: (clientId) => `/operator/clients/${clientId}/conversations`, label: "Conversations", key: "conversations" },
   { href: (clientId) => `/operator/clients/${clientId}/test`, label: "Test", key: "test" },
   { href: (clientId) => `/operator/clients/${clientId}/offboarding`, label: "Offboarding", key: "offboarding" },

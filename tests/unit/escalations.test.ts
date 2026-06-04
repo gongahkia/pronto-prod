@@ -45,7 +45,9 @@ describe("owner escalation notifications", () => {
     expect(mocks.sendChannelText).toHaveBeenCalledWith({
       channelId: "wa-channel",
       externalThreadId: "6590000000",
-      text: expect.stringContaining("Pronto escalation"),
+      text: expect.stringContaining(
+        "https://example.test/operator/clients/client-1/conversations/conversation-1",
+      ),
     });
     expect(mocks.query.mock.calls[2][1]).toEqual([
       "escalation-1",

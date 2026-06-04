@@ -75,9 +75,9 @@ export default async function ClientOperatorPage({
       detail: `${knowledge.length} sources`,
     },
     {
-      href: `/operator/clients/${client.id}/escalations`,
-      label: "Escalations",
-      detail: `${escalations.length} actionable`,
+      href: `/operator/clients/${client.id}/conversations`,
+      label: "Conversations",
+      detail: `${escalations.length} need triage`,
     },
     {
       href: `/operator/clients/${client.id}/test`,
@@ -158,11 +158,11 @@ export default async function ClientOperatorPage({
             <p className="p-4 text-sm text-muted">No conversations yet.</p>
           ) : (
             conversations.map((conversation) => (
-              <Link
-                key={conversation.id}
-                href={`/operator/clients/${client.id}/conversations?conversationId=${conversation.id}`}
-                className="block p-4 hover:bg-surface-hover"
-              >
+            <Link
+              key={conversation.id}
+              href={`/operator/clients/${client.id}/conversations/${conversation.id}`}
+              className="block p-4 hover:bg-surface-hover"
+            >
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium">{conversation.customer_name ?? conversation.customer_handle}</p>
                   <Badge tone={conversation.status === "escalated" ? "red" : "green"}>

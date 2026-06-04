@@ -54,7 +54,7 @@ export function OperatorEscalationList({
               </div>
               {showClient ? (
                 <Link
-                  href={`/operator/clients/${escalation.client_id}/escalations#escalation-${escalation.id}`}
+                  href={`/operator/clients/${escalation.client_id}/conversations/${escalation.conversation_id}`}
                   className="inline-flex items-center gap-2 text-sm font-medium text-accent"
                 >
                   {escalation.client_name}

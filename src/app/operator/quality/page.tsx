@@ -53,7 +53,7 @@ export default async function OperatorQualityPage() {
               conversations.map((conversation) => (
                 <Link
                   key={conversation.id}
-                  href={`/operator/clients/${conversation.client_id}/conversations?conversationId=${conversation.id}`}
+                  href={`/operator/clients/${conversation.client_id}/conversations/${conversation.id}`}
                   className="flex items-center justify-between gap-4 p-4 hover:bg-surface-hover"
                 >
                   <div className="min-w-0">
@@ -86,7 +86,7 @@ export default async function OperatorQualityPage() {
               escalations.map((escalation) => (
                 <Link
                   key={escalation.id}
-                  href={`/operator/clients/${escalation.client_id}/escalations#escalation-${escalation.id}`}
+                  href={`/operator/clients/${escalation.client_id}/conversations/${escalation.conversation_id}`}
                   className="block p-4 hover:bg-surface-hover"
                 >
                   <div className="flex flex-wrap items-center gap-2">
