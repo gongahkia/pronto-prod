@@ -23,18 +23,22 @@ export function AppShell({
             <p className="text-sm text-muted">AI customer service operations</p>
           </div>
           <nav className="flex items-center gap-3 text-sm">
-            <a
-              href="/operator"
-              className={active === "operator" ? "font-semibold text-accent" : "text-muted"}
-            >
-              Operator
-            </a>
-            <a
-              href="/client"
-              className={active === "client" ? "font-semibold text-accent" : "text-muted"}
-            >
-              Client
-            </a>
+            {user.role === "operator" ? (
+              <a
+                href="/operator"
+                className={active === "operator" ? "font-semibold text-accent" : "text-muted"}
+              >
+                Operator
+              </a>
+            ) : null}
+            {user.role === "client" ? (
+              <a
+                href="/client"
+                className={active === "client" ? "font-semibold text-accent" : "text-muted"}
+              >
+                Client
+              </a>
+            ) : null}
             <span className="hidden text-muted sm:inline">{user.email}</span>
             <form action="/api/auth/logout" method="post">
               <button

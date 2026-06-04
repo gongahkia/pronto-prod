@@ -1,4 +1,5 @@
 import { ArrowRight, MessageSquareWarning } from "lucide-react";
+import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import {
   getClients,
@@ -10,6 +11,7 @@ import { AppShell } from "@/components/shell";
 import { StatCard } from "@/components/stat-card";
 import { Badge } from "@/components/badge";
 import { DeliveryStatusBadge } from "@/components/delivery-status";
+import { OperatorNav } from "@/components/operator/operator-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +29,10 @@ export default async function OperatorPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Operator dashboard</h1>
         <p className="text-sm text-muted">
-          Configure clients, review agent behavior, and watch pilot quality.
+          Internal Pronto view for client setup, launch readiness, and urgent operations.
         </p>
       </div>
+      <OperatorNav active="clients" />
 
       <section className="grid gap-4 md:grid-cols-5">
         <StatCard label="Active clients" value={metrics.activeClients} />
@@ -50,7 +53,7 @@ export default async function OperatorPage() {
           </div>
           <div className="divide-y divide-line">
             {clients.map((client) => (
-              <a
+              <Link
                 key={client.id}
                 href={`/operator/clients/${client.id}`}
                 className="flex items-center justify-between gap-4 p-4 hover:bg-stone-50"
@@ -62,7 +65,7 @@ export default async function OperatorPage() {
                   </p>
                 </div>
                 <ArrowRight size={17} className="text-muted" />
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -89,12 +92,12 @@ export default async function OperatorPage() {
                       error={escalation.owner_notification_error}
                     />
                   </div>
-                  <a
-                    href={`/operator/clients/${escalation.client_id}#escalation-${escalation.id}`}
+                  <Link
+                    href={`/operator/clients/${escalation.client_id}/escalations#escalation-${escalation.id}`}
                     className="mt-2 block text-sm font-medium text-accent"
                   >
                     {escalation.client_name}
-                  </a>
+                  </Link>
                   <p className="mt-1 text-sm text-muted">{escalation.customer_message}</p>
                   <p className="mt-2 text-sm text-muted">{escalation.reason_detail}</p>
                 </div>
@@ -110,7 +113,11 @@ export default async function OperatorPage() {
         </div>
         <div className="divide-y divide-line">
           {conversations.map((conversation) => (
-            <div key={conversation.id} className="p-4">
+            <Link
+              key={conversation.id}
+              href={`/operator/clients/${conversation.client_id}/conversations?conversationId=${conversation.id}`}
+              className="block p-4 hover:bg-stone-50"
+            >
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium">{conversation.customer_name ?? conversation.customer_handle}</p>
                 <Badge tone={conversation.status === "escalated" ? "red" : "green"}>
@@ -118,7 +125,7 @@ export default async function OperatorPage() {
                 </Badge>
               </div>
               <p className="mt-1 text-sm text-muted">{conversation.last_message}</p>
-            </div>
+            </Link>
           ))}
         </div>
       </section>

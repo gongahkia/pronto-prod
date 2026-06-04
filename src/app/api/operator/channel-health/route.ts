@@ -8,6 +8,10 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const channelId = String(form.get("channelId") ?? "");
   const clientId = String(form.get("clientId") ?? "");
+  const returnTo = safeOperatorReturnPath(
+    String(form.get("returnTo") ?? ""),
+    `/operator/clients/${clientId}/channels`,
+  );
 
   if (!channelId || !clientId) {
     return NextResponse.json({ error: "channelId and clientId are required." }, { status: 400 });
@@ -19,5 +23,9 @@ export async function POST(request: Request) {
     [clientId, user.userId, channelId, health],
   );
 
-  return NextResponse.redirect(new URL(`/operator/clients/${clientId}`, request.url), 303);
+  return NextResponse.redirect(new URL(returnTo, request.url), 303);
+}
+
+function safeOperatorReturnPath(value: string, fallback: string): string {
+  return value.startsWith("/operator") && !value.startsWith("//") ? value : fallback;
 }

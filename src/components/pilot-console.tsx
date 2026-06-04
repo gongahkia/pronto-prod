@@ -47,8 +47,8 @@ export function PilotConsole({ clientId }: { clientId: string }) {
   return (
     <section className="rounded-lg border border-line bg-panel">
       <div className="border-b border-line p-4">
-        <h2 className="text-base font-semibold">Pilot QA console</h2>
-        <p className="text-sm text-muted">Stress-test the F&B agent without sending live channel traffic.</p>
+        <h2 className="text-base font-semibold">Test assistant</h2>
+        <p className="text-sm text-muted">Try customer questions without sending live channel traffic.</p>
       </div>
       <div className="flex h-72 flex-col gap-3 overflow-y-auto p-4">
         {entries.length === 0 ? (

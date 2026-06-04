@@ -13,6 +13,10 @@ export async function POST(request: Request) {
   const clientId = String(form.get("clientId") ?? "");
   const status = String(form.get("status") ?? "draft");
   const externalId = String(form.get("externalId") ?? "");
+  const returnTo = safeOperatorReturnPath(
+    String(form.get("returnTo") ?? ""),
+    `/operator/clients/${clientId}/channels`,
+  );
   if (!channelStatuses.includes(status as ChannelStatus)) {
     return NextResponse.json({ error: "Invalid channel status." }, { status: 400 });
   }
@@ -66,7 +70,7 @@ export async function POST(request: Request) {
     [clientId, user.userId, channelId, { status }],
   );
 
-  return NextResponse.redirect(new URL(`/operator/clients/${clientId}`, request.url), 303);
+  return NextResponse.redirect(new URL(returnTo, request.url), 303);
 }
 
 export function parseJsonObject(
@@ -82,4 +86,8 @@ export function parseJsonObject(
   } catch {
     return { ok: false, error: `Channel ${fieldName} must be valid JSON.` };
   }
+}
+
+function safeOperatorReturnPath(value: string, fallback: string): string {
+  return value.startsWith("/operator") && !value.startsWith("//") ? value : fallback;
 }

@@ -43,5 +43,5 @@ export async function POST(request: Request) {
     [user.clientId, JSON.stringify({ ownerChatId, ownerPhone })],
   );
 
-  return NextResponse.redirect(new URL("/client", request.url), 303);
+  return NextResponse.redirect(new URL("/client/settings", request.url), 303);
 }

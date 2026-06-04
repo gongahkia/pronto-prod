@@ -16,11 +16,30 @@ export type ConversationWithLastMessage = Conversation & {
   last_sender_role: string | null;
 };
 
+export type ClientConversationTriage = ConversationWithLastMessage & {
+  channel_kind: Channel["kind"];
+  active_escalation_id: string | null;
+  active_escalation_status: Escalation["status"] | null;
+  active_escalation_reason_code: string | null;
+};
+
+export type OperatorConversationTriage = ClientConversationTriage & {
+  client_name: string;
+};
+
 export type EscalationWithContext = Escalation & {
   client_name: string;
   customer_message: string;
   customer_handle: string | null;
   channel_kind: Channel["kind"];
+};
+
+export type KnowledgeSourceSummary = {
+  id: string;
+  title: string;
+  source_type: string;
+  created_at: Date;
+  chunk_count: string;
 };
 
 export async function getMetrics(clientId?: string): Promise<ClientMetricSummary> {
@@ -105,6 +124,84 @@ export async function getRecentConversations(
   return result.rows;
 }
 
+export async function getClientConversationTriage(
+  clientId: string,
+  limit = 30,
+): Promise<ClientConversationTriage[]> {
+  const result = await query<ClientConversationTriage>(
+    `
+      select
+        c.*,
+        ch.kind as channel_kind,
+        lm.body as last_message,
+        lm.sender_role as last_sender_role,
+        ae.id as active_escalation_id,
+        ae.status as active_escalation_status,
+        ae.reason_code as active_escalation_reason_code
+      from conversations c
+      join channels ch on ch.id = c.channel_id
+      left join lateral (
+        select body, sender_role
+        from messages
+        where conversation_id = c.id
+        order by created_at desc
+        limit 1
+      ) lm on true
+      left join lateral (
+        select id, status, reason_code
+        from escalations
+        where conversation_id = c.id and status <> 'resolved'
+        order by created_at desc
+        limit 1
+      ) ae on true
+      where c.client_id = $1
+      order by c.last_message_at desc
+      limit $2
+    `,
+    [clientId, limit],
+  );
+  return result.rows;
+}
+
+export async function getOperatorConversationTriage(
+  limit = 50,
+): Promise<OperatorConversationTriage[]> {
+  const result = await query<OperatorConversationTriage>(
+    `
+      select
+        c.*,
+        cl.name as client_name,
+        ch.kind as channel_kind,
+        lm.body as last_message,
+        lm.sender_role as last_sender_role,
+        ae.id as active_escalation_id,
+        ae.status as active_escalation_status,
+        ae.reason_code as active_escalation_reason_code
+      from conversations c
+      join clients cl on cl.id = c.client_id
+      join channels ch on ch.id = c.channel_id
+      left join lateral (
+        select body, sender_role
+        from messages
+        where conversation_id = c.id
+        order by created_at desc
+        limit 1
+      ) lm on true
+      left join lateral (
+        select id, status, reason_code
+        from escalations
+        where conversation_id = c.id and status <> 'resolved'
+        order by created_at desc
+        limit 1
+      ) ae on true
+      order by c.last_message_at desc
+      limit $1
+    `,
+    [limit],
+  );
+  return result.rows;
+}
+
 export async function getConversationMessages(
   conversationId: string,
 ): Promise<Message[]> {
@@ -140,14 +237,10 @@ export async function getOpenEscalations(
   return result.rows;
 }
 
-export async function getKnowledgeSources(clientId: string) {
-  const result = await query<{
-    id: string;
-    title: string;
-    source_type: string;
-    created_at: Date;
-    chunk_count: string;
-  }>(
+export async function getKnowledgeSources(
+  clientId: string,
+): Promise<KnowledgeSourceSummary[]> {
+  const result = await query<KnowledgeSourceSummary>(
     `
       select
         ks.id,

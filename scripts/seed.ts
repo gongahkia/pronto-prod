@@ -10,6 +10,11 @@ const CONSOLE_CHANNEL_ID = "00000000-0000-4000-8000-000000000201";
 const WHATSAPP_CHANNEL_ID = "00000000-0000-4000-8000-000000000202";
 const TELEGRAM_CHANNEL_ID = "00000000-0000-4000-8000-000000000203";
 const SOURCE_ID = "00000000-0000-4000-8000-000000000301";
+const MENU_SOURCE_ID = "00000000-0000-4000-8000-000000000302";
+const RESERVATION_SOURCE_ID = "00000000-0000-4000-8000-000000000303";
+const DELIVERY_SOURCE_ID = "00000000-0000-4000-8000-000000000304";
+const DIETARY_SOURCE_ID = "00000000-0000-4000-8000-000000000305";
+const REFUND_SOURCE_ID = "00000000-0000-4000-8000-000000000306";
 const CONVERSATION_ID = "00000000-0000-4000-8000-000000000401";
 
 const fnbKnowledge = `
@@ -50,6 +55,76 @@ Refunds and complaints:
 Refund disputes, missing item claims, late delivery complaints, and negative customer sentiment must be escalated to the owner.
 The agent should not issue refunds, admit fault, or promise compensation.
 `;
+
+const seedKnowledgeSources = [
+  {
+    id: SOURCE_ID,
+    title: "North Bridge Nasi operating pack",
+    sourceType: "seed",
+    content: fnbKnowledge,
+    metadata: { vertical: "fnb", seed: true },
+  },
+  {
+    id: MENU_SOURCE_ID,
+    title: "Menu and pricing",
+    sourceType: "client_seed",
+    content: `
+Signature Nasi Lemak Bowl is SGD 12.80 and includes coconut rice, ayam berempah, ikan bilis, peanuts, cucumber, egg, and sambal.
+Grilled Chicken Rendang Bowl is SGD 14.50.
+Sambal Prawn Bowl is SGD 15.80.
+Vegetarian Tempeh Bowl is SGD 11.80.
+Kopi is SGD 2.20. Iced Kopi is SGD 2.80. Bandung Spritz is SGD 4.50.
+The default spice level is medium. Customers may request less spicy sambal.
+    `.trim(),
+    metadata: { vertical: "fnb", category: "menu", seed: true },
+  },
+  {
+    id: RESERVATION_SOURCE_ID,
+    title: "Reservations policy",
+    sourceType: "client_seed",
+    content: `
+Tables for 1 to 6 guests can be reserved for lunch or dinner.
+Same-day reservations are accepted only if there is available capacity.
+The agent may explain how to reserve but must not create, cancel, or modify a booking in v1.
+For groups above 6 guests, private events, or urgent same-day timing changes, escalate to the owner.
+    `.trim(),
+    metadata: { vertical: "fnb", category: "reservations", seed: true },
+  },
+  {
+    id: DELIVERY_SOURCE_ID,
+    title: "Delivery and corporate orders",
+    sourceType: "client_seed",
+    content: `
+Islandwide delivery is available through GrabFood and Deliveroo.
+Direct corporate orders above SGD 150 can be arranged with one day notice.
+The agent may provide delivery options but must not promise a delivery time that is not in the source data.
+    `.trim(),
+    metadata: { vertical: "fnb", category: "delivery", seed: true },
+  },
+  {
+    id: DIETARY_SOURCE_ID,
+    title: "Dietary and allergen notes",
+    sourceType: "client_seed",
+    content: `
+Vegetarian option is available with tempeh.
+Peanuts, egg, shellfish, and gluten may be present in the kitchen.
+All allergy questions must be answered cautiously from this policy and escalated if the customer has severe allergies.
+The food is not halal-certified yet, but no pork or lard is used.
+    `.trim(),
+    metadata: { vertical: "fnb", category: "dietary", seed: true },
+  },
+  {
+    id: REFUND_SOURCE_ID,
+    title: "Refunds and complaints policy",
+    sourceType: "client_seed",
+    content: `
+Refund disputes, missing item claims, late delivery complaints, and negative customer sentiment must be escalated to the owner.
+The agent should not issue refunds, admit fault, or promise compensation.
+The owner should review the conversation and send the final customer reply.
+    `.trim(),
+    metadata: { vertical: "fnb", category: "complaints", seed: true },
+  },
+];
 
 async function main() {
   const pool = getPool();
@@ -134,37 +209,50 @@ async function main() {
     [CONSOLE_CHANNEL_ID, CLIENT_ID, WHATSAPP_CHANNEL_ID, TELEGRAM_CHANNEL_ID],
   );
 
-  await pool.query(
-    `
-      insert into knowledge_sources (id, client_id, title, source_type, content, metadata)
-      values ($1, $2, 'North Bridge Nasi operating pack', 'seed', $3, '{"vertical":"fnb"}'::jsonb)
-      on conflict (id) do update set content = excluded.content
-    `,
-    [SOURCE_ID, CLIENT_ID, fnbKnowledge],
-  );
-
-  await pool.query("delete from knowledge_chunks where source_id = $1", [
-    SOURCE_ID,
-  ]);
-
-  const chunks = chunkText(fnbKnowledge, { maxCharacters: 900, overlap: 120 });
-  for (const [index, chunk] of chunks.entries()) {
-    const embedding = deterministicEmbedding(chunk.content);
+  for (const source of seedKnowledgeSources) {
     await pool.query(
       `
-        insert into knowledge_chunks (source_id, client_id, chunk_index, content, token_estimate, embedding, metadata)
-        values ($1, $2, $3, $4, $5, $6::vector, $7)
+        insert into knowledge_sources (id, client_id, title, source_type, content, metadata)
+        values ($1, $2, $3, $4, $5, $6)
+        on conflict (id) do update set
+          title = excluded.title,
+          source_type = excluded.source_type,
+          content = excluded.content,
+          metadata = excluded.metadata
       `,
       [
-        SOURCE_ID,
+        source.id,
         CLIENT_ID,
-        index,
-        chunk.content,
-        chunk.tokenEstimate,
-        vectorLiteral(embedding),
-        { seed: true },
+        source.title,
+        source.sourceType,
+        source.content,
+        source.metadata,
       ],
     );
+
+    await pool.query("delete from knowledge_chunks where source_id = $1", [
+      source.id,
+    ]);
+
+    const chunks = chunkText(source.content, { maxCharacters: 900, overlap: 120 });
+    for (const [index, chunk] of chunks.entries()) {
+      const embedding = deterministicEmbedding(chunk.content);
+      await pool.query(
+        `
+          insert into knowledge_chunks (source_id, client_id, chunk_index, content, token_estimate, embedding, metadata)
+          values ($1, $2, $3, $4, $5, $6::vector, $7)
+        `,
+        [
+          source.id,
+          CLIENT_ID,
+          index,
+          chunk.content,
+          chunk.tokenEstimate,
+          vectorLiteral(embedding),
+          { seed: true },
+        ],
+      );
+    }
   }
 
   await pool.query(
