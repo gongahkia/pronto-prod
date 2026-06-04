@@ -234,6 +234,33 @@ async function main() {
       source.id,
     ]);
 
+    await pool.query(
+      `
+        insert into knowledge_source_versions (
+          source_id,
+          client_id,
+          version_number,
+          title,
+          content,
+          metadata,
+          change_type,
+          actor_user_id
+        )
+        values ($1, $2, 1, $3, $4, $5, 'created', null)
+        on conflict (source_id, version_number) do update set
+          title = excluded.title,
+          content = excluded.content,
+          metadata = excluded.metadata
+      `,
+      [
+        source.id,
+        CLIENT_ID,
+        source.title,
+        source.content,
+        source.metadata,
+      ],
+    );
+
     const chunks = chunkText(source.content, { maxCharacters: 900, overlap: 120 });
     for (const [index, chunk] of chunks.entries()) {
       const embedding = deterministicEmbedding(chunk.content);

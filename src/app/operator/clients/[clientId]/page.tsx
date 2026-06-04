@@ -2,6 +2,7 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { getAgentConfigDetail } from "@/lib/agent/config";
 import {
   getChannels,
   getClient,
@@ -11,6 +12,7 @@ import {
   getRecentConversations,
 } from "@/lib/dashboard";
 import { AppShell } from "@/components/shell";
+import { OperatorAgentConfigPanel } from "@/components/agent-config-panels";
 import { Badge } from "@/components/badge";
 import {
   OperatorClientHeader,
@@ -32,12 +34,13 @@ export default async function ClientOperatorPage({
     notFound();
   }
 
-  const [metrics, channels, knowledge, escalations, conversations] = await Promise.all([
+  const [metrics, channels, knowledge, escalations, conversations, agentConfig] = await Promise.all([
     getMetrics(client.id),
     getChannels(client.id),
     getKnowledgeSources(client.id),
     getOpenEscalations(client.id),
     getRecentConversations(client.id, 5),
+    getAgentConfigDetail(client.id),
   ]);
   const activeChannels = channels.filter((channel) => channel.status === "active").length;
   const setupChannels = channels.filter((channel) => channel.status !== "disabled").length;
@@ -56,7 +59,7 @@ export default async function ClientOperatorPage({
     {
       href: `/operator/clients/${client.id}/escalations`,
       label: "Escalations",
-      detail: `${escalations.length} active`,
+      detail: `${escalations.length} actionable`,
     },
     {
       href: `/operator/clients/${client.id}/test`,
@@ -73,7 +76,7 @@ export default async function ClientOperatorPage({
       <section className="grid gap-4 md:grid-cols-4">
         <StatCard label="Conversations" value={metrics.conversations} />
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
-        <StatCard label="Open escalations" value={metrics.openEscalations} />
+        <StatCard label="Actionable escalations" value={metrics.openEscalations} />
         <StatCard label="Hallucinations" value={metrics.hallucinationIncidents} />
       </section>
 
@@ -100,7 +103,7 @@ export default async function ClientOperatorPage({
               <span className="font-medium">{knowledge.length}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span className="text-muted">Open escalations</span>
+              <span className="text-muted">Actionable escalations</span>
               <span className="font-medium">{escalations.length}</span>
             </div>
           </div>
@@ -153,6 +156,10 @@ export default async function ClientOperatorPage({
             ))
           )}
         </div>
+      </section>
+
+      <section className="mt-6">
+        <OperatorAgentConfigPanel clientId={client.id} detail={agentConfig} />
       </section>
     </AppShell>
   );

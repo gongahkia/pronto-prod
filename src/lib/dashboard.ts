@@ -49,6 +49,13 @@ export type KnowledgeSourceSummary = {
   chunk_count: string;
 };
 
+const actionableEscalationCondition = `
+  (
+    e.status <> 'resolved'
+    or owner_reply.status in ('pending', 'sending', 'failed')
+  )
+`;
+
 export async function getMetrics(clientId?: string): Promise<ClientMetricSummary> {
   const params = clientId ? [clientId] : [];
   const clientFilter = clientId ? "where id = $1" : "";
@@ -63,7 +70,20 @@ export async function getMetrics(clientId?: string): Promise<ClientMetricSummary
       ),
       query<{ count: string }>(`select count(*) from escalations ${relationFilter}`, params),
       query<{ count: string }>(
-        `select count(*) from escalations ${clientId ? "where client_id = $1 and" : "where"} status = 'open'`,
+        `
+          select count(*)
+          from escalations e
+          left join lateral (
+            select status
+            from outbound_messages
+            where escalation_id = e.id
+              and metadata->>'purpose' = 'escalation_resolution_reply'
+            order by created_at desc
+            limit 1
+          ) owner_reply on true
+          ${clientId ? "where e.client_id = $1 and" : "where"}
+            ${actionableEscalationCondition}
+        `,
         params,
       ),
       query<{ count: string }>(
@@ -249,10 +269,7 @@ export async function getOpenEscalations(
         limit 1
       ) owner_reply on true
       ${clientId ? "where e.client_id = $1 and" : "where"}
-        (
-          e.status <> 'resolved'
-          or owner_reply.status in ('pending', 'sending', 'failed')
-        )
+        ${actionableEscalationCondition}
       order by e.created_at desc
       limit 20
     `,

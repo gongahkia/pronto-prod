@@ -2,9 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { getClient } from "@/lib/dashboard";
-import { getKnowledgeSourceForClient } from "@/lib/knowledge/manage";
+import {
+  getKnowledgeSourceForClient,
+  getKnowledgeSourceVersionsForClient,
+} from "@/lib/knowledge/manage";
 import { AppShell } from "@/components/shell";
 import { ClientNav } from "@/components/client-nav";
+import {
+  KnowledgeSourceDiagnostics,
+  KnowledgeSourceVersionHistory,
+} from "@/components/knowledge-source-panels";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +26,10 @@ export default async function ClientKnowledgeSourcePage({
   }
 
   const { sourceId } = await params;
-  const [client, source] = await Promise.all([
+  const [client, source, versions] = await Promise.all([
     getClient(user.clientId),
     getKnowledgeSourceForClient(sourceId, user.clientId),
+    getKnowledgeSourceVersionsForClient(sourceId, user.clientId),
   ]);
   if (!client) {
     throw new Error("Client record not found.");
@@ -46,8 +54,15 @@ export default async function ClientKnowledgeSourcePage({
           <h2 className="mt-2 text-base font-semibold">{source.title}</h2>
           <p className="text-sm text-muted">
             {source.source_type} · {source.chunk_count} chunks
+            {source.current_version ? ` · v${source.current_version}` : ""}
           </p>
         </div>
+
+        <KnowledgeSourceDiagnostics metadata={source.metadata} />
+        <KnowledgeSourceVersionHistory
+          currentVersion={source.current_version ? Number(source.current_version) : null}
+          versions={versions}
+        />
 
         <form action={`/api/client/knowledge/${source.id}`} method="post" className="space-y-4 p-4">
           <input type="hidden" name="action" value="update" />

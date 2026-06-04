@@ -25,7 +25,7 @@ export default async function OperatorEscalationsPage() {
       <OperatorNav active="escalations" />
 
       <section className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Open escalations" value={metrics.openEscalations} />
+        <StatCard label="Actionable escalations" value={metrics.openEscalations} />
         <StatCard label="Total escalations" value={metrics.escalations} />
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
       </section>

@@ -1,8 +1,10 @@
 import { requireUser } from "@/lib/auth";
+import { getAgentConfigDetail } from "@/lib/agent/config";
 import { getClient, getMetrics } from "@/lib/dashboard";
 import { AppShell } from "@/components/shell";
 import { ClientNav } from "@/components/client-nav";
 import { StatCard } from "@/components/stat-card";
+import { ClientAgentConfigPreview } from "@/components/agent-config-panels";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +14,10 @@ export default async function ClientSettingsPage() {
     throw new Error("Client user is missing a client assignment.");
   }
 
-  const [client, metrics] = await Promise.all([
+  const [client, metrics, agentConfig] = await Promise.all([
     getClient(user.clientId),
     getMetrics(user.clientId),
+    getAgentConfigDetail(user.clientId),
   ]);
   if (!client) {
     throw new Error("Client record not found.");
@@ -31,7 +34,7 @@ export default async function ClientSettingsPage() {
       <section className="grid gap-4 md:grid-cols-4">
         <StatCard label="Conversations" value={metrics.conversations} />
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
-        <StatCard label="Open escalations" value={metrics.openEscalations} />
+        <StatCard label="Actionable escalations" value={metrics.openEscalations} />
         <StatCard label="CSAT" value="Pending" hint="Client-facing collection hook" />
       </section>
 
@@ -63,6 +66,8 @@ export default async function ClientSettingsPage() {
           </button>
         </form>
       </section>
+
+      <ClientAgentConfigPreview detail={agentConfig} />
     </AppShell>
   );
 }

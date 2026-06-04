@@ -84,7 +84,10 @@ export async function runAgentForMessage(input: {
     };
   }
 
-  const precheck = evaluatePreGenerationGuardrails(input.customerMessage);
+  const precheck = evaluatePreGenerationGuardrails(
+    input.customerMessage,
+    config.escalation_rules,
+  );
   if (precheck.shouldEscalate) {
     return createEscalation({
       ...input,

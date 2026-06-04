@@ -11,6 +11,20 @@ export type KnowledgeSourceDetail = {
   metadata: Record<string, unknown>;
   created_at: Date;
   chunk_count: string;
+  current_version: string | null;
+};
+
+export type KnowledgeSourceVersion = {
+  id: string;
+  source_id: string;
+  client_id: string;
+  version_number: number;
+  title: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  change_type: string;
+  actor_user_id: string | null;
+  created_at: Date;
 };
 
 export async function getKnowledgeSourceForClient(
@@ -21,15 +35,35 @@ export async function getKnowledgeSourceForClient(
     `
       select
         ks.*,
-        count(kc.id) as chunk_count
+        count(distinct kc.id) as chunk_count,
+        max(ksv.version_number) as current_version
       from knowledge_sources ks
       left join knowledge_chunks kc on kc.source_id = ks.id
+      left join knowledge_source_versions ksv on ksv.source_id = ks.id
       where ks.id = $1 and ks.client_id = $2
       group by ks.id
     `,
     [sourceId, clientId],
   );
   return result.rows[0] ?? null;
+}
+
+export async function getKnowledgeSourceVersionsForClient(
+  sourceId: string,
+  clientId: string,
+  limit = 8,
+): Promise<KnowledgeSourceVersion[]> {
+  const result = await query<KnowledgeSourceVersion>(
+    `
+      select *
+      from knowledge_source_versions
+      where source_id = $1 and client_id = $2
+      order by version_number desc
+      limit $3
+    `,
+    [sourceId, clientId, limit],
+  );
+  return result.rows;
 }
 
 export async function updateKnowledgeSourceForClient(input: {
@@ -65,29 +99,89 @@ export async function updateKnowledgeSourceForClient(input: {
   );
 
   return transaction(async (client) => {
+    const editedAt = new Date().toISOString();
+    const updatedMetadata = {
+      ...existing.metadata,
+      lastEditedBy: input.actorUserId ?? null,
+      lastEditedAt: editedAt,
+    };
+    const versionResult = await client.query<{ max_version: string | null }>(
+      `
+        select max(version_number) as max_version
+        from knowledge_source_versions
+        where source_id = $1 and client_id = $2
+      `,
+      [input.sourceId, input.clientId],
+    );
+    const currentVersion = Number(versionResult.rows[0]?.max_version ?? 0);
+    if (!currentVersion) {
+      await client.query(
+        `
+          insert into knowledge_source_versions (
+            source_id,
+            client_id,
+            version_number,
+            title,
+            content,
+            metadata,
+            change_type,
+            actor_user_id,
+            created_at
+          )
+          values ($1, $2, 1, $3, $4, $5, 'created', null, $6)
+          on conflict (source_id, version_number) do nothing
+        `,
+        [
+          existing.id,
+          existing.client_id,
+          existing.title,
+          existing.content,
+          existing.metadata,
+          existing.created_at,
+        ],
+      );
+    }
+    const nextVersion = currentVersion ? currentVersion + 1 : 2;
+
     const updated = await client.query<{ id: string }>(
       `
         update knowledge_sources
         set title = $3,
             content = $4,
-            metadata = metadata || $5::jsonb
+            metadata = $5::jsonb
         where id = $1 and client_id = $2
         returning id
       `,
-      [
-        input.sourceId,
-        input.clientId,
-        input.title,
-        input.content,
-        {
-          lastEditedBy: input.actorUserId ?? null,
-          lastEditedAt: new Date().toISOString(),
-        },
-      ],
+      [input.sourceId, input.clientId, input.title, input.content, updatedMetadata],
     );
     if (!updated.rowCount) {
       return null;
     }
+
+    await client.query(
+      `
+        insert into knowledge_source_versions (
+          source_id,
+          client_id,
+          version_number,
+          title,
+          content,
+          metadata,
+          change_type,
+          actor_user_id
+        )
+        values ($1, $2, $3, $4, $5, $6, 'updated', $7)
+      `,
+      [
+        input.sourceId,
+        input.clientId,
+        nextVersion,
+        input.title,
+        input.content,
+        updatedMetadata,
+        input.actorUserId ?? null,
+      ],
+    );
 
     await client.query("delete from knowledge_chunks where source_id = $1", [
       input.sourceId,

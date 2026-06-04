@@ -19,20 +19,20 @@ x 2026-06-04 (A) 2026-06-04 Add webhook batch partial-failure handling so one ba
 x 2026-05-17 (A) 2026-05-17 Add per-client rate limits and inbound message size limits for webhook and console endpoints +Security @engineering phase:pilot
 (B) 2026-06-04 Move rate limits from process memory to a shared store before multi-instance or serverless deployment +Security @engineering phase:tighten
 x 2026-06-04 (A) 2026-05-17 Add real website URL ingestion with crawl depth controls, static content extraction, and robots-aware warnings stored on source metadata +RAG @engineering phase:pilot
-(A) 2026-06-04 Surface knowledge-source metadata warnings in client and operator source detail pages, especially website crawl robots and fetch warnings +RAG @dashboard phase:pilot
+x 2026-06-04 (A) 2026-06-04 Surface knowledge-source metadata warnings in client and operator source detail pages, especially website crawl robots and fetch warnings +RAG @dashboard phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add uploaded document ingestion for PDF, DOCX, TXT, Markdown, and CSV knowledge sources +RAG @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add menu or product CSV ingestion mapped to structured source metadata for F&B and e-commerce demos +RAG @engineering phase:pilot
-(A) 2026-05-17 Add knowledge source versioning so policy changes can be traced to the exact answer source +RAG @engineering phase:pilot
+x 2026-06-04 (A) 2026-05-17 Add knowledge source versioning so policy changes can be traced to the exact answer source +RAG @engineering phase:pilot
 x 2026-06-04 (A) 2026-06-04 Add operator-scoped knowledge source view, edit, and delete screens so Pronto admins can fix client knowledge without switching into a client session +RAG @dashboard phase:pilot
 (A) 2026-05-17 Add knowledge refresh workflow for monthly check-ins and client policy updates +RAG @ops phase:pilot
-(A) 2026-05-17 Add per-client retrieval threshold UI and pilot tuning history +AgentCore @dashboard phase:pilot
-(A) 2026-05-17 Add prompt preview UI showing system preamble, brand voice, escalation rules, and allowed scope +AgentCore @dashboard phase:pilot
+x 2026-06-04 (A) 2026-05-17 Add per-client retrieval threshold UI and pilot tuning history +AgentCore @dashboard phase:pilot
+x 2026-06-04 (A) 2026-05-17 Add prompt preview UI showing system preamble, brand voice, escalation rules, and allowed scope +AgentCore @dashboard phase:pilot
 (A) 2026-05-17 Add brand voice builder from website copy, past chats, marketing copy, and founder writing samples +BrandVoice @engineering phase:pilot
 (A) 2026-05-17 Add editable brand voice document with formality, energy, vocabulary, response patterns, and banned phrases +BrandVoice @dashboard phase:pilot
 (A) 2026-05-17 Add few-shot response examples per client and include them in prompt construction +BrandVoice @engineering phase:pilot
 (A) 2026-05-17 Add multilingual behavior tests for English, Mandarin, Bahasa Melayu, and Singapore code-switching +AgentCore @quality phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add AI disclosure behavior when a customer directly asks whether the agent is human +Compliance @engineering phase:pilot
-(A) 2026-05-17 Wire per-client topic guardrail configuration from agent_configs.escalation_rules into pre-generation guardrails for complaints, refunds, medical, legal, bookings, payments, severe allergies, and out-of-scope requests +AgentCore @engineering phase:pilot
+x 2026-06-04 (A) 2026-05-17 Wire per-client topic guardrail configuration from agent_configs.escalation_rules into pre-generation guardrails for complaints, refunds, medical, legal, bookings, payments, severe allergies, and out-of-scope requests +AgentCore @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add sentiment trigger detection for frustration, urgency, anger, repeated unanswered questions, and negative delivery experiences +AgentCore @engineering phase:pilot
 (A) 2026-05-17 Add explicit post-generation self-check step beyond citation validation that verifies every drafted answer is traceable to retrieved static or live sources +AgentCore @engineering phase:pilot
 x 2026-06-04 (A) 2026-05-17 Add hallucination incident workflow with severity, root cause, fix owner, and post-mortem notes +Quality @ops phase:pilot
@@ -41,7 +41,7 @@ x 2026-06-04 (A) 2026-05-17 Add hallucination incident workflow with severity, r
 (A) 2026-05-17 Add time-to-first-pilot-conversation metric +Metrics @dashboard phase:pilot
 (A) 2026-05-17 Add time-to-first-response metric for customer-facing conversations +Metrics @dashboard phase:pilot
 (A) 2026-05-17 Add escalation accuracy metric based on conversation review outcomes +Metrics @dashboard phase:pilot
-(A) 2026-06-04 Align dashboard open/actionable escalation metrics with active triage semantics, including claimed escalations and failed owner-reply outbox rows +Metrics @dashboard phase:pilot
+x 2026-06-04 (A) 2026-06-04 Align dashboard open/actionable escalation metrics with active triage semantics, including claimed escalations and failed owner-reply outbox rows +Metrics @dashboard phase:pilot
 (A) 2026-05-17 Add customer-facing CSAT collection hook for agent-handled conversations +Metrics @engineering phase:pilot
 (A) 2026-05-17 Add gross margin tracking per client with retainer, amortized setup, LLM cost, hosting cost, and integration cost +Metrics @business phase:pilot
 (A) 2026-05-17 Add token usage and estimated LLM cost tracking per client, conversation, model, and channel +Costing @engineering phase:pilot

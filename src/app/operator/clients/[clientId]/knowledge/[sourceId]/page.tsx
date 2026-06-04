@@ -2,8 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { getClient } from "@/lib/dashboard";
-import { getKnowledgeSourceForClient } from "@/lib/knowledge/manage";
+import {
+  getKnowledgeSourceForClient,
+  getKnowledgeSourceVersionsForClient,
+} from "@/lib/knowledge/manage";
 import { AppShell } from "@/components/shell";
+import {
+  KnowledgeSourceDiagnostics,
+  KnowledgeSourceVersionHistory,
+} from "@/components/knowledge-source-panels";
 import {
   OperatorClientHeader,
   OperatorClientNav,
@@ -18,9 +25,10 @@ export default async function OperatorClientKnowledgeSourcePage({
 }) {
   const user = await requireUser("operator");
   const { clientId, sourceId } = await params;
-  const [client, source] = await Promise.all([
+  const [client, source, versions] = await Promise.all([
     getClient(clientId),
     getKnowledgeSourceForClient(sourceId, clientId),
+    getKnowledgeSourceVersionsForClient(sourceId, clientId),
   ]);
   if (!client || !source) {
     notFound();
@@ -45,8 +53,15 @@ export default async function OperatorClientKnowledgeSourcePage({
           <h2 className="mt-2 text-base font-semibold">{source.title}</h2>
           <p className="text-sm text-muted">
             {source.source_type} · {source.chunk_count} chunks
+            {source.current_version ? ` · v${source.current_version}` : ""}
           </p>
         </div>
+
+        <KnowledgeSourceDiagnostics metadata={source.metadata} />
+        <KnowledgeSourceVersionHistory
+          currentVersion={source.current_version ? Number(source.current_version) : null}
+          versions={versions}
+        />
 
         <form
           action={`/api/operator/knowledge/${source.id}`}

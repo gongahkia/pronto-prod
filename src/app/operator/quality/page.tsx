@@ -37,7 +37,7 @@ export default async function OperatorQualityPage() {
       <section className="grid gap-4 md:grid-cols-4">
         <StatCard label="Hallucinations" value={metrics.hallucinationIncidents} hint="Target: zero" />
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
-        <StatCard label="Open escalations" value={metrics.openEscalations} />
+        <StatCard label="Actionable escalations" value={metrics.openEscalations} />
         <StatCard label="Recent review queue" value={conversations.length} />
       </section>
 

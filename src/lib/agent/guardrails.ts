@@ -1,3 +1,5 @@
+import { logWarn } from "@/lib/logger";
+
 export type GuardrailResult = {
   shouldEscalate: boolean;
   reasonCode: string;
@@ -75,6 +77,122 @@ const aiDisclosurePatterns = [
   /\bhuman or (ai|bot|robot)\b/i,
 ];
 
+type GuardrailCheck = {
+  patterns: RegExp[];
+  result: GuardrailResult;
+};
+
+const defaultGuardrailChecks: GuardrailCheck[] = [
+  {
+    patterns: refundComplaintPatterns,
+    result: {
+      shouldEscalate: true,
+      reasonCode: "complaint_or_refund",
+      reasonDetail:
+        "Refunds, complaints, missing items, and compensation claims require a human owner.",
+      confidence: 1,
+    },
+  },
+  {
+    patterns: transactionalPatterns,
+    result: {
+      shouldEscalate: true,
+      reasonCode: "transactional_action",
+      reasonDetail:
+        "The v1 agent may explain process but must not create, cancel, modify, pay, refund, or mutate systems.",
+      confidence: 1,
+    },
+  },
+  {
+    patterns: humanHandoffPatterns,
+    result: {
+      shouldEscalate: true,
+      reasonCode: "human_handoff_requested",
+      reasonDetail:
+        "The customer asked for a call, staff member, or human takeover.",
+      confidence: 1,
+    },
+  },
+  {
+    patterns: medicalLegalPatterns,
+    result: {
+      shouldEscalate: true,
+      reasonCode: "medical_or_legal",
+      reasonDetail:
+        "Medical, legal, liability, or severe allergy matters always need human review.",
+      confidence: 1,
+    },
+  },
+  {
+    patterns: sentimentPatterns,
+    result: {
+      shouldEscalate: true,
+      reasonCode: "urgent_or_negative_sentiment",
+      reasonDetail:
+        "The customer signaled urgency or frustration, so owner attention is safer.",
+      confidence: 0.95,
+    },
+  },
+  {
+    patterns: outOfScopePatterns,
+    result: {
+      shouldEscalate: true,
+      reasonCode: "out_of_scope",
+      reasonDetail:
+        "The request is outside the agreed business customer-service scope.",
+      confidence: 0.9,
+    },
+  },
+];
+
+const escalationTopicPatterns: Record<string, Pick<GuardrailCheck, "patterns" | "result">> = {
+  refund_dispute: {
+    patterns: [/\brefund\b/i, /\bchargeback\b/i, /\bcompensation\b/i],
+    result: defaultGuardrailChecks[0].result,
+  },
+  complaint: {
+    patterns: [/\bcomplain/i, /\bwrong order\b/i, /\bmissing item\b/i, /\blate delivery\b/i],
+    result: defaultGuardrailChecks[0].result,
+  },
+  booking_mutation: {
+    patterns: [
+      /\bcancel (my )?(booking|reservation)\b/i,
+      /\bchange (my )?(booking|reservation)\b/i,
+      /\bmodify (my )?(booking|reservation)\b/i,
+    ],
+    result: defaultGuardrailChecks[1].result,
+  },
+  payment: {
+    patterns: [/\bpay\b/i, /\bpayment\b/i, /\bcard\b/i],
+    result: defaultGuardrailChecks[1].result,
+  },
+  medical_or_legal: {
+    patterns: medicalLegalPatterns,
+    result: defaultGuardrailChecks[3].result,
+  },
+  severe_allergy: {
+    patterns: [/\bsevere allerg/i, /\banaphylaxis\b/i, /\ballergic reaction\b/i],
+    result: defaultGuardrailChecks[3].result,
+  },
+  out_of_scope: {
+    patterns: outOfScopePatterns,
+    result: defaultGuardrailChecks[5].result,
+  },
+  human_handoff: {
+    patterns: humanHandoffPatterns,
+    result: defaultGuardrailChecks[2].result,
+  },
+};
+
+const configurableTermFields: Array<{ field: string; reasonCode: string }> = [
+  { field: "complaintOrRefundTerms", reasonCode: "complaint_or_refund" },
+  { field: "transactionalActionTerms", reasonCode: "transactional_action" },
+  { field: "humanHandoffTerms", reasonCode: "human_handoff_requested" },
+  { field: "medicalOrLegalTerms", reasonCode: "medical_or_legal" },
+  { field: "sentimentTriggers", reasonCode: "urgent_or_negative_sentiment" },
+  { field: "outOfScopeTerms", reasonCode: "out_of_scope" },
+];
+
 export function evaluateAiDisclosure(
   customerMessage: string,
   clientName: string,
@@ -91,73 +209,13 @@ export function evaluateAiDisclosure(
 
 export function evaluatePreGenerationGuardrails(
   customerMessage: string,
+  escalationRules?: Record<string, unknown> | null,
 ): GuardrailResult {
-  const checks: Array<[RegExp[], GuardrailResult]> = [
-    [
-      refundComplaintPatterns,
-      {
-        shouldEscalate: true,
-        reasonCode: "complaint_or_refund",
-        reasonDetail:
-          "Refunds, complaints, missing items, and compensation claims require a human owner.",
-        confidence: 1,
-      },
-    ],
-    [
-      transactionalPatterns,
-      {
-        shouldEscalate: true,
-        reasonCode: "transactional_action",
-        reasonDetail:
-          "The v1 agent may explain process but must not create, cancel, modify, pay, refund, or mutate systems.",
-        confidence: 1,
-      },
-    ],
-    [
-      humanHandoffPatterns,
-      {
-        shouldEscalate: true,
-        reasonCode: "human_handoff_requested",
-        reasonDetail:
-          "The customer asked for a call, staff member, or human takeover.",
-        confidence: 1,
-      },
-    ],
-    [
-      medicalLegalPatterns,
-      {
-        shouldEscalate: true,
-        reasonCode: "medical_or_legal",
-        reasonDetail:
-          "Medical, legal, liability, or severe allergy matters always need human review.",
-        confidence: 1,
-      },
-    ],
-    [
-      sentimentPatterns,
-      {
-        shouldEscalate: true,
-        reasonCode: "urgent_or_negative_sentiment",
-        reasonDetail:
-          "The customer signaled urgency or frustration, so owner attention is safer.",
-        confidence: 0.95,
-      },
-    ],
-    [
-      outOfScopePatterns,
-      {
-        shouldEscalate: true,
-        reasonCode: "out_of_scope",
-        reasonDetail:
-          "The request is outside the agreed business customer-service scope.",
-        confidence: 0.9,
-      },
-    ],
-  ];
+  const checks = buildGuardrailChecks(escalationRules);
 
-  for (const [patterns, result] of checks) {
-    if (patterns.some((pattern) => pattern.test(customerMessage))) {
-      return result;
+  for (const check of checks) {
+    if (check.patterns.some((pattern) => pattern.test(customerMessage))) {
+      return check.result;
     }
   }
 
@@ -167,6 +225,79 @@ export function evaluatePreGenerationGuardrails(
     reasonDetail: "No pre-generation escalation rule matched.",
     confidence: 0,
   };
+}
+
+function buildGuardrailChecks(
+  escalationRules: Record<string, unknown> | null | undefined,
+): GuardrailCheck[] {
+  const rules = normalizeRulesObject(escalationRules);
+  const disabledReasonCodes = new Set(stringArray(rules.disabledReasonCodes));
+  const checks = defaultGuardrailChecks.map((check) => ({
+    patterns: [...check.patterns],
+    result: check.result,
+  }));
+
+  for (const topic of stringArray(rules.alwaysEscalateTopics)) {
+    const configured = escalationTopicPatterns[topic];
+    if (!configured) {
+      logWarn("guardrails.unknown_escalation_topic", { topic });
+      continue;
+    }
+    checks.push({
+      patterns: configured.patterns,
+      result: configured.result,
+    });
+  }
+
+  for (const { field, reasonCode } of configurableTermFields) {
+    const terms = stringArray(rules[field]);
+    if (!terms.length) {
+      continue;
+    }
+    const target = checks.find((check) => check.result.reasonCode === reasonCode);
+    if (!target) {
+      continue;
+    }
+    target.patterns.push(...terms.map(literalWordPattern));
+  }
+
+  return checks.filter((check) => !disabledReasonCodes.has(check.result.reasonCode));
+}
+
+function normalizeRulesObject(
+  escalationRules: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  if (!escalationRules) {
+    return {};
+  }
+  if (typeof escalationRules === "object" && !Array.isArray(escalationRules)) {
+    return escalationRules;
+  }
+  logWarn("guardrails.invalid_escalation_rules", {
+    rulesType: Array.isArray(escalationRules) ? "array" : typeof escalationRules,
+  });
+  return {};
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    if (value !== undefined) {
+      logWarn("guardrails.invalid_rule_field", { valueType: typeof value });
+    }
+    return [];
+  }
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function literalWordPattern(term: string): RegExp {
+  return new RegExp(`\\b${escapeRegExp(term)}\\b`, "i");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function evaluateRetrievalConfidence(

@@ -47,6 +47,31 @@ export async function ingestKnowledgeSource(input: {
     );
 
     const sourceId = source.rows[0].id;
+    await client.query(
+      `
+        insert into knowledge_source_versions (
+          source_id,
+          client_id,
+          version_number,
+          title,
+          content,
+          metadata,
+          change_type,
+          actor_user_id
+        )
+        values ($1, $2, 1, $3, $4, $5, 'created', $6)
+        on conflict (source_id, version_number) do nothing
+      `,
+      [
+        sourceId,
+        input.clientId,
+        input.title,
+        input.content,
+        input.metadata ?? {},
+        input.actorUserId ?? null,
+      ],
+    );
+
     for (const [index, chunk] of chunks.entries()) {
       await client.query(
         `

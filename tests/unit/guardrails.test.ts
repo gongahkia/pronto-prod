@@ -77,6 +77,24 @@ describe("agent guardrails", () => {
     expect(result.reasonCode).toBe("urgent_or_negative_sentiment");
   });
 
+  it("extends guardrails with configured sentiment triggers", () => {
+    const result = evaluatePreGenerationGuardrails("I am properly annoyed.", {
+      sentimentTriggers: ["annoyed"],
+    });
+
+    expect(result.shouldEscalate).toBe(true);
+    expect(result.reasonCode).toBe("urgent_or_negative_sentiment");
+  });
+
+  it("can disable a default reason code for pilot tuning", () => {
+    const result = evaluatePreGenerationGuardrails("Do you have karaoke rooms?", {
+      disabledReasonCodes: ["out_of_scope"],
+    });
+
+    expect(result.shouldEscalate).toBe(false);
+    expect(result.reasonCode).toBe("in_scope");
+  });
+
   it("escalates low retrieval confidence", () => {
     const result = evaluateRetrievalConfidence(0.4, 0.72);
 
