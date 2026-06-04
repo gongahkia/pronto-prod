@@ -76,7 +76,7 @@ export async function notifyOwnerOfEscalation(
   }
   const { channel, destination } = channelSelection;
 
-  const takeoverUrl = `${appBaseUrl()}/operator/clients/${escalation.client_id}#conversation-${escalation.conversation_id}`;
+  const takeoverUrl = `${appBaseUrl()}/operator/clients/${escalation.client_id}/escalations#escalation-${escalation.id}`;
   const text = [
     "Pronto escalation",
     `Customer: ${escalation.customer_handle ?? "unknown"}`,

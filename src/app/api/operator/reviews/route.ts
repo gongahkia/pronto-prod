@@ -27,6 +27,10 @@ export async function POST(request: Request) {
   const fixOwner = optionalEnumValue(form.get("fixOwner"), fixOwners);
   const knowledgeUpdateNeeded = form.get("knowledgeUpdateNeeded") === "on";
   const pilotBlocker = form.get("pilotBlocker") === "on";
+  const returnTo = safeOperatorReturnPath(
+    String(form.get("returnTo") ?? ""),
+    `/operator/clients/${clientId}/conversations`,
+  );
 
   const review = await query<{ id: string }>(
     `
@@ -83,5 +87,9 @@ export async function POST(request: Request) {
     ],
   );
 
-  return NextResponse.redirect(new URL(`/operator/clients/${clientId}`, request.url), 303);
+  return NextResponse.redirect(new URL(returnTo, request.url), 303);
+}
+
+function safeOperatorReturnPath(value: string, fallback: string): string {
+  return value.startsWith("/operator") && !value.startsWith("//") ? value : fallback;
 }

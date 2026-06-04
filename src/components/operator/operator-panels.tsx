@@ -292,9 +292,6 @@ export function OperatorKnowledgeSources({
           ))
         )}
       </div>
-      <div className="border-t border-line p-4 text-xs text-muted">
-        Client-facing source CRUD is available from the client workspace. Operator-scoped source editing can be added after role-safe routes are in place.
-      </div>
     </div>
   );
 }
