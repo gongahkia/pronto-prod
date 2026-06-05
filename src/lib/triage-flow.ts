@@ -508,13 +508,6 @@ function normalizeEdges(edges: unknown[], nodes: TriageFlowNode[]): TriageFlowEd
 }
 
 function ensureRequiredGraph(nodes: TriageFlowNode[], edges: TriageFlowEdge[]): void {
-  if (nodes.length !== defaultNodes.length) {
-    throw new TriageFlowValidationError("Flow must include every starter triage node.");
-  }
-  if (edges.length !== defaultEdges.length) {
-    throw new TriageFlowValidationError("Flow must include every starter triage connection.");
-  }
-
   for (const node of defaultNodes) {
     if (!nodes.some((candidate) => candidate.id === node.id)) {
       throw new TriageFlowValidationError(`Flow is missing node ${node.id}.`);

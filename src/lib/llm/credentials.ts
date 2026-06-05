@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import type { QueryResultRow } from "pg";
 import { query } from "@/lib/db";
 
 export type ProviderCredentialStatus = {
@@ -65,7 +66,7 @@ export async function resolveProviderApiKey(
     return null;
   }
 
-  const result = await query<ProviderCredentialRecord>(
+  const result = await safeCredentialQuery<ProviderCredentialRecord>(
     `
       select provider, encrypted_api_key, encryption_nonce, encryption_tag, updated_at
       from llm_provider_credentials
@@ -85,7 +86,7 @@ export async function resolveProviderApiKey(
 }
 
 export async function listProviderCredentialStatuses(): Promise<ProviderCredentialStatus[]> {
-  const result = await query<ProviderCredentialRecord>(
+  const result = await safeCredentialQuery<ProviderCredentialRecord>(
     `
       select provider, encrypted_api_key, encryption_nonce, encryption_tag, updated_at
       from llm_provider_credentials
@@ -116,6 +117,20 @@ export function envApiKeyForProvider(provider: string | null | undefined): strin
 
   const envName = `PRONTO_${provider.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_API_KEY`;
   return process.env[envName]?.trim() || null;
+}
+
+async function safeCredentialQuery<T extends QueryResultRow>(
+  text: string,
+  values?: unknown[],
+): Promise<{ rows: T[] }> {
+  try {
+    return await query<T>(text, values);
+  } catch (error) {
+    if (isUndefinedTableError(error)) {
+      return { rows: [] };
+    }
+    throw error;
+  }
 }
 
 function encryptSecret(value: string): {
@@ -158,4 +173,13 @@ function encryptionKey(): Buffer {
     throw new Error("PRONTO_SECRETS_KEY is required to save or read provider credentials.");
   }
   return createHash("sha256").update(material).digest();
+}
+
+function isUndefinedTableError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: string }).code === "42P01",
+  );
 }

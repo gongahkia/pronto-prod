@@ -2,6 +2,7 @@ import type { AgentConfigDetail } from "@/lib/agent/config";
 import { credentialEncryptionConfigured } from "@/lib/llm/credentials";
 import { FREE_LLM_PROVIDERS, selectableFreeProviders } from "@/lib/llm/free-providers";
 import { Badge } from "@/components/badge";
+import { ProviderTestConsole } from "@/components/provider-test-console";
 
 export function OperatorAgentConfigPanel({
   clientId,
@@ -155,6 +156,10 @@ export function OperatorAgentConfigPanel({
           Save tuning
         </button>
       </form>
+      <ProviderTestConsole
+        initialProvider={detail.config.response_provider}
+        initialModel={detail.config.response_model}
+      />
       <ProviderCatalog />
       <PromptPreview detail={detail} />
       <AgentConfigChangeHistory detail={detail} />

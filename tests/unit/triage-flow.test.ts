@@ -59,6 +59,65 @@ describe("triage flow compiler", () => {
     expect(result.shouldEscalate).toBe(false);
   });
 
+  it("merges duplicate approved decision nodes into the same guardrail rule", () => {
+    const flow = buildDefaultTriageFlow();
+    flow.nodes.push({
+      id: "decision-complaint-custom",
+      type: "triage",
+      position: { x: 100, y: 100 },
+      data: {
+        kind: "decision",
+        label: "Missing sauces",
+        description: "Custom label mapped to the existing complaint category.",
+        badge: "decision",
+        decisionKey: "complaint_or_refund",
+        reasonCode: "complaint_or_refund",
+        enabled: true,
+        triggerTerms: ["missing sambal"],
+      },
+    });
+    flow.edges.push({
+      id: "edge-complaint-custom-note",
+      source: "decision-complaint-custom",
+      target: "outcome-owner-triage",
+      type: "smoothstep",
+    });
+
+    const normalized = validateAndNormalizeTriageFlow(flow);
+    const rules = compileTriageFlowToEscalationRules(normalized.nodes);
+
+    expect(rules.complaintOrRefundTerms).toEqual(
+      expect.arrayContaining(["refund", "missing sambal"]),
+    );
+  });
+
+  it("accepts freeform note nodes without changing runtime guardrails", () => {
+    const flow = buildDefaultTriageFlow();
+    flow.nodes.push({
+      id: "note-refund-policy",
+      type: "triage",
+      position: { x: 120, y: 140 },
+      data: {
+        kind: "note",
+        label: "Watch refunds",
+        description: "Internal client note only.",
+        badge: "note",
+      },
+    });
+    flow.edges.push({
+      id: "edge-note-refund",
+      source: "note-refund-policy",
+      target: "decision-complaint-refund",
+      type: "smoothstep",
+    });
+
+    const normalized = validateAndNormalizeTriageFlow(flow);
+    const rules = compileTriageFlowToEscalationRules(normalized.nodes);
+
+    expect(normalized.nodes.some((node) => node.data.kind === "note")).toBe(true);
+    expect(JSON.stringify(rules)).not.toContain("Watch refunds");
+  });
+
   it("rejects arbitrary custom decision reason codes", () => {
     const flow = buildDefaultTriageFlow();
     const decisionNode = flow.nodes.find(
@@ -80,7 +139,7 @@ describe("triage flow compiler", () => {
     };
 
     expect(() => validateAndNormalizeTriageFlow(flow)).toThrow(
-      "Flow contains a disconnected edge.",
+      "Flow contains a disconnected starter edge.",
     );
   });
 });

@@ -41,6 +41,10 @@ describe("operator agent config route", () => {
     expect(response.headers.get("location")).toBe("http://localhost/operator/clients/client-1");
     expect(mocks.updateAgentConfigForClient).toHaveBeenCalledWith({
       clientId: "client-1",
+      responseProvider: "mock",
+      responseModel: "mock",
+      embeddingProvider: "mock",
+      embeddingModel: "mock",
       retrievalThreshold: 0.63,
       promptPreamble: "Answer from verified source material.",
       escalationRules: { sentimentTriggers: ["annoyed"] },
@@ -77,6 +81,10 @@ describe("operator agent config route", () => {
 function validForm(): FormData {
   const form = new FormData();
   form.set("clientId", "client-1");
+  form.set("responseProvider", "mock");
+  form.set("responseModel", "mock");
+  form.set("embeddingProvider", "mock");
+  form.set("embeddingModel", "mock");
   form.set("retrievalThreshold", "0.63");
   form.set("promptPreamble", "Answer from verified source material.");
   form.set("escalationRules", JSON.stringify({ sentimentTriggers: ["annoyed"] }));
