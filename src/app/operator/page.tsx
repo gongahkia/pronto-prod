@@ -37,8 +37,8 @@ export default async function OperatorPage() {
       <section className="grid gap-4 md:grid-cols-5">
         <StatCard label="Active clients" value={metrics.activeClients} />
         <StatCard label="Conversations" value={metrics.conversations} />
-        <StatCard label="Escalations" value={metrics.escalations} />
-        <StatCard label="Actionable escalations" value={metrics.openEscalations} />
+        <StatCard label="Triage items" value={metrics.escalations} />
+        <StatCard label="Actionable triage" value={metrics.openEscalations} />
         <StatCard
           label="Hallucinations"
           value={metrics.hallucinationIncidents}
@@ -73,11 +73,11 @@ export default async function OperatorPage() {
         <div className="ui-panel">
           <div className="flex items-center gap-2 ui-panel-header">
             <MessageSquareWarning size={17} className="text-danger" />
-            <h2 className="text-base font-semibold">Actionable escalations</h2>
+            <h2 className="text-base font-semibold">Actionable triage</h2>
           </div>
           <div className="divide-y divide-line">
             {escalations.length === 0 ? (
-              <p className="p-4 text-sm text-muted">No actionable escalations.</p>
+              <p className="p-4 text-sm text-muted">No actionable triage.</p>
             ) : (
               escalations.map((escalation) => (
                 <div key={escalation.id} className="p-4">

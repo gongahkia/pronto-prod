@@ -37,7 +37,7 @@ export default async function OperatorQualityPage() {
       <section className="grid gap-4 md:grid-cols-4">
         <StatCard label="Hallucinations" value={metrics.hallucinationIncidents} hint="Target: zero" />
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
-        <StatCard label="Actionable escalations" value={metrics.openEscalations} />
+        <StatCard label="Actionable triage" value={metrics.openEscalations} />
         <StatCard label="Recent review queue" value={conversations.length} />
       </section>
 
@@ -77,11 +77,11 @@ export default async function OperatorQualityPage() {
 
         <div className="ui-panel">
           <div className="ui-panel-header">
-            <h2 className="text-base font-semibold">Escalation QA</h2>
+            <h2 className="text-base font-semibold">Triage QA</h2>
           </div>
           <div className="divide-y divide-line">
             {escalatedConversations.length === 0 && escalations.length === 0 ? (
-              <p className="p-4 text-sm text-muted">No active escalation cases to audit.</p>
+              <p className="p-4 text-sm text-muted">No active triage cases to audit.</p>
             ) : (
               escalations.map((escalation) => (
                 <Link

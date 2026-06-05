@@ -37,7 +37,7 @@ export default async function ClientSettingsPage() {
       <section className="grid gap-4 md:grid-cols-4">
         <StatCard label="Conversations" value={metrics.conversations} />
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
-        <StatCard label="Actionable escalations" value={metrics.openEscalations} />
+        <StatCard label="Actionable triage" value={metrics.openEscalations} />
         <StatCard label="CSAT" value="Pending" hint="Client-facing collection hook" />
       </section>
 

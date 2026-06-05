@@ -17,7 +17,7 @@ import { EscalationOutboundStatus } from "@/components/escalation-outbound-statu
 
 export function OperatorEscalationList({
   escalations,
-  emptyText = "No actionable escalations.",
+  emptyText = "No actionable triage.",
   showClient = true,
   returnTo,
 }: {

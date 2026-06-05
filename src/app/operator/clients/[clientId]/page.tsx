@@ -94,7 +94,7 @@ export default async function ClientOperatorPage({
       <section className="grid gap-4 md:grid-cols-4">
         <StatCard label="Conversations" value={metrics.conversations} />
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
-        <StatCard label="Actionable escalations" value={metrics.openEscalations} />
+        <StatCard label="Actionable triage" value={metrics.openEscalations} />
         <StatCard label="Hallucinations" value={metrics.hallucinationIncidents} />
       </section>
 
@@ -121,7 +121,7 @@ export default async function ClientOperatorPage({
               <span className="font-medium">{knowledge.length}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span className="text-muted">Actionable escalations</span>
+              <span className="text-muted">Actionable triage</span>
               <span className="font-medium">{escalations.length}</span>
             </div>
           </div>
