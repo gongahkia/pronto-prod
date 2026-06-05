@@ -187,3 +187,60 @@ a:focus-visible {
     background: var(--accent-dark);
   }
 }
+
+.pronto-workflow .react-flow__pane {
+  background: #0f1117;
+}
+
+.pronto-workflow .react-flow__edge-path {
+  stroke: #8d929f;
+  stroke-width: 2;
+}
+
+.pronto-workflow .react-flow__edge.animated .react-flow__edge-path {
+  stroke: #27c783;
+  stroke-dasharray: 7 5;
+}
+
+.pronto-workflow .react-flow__edge.selected .react-flow__edge-path {
+  stroke: #8ca2ff;
+}
+
+.pronto-workflow .react-flow__edge-text {
+  fill: rgba(255, 255, 255, 0.76);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pronto-workflow .react-flow__edge-textbg {
+  fill: #23262d;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1;
+}
+
+.pronto-workflow .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.26);
+}
+
+.pronto-workflow .react-flow__controls-button {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: #23262d;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.pronto-workflow .react-flow__controls-button:hover {
+  background: #30333a;
+}
+
+.pronto-workflow .react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+.pronto-workflow .react-flow__handle {
+  box-shadow: 0 0 0 3px rgba(15, 17, 23, 0.96);
+}
