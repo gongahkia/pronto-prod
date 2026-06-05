@@ -25,6 +25,28 @@
   --success-bg: #ecfdf3;
   --warning: #a15c07;
   --warning-bg: #fffaeb;
+  --flow-shell: var(--panel);
+  --flow-header: #f6f7fb;
+  --flow-panel: var(--panel);
+  --flow-palette: #f8f9fc;
+  --flow-canvas: #eef1f7;
+  --flow-node: #ffffff;
+  --flow-node-icon: #f1f3f8;
+  --flow-control: #ffffff;
+  --flow-control-hover: #eaedf5;
+  --flow-active: #eef0ff;
+  --flow-soft: #f7f8fb;
+  --flow-line: #d9deea;
+  --flow-grid: #c9cedb;
+  --flow-edge: #8d95a5;
+  --flow-edge-active: #169b63;
+  --flow-edge-selected: var(--accent);
+  --flow-edge-label: #4f5665;
+  --flow-edge-label-bg: #ffffff;
+  --flow-text: var(--foreground);
+  --flow-muted: var(--muted);
+  --flow-minimap-mask: rgba(238, 241, 247, 0.72);
+  --flow-handle-ring: var(--flow-canvas);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -53,6 +75,28 @@
     --success-bg: #12251b;
     --warning: #f6b85a;
     --warning-bg: #2d2111;
+    --flow-shell: #15171d;
+    --flow-header: #24262b;
+    --flow-panel: #17191f;
+    --flow-palette: #17191f;
+    --flow-canvas: #11131a;
+    --flow-node: #2b2d33;
+    --flow-node-icon: #3a3d44;
+    --flow-control: #2d3037;
+    --flow-control-hover: #363941;
+    --flow-active: #121318;
+    --flow-soft: rgba(255, 255, 255, 0.04);
+    --flow-line: #30333d;
+    --flow-grid: rgba(255, 255, 255, 0.16);
+    --flow-edge: #8d929f;
+    --flow-edge-active: #27c783;
+    --flow-edge-selected: #8ca2ff;
+    --flow-edge-label: rgba(255, 255, 255, 0.76);
+    --flow-edge-label-bg: #23262d;
+    --flow-text: #f4f5f8;
+    --flow-muted: rgba(255, 255, 255, 0.56);
+    --flow-minimap-mask: rgba(4, 6, 10, 0.62);
+    --flow-handle-ring: var(--flow-canvas);
   }
 }
 
@@ -189,52 +233,52 @@ a:focus-visible {
 }
 
 .pronto-workflow .react-flow__pane {
-  background: #0f1117;
+  background: var(--flow-canvas);
 }
 
 .pronto-workflow .react-flow__edge-path {
-  stroke: #8d929f;
+  stroke: var(--flow-edge);
   stroke-width: 2;
 }
 
 .pronto-workflow .react-flow__edge.animated .react-flow__edge-path {
-  stroke: #27c783;
+  stroke: var(--flow-edge-active);
   stroke-dasharray: 7 5;
 }
 
 .pronto-workflow .react-flow__edge.selected .react-flow__edge-path {
-  stroke: #8ca2ff;
+  stroke: var(--flow-edge-selected);
 }
 
 .pronto-workflow .react-flow__edge-text {
-  fill: rgba(255, 255, 255, 0.76);
+  fill: var(--flow-edge-label);
   font-size: 11px;
   font-weight: 600;
 }
 
 .pronto-workflow .react-flow__edge-textbg {
-  fill: #23262d;
-  stroke: rgba(255, 255, 255, 0.1);
+  fill: var(--flow-edge-label-bg);
+  stroke: var(--flow-line);
   stroke-width: 1;
 }
 
 .pronto-workflow .react-flow__controls {
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--flow-line);
   border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.26);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--foreground) 12%, transparent);
 }
 
 .pronto-workflow .react-flow__controls-button {
   width: 2.25rem;
   height: 2.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: #23262d;
-  color: rgba(255, 255, 255, 0.78);
+  border-bottom: 1px solid var(--flow-line);
+  background: var(--flow-control);
+  color: var(--flow-text);
 }
 
 .pronto-workflow .react-flow__controls-button:hover {
-  background: #30333a;
+  background: var(--flow-control-hover);
 }
 
 .pronto-workflow .react-flow__controls-button svg {
@@ -242,5 +286,5 @@ a:focus-visible {
 }
 
 .pronto-workflow .react-flow__handle {
-  box-shadow: 0 0 0 3px rgba(15, 17, 23, 0.96);
+  box-shadow: 0 0 0 3px var(--flow-handle-ring);
 }

@@ -25,6 +25,7 @@ import {
   UserRoundCheck,
   Wand2,
   Workflow,
+  X,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -133,6 +134,7 @@ export function TriageFlowEditor({
   const [selectedNodeId, setSelectedNodeId] = useState(
     initialNodes[3]?.id ?? initialNodes[0]?.id,
   );
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [currentVersion, setCurrentVersion] = useState(version);
   const [compiledRules, setCompiledRules] = useState(initialCompiledRules);
   const [flowInstance, setFlowInstance] =
@@ -268,6 +270,7 @@ export function TriageFlowEditor({
     setNodes(sortNodesForDiagram(template.nodes));
     setEdges(template.edges);
     setSelectedNodeId(template.nodes[3]?.id ?? template.nodes[0]?.id);
+    setEditingNodeId(null);
     setSaveState({ status: "idle", message: "Template restored" });
     fitDiagram();
   }
@@ -309,6 +312,7 @@ export function TriageFlowEditor({
     };
     setNodes((current) => sortNodesForDiagram([...current, node]));
     setSelectedNodeId(node.id);
+    setEditingNodeId(node.id);
     setSaveState({ status: "idle", message: "Unsaved changes" });
   }
 
@@ -326,6 +330,7 @@ export function TriageFlowEditor({
     };
     setNodes((current) => sortNodesForDiagram([...current, node]));
     setSelectedNodeId(node.id);
+    setEditingNodeId(node.id);
     setSaveState({ status: "idle", message: "Unsaved changes" });
   }
 
@@ -343,41 +348,46 @@ export function TriageFlowEditor({
       ),
     );
     setSelectedNodeId(nodes.find((node) => isStarterTriageNode(node.id))?.id ?? "");
+    setEditingNodeId(null);
     setSaveState({ status: "idle", message: "Unsaved changes" });
   }
 
+  const editingNode = editingNodeId
+    ? nodes.find((node) => node.id === editingNodeId)
+    : null;
+
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_23rem]">
-      <section className="overflow-hidden rounded-lg border border-[#30333d] bg-[#15171d] shadow-sm">
-        <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#24262b] px-4 py-2.5 text-[#f4f5f8]">
+    <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_23rem]">
+      <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-shell)] shadow-sm">
+        <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[var(--flow-line)] bg-[var(--flow-header)] px-4 py-2.5 text-[var(--flow-text)]">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-8 items-center justify-center rounded-md border border-white/10 bg-[#17191f] text-[#27c783]">
+            <div className="flex size-8 items-center justify-center rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] text-[var(--success)]">
               <Workflow size={17} />
             </div>
             <div className="min-w-0">
               <h2 className="truncate text-sm font-semibold">Pronto automation flow</h2>
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-[var(--flow-muted)]">
                 {currentVersion ? `Published v${currentVersion}` : "Starter template"}
               </p>
             </div>
           </div>
 
-          <div className="hidden rounded-md border border-white/10 bg-[#30333a] p-1 text-xs font-medium text-white/60 md:flex">
-            <span className="rounded bg-[#121318] px-3 py-1.5 text-white">Editor</span>
+          <div className="hidden rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] p-1 text-xs font-medium text-[var(--flow-muted)] md:flex">
+            <span className="rounded bg-[var(--flow-active)] px-3 py-1.5 text-[var(--flow-text)]">Editor</span>
             <span className="px-3 py-1.5">Executions</span>
             <span className="px-3 py-1.5">Tests</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <span className="inline-flex items-center gap-2 text-xs font-medium text-[#27c783]">
+            <span className="inline-flex items-center gap-2 text-xs font-medium text-[var(--success)]">
               Active
-              <span className="relative h-5 w-9 rounded-full bg-[#1fce72]">
+              <span className="relative h-5 w-9 rounded-full bg-[var(--success)]">
                 <span className="absolute right-0.5 top-0.5 size-4 rounded-full bg-white" />
               </span>
             </span>
             <StatusPill state={saveState} valid={validation.ok} />
             <button
-              className="inline-flex items-center gap-2 rounded-md border border-white/15 bg-[#2d3037] px-3 py-2 text-sm font-medium text-white hover:bg-[#363941]"
+              className="inline-flex items-center gap-2 rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] px-3 py-2 text-sm font-medium text-[var(--flow-text)] hover:bg-[var(--flow-control-hover)]"
               type="button"
               onClick={fitDiagram}
             >
@@ -385,7 +395,7 @@ export function TriageFlowEditor({
               Fit
             </button>
             <button
-              className="inline-flex items-center gap-2 rounded-md border border-white/15 bg-[#2d3037] px-3 py-2 text-sm font-medium text-white hover:bg-[#363941]"
+              className="inline-flex items-center gap-2 rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] px-3 py-2 text-sm font-medium text-[var(--flow-text)] hover:bg-[var(--flow-control-hover)]"
               type="button"
               onClick={generateDiagram}
             >
@@ -404,8 +414,8 @@ export function TriageFlowEditor({
           </div>
         </div>
 
-        <div className="grid min-h-[46rem] bg-[#0f1117] lg:grid-cols-[4.5rem_minmax(0,1fr)]">
-          <div className="flex flex-row gap-2 overflow-x-auto border-b border-white/10 bg-[#17191f] p-2 lg:flex-col lg:border-b-0 lg:border-r">
+        <div className="grid min-h-[46rem] bg-[var(--flow-canvas)] lg:grid-cols-[4.5rem_minmax(0,1fr)]">
+          <div className="flex flex-row gap-2 overflow-x-auto border-b border-[var(--flow-line)] bg-[var(--flow-palette)] p-2 lg:flex-col lg:border-b-0 lg:border-r">
             <PaletteButton
               label="Layout"
               icon={Wand2}
@@ -426,7 +436,10 @@ export function TriageFlowEditor({
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
-              onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+              onNodeClick={(_, node) => {
+                setSelectedNodeId(node.id);
+                setEditingNodeId(node.id);
+              }}
               nodesConnectable
               fitView
               fitViewOptions={{ padding: 0.18 }}
@@ -434,120 +447,82 @@ export function TriageFlowEditor({
                 type: "smoothstep",
               }}
             >
-              <Background gap={18} size={1} color="rgba(255,255,255,0.16)" />
+              <Background gap={18} size={1} color="var(--flow-grid)" />
               <MiniMap
                 pannable
                 zoomable
                 nodeColor={(node) => miniMapNodeColor(node.data as TriageFlowNodeData)}
-                maskColor="rgba(4, 6, 10, 0.62)"
+                maskColor="var(--flow-minimap-mask)"
                 style={{
-                  background: "#17191f",
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "var(--flow-control)",
+                  border: "1px solid var(--flow-line)",
                   borderRadius: 8,
                 }}
               />
               <Controls showInteractive={false} />
             </ReactFlow>
+            {editingNode ? (
+              <NodeEditorPopup
+                node={editingNode}
+                canDelete={!isStarterTriageNode(editingNode.id)}
+                onClose={() => setEditingNodeId(null)}
+                onDelete={deleteSelectedNode}
+                onUpdate={updateSelectedNode}
+              />
+            ) : null}
           </div>
         </div>
       </section>
 
       <aside className="space-y-4">
-        <section className="overflow-hidden rounded-lg border border-[#30333d] bg-[#17191f] text-[#f4f5f8] shadow-sm">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)] shadow-sm">
+          <div className="flex items-center justify-between border-b border-[var(--flow-line)] px-4 py-3">
             <div>
-              <h2 className="text-sm font-semibold">Node settings</h2>
-              <p className="text-xs text-white/45">
-                {selectedNode ? selectedNode.data.badge ?? selectedNode.data.kind : "No node"}
+              <h2 className="text-sm font-semibold">Selected node</h2>
+              <p className="text-xs text-[var(--flow-muted)]">
+                Click a workflow box to edit it on the canvas.
               </p>
             </div>
-            <Settings2 size={16} className="text-white/45" />
+            <Settings2 size={16} className="text-[var(--flow-muted)]" />
           </div>
           {selectedNode ? (
-            <div className="space-y-3 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-xs font-medium uppercase text-white/55">
-                  {isStarterTriageNode(selectedNode.id) ? "starter node" : "custom node"}
+            <div className="space-y-3 p-4 text-sm">
+              <div className="flex items-center gap-3 rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] p-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)]">
+                  {(() => {
+                    const Icon = iconForNode(selectedNode.data).Icon;
+                    return <Icon size={18} />;
+                  })()}
                 </span>
-                {!isStarterTriageNode(selectedNode.id) ? (
-                  <button
-                    className="inline-flex items-center gap-2 rounded-md border border-[#52302e] bg-[#2b1717] px-3 py-1.5 text-sm font-medium text-[#ff867d] hover:bg-[#361d1d]"
-                    type="button"
-                    onClick={deleteSelectedNode}
-                  >
-                    <Trash2 size={14} />
-                    Delete
-                  </button>
-                ) : null}
-              </div>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-white/80">Label</span>
-                <input
-                  value={selectedNode.data.label}
-                  onChange={(event) => updateSelectedNode({ label: event.target.value })}
-                  className="rounded-md border border-white/10 bg-[#101218] px-3 py-2 text-white"
-                  maxLength={80}
-                />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-white/80">Description</span>
-                <textarea
-                  value={selectedNode.data.description}
-                  onChange={(event) => updateSelectedNode({ description: event.target.value })}
-                  className="min-h-20 rounded-md border border-white/10 bg-[#101218] px-3 py-2 text-white"
-                  maxLength={240}
-                />
-              </label>
-
-              {selectedNode.data.kind === "decision" ? (
-                <>
-                  <label className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-medium text-white/80">
-                    <input
-                      type="checkbox"
-                      checked={selectedNode.data.enabled !== false}
-                      onChange={(event) =>
-                        updateSelectedNode({ enabled: event.target.checked })
-                      }
-                    />
-                    Runtime rule enabled
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    <span className="font-medium text-white/80">Trigger terms</span>
-                    <textarea
-                      value={(selectedNode.data.triggerTerms ?? []).join("\n")}
-                      onChange={(event) =>
-                        updateSelectedNode({
-                          triggerTerms: event.target.value
-                            .split("\n")
-                            .map((term) => term.trim())
-                            .filter(Boolean),
-                        })
-                      }
-                      className="min-h-36 rounded-md border border-white/10 bg-[#101218] px-3 py-2 font-mono text-xs leading-5 text-white"
-                    />
-                  </label>
-                  <p className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/55">
-                    Reason code: {selectedNode.data.reasonCode}
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{selectedNode.data.label}</p>
+                  <p className="text-xs text-[var(--flow-muted)]">
+                    {selectedNode.data.badge ?? selectedNode.data.kind}
                   </p>
-                </>
-              ) : (
-                <NodeKindSummary kind={selectedNode.data.kind} />
-              )}
+                </div>
+              </div>
+              <button
+                className="w-full rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] px-3 py-2 text-sm font-medium text-[var(--flow-text)] hover:bg-[var(--flow-control-hover)]"
+                type="button"
+                onClick={() => setEditingNodeId(selectedNode.id)}
+              >
+                Edit on canvas
+              </button>
             </div>
           ) : (
-            <p className="p-4 text-sm text-white/55">Select a node.</p>
+            <p className="p-4 text-sm text-[var(--flow-muted)]">Select a node.</p>
           )}
         </section>
 
-        <section className="overflow-hidden rounded-lg border border-[#30333d] bg-[#17191f] text-[#f4f5f8] shadow-sm">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)] shadow-sm">
+          <div className="flex items-center justify-between border-b border-[var(--flow-line)] px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold">Execution shape</h2>
-              <p className="text-xs text-white/45">
+              <p className="text-xs text-[var(--flow-muted)]">
                 {flowStats.activeRules} active rules across {flowStats.decisions} decisions
               </p>
             </div>
-            <GitBranch size={16} className="text-white/45" />
+            <GitBranch size={16} className="text-[var(--flow-muted)]" />
           </div>
           <div className="grid grid-cols-2 gap-2 p-4 text-sm">
             <FlowStat label="Channels" value={flowStats.channels} />
@@ -557,21 +532,21 @@ export function TriageFlowEditor({
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-lg border border-[#30333d] bg-[#17191f] text-[#f4f5f8] shadow-sm">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)] shadow-sm">
+          <div className="flex items-center justify-between border-b border-[var(--flow-line)] px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold">Guardrail preview</h2>
-              <p className="text-xs text-white/45">Compiled runtime rules</p>
+              <p className="text-xs text-[var(--flow-muted)]">Compiled runtime rules</p>
             </div>
-            <Braces size={16} className="text-white/45" />
+            <Braces size={16} className="text-[var(--flow-muted)]" />
           </div>
           <div className="p-4">
             {validation.ok ? (
-              <pre className="max-h-72 overflow-auto rounded-md border border-white/10 bg-[#101218] p-3 text-xs leading-5 text-white/60">
+              <pre className="max-h-72 overflow-auto rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] p-3 text-xs leading-5 text-[var(--flow-muted)]">
                 {JSON.stringify(validation.rules, null, 2)}
               </pre>
             ) : (
-              <div className="rounded-md border border-[#6f312c] bg-[#301916] p-3 text-sm text-[#ff867d]">
+              <div className="rounded-md border border-danger/30 bg-danger-bg p-3 text-sm text-danger">
                 {validation.error}
               </div>
             )}
@@ -591,40 +566,40 @@ function TriageNodeCard({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`group relative w-[17rem] rounded-lg border bg-[#2b2d33] p-3 text-left shadow-[0_8px_22px_rgba(0,0,0,0.24)] ${
+      className={`group relative w-[17rem] rounded-lg border bg-[var(--flow-node)] p-3 text-left shadow-[0_8px_22px_color-mix(in_srgb,var(--foreground)_12%,transparent)] ${
         disabled ? "border-[#575b67] opacity-70" : icon.shellClass
-      } ${selected ? "ring-2 ring-[#6672ff] ring-offset-2 ring-offset-[#0f1117]" : ""}`}
+      } ${selected ? "ring-2 ring-accent ring-offset-2 ring-offset-[var(--flow-canvas)]" : ""}`}
     >
       {nodeData.kind !== "channel" ? (
         <Handle
           type="target"
           position={Position.Left}
-          className={`!size-3 !border-2 !border-[#0f1117] ${icon.portClass}`}
+          className={`!size-3 !border-2 !border-[var(--flow-canvas)] ${icon.portClass}`}
         />
       ) : null}
 
       <div className="flex items-center gap-3">
         <div
-          className={`flex size-11 shrink-0 items-center justify-center rounded-md border border-white/10 bg-[#3a3d44] ${icon.iconClass}`}
+          className={`flex size-11 shrink-0 items-center justify-center rounded-md border border-[var(--flow-line)] bg-[var(--flow-node-icon)] ${icon.iconClass}`}
         >
           <icon.Icon size={23} strokeWidth={2.2} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="line-clamp-2 text-[0.94rem] font-semibold leading-tight text-white">
+            <p className="line-clamp-2 text-[0.94rem] font-semibold leading-tight text-[var(--flow-text)]">
               {nodeData.label}
             </p>
-            <span className="shrink-0 rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-normal text-white/55">
+            <span className="shrink-0 rounded border border-[var(--flow-line)] bg-[var(--flow-soft)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-normal text-[var(--flow-muted)]">
               {disabled ? "off" : nodeData.badge}
             </span>
           </div>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/55">
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--flow-muted)]">
             {nodeData.description}
           </p>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2 text-[11px] text-white/45">
+      <div className="mt-3 flex items-center justify-between border-t border-[var(--flow-line)] pt-2 text-[11px] text-[var(--flow-muted)]">
         <span>{runtimeLabel(nodeData)}</span>
         {isDecision ? (
           <span>{(nodeData.triggerTerms ?? []).length} terms</span>
@@ -637,17 +612,133 @@ function TriageNodeCard({ data, selected }: NodeProps) {
         <Handle
           type="source"
           position={Position.Right}
-          className={`!size-3 !border-2 !border-[#0f1117] ${icon.portClass}`}
+          className={`!size-3 !border-2 !border-[var(--flow-canvas)] ${icon.portClass}`}
         />
       ) : null}
 
       {!isOutcome ? (
-        <div className="pointer-events-none absolute -right-8 top-1/2 hidden -translate-y-1/2 items-center gap-1 text-[10px] font-medium text-white/45 group-hover:flex">
-          <span className="flex size-5 items-center justify-center rounded border border-white/15 bg-[#23262d]">
+        <div className="pointer-events-none absolute -right-8 top-1/2 hidden -translate-y-1/2 items-center gap-1 text-[10px] font-medium text-[var(--flow-muted)] group-hover:flex">
+          <span className="flex size-5 items-center justify-center rounded border border-[var(--flow-line)] bg-[var(--flow-control)]">
             <Plus size={13} />
           </span>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function NodeEditorPopup({
+  node,
+  canDelete,
+  onClose,
+  onDelete,
+  onUpdate,
+}: {
+  node: TriageFlowNode;
+  canDelete: boolean;
+  onClose: () => void;
+  onDelete: () => void;
+  onUpdate: (patch: Partial<TriageFlowNode["data"]>) => void;
+}) {
+  const icon = iconForNode(node.data);
+  const Icon = icon.Icon;
+
+  return (
+    <div className="absolute right-4 top-4 z-20 w-[min(26rem,calc(100%-2rem))] overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)] shadow-2xl">
+      <div className="flex items-start justify-between gap-3 border-b border-[var(--flow-line)] bg-[var(--flow-header)] px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className={`flex size-10 shrink-0 items-center justify-center rounded-md border border-[var(--flow-line)] bg-[var(--flow-node-icon)] ${icon.iconClass}`}>
+            <Icon size={21} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold">Edit node</h2>
+            <p className="text-xs text-[var(--flow-muted)]">
+              {node.data.badge ?? node.data.kind}
+            </p>
+          </div>
+        </div>
+        <button
+          className="rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] p-1.5 text-[var(--flow-muted)] hover:bg-[var(--flow-control-hover)] hover:text-[var(--flow-text)]"
+          type="button"
+          onClick={onClose}
+          aria-label="Close node editor"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className="max-h-[calc(46rem-5rem)] space-y-3 overflow-auto p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] px-2 py-1 text-xs font-medium uppercase text-[var(--flow-muted)]">
+            {canDelete ? "custom node" : "starter node"}
+          </span>
+          {canDelete ? (
+            <button
+              className="inline-flex items-center gap-2 rounded-md border border-danger/30 bg-danger-bg px-3 py-1.5 text-sm font-medium text-danger hover:opacity-80"
+              type="button"
+              onClick={onDelete}
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          ) : null}
+        </div>
+
+        <label className="grid gap-1 text-sm">
+          <span className="font-medium text-[var(--flow-text)]">Label</span>
+          <input
+            value={node.data.label}
+            onChange={(event) => onUpdate({ label: event.target.value })}
+            className="rounded-md border border-[var(--flow-line)] bg-input px-3 py-2 text-foreground"
+            maxLength={80}
+          />
+        </label>
+
+        <label className="grid gap-1 text-sm">
+          <span className="font-medium text-[var(--flow-text)]">Description</span>
+          <textarea
+            value={node.data.description}
+            onChange={(event) => onUpdate({ description: event.target.value })}
+            className="min-h-24 rounded-md border border-[var(--flow-line)] bg-input px-3 py-2 text-foreground"
+            maxLength={240}
+          />
+        </label>
+
+        {node.data.kind === "decision" ? (
+          <>
+            <label className="flex items-center gap-2 rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] px-3 py-2 text-sm font-medium text-[var(--flow-text)]">
+              <input
+                type="checkbox"
+                checked={node.data.enabled !== false}
+                onChange={(event) => onUpdate({ enabled: event.target.checked })}
+              />
+              Runtime rule enabled
+            </label>
+
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-[var(--flow-text)]">Trigger terms</span>
+              <textarea
+                value={(node.data.triggerTerms ?? []).join("\n")}
+                onChange={(event) =>
+                  onUpdate({
+                    triggerTerms: event.target.value
+                      .split("\n")
+                      .map((term) => term.trim())
+                      .filter(Boolean),
+                  })
+                }
+                className="min-h-36 rounded-md border border-[var(--flow-line)] bg-input px-3 py-2 font-mono text-xs leading-5 text-foreground"
+              />
+            </label>
+
+            <p className="rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] px-3 py-2 text-xs text-[var(--flow-muted)]">
+              Reason code: {node.data.reasonCode}
+            </p>
+          </>
+        ) : (
+          <NodeKindSummary kind={node.data.kind} />
+        )}
+      </div>
     </div>
   );
 }
@@ -658,7 +749,7 @@ function PaletteSelect({
   onAddDecision: (decisionKey: TriageDecisionKey) => void;
 }) {
   return (
-    <label className="relative flex min-w-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-2 text-[11px] font-medium text-white/70 hover:bg-white/[0.08]">
+    <label className="relative flex min-w-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] px-2 py-2 text-[11px] font-medium text-[var(--flow-muted)] hover:bg-[var(--flow-control-hover)]">
       <CircleAlert size={18} className="text-[#ffb85c]" />
       Rule
       <select
@@ -699,11 +790,11 @@ function PaletteButton({
 }) {
   return (
     <button
-      className="flex min-w-16 flex-col items-center justify-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-2 text-[11px] font-medium text-white/70 hover:bg-white/[0.08]"
+      className="flex min-w-16 flex-col items-center justify-center gap-1 rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] px-2 py-2 text-[11px] font-medium text-[var(--flow-muted)] hover:bg-[var(--flow-control-hover)]"
       type="button"
       onClick={onClick}
     >
-      <Icon size={18} className={tone === "green" ? "text-[#27c783]" : "text-white/65"} />
+      <Icon size={18} className={tone === "green" ? "text-[var(--success)]" : "text-[var(--flow-muted)]"} />
       {label}
     </button>
   );
@@ -718,7 +809,7 @@ function NodeKindSummary({ kind }: { kind: TriageFlowNodeData["kind"] }) {
         : "Outcome nodes define what Pronto does after decision checks.";
 
   return (
-    <p className="rounded-md border border-white/10 bg-white/[0.04] p-3 text-sm leading-6 text-white/60">
+    <p className="rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] p-3 text-sm leading-6 text-[var(--flow-muted)]">
       {copy}
     </p>
   );
@@ -726,9 +817,9 @@ function NodeKindSummary({ kind }: { kind: TriageFlowNodeData["kind"] }) {
 
 function FlowStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-md border border-white/10 bg-white/[0.04] p-3">
-      <p className="text-xs text-white/45">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-white">{value}</p>
+    <div className="rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] p-3">
+      <p className="text-xs text-[var(--flow-muted)]">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-[var(--flow-text)]">{value}</p>
     </div>
   );
 }
@@ -742,7 +833,7 @@ function StatusPill({
 }) {
   if (!valid) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-md border border-[#6f312c] bg-[#301916] px-2 py-1 text-xs font-medium text-[#ff867d]">
+      <span className="inline-flex items-center gap-1 rounded-md border border-danger/30 bg-danger-bg px-2 py-1 text-xs font-medium text-danger">
         <AlertTriangle size={13} />
         Invalid flow
       </span>
@@ -754,8 +845,8 @@ function StatusPill({
     <span
       className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium ${
         saved
-          ? "border-[#1d6b45] bg-[#12331f] text-[#55d88f]"
-          : "border-white/10 bg-white/[0.04] text-white/60"
+          ? "border-success/30 bg-success-bg text-success"
+          : "border-[var(--flow-line)] bg-[var(--flow-soft)] text-[var(--flow-muted)]"
       }`}
     >
       {saved ? <CheckCircle2 size={13} /> : null}
