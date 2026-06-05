@@ -77,11 +77,28 @@ type SaveState =
   | { status: "saved"; message: string }
   | { status: "error"; message: string };
 
+type FlowTab = "editor" | "executions" | "tests";
+
 type NodeIconConfig = {
   Icon: LucideIcon;
   shellClass: string;
   iconClass: string;
   portClass: string;
+};
+
+type DecisionRuleSummary = {
+  id: string;
+  label: string;
+  reasonCode: string;
+  enabled: boolean;
+  triggerTerms: string[];
+};
+
+type LocalGuardrailResult = {
+  shouldEscalate: boolean;
+  reasonCode: string;
+  matchedTerm: string | null;
+  detail: string;
 };
 
 const nodeTypes: NodeTypes = {
@@ -118,6 +135,64 @@ const generatedPositions: Record<string, { x: number; y: number }> = {
   "outcome-human-reply": { x: 500, y: 290 },
 };
 
+const sampleTestMessages = [
+  "I want a refund because my order arrived wrong.",
+  "Can you help me reserve a table for Friday?",
+  "Are you open this Sunday?",
+  "This is urgent and nobody has replied.",
+];
+
+const localRuntimeFallbacks: Record<string, RegExp[]> = {
+  complaint_or_refund: [
+    /\bcomplain/i,
+    /\bwrong order\b/i,
+    /\bmissing item\b/i,
+    /\blate delivery\b/i,
+    /\bcompensation\b/i,
+  ],
+  transactional_action: [
+    /\bpay\b/i,
+    /\bpayment\b/i,
+    /\bcancel (my )?(booking|reservation|order)\b/i,
+    /\bchange (my )?(booking|reservation|order)\b/i,
+    /\bmodify (my )?(booking|reservation|order)\b/i,
+    /\b(can you|please|help me) (book|reserve) (a )?(table|reservation)\b/i,
+    /\b(make|create) (a )?(booking|reservation)\b/i,
+  ],
+  human_handoff_requested: [
+    /\b(call me|phone me|ring me)\b/i,
+    /\b(speak|talk|chat) (to|with) (a )?(human|person|staff|team|manager|owner)\b/i,
+  ],
+  medical_or_legal: [
+    /\bdoctor\b/i,
+    /\bmedical\b/i,
+    /\blegal\b/i,
+    /\bliability\b/i,
+    /\bsue\b/i,
+    /\bsevere allerg/i,
+    /\banaphylaxis\b/i,
+  ],
+  urgent_or_negative_sentiment: [
+    /\burgent\b/i,
+    /\basap\b/i,
+    /\bnow\b/i,
+    /\bangry\b/i,
+    /\bfrustrated\b/i,
+    /\bupset\b/i,
+    /\bterrible\b/i,
+    /\bawful\b/i,
+  ],
+  out_of_scope: [
+    /\bwrite my\b/i,
+    /\bhomework\b/i,
+    /\binvestment advice\b/i,
+    /\bweather\b/i,
+    /\bnews\b/i,
+    /\bcode\b/i,
+    /\bkaraoke\b/i,
+  ],
+};
+
 export function TriageFlowEditor({
   initialNodes,
   initialEdges,
@@ -135,6 +210,8 @@ export function TriageFlowEditor({
     initialNodes[3]?.id ?? initialNodes[0]?.id,
   );
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<FlowTab>("editor");
+  const [testMessage, setTestMessage] = useState(sampleTestMessages[0]);
   const [currentVersion, setCurrentVersion] = useState(version);
   const [compiledRules, setCompiledRules] = useState(initialCompiledRules);
   const [flowInstance, setFlowInstance] =
@@ -173,6 +250,32 @@ export function TriageFlowEditor({
       ).length,
     }),
     [nodes],
+  );
+  const decisionRules = useMemo<DecisionRuleSummary[]>(
+    () =>
+      nodes
+        .filter((node) => node.data.kind === "decision")
+        .map((node) => ({
+          id: node.id,
+          label: node.data.label,
+          reasonCode: node.data.reasonCode ?? "custom_rule",
+          enabled: node.data.enabled !== false,
+          triggerTerms: node.data.triggerTerms ?? [],
+        })),
+    [nodes],
+  );
+  const runtimeRules = validation.ok ? validation.rules : compiledRules;
+  const testResult = useMemo(
+    () => evaluateLocalGuardrail(testMessage, decisionRules),
+    [testMessage, decisionRules],
+  );
+  const sampleResults = useMemo(
+    () =>
+      sampleTestMessages.map((message) => ({
+        message,
+        result: evaluateLocalGuardrail(message, decisionRules),
+      })),
+    [decisionRules],
   );
 
   const onNodesChange = useCallback((changes: NodeChange<TriageFlowNode>[]) => {
@@ -357,7 +460,7 @@ export function TriageFlowEditor({
     : null;
 
   return (
-    <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_23rem]">
+    <div className={`grid gap-4 ${activeTab === "editor" ? "2xl:grid-cols-[minmax(0,1fr)_23rem]" : ""}`}>
       <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-shell)] shadow-sm">
         <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[var(--flow-line)] bg-[var(--flow-header)] px-4 py-2.5 text-[var(--flow-text)]">
           <div className="flex min-w-0 items-center gap-3">
@@ -373,9 +476,20 @@ export function TriageFlowEditor({
           </div>
 
           <div className="hidden rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] p-1 text-xs font-medium text-[var(--flow-muted)] md:flex">
-            <span className="rounded bg-[var(--flow-active)] px-3 py-1.5 text-[var(--flow-text)]">Editor</span>
-            <span className="px-3 py-1.5">Executions</span>
-            <span className="px-3 py-1.5">Tests</span>
+            {(["editor", "executions", "tests"] as FlowTab[]).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                className={`rounded px-3 py-1.5 capitalize ${
+                  activeTab === tab
+                    ? "bg-[var(--flow-active)] text-[var(--flow-text)]"
+                    : "hover:bg-[var(--flow-soft)] hover:text-[var(--flow-text)]"
+                }`}
+                onClick={() => setActiveTab(tab)}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -386,22 +500,26 @@ export function TriageFlowEditor({
               </span>
             </span>
             <StatusPill state={saveState} valid={validation.ok} />
-            <button
-              className="inline-flex items-center gap-2 rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] px-3 py-2 text-sm font-medium text-[var(--flow-text)] hover:bg-[var(--flow-control-hover)]"
-              type="button"
-              onClick={fitDiagram}
-            >
-              <SlidersHorizontal size={15} />
-              Fit
-            </button>
-            <button
-              className="inline-flex items-center gap-2 rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] px-3 py-2 text-sm font-medium text-[var(--flow-text)] hover:bg-[var(--flow-control-hover)]"
-              type="button"
-              onClick={generateDiagram}
-            >
-              <Wand2 size={15} />
-              Generate diagram
-            </button>
+            {activeTab === "editor" ? (
+              <>
+                <button
+                  className="inline-flex items-center gap-2 rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] px-3 py-2 text-sm font-medium text-[var(--flow-text)] hover:bg-[var(--flow-control-hover)]"
+                  type="button"
+                  onClick={fitDiagram}
+                >
+                  <SlidersHorizontal size={15} />
+                  Fit
+                </button>
+                <button
+                  className="inline-flex items-center gap-2 rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] px-3 py-2 text-sm font-medium text-[var(--flow-text)] hover:bg-[var(--flow-control-hover)]"
+                  type="button"
+                  onClick={generateDiagram}
+                >
+                  <Wand2 size={15} />
+                  Generate diagram
+                </button>
+              </>
+            ) : null}
             <button
               className="inline-flex items-center gap-2 rounded-md bg-[#ff6d5a] px-3 py-2 text-sm font-semibold text-white hover:bg-[#ff806f] disabled:cursor-not-allowed disabled:opacity-60"
               type="button"
@@ -414,67 +532,85 @@ export function TriageFlowEditor({
           </div>
         </div>
 
-        <div className="grid min-h-[46rem] bg-[var(--flow-canvas)] lg:grid-cols-[4.5rem_minmax(0,1fr)]">
-          <div className="flex flex-row gap-2 overflow-x-auto border-b border-[var(--flow-line)] bg-[var(--flow-palette)] p-2 lg:flex-col lg:border-b-0 lg:border-r">
-            <PaletteButton
-              label="Layout"
-              icon={Wand2}
-              onClick={generateDiagram}
-              tone="green"
-            />
-            <PaletteSelect onAddDecision={addDecisionNode} />
-            <PaletteButton label="Note" icon={FileText} onClick={addNoteNode} />
-            <PaletteButton label="Reset" icon={RotateCcw} onClick={resetTemplate} />
-          </div>
+        {activeTab === "editor" ? (
+          <div className="grid min-h-[46rem] bg-[var(--flow-canvas)] lg:grid-cols-[4.5rem_minmax(0,1fr)]">
+            <div className="flex flex-row gap-2 overflow-x-auto border-b border-[var(--flow-line)] bg-[var(--flow-palette)] p-2 lg:flex-col lg:border-b-0 lg:border-r">
+              <PaletteButton
+                label="Layout"
+                icon={Wand2}
+                onClick={generateDiagram}
+                tone="green"
+              />
+              <PaletteSelect onAddDecision={addDecisionNode} />
+              <PaletteButton label="Note" icon={FileText} onClick={addNoteNode} />
+              <PaletteButton label="Reset" icon={RotateCcw} onClick={resetTemplate} />
+            </div>
 
-          <div className="pronto-workflow relative h-[46rem] min-h-[38rem]">
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              onInit={(instance) => setFlowInstance(instance)}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onNodeClick={(_, node) => {
-                setSelectedNodeId(node.id);
-                setEditingNodeId(node.id);
-              }}
-              nodesConnectable
-              fitView
-              fitViewOptions={{ padding: 0.18 }}
-              defaultEdgeOptions={{
-                type: "smoothstep",
-              }}
-            >
-              <Background gap={18} size={1} color="var(--flow-grid)" />
-              <MiniMap
-                pannable
-                zoomable
-                nodeColor={(node) => miniMapNodeColor(node.data as TriageFlowNodeData)}
-                maskColor="var(--flow-minimap-mask)"
-                style={{
-                  background: "var(--flow-control)",
-                  border: "1px solid var(--flow-line)",
-                  borderRadius: 8,
+            <div className="pronto-workflow relative h-[46rem] min-h-[38rem]">
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                nodeTypes={nodeTypes}
+                onInit={(instance) => setFlowInstance(instance)}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onNodeClick={(_, node) => {
+                  setSelectedNodeId(node.id);
+                  setEditingNodeId(node.id);
                 }}
-              />
-              <Controls showInteractive={false} />
-            </ReactFlow>
-            {editingNode ? (
-              <NodeEditorPopup
-                node={editingNode}
-                canDelete={!isStarterTriageNode(editingNode.id)}
-                onClose={() => setEditingNodeId(null)}
-                onDelete={deleteSelectedNode}
-                onUpdate={updateSelectedNode}
-              />
-            ) : null}
+                nodesConnectable
+                fitView
+                fitViewOptions={{ padding: 0.18 }}
+                defaultEdgeOptions={{
+                  type: "smoothstep",
+                }}
+              >
+                <Background gap={18} size={1} color="var(--flow-grid)" />
+                <MiniMap
+                  pannable
+                  zoomable
+                  nodeColor={(node) => miniMapNodeColor(node.data as TriageFlowNodeData)}
+                  maskColor="var(--flow-minimap-mask)"
+                  style={{
+                    background: "var(--flow-control)",
+                    border: "1px solid var(--flow-line)",
+                    borderRadius: 8,
+                  }}
+                />
+                <Controls showInteractive={false} />
+              </ReactFlow>
+              {editingNode ? (
+                <NodeEditorPopup
+                  node={editingNode}
+                  canDelete={!isStarterTriageNode(editingNode.id)}
+                  onClose={() => setEditingNodeId(null)}
+                  onDelete={deleteSelectedNode}
+                  onUpdate={updateSelectedNode}
+                />
+              ) : null}
+            </div>
           </div>
-        </div>
+        ) : activeTab === "executions" ? (
+          <ExecutionsTab
+            currentVersion={currentVersion}
+            flowStats={flowStats}
+            runtimeRules={runtimeRules}
+            decisionRules={decisionRules}
+            validation={validation}
+          />
+        ) : (
+          <TestsTab
+            testMessage={testMessage}
+            testResult={testResult}
+            sampleResults={sampleResults}
+            onChangeTestMessage={setTestMessage}
+          />
+        )}
       </section>
 
-      <aside className="space-y-4">
+      {activeTab === "editor" ? (
+        <aside className="space-y-4">
         <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)] shadow-sm">
           <div className="flex items-center justify-between border-b border-[var(--flow-line)] px-4 py-3">
             <div>
@@ -552,8 +688,228 @@ export function TriageFlowEditor({
             )}
           </div>
         </section>
-      </aside>
+        </aside>
+      ) : null}
     </div>
+  );
+}
+
+function ExecutionsTab({
+  currentVersion,
+  flowStats,
+  runtimeRules,
+  decisionRules,
+  validation,
+}: {
+  currentVersion: number;
+  flowStats: {
+    channels: number;
+    decisions: number;
+    outcomes: number;
+    notes: number;
+    activeRules: number;
+  };
+  runtimeRules: Record<string, unknown>;
+  decisionRules: DecisionRuleSummary[];
+  validation: { ok: boolean; rules: Record<string, unknown>; error: string | null };
+}) {
+  const alwaysEscalateTopics = stringArray(runtimeRules.alwaysEscalateTopics);
+  const disabledReasonCodes = stringArray(runtimeRules.disabledReasonCodes);
+
+  return (
+    <div className="min-h-[46rem] space-y-4 bg-[var(--flow-canvas)] p-4 text-[var(--flow-text)]">
+      <div className="grid gap-3 md:grid-cols-5">
+        <FlowStat label="Version" value={currentVersion || 1} />
+        <FlowStat label="Channels" value={flowStats.channels} />
+        <FlowStat label="Active rules" value={flowStats.activeRules} />
+        <FlowStat label="Decisions" value={flowStats.decisions} />
+        <FlowStat label="Outcomes" value={flowStats.outcomes} />
+      </div>
+
+      {!validation.ok ? (
+        <div className="rounded-md border border-danger/30 bg-danger-bg p-3 text-sm text-danger">
+          {validation.error}
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)]">
+          <div className="border-b border-[var(--flow-line)] px-4 py-3">
+            <h3 className="text-sm font-semibold">Runtime decisions</h3>
+            <p className="text-xs text-[var(--flow-muted)]">Enabled graph rules in execution order.</p>
+          </div>
+          <div className="divide-y divide-[var(--flow-line)]">
+            {decisionRules.map((rule) => (
+              <div key={rule.id} className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_9rem]">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{rule.label}</p>
+                    <span
+                      className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                        rule.enabled
+                          ? "border-success/30 bg-success-bg text-success"
+                          : "border-[var(--flow-line)] bg-[var(--flow-soft)] text-[var(--flow-muted)]"
+                      }`}
+                    >
+                      {rule.enabled ? "active" : "off"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--flow-muted)]">{rule.reasonCode}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {rule.triggerTerms.slice(0, 8).map((term) => (
+                      <span
+                        key={term}
+                        className="rounded border border-[var(--flow-line)] bg-[var(--flow-soft)] px-1.5 py-0.5 text-[10px] text-[var(--flow-muted)]"
+                      >
+                        {term}
+                      </span>
+                    ))}
+                    {rule.triggerTerms.length > 8 ? (
+                      <span className="text-[10px] text-[var(--flow-muted)]">
+                        +{rule.triggerTerms.length - 8}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] px-3 py-2 text-xs text-[var(--flow-muted)]">
+                  {rule.enabled ? "Escalates on term match" : "Skipped at runtime"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)]">
+          <div className="border-b border-[var(--flow-line)] px-4 py-3">
+            <h3 className="text-sm font-semibold">Compiled guardrails</h3>
+            <p className="text-xs text-[var(--flow-muted)]">Fields written to the agent config on save.</p>
+          </div>
+          <div className="space-y-3 p-4 text-sm">
+            <RuntimeFieldList label="Always escalate topics" values={alwaysEscalateTopics} />
+            <RuntimeFieldList label="Disabled reason codes" values={disabledReasonCodes} />
+            <pre className="max-h-80 overflow-auto rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] p-3 text-xs leading-5 text-[var(--flow-muted)]">
+              {JSON.stringify(runtimeRules, null, 2)}
+            </pre>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function TestsTab({
+  testMessage,
+  testResult,
+  sampleResults,
+  onChangeTestMessage,
+}: {
+  testMessage: string;
+  testResult: LocalGuardrailResult;
+  sampleResults: Array<{ message: string; result: LocalGuardrailResult }>;
+  onChangeTestMessage: (message: string) => void;
+}) {
+  return (
+    <div className="min-h-[46rem] space-y-4 bg-[var(--flow-canvas)] p-4 text-[var(--flow-text)]">
+      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)]">
+          <div className="border-b border-[var(--flow-line)] px-4 py-3">
+            <h3 className="text-sm font-semibold">Custom test</h3>
+            <p className="text-xs text-[var(--flow-muted)]">Run a customer message against the current graph.</p>
+          </div>
+          <div className="space-y-3 p-4">
+            <textarea
+              value={testMessage}
+              onChange={(event) => onChangeTestMessage(event.target.value)}
+              className="min-h-36 w-full rounded-md border border-[var(--flow-line)] bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+            />
+            <GuardrailResultPanel result={testResult} />
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)]">
+          <div className="border-b border-[var(--flow-line)] px-4 py-3">
+            <h3 className="text-sm font-semibold">Sample cases</h3>
+            <p className="text-xs text-[var(--flow-muted)]">Click a sample to inspect the route.</p>
+          </div>
+          <div className="divide-y divide-[var(--flow-line)]">
+            {sampleResults.map(({ message, result }) => (
+              <button
+                key={message}
+                type="button"
+                className="grid w-full gap-2 p-4 text-left hover:bg-[var(--flow-soft)] md:grid-cols-[minmax(0,1fr)_11rem]"
+                onClick={() => onChangeTestMessage(message)}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{message}</p>
+                  <p className="mt-1 text-xs text-[var(--flow-muted)]">{result.detail}</p>
+                </div>
+                <GuardrailBadge result={result} />
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function RuntimeFieldList({ label, values }: { label: string; values: string[] }) {
+  return (
+    <div className="rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] p-3">
+      <p className="text-xs font-medium text-[var(--flow-muted)]">{label}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {values.length ? (
+          values.map((value) => (
+            <span
+              key={value}
+              className="rounded border border-[var(--flow-line)] bg-[var(--flow-control)] px-1.5 py-0.5 text-[10px] text-[var(--flow-muted)]"
+            >
+              {value}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-[var(--flow-muted)]">None</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GuardrailResultPanel({ result }: { result: LocalGuardrailResult }) {
+  return (
+    <div
+      className={`rounded-lg border p-4 ${
+        result.shouldEscalate
+          ? "border-danger/30 bg-danger-bg text-danger"
+          : "border-success/30 bg-success-bg text-success"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        {result.shouldEscalate ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+        <p className="text-sm font-semibold">
+          {result.shouldEscalate ? "Escalate" : "Answer from knowledge"}
+        </p>
+      </div>
+      <p className="mt-2 text-sm">{result.detail}</p>
+      <p className="mt-2 text-xs">
+        Reason: {result.reasonCode}
+        {result.matchedTerm ? ` · matched "${result.matchedTerm}"` : ""}
+      </p>
+    </div>
+  );
+}
+
+function GuardrailBadge({ result }: { result: LocalGuardrailResult }) {
+  return (
+    <span
+      className={`inline-flex items-center justify-center rounded-md border px-2 py-1 text-xs font-medium ${
+        result.shouldEscalate
+          ? "border-danger/30 bg-danger-bg text-danger"
+          : "border-success/30 bg-success-bg text-success"
+      }`}
+    >
+      {result.shouldEscalate ? result.reasonCode : "in_scope"}
+    </span>
   );
 }
 
@@ -959,6 +1315,70 @@ function miniMapNodeColor(nodeData: TriageFlowNodeData): string {
     return "#8ca2ff";
   }
   return "#9ca3af";
+}
+
+function evaluateLocalGuardrail(
+  message: string,
+  decisionRules: DecisionRuleSummary[],
+): LocalGuardrailResult {
+  const normalizedMessage = message.trim().toLowerCase();
+  if (!normalizedMessage) {
+    return {
+      shouldEscalate: false,
+      reasonCode: "empty",
+      matchedTerm: null,
+      detail: "Enter a customer message to run this flow.",
+    };
+  }
+
+  for (const rule of decisionRules) {
+    if (!rule.enabled) {
+      continue;
+    }
+
+    const matchedTerm = rule.triggerTerms.find((term) => {
+      const normalizedTerm = term.trim().toLowerCase();
+      return normalizedTerm.length > 0 && normalizedMessage.includes(normalizedTerm);
+    });
+
+    if (matchedTerm) {
+      return {
+        shouldEscalate: true,
+        reasonCode: rule.reasonCode,
+        matchedTerm,
+        detail: `${rule.label} matched a configured trigger term.`,
+      };
+    }
+
+    const fallbackMatched = localRuntimeFallbacks[rule.reasonCode]?.some((pattern) =>
+      pattern.test(message),
+    );
+    if (fallbackMatched) {
+      return {
+        shouldEscalate: true,
+        reasonCode: rule.reasonCode,
+        matchedTerm: "runtime pattern",
+        detail: `${rule.label} matched a built-in runtime guardrail pattern.`,
+      };
+    }
+  }
+
+  return {
+    shouldEscalate: false,
+    reasonCode: "in_scope",
+    matchedTerm: null,
+    detail: "No enabled flow trigger term matched this message.",
+  };
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 function createFlowId(): string {

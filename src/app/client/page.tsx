@@ -7,7 +7,6 @@ import {
   getSlaSummary,
 } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
-import { ClientNav } from "@/components/client-nav";
 import {
   ClientAnalyticsCards,
   ConversationFilterForm,
@@ -43,15 +42,13 @@ export default async function ClientPage({
   }
 
   return (
-    <AppShell user={user} active="client">
+    <AppShell user={user} active="client" clientActive="conversations" workspaceName={client.name}>
       <div className="mb-5">
         <h1 className="text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
         <p className="text-sm text-muted">
           Review customer conversations and open triage when Pronto needs help.
         </p>
       </div>
-      <ClientNav active="conversations" />
-
       <ClientAnalyticsCards analytics={analytics} />
 
       <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.45fr]">

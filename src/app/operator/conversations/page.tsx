@@ -1,7 +1,6 @@
 import { requireUser } from "@/lib/auth";
-import { getFilteredConversations } from "@/lib/reporting";
+import { getFilteredConversations, getOperatorCommandCenter } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
-import { OperatorNav } from "@/components/operator/operator-nav";
 import {
   ConversationFilterForm,
   ConversationList,
@@ -18,17 +17,24 @@ export default async function OperatorConversationsPage({
   const user = await requireUser("operator");
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const filters = filtersFromSearchParams(resolvedSearchParams);
-  const conversations = await getFilteredConversations({ ...filters, limit: 75 });
+  const [commandCenter, conversations] = await Promise.all([
+    getOperatorCommandCenter(),
+    getFilteredConversations({ ...filters, limit: 75 }),
+  ]);
 
   return (
-    <AppShell user={user} active="operator">
+    <AppShell
+      user={user}
+      active="operator"
+      operatorActive="conversations"
+      operatorClients={commandCenter.clientHealth}
+    >
       <div className="mb-5">
         <h1 className="text-xl font-semibold tracking-[-0.01em]">Conversations</h1>
         <p className="text-sm text-muted">
           Cross-client transcript queue for debugging, QA review, and escalation follow-up.
         </p>
       </div>
-      <OperatorNav active="conversations" />
 
       <section className="ui-panel">
         <div className="ui-panel-header">

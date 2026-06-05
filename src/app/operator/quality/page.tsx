@@ -6,10 +6,9 @@ import {
   getOpenEscalations,
   getOperatorConversationTriage,
 } from "@/lib/dashboard";
-import { getKnowledgeGapReport, getSlaSummary } from "@/lib/reporting";
+import { getKnowledgeGapReport, getOperatorCommandCenter, getSlaSummary } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
-import { OperatorNav } from "@/components/operator/operator-nav";
 import { StatCard } from "@/components/stat-card";
 import {
   KnowledgeGapPanel,
@@ -20,7 +19,8 @@ export const dynamic = "force-dynamic";
 
 export default async function OperatorQualityPage() {
   const user = await requireUser("operator");
-  const [metrics, escalations, conversations, gaps, sla] = await Promise.all([
+  const [commandCenter, metrics, escalations, conversations, gaps, sla] = await Promise.all([
+    getOperatorCommandCenter(),
     getMetrics(),
     getOpenEscalations(),
     getOperatorConversationTriage(25),
@@ -29,14 +29,18 @@ export default async function OperatorQualityPage() {
   ]);
 
   return (
-    <AppShell user={user} active="operator">
+    <AppShell
+      user={user}
+      active="operator"
+      operatorActive="quality"
+      operatorClients={commandCenter.clientHealth}
+    >
       <div className="mb-5">
         <h1 className="text-xl font-semibold tracking-[-0.01em]">Quality</h1>
         <p className="text-sm text-muted">
           Internal QA view for hallucinations, over-escalation, missing knowledge, and pilot blockers.
         </p>
       </div>
-      <OperatorNav active="quality" />
 
       <section className="grid gap-4 md:grid-cols-5">
         <StatCard label="Hallucinations" value={metrics.hallucinationIncidents} hint="Target: zero" />

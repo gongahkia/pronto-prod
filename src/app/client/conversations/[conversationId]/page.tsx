@@ -8,7 +8,6 @@ import {
   getConversationTriageDetail,
 } from "@/lib/dashboard";
 import { AppShell } from "@/components/shell";
-import { ClientNav } from "@/components/client-nav";
 import { ConversationTriagePanel } from "@/components/conversation-triage-panel";
 import { ConversationTranscript } from "@/components/conversation-transcript";
 
@@ -39,7 +38,7 @@ export default async function ClientConversationPage({
   const returnTo = `/client/conversations/${conversation.id}`;
 
   return (
-    <AppShell user={user} active="client">
+    <AppShell user={user} active="client" clientActive="conversations" workspaceName={client.name}>
       <div className="mb-5">
         <Link href="/client" className="text-xs font-medium text-accent hover:text-accent-dark">
           Back to conversations
@@ -51,8 +50,6 @@ export default async function ClientConversationPage({
           Review this customer conversation and handle the active triage item.
         </p>
       </div>
-      <ClientNav active="conversations" />
-
       <div className="space-y-6">
         <ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo} />
         <ConversationTranscript conversation={conversation} messages={messages} />

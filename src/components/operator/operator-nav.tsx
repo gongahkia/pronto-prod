@@ -14,7 +14,6 @@ const operatorItems: OperatorNavItem[] = [
   { href: "/operator", label: "Clients", key: "clients" },
   { href: "/operator/conversations", label: "Conversations", key: "conversations" },
   { href: "/operator/quality", label: "Quality", key: "quality" },
-  { href: "/operator/settings", label: "Settings", key: "settings" },
 ];
 
 export function OperatorNav({ active }: { active: OperatorTab }) {

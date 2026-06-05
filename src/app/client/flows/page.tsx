@@ -2,7 +2,6 @@ import { requireUser } from "@/lib/auth";
 import { getClient } from "@/lib/dashboard";
 import { getTriageFlowForClient } from "@/lib/triage-flow-store";
 import { AppShell } from "@/components/shell";
-import { ClientNav } from "@/components/client-nav";
 import { TriageFlowEditor } from "@/components/triage-flow-editor";
 
 export const dynamic = "force-dynamic";
@@ -22,15 +21,13 @@ export default async function ClientFlowsPage() {
   }
 
   return (
-    <AppShell user={user} active="client">
+    <AppShell user={user} active="client" clientActive="flows" workspaceName={client.name}>
       <div className="mb-5">
         <h1 className="text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
         <p className="text-sm text-muted">
           Configure channel intake and customer triage guardrails.
         </p>
       </div>
-      <ClientNav active="flows" />
-
       <TriageFlowEditor
         initialNodes={flow.nodes}
         initialEdges={flow.edges}

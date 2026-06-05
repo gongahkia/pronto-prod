@@ -3,7 +3,6 @@ import { getAgentConfigDetail } from "@/lib/agent/config";
 import { getBrandVoiceProfile } from "@/lib/brand-voice";
 import { getClient, getMetrics } from "@/lib/dashboard";
 import { AppShell } from "@/components/shell";
-import { ClientNav } from "@/components/client-nav";
 import { StatCard } from "@/components/stat-card";
 import { ClientAgentConfigPreview } from "@/components/agent-config-panels";
 import { ClientBrandVoicePreview } from "@/components/local-release-panels";
@@ -27,13 +26,11 @@ export default async function ClientSettingsPage() {
   }
 
   return (
-    <AppShell user={user} active="client">
+    <AppShell user={user} active="client" clientActive="settings" workspaceName={client.name}>
       <div className="mb-5">
         <h1 className="text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
         <p className="text-sm text-muted">Manage notifications and service setup.</p>
       </div>
-      <ClientNav active="settings" />
-
       <section className="grid gap-4 md:grid-cols-4">
         <StatCard label="Conversations" value={metrics.conversations} />
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
