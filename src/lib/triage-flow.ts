@@ -1,4 +1,4 @@
-export type TriageFlowNodeKind = "channel" | "decision" | "outcome";
+export type TriageFlowNodeKind = "channel" | "decision" | "outcome" | "note";
 
 export type TriageDecisionKey =
   | "complaint_or_refund"
@@ -60,8 +60,12 @@ export class TriageFlowValidationError extends Error {
 
 const MAX_LABEL_LENGTH = 80;
 const MAX_DESCRIPTION_LENGTH = 240;
+const MAX_EDGE_LABEL_LENGTH = 32;
 const MAX_TERM_LENGTH = 48;
 const MAX_TERMS_PER_DECISION = 20;
+const MAX_FLOW_NODES = 48;
+const MAX_FLOW_EDGES = 96;
+const FLOW_ID_PATTERN = /^[a-zA-Z0-9:_-]{3,96}$/;
 
 export const TRIAGE_DECISIONS: DecisionDefinition[] = [
   {
@@ -236,6 +240,7 @@ const defaultEdges: TriageFlowEdge[] = [
 
 const defaultNodeIds = new Set(defaultNodes.map((node) => node.id));
 const defaultEdgeById = new Map(defaultEdges.map((edge) => [edge.id, edge]));
+const defaultEdgeIds = new Set(defaultEdges.map((edge) => edge.id));
 
 export function buildDefaultTriageFlow(): TriageFlowDraft {
   return {
@@ -262,7 +267,7 @@ export function validateAndNormalizeTriageFlow(input: unknown): TriageFlowDraft 
   }
 
   const nodes = normalizeNodes(draft.nodes);
-  const edges = normalizeEdges(draft.edges);
+  const edges = normalizeEdges(draft.edges, nodes);
   ensureRequiredGraph(nodes, edges);
 
   return { nodes, edges };
@@ -280,12 +285,17 @@ export function compileTriageFlowToEscalationRules(
   };
 
   for (const decision of TRIAGE_DECISIONS) {
-    const node = normalizedNodes.find((candidate) => candidate.id === decision.nodeId);
-    if (!node || node.data.kind !== "decision") {
+    const decisionNodes = normalizedNodes.filter(
+      (candidate) =>
+        candidate.data.kind === "decision" &&
+        candidate.data.decisionKey === decision.decisionKey,
+    );
+    if (!decisionNodes.length) {
       throw new TriageFlowValidationError(`Missing decision node ${decision.nodeId}.`);
     }
 
-    if (node.data.enabled === false) {
+    const enabledNodes = decisionNodes.filter((node) => node.data.enabled !== false);
+    if (!enabledNodes.length) {
       disabledReasonCodes.push(decision.reasonCode);
       continue;
     }
@@ -294,7 +304,9 @@ export function compileTriageFlowToEscalationRules(
       alwaysEscalateTopics.add(topic);
     }
 
-    const terms = sanitizeTerms(node.data.triggerTerms ?? []);
+    const terms = sanitizeTerms(
+      enabledNodes.flatMap((node) => node.data.triggerTerms ?? []),
+    );
     if (terms.length) {
       rules[decision.ruleField] = terms;
     }
@@ -309,6 +321,10 @@ export function compileTriageFlowToEscalationRules(
 }
 
 function normalizeNodes(nodes: unknown[]): TriageFlowNode[] {
+  if (nodes.length > MAX_FLOW_NODES) {
+    throw new TriageFlowValidationError(`Flow can include at most ${MAX_FLOW_NODES} nodes.`);
+  }
+
   const seen = new Set<string>();
   return nodes.map((node) => {
     if (!node || typeof node !== "object" || Array.isArray(node)) {
@@ -316,8 +332,8 @@ function normalizeNodes(nodes: unknown[]): TriageFlowNode[] {
     }
 
     const candidate = node as Partial<TriageFlowNode>;
-    if (!candidate.id || !defaultNodeIds.has(candidate.id)) {
-      throw new TriageFlowValidationError("Flow contains an unknown node.");
+    if (!candidate.id || typeof candidate.id !== "string" || !FLOW_ID_PATTERN.test(candidate.id)) {
+      throw new TriageFlowValidationError("Flow contains an invalid node id.");
     }
     if (seen.has(candidate.id)) {
       throw new TriageFlowValidationError(`Flow contains duplicate node ${candidate.id}.`);
@@ -325,12 +341,70 @@ function normalizeNodes(nodes: unknown[]): TriageFlowNode[] {
     seen.add(candidate.id);
 
     const template = defaultNodes.find((defaultNode) => defaultNode.id === candidate.id);
-    if (!template) {
-      throw new TriageFlowValidationError("Flow contains an unsupported node.");
-    }
-
     const position = normalizePosition(candidate.position);
     const inputData = normalizeDataObject(candidate.data);
+    const kind = inputData.kind;
+
+    if (!template) {
+      if (kind === "decision") {
+        const decisionKey = inputData.decisionKey;
+        const definition =
+          typeof decisionKey === "string"
+            ? decisionByKey.get(decisionKey as TriageDecisionKey)
+            : undefined;
+        if (
+          !definition ||
+          (inputData.reasonCode !== undefined && inputData.reasonCode !== definition.reasonCode)
+        ) {
+          throw new TriageFlowValidationError("Flow contains an invalid decision node.");
+        }
+
+        return {
+          id: candidate.id,
+          type: "triage",
+          position,
+          data: {
+            kind: "decision",
+            label: sanitizeText(inputData.label, definition.label, MAX_LABEL_LENGTH),
+            description: sanitizeText(
+              inputData.description,
+              definition.description,
+              MAX_DESCRIPTION_LENGTH,
+            ),
+            badge: "decision",
+            decisionKey: definition.decisionKey,
+            reasonCode: definition.reasonCode,
+            enabled: inputData.enabled !== false,
+            triggerTerms: sanitizeTerms(
+              Array.isArray(inputData.triggerTerms)
+                ? inputData.triggerTerms
+                : definition.triggerTerms,
+            ),
+          },
+        };
+      }
+
+      if (kind === "note") {
+        return {
+          id: candidate.id,
+          type: "triage",
+          position,
+          data: {
+            kind: "note",
+            label: sanitizeText(inputData.label, "Note", MAX_LABEL_LENGTH),
+            description: sanitizeText(
+              inputData.description,
+              "Internal note only. Does not affect runtime behavior.",
+              MAX_DESCRIPTION_LENGTH,
+            ),
+            badge: "note",
+          },
+        };
+      }
+
+      throw new TriageFlowValidationError("Flow contains an unsupported custom node.");
+    }
+
     const templateData = template.data;
     const label = sanitizeText(inputData.label, templateData.label, MAX_LABEL_LENGTH);
     const description = sanitizeText(
@@ -388,25 +462,48 @@ function normalizeNodes(nodes: unknown[]): TriageFlowNode[] {
   });
 }
 
-function normalizeEdges(edges: unknown[]): TriageFlowEdge[] {
+function normalizeEdges(edges: unknown[], nodes: TriageFlowNode[]): TriageFlowEdge[] {
+  if (edges.length > MAX_FLOW_EDGES) {
+    throw new TriageFlowValidationError(`Flow can include at most ${MAX_FLOW_EDGES} edges.`);
+  }
+
+  const nodeIds = new Set(nodes.map((node) => node.id));
   const seen = new Set<string>();
   return edges.map((edge) => {
     if (!edge || typeof edge !== "object" || Array.isArray(edge)) {
       throw new TriageFlowValidationError("Each flow edge must be an object.");
     }
     const candidate = edge as Partial<TriageFlowEdge>;
-    const template = candidate.id ? defaultEdgeById.get(candidate.id) : undefined;
-    if (!template) {
-      throw new TriageFlowValidationError("Flow contains an unknown edge.");
+    if (!candidate.id || typeof candidate.id !== "string" || !FLOW_ID_PATTERN.test(candidate.id)) {
+      throw new TriageFlowValidationError("Flow contains an invalid edge id.");
     }
-    if (seen.has(template.id)) {
-      throw new TriageFlowValidationError(`Flow contains duplicate edge ${template.id}.`);
+    if (seen.has(candidate.id)) {
+      throw new TriageFlowValidationError(`Flow contains duplicate edge ${candidate.id}.`);
     }
-    seen.add(template.id);
-    if (candidate.source !== template.source || candidate.target !== template.target) {
+    seen.add(candidate.id);
+
+    if (
+      typeof candidate.source !== "string" ||
+      typeof candidate.target !== "string" ||
+      !nodeIds.has(candidate.source) ||
+      !nodeIds.has(candidate.target)
+    ) {
       throw new TriageFlowValidationError("Flow contains a disconnected edge.");
     }
-    return { ...template };
+
+    const template = defaultEdgeById.get(candidate.id);
+    if (template && (candidate.source !== template.source || candidate.target !== template.target)) {
+      throw new TriageFlowValidationError("Flow contains a disconnected starter edge.");
+    }
+
+    return {
+      id: candidate.id,
+      source: candidate.source,
+      target: candidate.target,
+      type: "smoothstep",
+      label: sanitizeText(candidate.label, template?.label ?? "", MAX_EDGE_LABEL_LENGTH) || undefined,
+      animated: Boolean(candidate.animated),
+    };
   });
 }
 
@@ -506,4 +603,12 @@ export function decisionDefinitionForKey(
   key: TriageDecisionKey,
 ): DecisionDefinition | undefined {
   return decisionByKey.get(key);
+}
+
+export function isStarterTriageNode(nodeId: string): boolean {
+  return defaultNodeIds.has(nodeId);
+}
+
+export function isStarterTriageEdge(edgeId: string): boolean {
+  return defaultEdgeIds.has(edgeId);
 }

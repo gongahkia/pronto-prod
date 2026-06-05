@@ -3,8 +3,11 @@
 import {
   AlertTriangle,
   CheckCircle2,
+  FileText,
+  Plus,
   RotateCcw,
   Save,
+  Trash2,
 } from "lucide-react";
 import {
   Background,
@@ -13,8 +16,10 @@ import {
   MiniMap,
   Position,
   ReactFlow,
+  addEdge,
   applyEdgeChanges,
   applyNodeChanges,
+  type Connection,
   type EdgeChange,
   type NodeChange,
   type NodeProps,
@@ -24,7 +29,12 @@ import { useCallback, useMemo, useState } from "react";
 import {
   buildDefaultTriageFlow,
   compileTriageFlowToEscalationRules,
+  decisionDefinitionForKey,
+  isStarterTriageEdge,
+  isStarterTriageNode,
+  TRIAGE_DECISIONS,
   validateAndNormalizeTriageFlow,
+  type TriageDecisionKey,
   type TriageFlowEdge,
   type TriageFlowNode,
   type TriageFlowNodeData,
@@ -88,12 +98,41 @@ export function TriageFlowEditor({
   }, [nodes, edges, compiledRules]);
 
   const onNodesChange = useCallback((changes: NodeChange<TriageFlowNode>[]) => {
-    setNodes((current) => applyNodeChanges(changes, current) as TriageFlowNode[]);
+    const safeChanges = changes.filter(
+      (change) => !(change.type === "remove" && isStarterTriageNode(change.id)),
+    );
+    setNodes((current) => applyNodeChanges(safeChanges, current) as TriageFlowNode[]);
     setSaveState({ status: "idle", message: "Unsaved changes" });
   }, []);
 
   const onEdgesChange = useCallback((changes: EdgeChange<TriageFlowEdge>[]) => {
-    setEdges((current) => applyEdgeChanges(changes, current) as TriageFlowEdge[]);
+    const safeChanges = changes.filter(
+      (change) => !(change.type === "remove" && isStarterTriageEdge(change.id)),
+    );
+    setEdges((current) => applyEdgeChanges(safeChanges, current) as TriageFlowEdge[]);
+    setSaveState({ status: "idle", message: "Unsaved changes" });
+  }, []);
+
+  const onConnect = useCallback((connection: Connection) => {
+    if (!connection.source || !connection.target) {
+      return;
+    }
+    setEdges((current) => {
+      const alreadyExists = current.some(
+        (edge) => edge.source === connection.source && edge.target === connection.target,
+      );
+      if (alreadyExists) {
+        return current;
+      }
+      return addEdge(
+        {
+          ...connection,
+          id: `edge-${connection.source}-${connection.target}-${createFlowId()}`,
+          type: "smoothstep",
+        },
+        current,
+      ) as TriageFlowEdge[];
+    });
     setSaveState({ status: "idle", message: "Unsaved changes" });
   }, []);
 
@@ -154,6 +193,68 @@ export function TriageFlowEditor({
     setSaveState({ status: "idle", message: "Template restored" });
   }
 
+  function addDecisionNode(decisionKey: TriageDecisionKey) {
+    const definition = decisionDefinitionForKey(decisionKey);
+    if (!definition) {
+      return;
+    }
+    const duplicateCount = nodes.filter(
+      (node) => node.data.kind === "decision" && node.data.decisionKey === decisionKey,
+    ).length;
+    const node: TriageFlowNode = {
+      id: `decision-${decisionKey}-${createFlowId()}`,
+      type: "triage",
+      position: positionNearSelectedNode(nodes, selectedNodeId),
+      data: {
+        kind: "decision",
+        label: duplicateCount ? `${definition.label} ${duplicateCount + 1}` : definition.label,
+        description: definition.description,
+        badge: "decision",
+        decisionKey: definition.decisionKey,
+        reasonCode: definition.reasonCode,
+        enabled: true,
+        triggerTerms: [...definition.triggerTerms],
+      },
+    };
+    setNodes((current) => [...current, node]);
+    setSelectedNodeId(node.id);
+    setSaveState({ status: "idle", message: "Unsaved changes" });
+  }
+
+  function addNoteNode() {
+    const node: TriageFlowNode = {
+      id: `note-${createFlowId()}`,
+      type: "triage",
+      position: positionNearSelectedNode(nodes, selectedNodeId),
+      data: {
+        kind: "note",
+        label: "Note",
+        description: "Internal planning note. Does not change live triage behavior.",
+        badge: "note",
+      },
+    };
+    setNodes((current) => [...current, node]);
+    setSelectedNodeId(node.id);
+    setSaveState({ status: "idle", message: "Unsaved changes" });
+  }
+
+  function deleteSelectedNode() {
+    if (!selectedNode || isStarterTriageNode(selectedNode.id)) {
+      return;
+    }
+    setNodes((current) => current.filter((node) => node.id !== selectedNode.id));
+    setEdges((current) =>
+      current.filter(
+        (edge) =>
+          edge.source !== selectedNode.id &&
+          edge.target !== selectedNode.id &&
+          !isStarterTriageEdge(edge.id),
+      ),
+    );
+    setSelectedNodeId(nodes.find((node) => isStarterTriageNode(node.id))?.id ?? "");
+    setSaveState({ status: "idle", message: "Unsaved changes" });
+  }
+
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <section className="ui-panel overflow-hidden">
@@ -166,6 +267,33 @@ export function TriageFlowEditor({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill state={saveState} valid={validation.ok} />
+            <label className="relative inline-flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium">
+              <Plus size={15} />
+              <select
+                className="appearance-none bg-transparent pr-5 outline-none"
+                defaultValue=""
+                onChange={(event) => {
+                  const value = event.target.value as TriageDecisionKey;
+                  if (value) {
+                    addDecisionNode(value);
+                    event.target.value = "";
+                  }
+                }}
+              >
+                <option value="" disabled>
+                  Add decision
+                </option>
+                {TRIAGE_DECISIONS.map((decision) => (
+                  <option key={decision.decisionKey} value={decision.decisionKey}>
+                    {decision.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="ui-button gap-2 px-3 py-2" type="button" onClick={addNoteNode}>
+              <FileText size={15} />
+              Add note
+            </button>
             <button className="ui-button gap-2 px-3 py-2" type="button" onClick={resetTemplate}>
               <RotateCcw size={15} />
               Reset
@@ -188,8 +316,9 @@ export function TriageFlowEditor({
             nodeTypes={nodeTypes}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-            nodesConnectable={false}
+            nodesConnectable
             fitView
             fitViewOptions={{ padding: 0.2 }}
           >
@@ -207,6 +336,21 @@ export function TriageFlowEditor({
           </div>
           {selectedNode ? (
             <div className="space-y-3 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium uppercase text-muted">
+                  {isStarterTriageNode(selectedNode.id) ? "starter node" : "custom node"}
+                </span>
+                {!isStarterTriageNode(selectedNode.id) ? (
+                  <button
+                    className="ui-button gap-2 px-3 py-1.5 text-danger"
+                    type="button"
+                    onClick={deleteSelectedNode}
+                  >
+                    <Trash2 size={14} />
+                    Delete
+                  </button>
+                ) : null}
+              </div>
               <label className="grid gap-1 text-sm">
                 <span className="font-medium">Label</span>
                 <input
@@ -259,7 +403,9 @@ export function TriageFlowEditor({
                 </>
               ) : (
                 <p className="rounded-md border border-line bg-surface p-3 text-sm text-muted">
-                  {selectedNode.data.kind === "channel"
+                  {selectedNode.data.kind === "note"
+                    ? "Notes are visible in this flow only and do not affect live routing or escalation."
+                    : selectedNode.data.kind === "channel"
                     ? "Channel nodes define where customer messages enter the flow."
                     : "Outcome nodes define what Pronto does after decision checks."}
                 </p>
@@ -332,6 +478,24 @@ function TriageNodeCard({ data, selected }: NodeProps) {
       ) : null}
     </div>
   );
+}
+
+function createFlowId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function positionNearSelectedNode(
+  nodes: TriageFlowNode[],
+  selectedNodeId: string | undefined,
+): { x: number; y: number } {
+  const selected = nodes.find((node) => node.id === selectedNodeId);
+  if (selected) {
+    return {
+      x: selected.position.x + 80,
+      y: selected.position.y + 120,
+    };
+  }
+  return { x: 0, y: 0 };
 }
 
 function StatusPill({

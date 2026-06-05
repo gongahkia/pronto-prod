@@ -22,5 +22,5 @@ export function whatsAppGraphVersion(): string {
 }
 
 export function shouldUseMockAi(): boolean {
-  return process.env.PRONTO_USE_MOCK_AI === "1" || !process.env.OPENAI_API_KEY;
+  return process.env.PRONTO_USE_MOCK_AI === "1";
 }
