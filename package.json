@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "migrate": "tsx scripts/migrate.ts",
     "seed": "tsx scripts/seed.ts",
-    "eval": "tsx scripts/eval.ts"
+    "eval": "tsx scripts/eval.ts",
+    "outbox:retry": "tsx scripts/retry-outbox.ts"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.0",

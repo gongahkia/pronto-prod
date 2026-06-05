@@ -10,6 +10,9 @@ export type GroundedAnswerDecision = {
 };
 
 export type GenerateAnswerInput = {
+  requestId?: string;
+  clientId?: string;
+  conversationId?: string;
   clientName: string;
   brandVoice: string;
   brandVoiceDocument?: string | null;
@@ -25,7 +28,18 @@ export type GenerateAnswerInput = {
   responseModel: string;
 };
 
+export type LlmCallContext = {
+  requestId?: string;
+  clientId?: string;
+  conversationId?: string;
+  operation?: "embedding" | "generation" | "provider_test";
+};
+
 export type LlmProvider = {
   generateGroundedAnswer(input: GenerateAnswerInput): Promise<GroundedAnswerDecision>;
-  embed(texts: string[], model: string): Promise<number[][]>;
+  embed(
+    texts: string[],
+    model: string,
+    context?: LlmCallContext,
+  ): Promise<number[][]>;
 };

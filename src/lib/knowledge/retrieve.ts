@@ -1,10 +1,12 @@
 import { query, vectorLiteral } from "@/lib/db";
+import { logInfo } from "@/lib/logger";
 import type { KnowledgeChunk } from "@/lib/types";
 
 export async function retrieveKnowledge(
   clientId: string,
   embedding: number[],
   limit = 5,
+  options: { requestId?: string; conversationId?: string } = {},
 ): Promise<KnowledgeChunk[]> {
   const result = await query<KnowledgeChunk & { distance: string }>(
     `
@@ -28,8 +30,19 @@ export async function retrieveKnowledge(
     [clientId, vectorLiteral(embedding), limit],
   );
 
-  return result.rows.map((row) => ({
+  const chunks = result.rows.map((row) => ({
     ...row,
     score: 1 - Number(row.distance),
   }));
+
+  logInfo("knowledge.retrieval_completed", {
+    requestId: options.requestId,
+    clientId,
+    conversationId: options.conversationId,
+    limit,
+    resultCount: chunks.length,
+    topScore: chunks[0]?.score ?? null,
+  });
+
+  return chunks;
 }

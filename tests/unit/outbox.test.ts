@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   query: vi.fn(),
   sendChannelText: vi.fn(),
+  logInfo: vi.fn(),
+  logWarn: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -13,7 +15,20 @@ vi.mock("@/lib/channels/dispatch", () => ({
   sendChannelText: mocks.sendChannelText,
 }));
 
-import { enqueueOutboundMessage, flushOutboundMessage } from "@/lib/channels/outbox";
+vi.mock("@/lib/logger", () => ({
+  logInfo: mocks.logInfo,
+  logWarn: mocks.logWarn,
+  redactErrorMessage: (error: unknown) =>
+    error instanceof Error ? error.message : String(error),
+}));
+
+import {
+  enqueueOutboundMessage,
+  flushOutboundMessage,
+  flushRetryableOutboundMessages,
+  listRetryableOutboundMessages,
+} from "@/lib/channels/outbox";
+import type { OutboundMessage } from "@/lib/channels/outbox";
 
 describe("outbound message outbox", () => {
   beforeEach(() => {
@@ -84,10 +99,64 @@ describe("outbound message outbox", () => {
       outboundMessageId: "outbound-1",
       error: "WhatsApp send failed",
     });
+    expect(mocks.logWarn).toHaveBeenCalledWith(
+      "outbox.flush_failed",
+      expect.objectContaining({
+        outboundMessageId: "outbound-1",
+        error: expect.any(Error),
+      }),
+    );
+  });
+
+  it("lists pending, failed, and stale sending outbound messages for retry", async () => {
+    mocks.query.mockResolvedValueOnce({ rows: [outboundMessage()] });
+
+    const result = await listRetryableOutboundMessages({
+      limit: 10,
+      staleSendingMinutes: 15,
+      maxAttempts: 4,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(mocks.query.mock.calls[0][0]).toContain("status in ('pending', 'failed')");
+    expect(mocks.query.mock.calls[0][0]).toContain("make_interval");
+    expect(mocks.query.mock.calls[0][1]).toEqual([4, 15, 10]);
+  });
+
+  it("flushes retryable outbound messages and returns a batch summary", async () => {
+    mocks.query
+      .mockResolvedValueOnce({
+        rows: [
+          outboundMessage({ id: "outbound-1" }),
+          outboundMessage({ id: "outbound-2" }),
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [outboundMessage({ id: "outbound-1" })] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await flushRetryableOutboundMessages({
+      requestId: "req_12345678",
+    });
+
+    expect(result).toMatchObject({
+      attempted: 2,
+      sent: 1,
+      failed: 0,
+      skipped: 1,
+    });
+    expect(result.results).toEqual([
+      { status: "sent", outboundMessageId: "outbound-1" },
+      {
+        status: "skipped",
+        outboundMessageId: "outbound-2",
+        reason: "Outbound message is not retryable.",
+      },
+    ]);
   });
 });
 
-function outboundMessage() {
+function outboundMessage(overrides: Partial<OutboundMessage> = {}): OutboundMessage {
   return {
     id: "outbound-1",
     client_id: "client-1",
@@ -104,5 +173,6 @@ function outboundMessage() {
     created_at: new Date(),
     updated_at: new Date(),
     sent_at: null,
+    ...overrides,
   };
 }

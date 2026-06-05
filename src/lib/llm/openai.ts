@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { z } from "zod";
 import { shouldUseMockAi } from "@/lib/env";
+import { logInfo, logWarn } from "@/lib/logger";
 import { resolveProviderApiKey } from "@/lib/llm/credentials";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import {
@@ -11,6 +12,7 @@ import {
 import type {
   GenerateAnswerInput,
   GroundedAnswerDecision,
+  LlmCallContext,
   LlmProvider,
 } from "@/lib/llm/types";
 
@@ -35,77 +37,144 @@ async function getOpenAiClient(): Promise<OpenAI | null> {
 }
 
 export class OpenAiProvider implements LlmProvider {
-  async embed(texts: string[], model: string): Promise<number[][]> {
+  async embed(
+    texts: string[],
+    model: string,
+    context: LlmCallContext = {},
+  ): Promise<number[][]> {
     if (shouldUseMockAi()) {
+      logInfo("llm.embedding.mocked", {
+        ...context,
+        provider: "openai",
+        model,
+        inputCount: texts.length,
+        reason: "mock_enabled",
+      });
       return mockEmbed(texts);
     }
 
     const client = await getOpenAiClient();
     if (!client) {
+      logInfo("llm.embedding.mocked", {
+        ...context,
+        provider: "openai",
+        model,
+        inputCount: texts.length,
+        reason: "missing_api_key",
+      });
       return mockEmbed(texts);
     }
-    const response = await client.embeddings.create({
-      model,
-      input: texts,
-    });
 
-    return response.data.map((item) => item.embedding);
+    try {
+      const response = await client.embeddings.create({
+        model,
+        input: texts,
+      });
+      logInfo("llm.embedding.completed", {
+        ...context,
+        provider: "openai",
+        model,
+        inputCount: texts.length,
+        embeddingCount: response.data.length,
+      });
+
+      return response.data.map((item) => item.embedding);
+    } catch (error) {
+      logWarn("llm.embedding_failed", {
+        ...context,
+        provider: "openai",
+        model,
+        inputCount: texts.length,
+        error,
+      });
+      throw error;
+    }
   }
 
   async generateGroundedAnswer(
     input: GenerateAnswerInput,
   ): Promise<GroundedAnswerDecision> {
     if (shouldUseMockAi()) {
+      logInfo("llm.generation.mocked", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
+        provider: "openai",
+        model: input.responseModel,
+        reason: "mock_enabled",
+      });
       return mockGroundedAnswer(input);
     }
 
     const client = await getOpenAiClient();
     if (!client) {
+      logInfo("llm.generation.mocked", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
+        provider: "openai",
+        model: input.responseModel,
+        reason: "missing_api_key",
+      });
       return mockGroundedAnswer(input);
     }
-    const response = await client.responses.create({
-      model: input.responseModel,
-      instructions: buildGroundedAnswerInstructions(input),
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: buildGroundedAnswerUserInput(input),
-            },
-          ],
-        },
-      ],
-      store: false,
-      text: {
-        format: {
-          type: "json_schema",
-          name: "pronto_agent_decision",
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              action: { type: "string", enum: ["answer", "escalate"] },
-              answer: { type: ["string", "null"] },
-              confidence: { type: "number", minimum: 0, maximum: 1 },
-              reasonCode: { type: "string" },
-              reasonDetail: { type: "string" },
-              citedChunkIds: { type: "array", items: { type: "string" } },
-            },
-            required: [
-              "action",
-              "answer",
-              "confidence",
-              "reasonCode",
-              "reasonDetail",
-              "citedChunkIds",
+
+    let response: { output_text: string };
+    try {
+      response = await client.responses.create({
+        model: input.responseModel,
+        instructions: buildGroundedAnswerInstructions(input),
+        input: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: buildGroundedAnswerUserInput(input),
+              },
             ],
           },
+        ],
+        store: false,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "pronto_agent_decision",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                action: { type: "string", enum: ["answer", "escalate"] },
+                answer: { type: ["string", "null"] },
+                confidence: { type: "number", minimum: 0, maximum: 1 },
+                reasonCode: { type: "string" },
+                reasonDetail: { type: "string" },
+                citedChunkIds: { type: "array", items: { type: "string" } },
+              },
+              required: [
+                "action",
+                "answer",
+                "confidence",
+                "reasonCode",
+                "reasonDetail",
+                "citedChunkIds",
+              ],
+            },
+          },
         },
-      },
-    });
+      });
+    } catch (error) {
+      logWarn("llm.generation_failed", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
+        provider: "openai",
+        model: input.responseModel,
+        error,
+      });
+      throw error;
+    }
 
     const parsedJson = parseJsonObject(response.output_text);
     const parsed = answerDecisionSchema.parse(parsedJson);
@@ -121,6 +190,18 @@ export class OpenAiProvider implements LlmProvider {
         citedChunkIds: parsed.citedChunkIds,
       };
     }
+
+    logInfo("llm.generation_completed", {
+      requestId: input.requestId,
+      clientId: input.clientId,
+      conversationId: input.conversationId,
+      provider: "openai",
+      model: input.responseModel,
+      action: parsed.action,
+      reasonCode: parsed.reasonCode,
+      confidence: parsed.confidence,
+      citedChunkCount: parsed.citedChunkIds.length,
+    });
 
     return parsed;
   }

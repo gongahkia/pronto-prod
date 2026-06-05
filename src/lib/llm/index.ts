@@ -6,6 +6,7 @@ import { OpenAiCompatibleProvider } from "@/lib/llm/openai-compatible";
 import type {
   GenerateAnswerInput,
   GroundedAnswerDecision,
+  LlmCallContext,
   LlmProvider,
 } from "@/lib/llm/types";
 
@@ -45,7 +46,8 @@ export function getGenerationProvider(provider: string | null | undefined): LlmP
   if (normalized === "anthropic") {
     return {
       generateGroundedAnswer: (input) => anthropicProvider.generateGroundedAnswer(input),
-      embed: (texts, model) => openAiProvider.embed(texts, model),
+      embed: (texts, model, context?: LlmCallContext) =>
+        openAiProvider.embed(texts, model, context),
     };
   }
   if (isFreeLlmProviderId(normalized)) {

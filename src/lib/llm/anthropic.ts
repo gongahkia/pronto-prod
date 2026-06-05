@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logInfo, logWarn } from "@/lib/logger";
 import { mockGroundedAnswer } from "@/lib/llm/mock";
 import {
   buildGroundedAnswerInstructions,
@@ -29,34 +30,67 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
     input: GenerateAnswerInput,
   ): Promise<GroundedAnswerDecision> {
     if (process.env.PRONTO_USE_MOCK_AI === "1" || !process.env.ANTHROPIC_API_KEY) {
+      logInfo("llm.generation.mocked", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
+        provider: "anthropic",
+        model: input.responseModel,
+        reason:
+          process.env.PRONTO_USE_MOCK_AI === "1"
+            ? "mock_enabled"
+            : "missing_api_key",
+      });
       return mockGroundedAnswer(input);
     }
 
-    const response = await fetch(
-      `${process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com"}/v1/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": process.env.ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
+    let response: Response;
+    try {
+      response = await fetch(
+        `${process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com"}/v1/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": process.env.ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: input.responseModel,
+            max_tokens: 800,
+            system: buildGroundedAnswerInstructions(input),
+            messages: [
+              {
+                role: "user",
+                content: buildGroundedAnswerUserInput(input),
+              },
+            ],
+          }),
         },
-        body: JSON.stringify({
-          model: input.responseModel,
-          max_tokens: 800,
-          system: buildGroundedAnswerInstructions(input),
-          messages: [
-            {
-              role: "user",
-              content: buildGroundedAnswerUserInput(input),
-            },
-          ],
-        }),
-      },
-    );
+      );
+    } catch (error) {
+      logWarn("llm.generation_failed", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
+        provider: "anthropic",
+        model: input.responseModel,
+        error,
+      });
+      throw error;
+    }
 
     if (!response.ok) {
       const body = await response.text();
+      logWarn("llm.generation_failed", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
+        provider: "anthropic",
+        model: input.responseModel,
+        status: response.status,
+        error: body,
+      });
       throw new Error(`Anthropic message failed: ${response.status} ${body}`);
     }
 
@@ -67,6 +101,14 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
       .join("\n")
       .trim();
     if (!text) {
+      logWarn("llm.generation_failed", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
+        provider: "anthropic",
+        model: input.responseModel,
+        reason: "empty_text",
+      });
       throw new Error("Anthropic response did not include text content.");
     }
 
@@ -82,6 +124,18 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
         citedChunkIds: parsed.citedChunkIds,
       };
     }
+
+    logInfo("llm.generation_completed", {
+      requestId: input.requestId,
+      clientId: input.clientId,
+      conversationId: input.conversationId,
+      provider: "anthropic",
+      model: input.responseModel,
+      action: parsed.action,
+      reasonCode: parsed.reasonCode,
+      confidence: parsed.confidence,
+      citedChunkCount: parsed.citedChunkIds.length,
+    });
 
     return parsed;
   }

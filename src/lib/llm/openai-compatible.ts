@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { logWarn, redactErrorMessage } from "@/lib/logger";
+import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
 import { resolveProviderApiKey } from "@/lib/llm/credentials";
 import { freeProviderById, type FreeLlmProviderId } from "@/lib/llm/free-providers";
 import {
@@ -47,6 +47,14 @@ export class OpenAiCompatibleProvider implements LlmProvider {
 
     const apiKey = await resolveProviderApiKey(provider.id);
     if (provider.requiresApiKey && !apiKey) {
+      logWarn("llm.generation_failed", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
+        provider: provider.id,
+        model: input.responseModel,
+        reason: "missing_api_key",
+      });
       throw new Error(`${provider.name} API key is not configured.`);
     }
 
@@ -78,6 +86,9 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     if (!response.ok) {
       const body = await response.text();
       logWarn("llm_provider.chat_completion_failed", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
         provider: provider.id,
         model: input.responseModel,
         status: response.status,
@@ -90,6 +101,9 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     const text = body.choices?.[0]?.message?.content?.trim();
     if (!text) {
       logWarn("llm_provider.empty_chat_completion", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
         provider: provider.id,
         model: input.responseModel,
       });
@@ -99,6 +113,17 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     try {
       const parsed = compatibleDecisionSchema.parse(parseJsonObject(text));
       if (parsed.action === "answer" && (!parsed.answer || !parsed.citedChunkIds.length)) {
+        logInfo("llm.generation_completed", {
+          requestId: input.requestId,
+          clientId: input.clientId,
+          conversationId: input.conversationId,
+          provider: provider.id,
+          model: input.responseModel,
+          action: "escalate",
+          reasonCode: "ungrounded_answer",
+          confidence: Math.min(parsed.confidence, 0.4),
+          citedChunkCount: parsed.citedChunkIds.length,
+        });
         return {
           action: "escalate",
           answer: null,
@@ -109,9 +134,23 @@ export class OpenAiCompatibleProvider implements LlmProvider {
           citedChunkIds: parsed.citedChunkIds,
         };
       }
+      logInfo("llm.generation_completed", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
+        provider: provider.id,
+        model: input.responseModel,
+        action: parsed.action,
+        reasonCode: parsed.reasonCode,
+        confidence: parsed.confidence,
+        citedChunkCount: parsed.citedChunkIds.length,
+      });
       return parsed;
     } catch (error) {
       logWarn("llm_provider.invalid_decision_json", {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
         provider: provider.id,
         model: input.responseModel,
         error: redactErrorMessage(error),
