@@ -30,6 +30,45 @@ export function checkRateLimit(
   windowMs = DEFAULT_RATE_LIMIT_WINDOW_MS,
   now = Date.now(),
 ): { allowed: boolean; remaining: number; retryAfterSeconds: number } {
+  return recordRateLimitHit(key, maxRequests, windowMs, now);
+}
+
+export function getRateLimitStatus(
+  key: string,
+  maxRequests = DEFAULT_RATE_LIMIT_MAX,
+  windowMs = DEFAULT_RATE_LIMIT_WINDOW_MS,
+  now = Date.now(),
+): { allowed: boolean; remaining: number; retryAfterSeconds: number } {
+  if (windowMs <= 0) {
+    return { allowed: true, remaining: maxRequests, retryAfterSeconds: 0 };
+  }
+
+  const current = buckets.get(key);
+  if (!current || current.resetAt <= now) {
+    return { allowed: true, remaining: maxRequests, retryAfterSeconds: 0 };
+  }
+
+  if (current.count >= maxRequests) {
+    return {
+      allowed: false,
+      remaining: 0,
+      retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1000)),
+    };
+  }
+
+  return {
+    allowed: true,
+    remaining: maxRequests - current.count,
+    retryAfterSeconds: 0,
+  };
+}
+
+export function recordRateLimitHit(
+  key: string,
+  maxRequests = DEFAULT_RATE_LIMIT_MAX,
+  windowMs = DEFAULT_RATE_LIMIT_WINDOW_MS,
+  now = Date.now(),
+): { allowed: boolean; remaining: number; retryAfterSeconds: number } {
   const current = buckets.get(key);
   if (!current || current.resetAt <= now) {
     buckets.set(key, { count: 1, resetAt: now + windowMs });
@@ -50,6 +89,10 @@ export function checkRateLimit(
     remaining: maxRequests - current.count,
     retryAfterSeconds: 0,
   };
+}
+
+export function resetRateLimit(key: string): void {
+  buckets.delete(key);
 }
 
 export function resetRateLimitsForTests(): void {

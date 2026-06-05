@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { login } from "@/lib/auth";
 import { recordAuditLog } from "@/lib/audit";
-import { checkRateLimit } from "@/lib/http-limits";
+import {
+  getRateLimitStatus,
+  recordRateLimitHit,
+  resetRateLimit,
+} from "@/lib/http-limits";
 
 const LOGIN_RATE_LIMIT_MAX = 5;
 const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60_000;
@@ -12,8 +16,9 @@ export async function POST(request: Request) {
   const password = String(form.get("password") ?? "");
   const normalizedEmail = normalizeLoginEmail(email);
   const ipKey = coarseIpKey(request);
-  const rateLimit = checkRateLimit(
-    `auth:login:${normalizedEmail || "blank"}:${ipKey}`,
+  const rateLimitKey = `auth:login:${normalizedEmail || "blank"}:${ipKey}`;
+  const rateLimit = getRateLimitStatus(
+    rateLimitKey,
     LOGIN_RATE_LIMIT_MAX,
     LOGIN_RATE_LIMIT_WINDOW_MS,
   );
@@ -43,8 +48,15 @@ export async function POST(request: Request) {
   const user = await login(email, password);
 
   if (!user) {
+    recordRateLimitHit(
+      rateLimitKey,
+      LOGIN_RATE_LIMIT_MAX,
+      LOGIN_RATE_LIMIT_WINDOW_MS,
+    );
     return NextResponse.redirect(new URL("/login?error=1", request.url), 303);
   }
+
+  resetRateLimit(rateLimitKey);
 
   return NextResponse.redirect(
     new URL(user.role === "operator" ? "/operator" : "/client", request.url),
