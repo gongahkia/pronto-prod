@@ -2,6 +2,10 @@ import { getPool, vectorLiteral } from "../src/lib/db";
 import { hashPassword } from "../src/lib/password";
 import { deterministicEmbedding } from "../src/lib/llm/mock";
 import { chunkText } from "../src/lib/knowledge/chunk";
+import {
+  buildDefaultTriageFlow,
+  compileTriageFlowToEscalationRules,
+} from "../src/lib/triage-flow";
 
 const CLIENT_ID = "00000000-0000-4000-8000-000000000001";
 const OPERATOR_ID = "00000000-0000-4000-8000-000000000101";
@@ -166,6 +170,8 @@ async function main() {
     [OPERATOR_ID, operatorHash, CLIENT_USER_ID, CLIENT_ID, clientHash],
   );
 
+  const triageFlow = buildDefaultTriageFlow();
+  const compiledEscalationRules = compileTriageFlowToEscalationRules(triageFlow.nodes);
   await pool.query(
     `
       insert into agent_configs (client_id, prompt_preamble, escalation_rules, retrieval_threshold, response_provider, embedding_provider)
@@ -181,17 +187,33 @@ async function main() {
     [
       CLIENT_ID,
       "You are the scoped customer-service agent for North Bridge Nasi. Answer only from verified source material. Escalate instead of guessing.",
-      {
-        alwaysEscalateTopics: [
-          "refund_dispute",
-          "complaint",
-          "medical_or_legal",
-          "booking_mutation",
-          "payment",
-          "severe_allergy",
-        ],
-        sentimentTriggers: ["angry", "urgent", "frustrated"],
-      },
+      compiledEscalationRules,
+    ],
+  );
+
+  await pool.query(
+    `
+      insert into triage_flows (
+        client_id,
+        nodes,
+        edges,
+        compiled_escalation_rules,
+        version,
+        published_at
+      )
+      values ($1, $2::jsonb, $3::jsonb, $4::jsonb, 1, now())
+      on conflict (client_id) do update set
+        nodes = excluded.nodes,
+        edges = excluded.edges,
+        compiled_escalation_rules = excluded.compiled_escalation_rules,
+        updated_at = now(),
+        published_at = now()
+    `,
+    [
+      CLIENT_ID,
+      JSON.stringify(triageFlow.nodes),
+      JSON.stringify(triageFlow.edges),
+      JSON.stringify(compiledEscalationRules),
     ],
   );
 

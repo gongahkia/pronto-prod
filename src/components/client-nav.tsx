@@ -6,10 +6,11 @@ type ClientNavItem = {
   key: ClientTab;
 };
 
-export type ClientTab = "conversations" | "knowledge" | "test" | "settings";
+export type ClientTab = "conversations" | "flows" | "knowledge" | "test" | "settings";
 
 const items: ClientNavItem[] = [
   { href: "/client", label: "Conversations", key: "conversations" },
+  { href: "/client/flows", label: "Flows", key: "flows" },
   { href: "/client/knowledge", label: "Knowledge", key: "knowledge" },
   { href: "/client/test", label: "Test assistant", key: "test" },
   { href: "/client/settings", label: "Settings", key: "settings" },

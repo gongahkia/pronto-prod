@@ -75,6 +75,11 @@ export default async function ClientOperatorPage({
       detail: `${knowledge.length} sources`,
     },
     {
+      href: `/operator/clients/${client.id}/flows`,
+      label: "Flows",
+      detail: "Runtime guardrails",
+    },
+    {
       href: `/operator/clients/${client.id}/conversations`,
       label: "Conversations",
       detail: `${escalations.length} need triage`,

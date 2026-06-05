@@ -46,6 +46,7 @@ type OperatorClientNavItem = {
 export type OperatorClientTab =
   | "overview"
   | "channels"
+  | "flows"
   | "knowledge"
   | "conversations"
   | "test"
@@ -54,6 +55,7 @@ export type OperatorClientTab =
 const clientItems: OperatorClientNavItem[] = [
   { href: (clientId) => `/operator/clients/${clientId}`, label: "Overview", key: "overview" },
   { href: (clientId) => `/operator/clients/${clientId}/channels`, label: "Channels", key: "channels" },
+  { href: (clientId) => `/operator/clients/${clientId}/flows`, label: "Flows", key: "flows" },
   { href: (clientId) => `/operator/clients/${clientId}/knowledge`, label: "Knowledge", key: "knowledge" },
   { href: (clientId) => `/operator/clients/${clientId}/conversations`, label: "Conversations", key: "conversations" },
   { href: (clientId) => `/operator/clients/${clientId}/test`, label: "Test", key: "test" },
