@@ -20,7 +20,7 @@ import {
   buildGroundedAnswerInstructions,
   buildGroundedAnswerUserInput,
 } from "@/lib/llm/prompt";
-import { logWarn } from "@/lib/logger";
+import { logInfo, logWarn } from "@/lib/logger";
 import type { GroundedAnswerDecision } from "@/lib/llm/types";
 import type { AgentConfig, Client, KnowledgeChunk, Message } from "@/lib/types";
 
@@ -42,7 +42,16 @@ export async function runAgentForMessage(input: {
   conversationId: string;
   customerMessageId: string;
   customerMessage: string;
+  requestId?: string;
 }): Promise<AgentRunResult> {
+  logInfo("agent.run_started", {
+    requestId: input.requestId,
+    clientId: input.clientId,
+    channelId: input.channelId,
+    conversationId: input.conversationId,
+    customerMessageId: input.customerMessageId,
+  });
+
   const [clientResult, configResult, recentMessagesResult, brandVoiceProfile] = await Promise.all([
     query<Client>("select * from clients where id = $1", [input.clientId]),
     query<AgentConfig>("select * from agent_configs where client_id = $1", [
@@ -68,6 +77,13 @@ export async function runAgentForMessage(input: {
 
   const aiDisclosure = evaluateAiDisclosure(input.customerMessage, client.name);
   if (aiDisclosure.shouldDisclose && aiDisclosure.answer) {
+    logInfo("agent.ai_disclosure_answered", {
+      requestId: input.requestId,
+      clientId: input.clientId,
+      channelId: input.channelId,
+      conversationId: input.conversationId,
+      customerMessageId: input.customerMessageId,
+    });
     const agentMessage = await query<{ id: string }>(
       `
         insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
@@ -104,6 +120,15 @@ export async function runAgentForMessage(input: {
     config.escalation_rules,
   );
   if (precheck.shouldEscalate) {
+    logInfo("agent.pre_generation_escalated", {
+      requestId: input.requestId,
+      clientId: input.clientId,
+      channelId: input.channelId,
+      conversationId: input.conversationId,
+      customerMessageId: input.customerMessageId,
+      reasonCode: precheck.reasonCode,
+      confidence: precheck.confidence,
+    });
     return createEscalation({
       ...input,
       reasonCode: precheck.reasonCode,
@@ -120,9 +145,26 @@ export async function runAgentForMessage(input: {
     task: "agent_answer",
   });
 
+  logInfo("agent.provider_selected", {
+    requestId: input.requestId,
+    clientId: input.clientId,
+    channelId: input.channelId,
+    conversationId: input.conversationId,
+    responseProvider: responseModel.provider,
+    responseModel: responseModel.model,
+    embeddingProvider: config.embedding_provider,
+    embeddingModel: config.embedding_model,
+  });
+
   const [embedding] = await getEmbeddingProvider(config.embedding_provider).embed(
     [input.customerMessage],
     config.embedding_model,
+    {
+      requestId: input.requestId,
+      clientId: input.clientId,
+      conversationId: input.conversationId,
+      operation: "embedding",
+    },
   );
   await safeRecordUsage({
     clientId: input.clientId,
@@ -132,14 +174,31 @@ export async function runAgentForMessage(input: {
     model: config.embedding_model,
     operation: "embedding",
     estimate: estimateEmbeddingCost(input.customerMessage),
-    metadata: { customerMessageId: input.customerMessageId },
+    metadata: {
+      requestId: input.requestId,
+      customerMessageId: input.customerMessageId,
+    },
   });
-  const chunks = await retrieveKnowledge(input.clientId, embedding, 5);
+  const chunks = await retrieveKnowledge(input.clientId, embedding, 5, {
+    requestId: input.requestId,
+    conversationId: input.conversationId,
+  });
   const retrievalThreshold = Number(config.retrieval_threshold);
   const retrievalCheck = evaluateRetrievalConfidence(
     chunks[0]?.score,
     retrievalThreshold,
   );
+  logInfo("agent.retrieval_evaluated", {
+    requestId: input.requestId,
+    clientId: input.clientId,
+    channelId: input.channelId,
+    conversationId: input.conversationId,
+    customerMessageId: input.customerMessageId,
+    topScore: chunks[0]?.score ?? null,
+    threshold: retrievalThreshold,
+    shouldEscalate: retrievalCheck.shouldEscalate,
+    reasonCode: retrievalCheck.reasonCode,
+  });
 
   if (retrievalCheck.shouldEscalate) {
     return createEscalation({
@@ -151,6 +210,9 @@ export async function runAgentForMessage(input: {
   }
 
   const generationInput = {
+    requestId: input.requestId,
+    clientId: input.clientId,
+    conversationId: input.conversationId,
     clientName: client.name,
     brandVoice: client.brand_voice,
     brandVoiceDocument: brandVoiceProfile.document?.content ?? null,
@@ -183,6 +245,17 @@ export async function runAgentForMessage(input: {
     }
 
     const fallback = failoverModelChoice();
+    logWarn("agent.provider_failover_started", {
+      requestId: input.requestId,
+      clientId: input.clientId,
+      channelId: input.channelId,
+      conversationId: input.conversationId,
+      failedProvider: responseModel.provider,
+      failedModel: responseModel.model,
+      fallbackProvider: fallback.provider,
+      fallbackModel: fallback.model,
+      error,
+    });
     decision = await getGenerationProvider(fallback.provider).generateGroundedAnswer({
       ...generationInput,
       responseModel: fallback.model,
@@ -205,6 +278,7 @@ export async function runAgentForMessage(input: {
       costLabel: responseModel.costLabel,
     }),
     metadata: {
+      requestId: input.requestId,
       customerMessageId: input.customerMessageId,
       reasonCode: decision.reasonCode,
     },
@@ -215,6 +289,15 @@ export async function runAgentForMessage(input: {
     retrievedChunks: chunks,
   });
   if (!selfCheck.passed) {
+    logInfo("agent.self_check_escalated", {
+      requestId: input.requestId,
+      clientId: input.clientId,
+      channelId: input.channelId,
+      conversationId: input.conversationId,
+      customerMessageId: input.customerMessageId,
+      reasonCode: selfCheck.reasonCode,
+      confidence: selfCheck.confidence,
+    });
     return createEscalation({
       ...input,
       reasonCode: selfCheck.reasonCode,
@@ -224,6 +307,16 @@ export async function runAgentForMessage(input: {
   }
 
   if (decision.action === "escalate" || !decision.answer || !citedChunks.length) {
+    logInfo("agent.model_decision_escalated", {
+      requestId: input.requestId,
+      clientId: input.clientId,
+      channelId: input.channelId,
+      conversationId: input.conversationId,
+      customerMessageId: input.customerMessageId,
+      reasonCode: decision.reasonCode,
+      confidence: decision.confidence,
+      citedChunkCount: citedChunks.length,
+    });
     return createEscalation({
       ...input,
       reasonCode: decision.reasonCode,
@@ -270,6 +363,18 @@ export async function runAgentForMessage(input: {
     [input.clientId, decision.confidence, { citedChunkIds: decision.citedChunkIds }],
   );
 
+  logInfo("agent.run_answered", {
+    requestId: input.requestId,
+    clientId: input.clientId,
+    channelId: input.channelId,
+    conversationId: input.conversationId,
+    customerMessageId: input.customerMessageId,
+    agentMessageId: agentMessage.rows[0].id,
+    reasonCode: decision.reasonCode,
+    confidence: decision.confidence,
+    citedChunkCount: citedChunks.length,
+  });
+
   return {
     action: "answered",
     responseText: decision.answer,
@@ -291,6 +396,7 @@ export async function createEscalation(input: {
   reasonCode: string;
   reasonDetail: string;
   confidence: number;
+  requestId?: string;
 }): Promise<AgentRunResult> {
   return transaction(async (client) => {
     await client.query(
@@ -323,6 +429,17 @@ export async function createEscalation(input: {
       ],
     );
 
+    logInfo("agent.escalation_created", {
+      requestId: input.requestId,
+      clientId: input.clientId,
+      channelId: input.channelId,
+      conversationId: input.conversationId,
+      customerMessageId: input.customerMessageId,
+      escalationId: escalation.rows[0].id,
+      reasonCode: input.reasonCode,
+      confidence: input.confidence,
+    });
+
     return {
       action: "escalated",
       responseText: null,
@@ -345,6 +462,10 @@ async function safeRecordUsage(
       clientId: input.clientId,
       conversationId: input.conversationId,
       operation: input.operation,
+      requestId:
+        typeof input.metadata?.requestId === "string"
+          ? input.metadata.requestId
+          : undefined,
       error,
     });
   }

@@ -4,7 +4,7 @@ import { createEscalation, runAgentForMessage } from "@/lib/agent/engine";
 import { sendChannelText } from "@/lib/channels/dispatch";
 import { getEscalationHoldingReply } from "@/lib/channels/escalation-handoff";
 import { notifyOwnerOfEscalation } from "@/lib/escalations";
-import { logWarn, redactErrorMessage } from "@/lib/logger";
+import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel, Conversation, Message } from "@/lib/types";
 
@@ -21,7 +21,16 @@ export type ProcessedInboundMessage = {
 
 export async function processInboundMessage(
   inbound: NormalizedInboundMessage,
+  options: { requestId?: string } = {},
 ): Promise<ProcessedInboundMessage> {
+  logInfo("inbound_message.received", {
+    requestId: options.requestId,
+    channelId: inbound.channelId,
+    channelKind: inbound.channelKind,
+    externalMessageId: inbound.externalMessageId,
+    unsupportedMediaType: inbound.unsupportedMediaType,
+  });
+
   const channelResult = await query<Channel>(
     "select * from channels where id = $1",
     [inbound.channelId],
@@ -36,6 +45,13 @@ export async function processInboundMessage(
     [inbound.channelId, inbound.externalMessageId],
   );
   if (existing.rowCount) {
+    logInfo("inbound_message.duplicate", {
+      requestId: options.requestId,
+      channelId: inbound.channelId,
+      channelKind: inbound.channelKind,
+      externalMessageId: inbound.externalMessageId,
+      messageId: existing.rows[0].id,
+    });
     return { duplicate: true, messageId: existing.rows[0].id };
   }
 
@@ -98,6 +114,14 @@ export async function processInboundMessage(
   });
 
   if (created.duplicate) {
+    logInfo("inbound_message.concurrent_duplicate", {
+      requestId: options.requestId,
+      channelId: inbound.channelId,
+      channelKind: inbound.channelKind,
+      externalMessageId: inbound.externalMessageId,
+      conversationId: created.message.conversation_id,
+      messageId: created.message.id,
+    });
     return {
       duplicate: true,
       conversationId: created.message.conversation_id,
@@ -115,6 +139,7 @@ export async function processInboundMessage(
         reasonCode: "unsupported_media",
         reasonDetail: `Customer sent unsupported ${inbound.channelKind} ${inbound.unsupportedMediaType} content.`,
         confidence: 1,
+        requestId: options.requestId,
       })
     : await runAgentForMessage({
         clientId: channel.client_id,
@@ -122,6 +147,7 @@ export async function processInboundMessage(
         conversationId: created.conversation.id,
         customerMessageId: created.message.id,
         customerMessage: inbound.text,
+        requestId: options.requestId,
       });
 
   let outboundError: string | undefined;
@@ -135,6 +161,7 @@ export async function processInboundMessage(
     } catch (error) {
       outboundError = errorToMessage(error);
       logWarn("agent_answer_send_failed", {
+        requestId: options.requestId,
         channelId: inbound.channelId,
         conversationId: created.conversation.id,
         externalMessageId: inbound.externalMessageId,
@@ -152,10 +179,12 @@ export async function processInboundMessage(
           conversationId: created.conversation.id,
           escalationId: result.escalationId,
           reasonCode: result.reasonCode,
+          requestId: options.requestId,
         });
         await recordCustomerHandoffStatus(result.escalationId, "sent", null);
       } catch (error) {
         logWarn("escalation_holding_reply_failed", {
+          requestId: options.requestId,
           channelId: inbound.channelId,
           escalationId: result.escalationId,
           externalMessageId: inbound.externalMessageId,
@@ -179,6 +208,7 @@ export async function processInboundMessage(
       await notifyOwnerOfEscalation(result.escalationId);
     } catch (error) {
       logWarn("owner_notification_failed", {
+        requestId: options.requestId,
         escalationId: result.escalationId,
         error,
       });
@@ -246,6 +276,7 @@ async function sendEscalationHoldingReply(input: {
   conversationId: string;
   escalationId: string;
   reasonCode: string;
+  requestId?: string;
 }): Promise<void> {
   const text = getEscalationHoldingReply(input.channel.settings);
 
@@ -267,6 +298,7 @@ async function sendEscalationHoldingReply(input: {
       `agent-handoff-${randomUUID()}`,
       text,
       {
+        requestId: input.requestId,
         escalationId: input.escalationId,
         reasonCode: input.reasonCode,
         policy: "escalation_holding_reply",
