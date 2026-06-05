@@ -48,8 +48,9 @@ Per-channel credentials/settings should be preferred for real clients:
 
 ## Required Checks
 
+- Run `pnpm staging:preflight` after setting env vars and before live channel testing. It verifies live AI mode, secret placeholders, database reachability, provider credential availability, and Telegram/WhatsApp channel config without printing secret values.
 - Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and `pnpm build`.
-- Run `docker compose up -d`, `pnpm db:migrate`, and `pnpm db:seed`.
+- Run `docker compose up -d`, `pnpm migrate`, and `pnpm seed`.
 - Set `PRONTO_USE_MOCK_AI=0`, configure a live provider key, and run one console message from the Test assistant before attaching live channels.
 - Confirm the operator Agent tuning panel shows live AI readiness for the selected provider and model.
 - Confirm WhatsApp webhook verification succeeds.
