@@ -1,4 +1,8 @@
 import type { AgentConfigDetail } from "@/lib/agent/config";
+import {
+  getProviderReadiness,
+  type ReadinessTone,
+} from "@/lib/agent/readiness";
 import { credentialEncryptionConfigured } from "@/lib/llm/credentials";
 import { FREE_LLM_PROVIDERS, selectableFreeProviders } from "@/lib/llm/free-providers";
 import { Badge } from "@/components/badge";
@@ -21,7 +25,6 @@ export function OperatorAgentConfigPanel({
       </section>
     );
   }
-
   return (
     <section className="ui-panel">
       <div className="ui-panel-header">
@@ -156,6 +159,7 @@ export function OperatorAgentConfigPanel({
           Save tuning
         </button>
       </form>
+      <ProviderReadinessPanel detail={detail} />
       <ProviderTestConsole
         initialProvider={detail.config.response_provider}
         initialModel={detail.config.response_model}
@@ -164,6 +168,42 @@ export function OperatorAgentConfigPanel({
       <PromptPreview detail={detail} />
       <AgentConfigChangeHistory detail={detail} />
     </section>
+  );
+}
+
+function ProviderReadinessPanel({ detail }: { detail: AgentConfigDetail }) {
+  const readiness = getProviderReadiness(detail);
+
+  return (
+    <div className="border-t border-line p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">Live AI readiness</h3>
+          <p className="text-xs text-muted">
+            Current local runtime and credential status before switching a pilot off mock AI.
+          </p>
+        </div>
+        <Badge tone={readiness.readyForLive ? "green" : "amber"}>
+          {readiness.readyForLive ? "live-ready" : "not live-ready"}
+        </Badge>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {readiness.checks.map((check) => (
+          <div key={check.label} className="rounded-md border border-line p-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-medium">{check.label}</p>
+              <Badge tone={badgeTone(check.tone)}>{check.tone}</Badge>
+            </div>
+            <p className="mt-1 text-xs text-muted">{check.detail}</p>
+          </div>
+        ))}
+      </div>
+      {!readiness.encryptionConfigured ? (
+        <p className="mt-3 rounded-md bg-warning-bg p-3 text-xs text-warning">
+          PRONTO_SECRETS_KEY is not configured, so provider keys can only come from environment variables.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -272,6 +312,16 @@ function credentialStatusLabel(detail: AgentConfigDetail): string {
     return `${provider.name} can be tested without a saved key.`;
   }
   return "Leave blank to reuse env vars or existing saved credentials.";
+}
+
+function badgeTone(tone: ReadinessTone): "green" | "amber" | "red" {
+  if (tone === "ready") {
+    return "green";
+  }
+  if (tone === "warning") {
+    return "amber";
+  }
+  return "red";
 }
 
 function PromptPreview({ detail }: { detail: AgentConfigDetail }) {

@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { sendChannelText } from "@/lib/channels/dispatch";
+import { policyFromOutboundMetadata } from "@/lib/channels/policy";
 import { query } from "@/lib/db";
 import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
 
@@ -153,10 +154,12 @@ export async function flushOutboundMessage(
   });
 
   try {
+    const policy = policyFromOutboundMetadata(outbound.metadata);
     await sendChannelText({
       channelId: outbound.channel_id,
       externalThreadId: outbound.external_thread_id,
       text: outbound.body,
+      ...(policy ? { policy } : {}),
     });
     await query(
       `

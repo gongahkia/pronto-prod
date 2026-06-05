@@ -50,6 +50,8 @@ Per-channel credentials/settings should be preferred for real clients:
 
 - Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and `pnpm build`.
 - Run `docker compose up -d`, `pnpm db:migrate`, and `pnpm db:seed`.
+- Set `PRONTO_USE_MOCK_AI=0`, configure a live provider key, and run one console message from the Test assistant before attaching live channels.
+- Confirm the operator Agent tuning panel shows live AI readiness for the selected provider and model.
 - Confirm WhatsApp webhook verification succeeds.
 - Confirm Telegram webhook sends a 200 response with the configured secret header.
 - Confirm an ordinary known F&B question answers from sources.

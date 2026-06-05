@@ -30,9 +30,11 @@ Working benchmark assumptions for local release. Replace with signed commercial 
 
 The app records benchmark token and cost estimates in `agent_usage_events`. These are estimates until live provider usage payloads are wired.
 
-Official provider pricing should be checked before production pricing reviews:
+Official provider and channel pricing should be checked before production pricing reviews and once monthly while pilots are live:
 
 - OpenAI API pricing: https://openai.com/api/pricing/
 - Anthropic pricing: https://docs.anthropic.com/en/docs/about-claude/pricing
-- Meta WhatsApp pricing: https://developers.facebook.com/docs/whatsapp/pricing
+- Google Gemini API pricing: https://ai.google.dev/gemini-api/docs/pricing
+- WhatsApp Business Platform pricing: https://whatsappbusiness.com/products/platform-pricing/
 
+Record each monthly review in Jira with the date, reviewer, changed models or message categories, and whether commercial assumptions need to be updated. This is a manual monitor until a scheduler-backed task exists.

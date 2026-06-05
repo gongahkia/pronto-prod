@@ -33,5 +33,6 @@ Pronto's WhatsApp usage is reactive and customer-service scoped:
 - Human handoff is available through escalation.
 - Proactive notifications are not part of v1.
 
-Meta policy should be reviewed monthly because the boundary between purpose-driven business AI and general-purpose AI can change.
+Plain proactive WhatsApp sends are blocked in code unless future implementation passes an approved-template policy path. Do not add broadcasts, marketing pushes, or cold outreach without template approval and policy review.
 
+Meta policy should be reviewed monthly because the boundary between purpose-driven business AI and general-purpose AI can change. Check the WhatsApp Business Terms, Business Messaging Policy, Business Platform pricing page, and developer docs, then record the review in Jira with the date, reviewer, and any needed product or contract changes.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildAgentPromptPreview } from "@/lib/agent/config";
+import { getProviderReadiness } from "@/lib/agent/readiness";
 import type { AgentConfig, Client } from "@/lib/types";
 
 describe("agent config helpers", () => {
@@ -10,6 +11,23 @@ describe("agent config helpers", () => {
     expect(preview).toContain('"sentimentTriggers"');
     expect(preview).toContain("Product contract:");
     expect(preview).toContain("North Bridge Nasi");
+  });
+
+  it("reports live provider readiness from runtime mode and credentials", () => {
+    const readiness = getProviderReadiness({
+      config: config(),
+      retrievalThreshold: 0.63,
+      escalationRulesJson: "{}",
+      promptPreview: "preview",
+      recentChanges: [],
+      providerCredentialStatuses: [
+        { provider: "openai", hasCredential: true, updatedAt: new Date() },
+      ],
+    });
+
+    expect(readiness.provider).toBe("openai");
+    expect(readiness.hasCredential).toBe(true);
+    expect(readiness.credentialSource).toBe("database");
   });
 });
 

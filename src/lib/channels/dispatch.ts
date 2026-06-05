@@ -1,5 +1,9 @@
 import { query } from "@/lib/db";
 import { recordOutboundHealth } from "@/lib/channels/health";
+import {
+  assertChannelSendAllowed,
+  type ChannelSendPolicy,
+} from "@/lib/channels/policy";
 import { sendTelegramText } from "@/lib/channels/telegram";
 import { sendWhatsAppText } from "@/lib/channels/whatsapp";
 import type { Channel } from "@/lib/types";
@@ -8,6 +12,7 @@ export async function sendChannelText(input: {
   channelId: string;
   externalThreadId: string;
   text: string;
+  policy?: ChannelSendPolicy;
 }): Promise<void> {
   const channelResult = await query<Channel>("select * from channels where id = $1", [
     input.channelId,
@@ -16,6 +21,8 @@ export async function sendChannelText(input: {
   if (!channel) {
     throw new Error(`Channel not found: ${input.channelId}`);
   }
+
+  assertChannelSendAllowed(channel, input.policy);
 
   try {
     if (channel.kind === "whatsapp") {

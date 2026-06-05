@@ -165,6 +165,7 @@ export function OperatorChannelSetup({
                   </p>
                 </div>
               ) : null}
+              <ChannelReadinessChecklist channel={channel} />
               <div className="grid gap-3 sm:grid-cols-2">
                 <select name="status" defaultValue={channel.status} className="rounded-md border border-line px-3 py-2 text-sm">
                   <option value="draft">draft</option>
@@ -229,6 +230,118 @@ export function OperatorChannelSetup({
       </div>
     </div>
   );
+}
+
+type ChannelReadinessCheck = {
+  label: string;
+  tone: "green" | "amber" | "red";
+  detail: string;
+};
+
+function ChannelReadinessChecklist({ channel }: { channel: Channel }) {
+  const checks = channelReadinessChecks(channel);
+
+  return (
+    <div className="rounded-md border border-line p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold">Readiness checklist</p>
+        <Badge tone={checks.every((check) => check.tone === "green") ? "green" : "amber"}>
+          {checks.filter((check) => check.tone === "green").length}/{checks.length} ready
+        </Badge>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        {checks.map((check) => (
+          <div key={check.label} className="rounded-md bg-surface p-2 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-medium text-foreground">{check.label}</p>
+              <Badge tone={check.tone}>{check.tone === "green" ? "ready" : check.tone}</Badge>
+            </div>
+            <p className="mt-1 text-muted">{check.detail}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function channelReadinessChecks(channel: Channel): ChannelReadinessCheck[] {
+  const checks: ChannelReadinessCheck[] = [
+    {
+      label: "Channel status",
+      tone: channel.status === "active" ? "green" : "amber",
+      detail:
+        channel.status === "active"
+          ? "Channel is active."
+          : "Set status to active only after credentials and webhooks are verified.",
+    },
+    {
+      label: "Health check",
+      tone: channel.last_health_status === "healthy" ? "green" : "amber",
+      detail: channel.last_health_status
+        ? `Last health status: ${channel.last_health_status}.`
+        : "Run Check health after saving credentials.",
+    },
+    {
+      label: "Outbound status",
+      tone: channel.last_outbound_error ? "red" : "green",
+      detail: channel.last_outbound_error
+        ? "Last outbound send failed; inspect the error before going live."
+        : "No outbound send failure recorded.",
+    },
+  ];
+
+  if (channel.kind === "whatsapp") {
+    checks.push(
+      jsonStringCheck(channel.credentials.accessToken, "Access token"),
+      {
+        label: "Phone number ID",
+        tone:
+          jsonString(channel.credentials.phoneNumberId) || channel.external_id
+            ? "green"
+            : "red",
+        detail: "Required for WhatsApp Cloud API sends and health checks.",
+      },
+      jsonStringCheck(channel.credentials.appSecret, "App secret"),
+      jsonStringCheck(channel.settings.verifyToken, "Webhook verify token"),
+      jsonStringCheck(channel.settings.ownerPhone, "Owner WhatsApp phone"),
+      {
+        label: "Proactive template guard",
+        tone: "green",
+        detail:
+          "Plain proactive WhatsApp sends are blocked unless future code uses an approved template path.",
+      },
+    );
+  }
+
+  if (channel.kind === "telegram") {
+    checks.push(
+      jsonStringCheck(channel.credentials.botToken, "Bot token"),
+      jsonStringCheck(channel.settings.webhookSecret, "Webhook secret"),
+      jsonStringCheck(channel.settings.ownerChatId, "Owner Telegram chat"),
+    );
+  }
+
+  if (channel.kind === "console") {
+    checks.push({
+      label: "Live channel",
+      tone: "amber",
+      detail: "Console is local QA only and does not receive external customer traffic.",
+    });
+  }
+
+  return checks;
+}
+
+function jsonStringCheck(value: unknown, label: string): ChannelReadinessCheck {
+  return {
+    label,
+    tone: jsonString(value) ? "green" : "red",
+    detail: `${label} ${jsonString(value) ? "is configured." : "is missing."}`,
+  };
+}
+
+function jsonString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 export function OperatorKnowledgeIngestion({ clientId }: { clientId: string }) {

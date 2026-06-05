@@ -7,6 +7,29 @@ export const dynamic = "force-dynamic";
 
 const prontoBoardUrl = "https://keibtang.atlassian.net/jira/software/projects/PRONTO/boards/2";
 
+const monthlyMonitors = [
+  {
+    label: "OpenAI pricing",
+    href: "https://openai.com/api/pricing/",
+    owner: "Gabriel",
+  },
+  {
+    label: "Anthropic pricing",
+    href: "https://docs.anthropic.com/en/docs/about-claude/pricing",
+    owner: "Gabriel",
+  },
+  {
+    label: "Gemini pricing",
+    href: "https://ai.google.dev/gemini-api/docs/pricing",
+    owner: "Gabriel",
+  },
+  {
+    label: "WhatsApp pricing and policy",
+    href: "https://whatsappbusiness.com/products/platform-pricing/",
+    owner: "Keith",
+  },
+];
+
 export default async function OperatorSettingsPage() {
   const user = await requireUser("operator");
 
@@ -47,6 +70,34 @@ export default async function OperatorSettingsPage() {
             <p>Keep local `.env` values scoped to development, and rotate any credential that was exposed during tunnel/webhook testing.</p>
             <p>Use each client&apos;s Channels tab for webhook URLs, channel health checks, and per-channel credential shape validation.</p>
           </div>
+        </div>
+      </section>
+
+      <section className="mt-6 ui-panel">
+        <div className="ui-panel-header">
+          <h2 className="text-base font-semibold">Monthly production monitors</h2>
+          <p className="text-sm text-muted">
+            Manual cadence until these checks are backed by persistent scheduled jobs.
+          </p>
+        </div>
+        <div className="divide-y divide-line">
+          {monthlyMonitors.map((monitor) => (
+            <a
+              key={monitor.label}
+              href={monitor.href}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-between gap-4 p-4 hover:bg-surface-hover"
+            >
+              <div>
+                <p className="font-medium">{monitor.label}</p>
+                <p className="text-sm text-muted">
+                  Owner: {monitor.owner} · record review notes on the PRONTO Jira board
+                </p>
+              </div>
+              <span className="text-sm font-medium text-accent">Open</span>
+            </a>
+          ))}
         </div>
       </section>
     </AppShell>

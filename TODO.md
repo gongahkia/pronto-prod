@@ -1,6 +1,6 @@
-(A) 2026-05-17 Wire live OpenAI credentials and run the agent with PRONTO_USE_MOCK_AI=0 in local staging +ProntoMVP @engineering phase:pilot
-(A) 2026-05-17 Configure live Meta WhatsApp Cloud API app, phone number ID, app secret, access token, and webhook verify token +Channels @engineering phase:pilot
-(A) 2026-05-17 Configure live Telegram bot token, webhook secret, and HTTPS tunnel registration instructions +Channels @engineering phase:pilot
+(A) 2026-05-17 Wire real live provider credentials and complete at least one PRONTO_USE_MOCK_AI=0 local staging run; readiness UI/checklist exists but requires keys +ProntoMVP @engineering phase:pilot
+(A) 2026-05-17 Configure live Meta WhatsApp Cloud API app, phone number ID, app secret, access token, and webhook verify token; channel readiness UI exists but requires real Meta values +Channels @engineering phase:pilot
+(A) 2026-05-17 Configure live Telegram bot token, webhook secret, and HTTPS tunnel registration; channel readiness UI exists but requires real Telegram values +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add staging environment variables checklist for OpenAI, WhatsApp, Telegram, auth secret, app base URL, and database URL +Ops @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Build golden eval set for opening hours, menu, reservation explanation, refund complaint, unknown policy, allergy, urgency, and out-of-scope requests +Pilot @quality phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add automated eval runner that replays golden customer questions against seeded client knowledge and records answer versus escalation +Pilot @quality phase:pilot
@@ -65,10 +65,12 @@ x 2026-05-17 (A) 2026-05-17 Add role-based access tests proving client users can
 x 2026-05-17 (A) 2026-05-17 Add Anthropic provider adapter interface implementation for Claude Sonnet, Haiku routing, and future Opus fallback +ProviderPortability @engineering phase:tighten
 x 2026-05-17 (A) 2026-05-17 Add provider selection per client and per task with model defaults, cost labels, and failover behavior +ProviderPortability @engineering phase:tighten
 x 2026-06-05 (A) 2026-06-05 Add free/testing LLM provider catalog, OpenAI-compatible adapter, encrypted provider key storage, operator provider controls, and provider test console +ProviderPortability @engineering phase:tighten
-(A) 2026-05-17 Add provider pricing monitor task for OpenAI, Anthropic, and Gemini model cost changes cadence:monthly +Risk @ops phase:tighten
-(A) 2026-05-17 Add Meta WhatsApp Business policy monitor task and compliance posture notes cadence:monthly +Risk @ops phase:tighten
+x 2026-06-05 (A) 2026-05-17 Add manual provider pricing monitor task for OpenAI, Anthropic, Gemini, and WhatsApp channel pricing with monthly Jira review cadence +Risk @ops phase:tighten
+x 2026-06-05 (A) 2026-05-17 Add manual Meta WhatsApp Business policy monitor task and compliance posture notes cadence:monthly +Risk @ops phase:tighten
+(A) 2026-06-05 Add scheduler-backed provider pricing diff monitor for OpenAI, Anthropic, Gemini, and WhatsApp channel pricing changes cadence:monthly +Risk @ops phase:tighten
+(A) 2026-06-05 Add scheduler-backed Meta WhatsApp Business policy monitor with external alerting cadence:monthly +Risk @ops phase:tighten
 x 2026-05-17 (A) 2026-05-17 Document Pronto as purpose-driven business AI and not a general-purpose chatbot in product, contract, and channel setup docs +Compliance @docs phase:pilot
-(A) 2026-05-17 Add approved-template-only guardrail for any future proactive WhatsApp notifications +Channels @compliance phase:tighten
+x 2026-06-05 (A) 2026-05-17 Add approved-template-only guardrail for any future proactive WhatsApp notifications +Channels @compliance phase:tighten
 (B) 2026-05-17 Add Google Calendar read-only availability integration with no booking mutations in v1 +Integrations @engineering phase:tighten
 (B) 2026-05-17 Add Calendly read-only availability integration with no booking mutations in v1 +Integrations @engineering phase:tighten
 (B) 2026-05-17 Add Shopify product catalog and order-status read-only integration with refund and modification escalation +Integrations @engineering phase:tighten
@@ -76,7 +78,7 @@ x 2026-05-17 (A) 2026-05-17 Document Pronto as purpose-driven business AI and no
 (B) 2026-05-17 Add delivery or 3PL tracking read-only integration pattern with no delivery-time promises unless source confirms it +Integrations @engineering phase:tighten
 (B) 2026-05-17 Add custom inventory database integration pattern with standardized read-only tools +Integrations @engineering phase:tighten
 (B) 2026-05-17 Build integration library covering top 5 most-requested APIs from pilots +Integrations @engineering phase:tighten
-(B) 2026-05-17 Add integration credential storage plan with secret redaction and per-client rotation process +Security @engineering phase:tighten
+(B) 2026-05-17 Add non-LLM integration credential storage plan with secret redaction and per-client rotation process; LLM provider credential storage exists +Security @engineering phase:tighten
 (B) 2026-05-17 Add Messenger channel adapter through Meta Graph API +Channels @engineering phase:v2
 (B) 2026-05-17 Add Instagram DMs channel adapter through Meta Graph API +Channels @engineering phase:v2
 (B) 2026-05-17 Add email channel adapter through Postmark or Resend +Channels @engineering phase:v2
@@ -87,11 +89,11 @@ x 2026-05-17 (B) 2026-05-17 Build manual override workflow for operators and cli
 x 2026-06-05 (B) 2026-05-17 Build conversation search and filters by channel, status, escalation reason, date, customer, and review outcome +Dashboard @engineering phase:tighten
 (B) 2026-05-17 Add bulk escalation handling for clients with multiple staff +Dashboard @engineering phase:tighten
 x 2026-06-05 (B) 2026-05-17 Add knowledge gap report from low-confidence and escalated conversations +Dashboard @quality phase:tighten
-(B) 2026-05-17 Add monthly client check-in report generator with performance summary and recommended knowledge updates +Ops @dashboard phase:tighten
+(B) 2026-05-17 Add monthly client check-in performance report generator with summary metrics and recommended knowledge updates; knowledge refresh workflow already exists +Ops @dashboard phase:tighten
 x 2026-06-05 (B) 2026-05-17 Add tier-specific SLA tracking for Starter 24h business-hours, Growth 4h business-hours, and Scale 1h business-hours +Ops @dashboard phase:tighten
 (B) 2026-05-17 Add sales funnel tracking for discovery calls, proposals, trials, launches, conversion rates, and time-to-contract +GTM @business phase:tighten
 (B) 2026-05-17 Add trial workflow for 2-4 week scoped paid pilots with fee credited toward setup on conversion +Pricing @business phase:pilot
-(B) 2026-05-17 Add pricing records for setup fee, Starter, Growth, Scale, Enterprise, and custom add-ons +Pricing @business phase:pilot
+(B) 2026-05-17 Add pricing plan and add-on catalog records for setup fee, Starter, Growth, Scale, Enterprise, and custom add-ons; per-client commercial assumptions already exist +Pricing @business phase:pilot
 (B) 2026-05-17 Confirm SGD versus USD billing and document the decision +Pricing @business phase:pilot
 (B) 2026-05-17 Confirm annual prepay discount, recommended as 2 months free +Pricing @business phase:pilot
 (B) 2026-05-17 Confirm referral incentive, recommended as 1 month free for referrer when new client signs +Pricing @business phase:pilot
@@ -126,7 +128,7 @@ x 2026-05-17 (B) 2026-05-17 Create incident post-mortem template for hallucinati
 x 2026-06-05 (B) 2026-05-17 Extend structured logging and request IDs from webhooks into agent runs, retrieval, provider calls, and background outbound sends +Observability @engineering phase:pilot
 x 2026-06-05 (B) 2026-06-04 Add background outbound outbox retry worker for failed or stale sending messages beyond the immediate in-route local-release flush +Channels @engineering phase:tighten
 x 2026-06-05 (B) 2026-06-05 Add local operational alert scaffolding for failed outbound sends, degraded channels, overdue knowledge refreshes, and quality blockers +Observability @dashboard phase:tighten
-(B) 2026-05-17 Add persistent error tracking and external alerting for webhook failures, LLM failures, database errors, and outbound send failures +Observability @engineering phase:tighten
+(B) 2026-05-17 Add persistent error tracking and external alert routing for webhook failures, LLM failures, database errors, and outbound send failures; local operational alert scaffolding already exists +Observability @engineering phase:tighten
 (B) 2026-05-17 Add LangSmith or custom trace view for conversation review and model debugging +Observability @engineering phase:tighten
 (B) 2026-05-17 Add per-client cost alert when estimated monthly variable cost exceeds tier margin assumptions +Costing @business phase:tighten
 (B) 2026-05-17 Add load and cost model for standard SME 500 conversations, Growth 2000 conversations, Scale 6000 conversations, and heavy 3000+ conversations +Costing @business phase:tighten
