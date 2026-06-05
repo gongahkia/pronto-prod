@@ -1,4 +1,8 @@
 import { query, transaction } from "@/lib/db";
+import {
+  listProviderCredentialStatuses,
+  type ProviderCredentialStatus,
+} from "@/lib/llm/credentials";
 import { buildGroundedAnswerInstructions } from "@/lib/llm/prompt";
 import type { AgentConfig, Client, KnowledgeChunk } from "@/lib/types";
 
@@ -18,10 +22,15 @@ export type AgentConfigDetail = {
   escalationRulesJson: string;
   promptPreview: string;
   recentChanges: AgentConfigChange[];
+  providerCredentialStatuses: ProviderCredentialStatus[];
 };
 
 export type AgentConfigUpdate = {
   clientId: string;
+  responseProvider: string;
+  responseModel: string;
+  embeddingProvider: string;
+  embeddingModel: string;
   retrievalThreshold: number;
   promptPreamble: string;
   escalationRules: Record<string, unknown>;
@@ -32,7 +41,7 @@ export type AgentConfigUpdate = {
 export async function getAgentConfigDetail(
   clientId: string,
 ): Promise<AgentConfigDetail | null> {
-  const [clientResult, configResult, changesResult] = await Promise.all([
+  const [clientResult, configResult, changesResult, credentialStatuses] = await Promise.all([
     query<Client>("select * from clients where id = $1", [clientId]),
     query<AgentConfig>("select * from agent_configs where client_id = $1", [clientId]),
     query<AgentConfigChange>(
@@ -45,6 +54,7 @@ export async function getAgentConfigDetail(
       `,
       [clientId],
     ),
+    listProviderCredentialStatuses(),
   ]);
 
   const client = clientResult.rows[0];
@@ -53,7 +63,7 @@ export async function getAgentConfigDetail(
     return null;
   }
 
-  return buildAgentConfigDetail(client, config, changesResult.rows);
+  return buildAgentConfigDetail(client, config, changesResult.rows, credentialStatuses);
 }
 
 export async function updateAgentConfigForClient(
@@ -80,6 +90,10 @@ export async function updateAgentConfigForClient(
         set retrieval_threshold = $2,
             prompt_preamble = $3,
             escalation_rules = $4::jsonb,
+            response_provider = $5,
+            response_model = $6,
+            embedding_provider = $7,
+            embedding_model = $8,
             updated_at = now()
         where client_id = $1
         returning *
@@ -89,6 +103,10 @@ export async function updateAgentConfigForClient(
         input.retrievalThreshold,
         input.promptPreamble,
         input.escalationRules,
+        input.responseProvider,
+        input.responseModel,
+        input.embeddingProvider,
+        input.embeddingModel,
       ],
     );
     const updated = updatedResult.rows[0];
@@ -124,7 +142,15 @@ export async function updateAgentConfigForClient(
         updated.id,
         {
           retrievalThreshold: input.retrievalThreshold,
-          changedFields: ["retrieval_threshold", "prompt_preamble", "escalation_rules"],
+          changedFields: [
+            "retrieval_threshold",
+            "prompt_preamble",
+            "escalation_rules",
+            "response_provider",
+            "response_model",
+            "embedding_provider",
+            "embedding_model",
+          ],
         },
       ],
     );
@@ -140,7 +166,24 @@ export async function updateAgentConfigForClient(
       [input.clientId],
     );
 
-    return buildAgentConfigDetail(clientRecord, updated, changesResult.rows);
+    const credentialResult = await client.query<{ provider: string; updated_at: Date }>(
+      `
+        select provider, updated_at
+        from llm_provider_credentials
+        order by provider asc
+      `,
+    );
+
+    return buildAgentConfigDetail(
+      clientRecord,
+      updated,
+      changesResult.rows,
+      credentialResult.rows.map((row) => ({
+        provider: row.provider,
+        hasCredential: true,
+        updatedAt: row.updated_at,
+      })),
+    );
   });
 }
 
@@ -181,6 +224,7 @@ function buildAgentConfigDetail(
   client: Client,
   config: AgentConfig,
   recentChanges: AgentConfigChange[],
+  providerCredentialStatuses: ProviderCredentialStatus[],
 ): AgentConfigDetail {
   return {
     config,
@@ -188,6 +232,7 @@ function buildAgentConfigDetail(
     escalationRulesJson: JSON.stringify(config.escalation_rules ?? {}, null, 2),
     promptPreview: buildAgentPromptPreview(client, config),
     recentChanges,
+    providerCredentialStatuses,
   };
 }
 

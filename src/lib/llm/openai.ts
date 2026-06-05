@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { z } from "zod";
 import { shouldUseMockAi } from "@/lib/env";
+import { resolveProviderApiKey } from "@/lib/llm/credentials";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import {
   buildGroundedAnswerInstructions,
@@ -22,9 +23,13 @@ const answerDecisionSchema = z.object({
   citedChunkIds: z.array(z.string()),
 });
 
-function getOpenAiClient(): OpenAI {
+async function getOpenAiClient(): Promise<OpenAI | null> {
+  const apiKey = await resolveProviderApiKey("openai");
+  if (!apiKey) {
+    return null;
+  }
   return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey,
     baseURL: process.env.OPENAI_BASE_URL || undefined,
   });
 }
@@ -35,7 +40,10 @@ export class OpenAiProvider implements LlmProvider {
       return mockEmbed(texts);
     }
 
-    const client = getOpenAiClient();
+    const client = await getOpenAiClient();
+    if (!client) {
+      return mockEmbed(texts);
+    }
     const response = await client.embeddings.create({
       model,
       input: texts,
@@ -51,7 +59,10 @@ export class OpenAiProvider implements LlmProvider {
       return mockGroundedAnswer(input);
     }
 
-    const client = getOpenAiClient();
+    const client = await getOpenAiClient();
+    if (!client) {
+      return mockGroundedAnswer(input);
+    }
     const response = await client.responses.create({
       model: input.responseModel,
       instructions: buildGroundedAnswerInstructions(input),

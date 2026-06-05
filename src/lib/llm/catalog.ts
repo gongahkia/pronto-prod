@@ -1,4 +1,5 @@
 import { normalizeProviderName, type LlmProviderName } from "@/lib/llm";
+import { freeProviderById, isFreeLlmProviderId } from "@/lib/llm/free-providers";
 
 export type LlmTask = "agent_answer" | "routing" | "fallback";
 
@@ -8,7 +9,7 @@ export type ModelChoice = {
   costLabel: "low" | "standard" | "premium";
 };
 
-const modelCatalog: Record<Exclude<LlmProviderName, "mock">, Record<LlmTask, ModelChoice>> = {
+const modelCatalog: Record<"openai" | "anthropic", Record<LlmTask, ModelChoice>> = {
   openai: {
     agent_answer: { provider: "openai", model: "gpt-5.5", costLabel: "standard" },
     routing: { provider: "openai", model: "gpt-5.4-mini", costLabel: "low" },
@@ -29,6 +30,14 @@ export function selectModel(input: {
   const provider = normalizeProviderName(input.provider);
   if (provider === "mock") {
     return { provider: "mock", model: "mock", costLabel: "low" };
+  }
+  if (isFreeLlmProviderId(provider)) {
+    const freeProvider = freeProviderById(provider);
+    return {
+      provider,
+      model: input.configuredModel ?? freeProvider?.defaultModel ?? "mock",
+      costLabel: "low",
+    };
   }
 
   const envModel =
