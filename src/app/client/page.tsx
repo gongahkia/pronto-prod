@@ -1,22 +1,42 @@
-import { ArrowRight } from "lucide-react";
-import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getClient, getClientConversationTriage } from "@/lib/dashboard";
+import { getClient } from "@/lib/dashboard";
+import {
+  getClientDashboardAnalytics,
+  getFilteredConversations,
+  getKnowledgeGapReport,
+  getSlaSummary,
+} from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
-import { Badge } from "@/components/badge";
 import { ClientNav } from "@/components/client-nav";
+import {
+  ClientAnalyticsCards,
+  ConversationFilterForm,
+  ConversationList,
+  filtersFromSearchParams,
+  KnowledgeGapPanel,
+  SlaPanel,
+} from "@/components/reporting-panels";
 
 export const dynamic = "force-dynamic";
 
-export default async function ClientPage() {
+export default async function ClientPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser("client");
   if (!user.clientId) {
     throw new Error("Client user is missing a client assignment.");
   }
 
-  const [client, conversations] = await Promise.all([
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const filters = filtersFromSearchParams(resolvedSearchParams, user.clientId);
+  const [client, conversations, analytics, gaps, sla] = await Promise.all([
     getClient(user.clientId),
-    getClientConversationTriage(user.clientId),
+    getFilteredConversations({ ...filters, limit: 50 }),
+    getClientDashboardAnalytics(user.clientId),
+    getKnowledgeGapReport({ clientId: user.clientId, limit: 8 }),
+    getSlaSummary(user.clientId),
   ]);
   if (!client) {
     throw new Error("Client record not found.");
@@ -32,49 +52,35 @@ export default async function ClientPage() {
       </div>
       <ClientNav active="conversations" />
 
-      <section className="ui-panel">
-        <div className="ui-panel-header">
-          <h2 className="text-base font-semibold">Conversations</h2>
-        </div>
-        <div className="divide-y divide-line">
-          {conversations.length === 0 ? (
-            <p className="p-4 text-sm text-muted">No conversations yet.</p>
-          ) : (
-            conversations.map((conversation) => (
-              <div
-                key={conversation.id}
-                className="flex flex-col gap-4 p-4 transition-colors hover:bg-surface-hover sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">
-                      {conversation.customer_name ?? conversation.customer_handle}
-                    </p>
-                    <Badge tone={conversation.status === "escalated" ? "red" : "green"}>
-                      {conversation.status}
-                    </Badge>
-                    <Badge>{conversation.channel_kind}</Badge>
-                    {conversation.active_escalation_reason_code ? (
-                      <Badge tone="red">{conversation.active_escalation_reason_code}</Badge>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 text-sm text-muted">{conversation.last_message}</p>
-                </div>
+      <ClientAnalyticsCards analytics={analytics} />
 
-                {conversation.active_escalation_id ? (
-                  <Link
-                    href={`/client/conversations/${conversation.id}`}
-                    className="ui-primary-button shrink-0 gap-2 px-3 py-2"
-                  >
-                    Open triage
-                    <ArrowRight size={16} />
-                  </Link>
-                ) : null}
-              </div>
-            ))
-          )}
+      <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.45fr]">
+        <div className="ui-panel">
+          <div className="ui-panel-header">
+            <h2 className="text-base font-semibold">Conversations</h2>
+          </div>
+          <ConversationFilterForm
+            action="/client"
+            filters={filters}
+            includeReview={false}
+          />
+          <ConversationList
+            conversations={conversations}
+            hrefForConversation={(conversation) =>
+              `/client/conversations/${conversation.id}`
+            }
+            emptyText="No conversations match these filters."
+          />
         </div>
+        <SlaPanel summary={sla} />
       </section>
+
+      <div className="mt-6">
+        <KnowledgeGapPanel
+          gaps={gaps}
+          hrefForGap={(gap) => `/client/conversations/${gap.conversation_id}`}
+        />
+      </div>
     </AppShell>
   );
 }

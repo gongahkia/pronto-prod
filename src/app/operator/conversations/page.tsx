@@ -1,16 +1,24 @@
-import { ArrowRight } from "lucide-react";
-import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getOperatorConversationTriage } from "@/lib/dashboard";
+import { getFilteredConversations } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
-import { Badge } from "@/components/badge";
 import { OperatorNav } from "@/components/operator/operator-nav";
+import {
+  ConversationFilterForm,
+  ConversationList,
+  filtersFromSearchParams,
+} from "@/components/reporting-panels";
 
 export const dynamic = "force-dynamic";
 
-export default async function OperatorConversationsPage() {
+export default async function OperatorConversationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser("operator");
-  const conversations = await getOperatorConversationTriage(50);
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const filters = filtersFromSearchParams(resolvedSearchParams);
+  const conversations = await getFilteredConversations({ ...filters, limit: 75 });
 
   return (
     <AppShell user={user} active="operator">
@@ -26,38 +34,14 @@ export default async function OperatorConversationsPage() {
         <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Recent conversations</h2>
         </div>
-        <div className="divide-y divide-line">
-          {conversations.length === 0 ? (
-            <p className="p-4 text-sm text-muted">No conversations yet.</p>
-          ) : (
-            conversations.map((conversation) => (
-              <Link
-                key={conversation.id}
-                href={`/operator/clients/${conversation.client_id}/conversations/${conversation.id}`}
-                className="flex flex-col gap-4 p-4 hover:bg-surface-hover sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">{conversation.customer_name ?? conversation.customer_handle}</p>
-                    <Badge>{conversation.client_name}</Badge>
-                    <Badge>{conversation.channel_kind}</Badge>
-                    <Badge tone={conversation.status === "escalated" ? "red" : "green"}>
-                      {conversation.status}
-                    </Badge>
-                    {conversation.active_escalation_reason_code ? (
-                      <Badge tone="red">{conversation.active_escalation_reason_code}</Badge>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 text-sm text-muted">{conversation.last_message}</p>
-                </div>
-                <span className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-accent">
-                  Review
-                  <ArrowRight size={16} />
-                </span>
-              </Link>
-            ))
-          )}
-        </div>
+        <ConversationFilterForm action="/operator/conversations" filters={filters} />
+        <ConversationList
+          conversations={conversations}
+          hrefForConversation={(conversation) =>
+            `/operator/clients/${conversation.client_id}/conversations/${conversation.id}`
+          }
+          showClient
+        />
       </section>
     </AppShell>
   );
