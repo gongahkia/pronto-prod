@@ -11,9 +11,11 @@ import { ProviderTestConsole } from "@/components/provider-test-console";
 export function OperatorAgentConfigPanel({
   clientId,
   detail,
+  returnTo,
 }: {
   clientId: string;
   detail: AgentConfigDetail | null;
+  returnTo?: string;
 }) {
   if (!detail) {
     return (
@@ -25,6 +27,8 @@ export function OperatorAgentConfigPanel({
       </section>
     );
   }
+  const formReturnTo = returnTo ?? `/operator/clients/${clientId}`;
+
   return (
     <section className="ui-panel">
       <div className="ui-panel-header">
@@ -38,7 +42,7 @@ export function OperatorAgentConfigPanel({
       </div>
       <form action="/api/operator/agent-config" method="post" className="space-y-4 p-4">
         <input type="hidden" name="clientId" value={clientId} />
-        <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}`} />
+        <input type="hidden" name="returnTo" value={formReturnTo} />
         <div className="grid gap-3 lg:grid-cols-2">
           <label className="block space-y-2 text-sm font-medium">
             <span>Response provider</span>

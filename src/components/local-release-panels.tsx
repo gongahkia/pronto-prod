@@ -8,11 +8,14 @@ import { StatCard } from "@/components/stat-card";
 export function OperatorBrandVoicePanel({
   clientId,
   profile,
+  returnTo,
 }: {
   clientId: string;
   profile: BrandVoiceProfile;
+  returnTo?: string;
 }) {
   const document = profile.document;
+  const formReturnTo = returnTo ?? `/operator/clients/${clientId}`;
 
   return (
     <section className="ui-panel">
@@ -23,7 +26,7 @@ export function OperatorBrandVoicePanel({
       <form action="/api/operator/brand-voice" method="post" className="space-y-3 p-4">
         <input type="hidden" name="action" value="update_document" />
         <input type="hidden" name="clientId" value={clientId} />
-        <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}`} />
+        <input type="hidden" name="returnTo" value={formReturnTo} />
         <input
           name="title"
           defaultValue={document?.title ?? "Brand voice guide"}
@@ -55,7 +58,7 @@ export function OperatorBrandVoicePanel({
       <form action="/api/operator/brand-voice" method="post" className="space-y-3 border-t border-line p-4">
         <input type="hidden" name="action" value="build_document" />
         <input type="hidden" name="clientId" value={clientId} />
-        <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}`} />
+        <input type="hidden" name="returnTo" value={formReturnTo} />
         <label className="block space-y-2 text-sm font-medium">
           <span>Build from source samples</span>
           <textarea
@@ -75,7 +78,7 @@ export function OperatorBrandVoicePanel({
         <form action="/api/operator/brand-voice" method="post" className="mb-4 grid gap-3">
           <input type="hidden" name="action" value="add_example" />
           <input type="hidden" name="clientId" value={clientId} />
-          <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}`} />
+          <input type="hidden" name="returnTo" value={formReturnTo} />
           <textarea
             name="customerMessage"
             rows={2}
@@ -116,7 +119,7 @@ export function OperatorBrandVoicePanel({
                     <input type="hidden" name="clientId" value={clientId} />
                     <input type="hidden" name="exampleId" value={example.id} />
                     <input type="hidden" name="isActive" value={example.is_active ? "false" : "true"} />
-                    <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}`} />
+                    <input type="hidden" name="returnTo" value={formReturnTo} />
                     <button className="ui-button px-3 py-1.5">
                       {example.is_active ? "Pause" : "Activate"}
                     </button>
@@ -125,7 +128,7 @@ export function OperatorBrandVoicePanel({
                     <input type="hidden" name="action" value="delete_example" />
                     <input type="hidden" name="clientId" value={clientId} />
                     <input type="hidden" name="exampleId" value={example.id} />
-                    <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}`} />
+                    <input type="hidden" name="returnTo" value={formReturnTo} />
                     <button className="rounded-md bg-danger px-3 py-1.5 text-sm font-semibold text-white">
                       Delete
                     </button>
@@ -233,12 +236,15 @@ export function PilotReadinessPanel({
 export function OperatorCommercialPanel({
   client,
   summary,
+  returnTo,
 }: {
   client: Client;
   summary: PilotReadinessSummary;
+  returnTo?: string;
 }) {
   const commercial = summary.commercialAssumptions;
   const launch = summary.launchMilestones;
+  const formReturnTo = returnTo ?? `/operator/clients/${client.id}`;
 
   return (
     <section className="ui-panel">
@@ -253,7 +259,7 @@ export function OperatorCommercialPanel({
       </div>
       <form action="/api/operator/client-commercials" method="post" className="grid gap-3 border-t border-line p-4 sm:grid-cols-2">
         <input type="hidden" name="clientId" value={client.id} />
-        <input type="hidden" name="returnTo" value={`/operator/clients/${client.id}`} />
+        <input type="hidden" name="returnTo" value={formReturnTo} />
         <DateInput name="signedContractAt" label="Signed contract" value={launch?.signed_contract_at} />
         <DateInput name="targetLiveAt" label="Target live" value={launch?.target_live_at} />
         <DateInput name="productionLiveAt" label="Production live" value={launch?.production_live_at} />
