@@ -24,7 +24,7 @@ x 2026-05-17 (A) 2026-05-17 Add uploaded document ingestion for PDF, DOCX, TXT, 
 x 2026-05-17 (A) 2026-05-17 Add menu or product CSV ingestion mapped to structured source metadata for F&B and e-commerce demos +RAG @engineering phase:pilot
 x 2026-06-04 (A) 2026-05-17 Add knowledge source versioning so policy changes can be traced to the exact answer source +RAG @engineering phase:pilot
 x 2026-06-04 (A) 2026-06-04 Add operator-scoped knowledge source view, edit, and delete screens so Pronto admins can fix client knowledge without switching into a client session +RAG @dashboard phase:pilot
-(A) 2026-05-17 Add knowledge refresh workflow for monthly check-ins and client policy updates +RAG @ops phase:pilot
+x 2026-06-05 (A) 2026-05-17 Add knowledge refresh workflow for monthly check-ins and client policy updates +RAG @ops phase:pilot
 x 2026-06-04 (A) 2026-05-17 Add per-client retrieval threshold UI and pilot tuning history +AgentCore @dashboard phase:pilot
 x 2026-06-04 (A) 2026-05-17 Add prompt preview UI showing system preamble, brand voice, escalation rules, and allowed scope +AgentCore @dashboard phase:pilot
 x 2026-06-04 (A) 2026-05-17 Add brand voice builder from website copy, past chats, marketing copy, and founder writing samples +BrandVoice @engineering phase:pilot
@@ -33,6 +33,7 @@ x 2026-06-04 (A) 2026-05-17 Add few-shot response examples per client and includ
 x 2026-06-04 (A) 2026-05-17 Add multilingual behavior tests for English, Mandarin, Bahasa Melayu, and Singapore code-switching +AgentCore @quality phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add AI disclosure behavior when a customer directly asks whether the agent is human +Compliance @engineering phase:pilot
 x 2026-06-04 (A) 2026-05-17 Wire per-client topic guardrail configuration from agent_configs.escalation_rules into pre-generation guardrails for complaints, refunds, medical, legal, bookings, payments, severe allergies, and out-of-scope requests +AgentCore @engineering phase:pilot
+x 2026-06-05 (A) 2026-06-05 Add React Flow triage editor with channel, decision, note, custom mapped decision, and compiled guardrail publishing for client/operator flow configuration +AgentCore @dashboard phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add sentiment trigger detection for frustration, urgency, anger, repeated unanswered questions, and negative delivery experiences +AgentCore @engineering phase:pilot
 x 2026-06-04 (A) 2026-05-17 Add explicit post-generation self-check step beyond citation validation that verifies every drafted answer is traceable to retrieved static or live sources +AgentCore @engineering phase:pilot
 x 2026-06-04 (A) 2026-05-17 Add hallucination incident workflow with severity, root cause, fix owner, and post-mortem notes +Quality @ops phase:pilot
@@ -63,6 +64,7 @@ x 2026-06-04 (A) 2026-06-04 Add login rate limiting and failed-login backoff or 
 x 2026-05-17 (A) 2026-05-17 Add role-based access tests proving client users cannot access other client data or operator-only routes +Security @quality phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add Anthropic provider adapter interface implementation for Claude Sonnet, Haiku routing, and future Opus fallback +ProviderPortability @engineering phase:tighten
 x 2026-05-17 (A) 2026-05-17 Add provider selection per client and per task with model defaults, cost labels, and failover behavior +ProviderPortability @engineering phase:tighten
+x 2026-06-05 (A) 2026-06-05 Add free/testing LLM provider catalog, OpenAI-compatible adapter, encrypted provider key storage, operator provider controls, and provider test console +ProviderPortability @engineering phase:tighten
 (A) 2026-05-17 Add provider pricing monitor task for OpenAI, Anthropic, and Gemini model cost changes cadence:monthly +Risk @ops phase:tighten
 (A) 2026-05-17 Add Meta WhatsApp Business policy monitor task and compliance posture notes cadence:monthly +Risk @ops phase:tighten
 x 2026-05-17 (A) 2026-05-17 Document Pronto as purpose-driven business AI and not a general-purpose chatbot in product, contract, and channel setup docs +Compliance @docs phase:pilot
@@ -121,8 +123,8 @@ x 2026-05-17 (B) 2026-05-17 Create technical architecture runbook for templated 
 (B) 2026-05-17 Create onboarding guide so a second engineer can become productive on templated core in under 2 weeks +Docs @engineering phase:tighten
 (B) 2026-05-17 Create integration playbook for scoping, credential collection, API limits, read-only tools, error handling, and client signoff +Docs @engineering phase:tighten
 x 2026-05-17 (B) 2026-05-17 Create incident post-mortem template for hallucination, data breach, channel outage, and integration failure +Docs @ops phase:pilot
-(B) 2026-05-17 Extend structured logging and request IDs from webhooks into agent runs, retrieval, provider calls, and background outbound sends +Observability @engineering phase:pilot
-(B) 2026-06-04 Add background outbound outbox retry worker for failed or stale sending messages beyond the immediate in-route local-release flush +Channels @engineering phase:tighten
+x 2026-06-05 (B) 2026-05-17 Extend structured logging and request IDs from webhooks into agent runs, retrieval, provider calls, and background outbound sends +Observability @engineering phase:pilot
+x 2026-06-05 (B) 2026-06-04 Add background outbound outbox retry worker for failed or stale sending messages beyond the immediate in-route local-release flush +Channels @engineering phase:tighten
 (B) 2026-05-17 Add error tracking and alerting for webhook failures, LLM failures, database errors, and outbound send failures +Observability @engineering phase:tighten
 (B) 2026-05-17 Add LangSmith or custom trace view for conversation review and model debugging +Observability @engineering phase:tighten
 (B) 2026-05-17 Add per-client cost alert when estimated monthly variable cost exceeds tier margin assumptions +Costing @business phase:tighten

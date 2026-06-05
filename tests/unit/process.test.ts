@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   createEscalation: vi.fn(),
   sendChannelText: vi.fn(),
   notifyOwnerOfEscalation: vi.fn(),
+  logInfo: vi.fn(),
   logWarn: vi.fn(),
 }));
 
@@ -31,6 +32,7 @@ vi.mock("@/lib/escalations", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({
+  logInfo: mocks.logInfo,
   logWarn: mocks.logWarn,
   redactErrorMessage: (error: unknown) =>
     error instanceof Error ? error.message : String(error),
@@ -69,8 +71,15 @@ describe("inbound channel processing", () => {
       },
     });
 
-    await processInboundMessage(inboundWhatsAppMessage());
+    await processInboundMessage(inboundWhatsAppMessage(), {
+      requestId: "req_12345678",
+    });
 
+    expect(mocks.runAgentForMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: "req_12345678",
+      }),
+    );
     expect(mocks.sendChannelText).toHaveBeenCalledWith({
       channelId: "whatsapp-channel-1",
       externalThreadId: "6590000000",

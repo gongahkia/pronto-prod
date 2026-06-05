@@ -36,7 +36,9 @@ export async function processWebhookBatch(
       results.push({
         ok: true,
         externalMessageId: message.externalMessageId,
-        result: await processInboundMessage(message),
+        result: await processInboundMessage(message, {
+          requestId: context.requestId,
+        }),
       });
     } catch (error) {
       logWarn("webhook_message_processing_failed", {

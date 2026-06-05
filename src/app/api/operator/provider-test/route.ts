@@ -7,9 +7,15 @@ import {
   upsertProviderApiKey,
 } from "@/lib/llm/credentials";
 import { selectableFreeProviders } from "@/lib/llm/free-providers";
-import { logWarn, redactErrorMessage } from "@/lib/logger";
+import {
+  logWarn,
+  redactErrorMessage,
+  requestIdFromRequest,
+  requestIdHeaders,
+} from "@/lib/logger";
 
 export async function POST(request: Request) {
+  const requestId = requestIdFromRequest(request);
   const user = await requireUser("operator");
   const payload = (await request.json()) as {
     provider?: string;
@@ -21,12 +27,15 @@ export async function POST(request: Request) {
   const apiKey = String(payload.apiKey ?? "").trim();
 
   if (!isAllowedResponseProvider(provider)) {
-    return NextResponse.json({ error: "Response provider is not supported." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Response provider is not supported." },
+      { status: 400, headers: requestIdHeaders(requestId) },
+    );
   }
   if (apiKey && !credentialEncryptionConfigured()) {
     return NextResponse.json(
       { error: "PRONTO_SECRETS_KEY is required before provider API keys can be saved." },
-      { status: 400 },
+      { status: 400, headers: requestIdHeaders(requestId) },
     );
   }
   if (apiKey) {
@@ -41,6 +50,9 @@ export async function POST(request: Request) {
 
   try {
     const decision = await getGenerationProvider(modelChoice.provider).generateGroundedAnswer({
+      requestId,
+      clientId: "provider-test-client",
+      conversationId: "provider-test-conversation",
       clientName: "North Bridge Nasi",
       brandVoice: "Warm, quick, practical, and Singapore-aware.",
       promptPreamble: "Answer only from verified source material.",
@@ -61,14 +73,18 @@ export async function POST(request: Request) {
       responseModel: modelChoice.model,
     });
 
-    return NextResponse.json({
-      ok: true,
-      provider: modelChoice.provider,
-      model: modelChoice.model,
-      decision,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        provider: modelChoice.provider,
+        model: modelChoice.model,
+        decision,
+      },
+      { headers: requestIdHeaders(requestId) },
+    );
   } catch (error) {
     logWarn("llm_provider.test_failed", {
+      requestId,
       provider,
       model: modelChoice.model,
       error: redactErrorMessage(error),
@@ -80,7 +96,7 @@ export async function POST(request: Request) {
         model: modelChoice.model,
         error: error instanceof Error ? error.message : String(error),
       },
-      { status: 502 },
+      { status: 502, headers: requestIdHeaders(requestId) },
     );
   }
 }

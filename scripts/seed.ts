@@ -317,6 +317,33 @@ async function main() {
     [CONSOLE_CHANNEL_ID, CLIENT_ID, WHATSAPP_CHANNEL_ID, TELEGRAM_CHANNEL_ID],
   );
 
+  await pool.query(
+    `
+      insert into knowledge_refresh_requests (
+        client_id,
+        status,
+        cadence,
+        due_at,
+        notes,
+        created_by_user_id
+      )
+      select
+        $1,
+        'open',
+        'monthly',
+        now() + interval '14 days',
+        'Confirm public holiday hours, menu prices, and refund policy before next pilot review.',
+        $2
+      where not exists (
+        select 1
+        from knowledge_refresh_requests
+        where client_id = $1
+          and status = 'open'
+      )
+    `,
+    [CLIENT_ID, OPERATOR_ID],
+  );
+
   for (const source of seedKnowledgeSources) {
     await pool.query(
       `

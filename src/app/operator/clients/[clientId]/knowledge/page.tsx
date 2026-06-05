@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { getClient, getKnowledgeSources } from "@/lib/dashboard";
+import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
 import { AppShell } from "@/components/shell";
+import { KnowledgeRefreshPanel } from "@/components/knowledge-refresh-panel";
 import {
   OperatorClientHeader,
   OperatorClientNav,
@@ -25,7 +27,10 @@ export default async function OperatorClientKnowledgePage({
     notFound();
   }
 
-  const knowledge = await getKnowledgeSources(client.id);
+  const [knowledge, refreshRequests] = await Promise.all([
+    getKnowledgeSources(client.id),
+    getKnowledgeRefreshRequests(client.id),
+  ]);
 
   return (
     <AppShell user={user} active="operator">
@@ -39,6 +44,14 @@ export default async function OperatorClientKnowledgePage({
         <OperatorKnowledgeIngestion clientId={client.id} />
         <OperatorKnowledgeSources clientId={client.id} sources={knowledge} />
       </section>
+
+      <div className="mt-6">
+        <KnowledgeRefreshPanel
+          requests={refreshRequests}
+          action="/api/operator/knowledge-refresh"
+          clientId={client.id}
+        />
+      </div>
     </AppShell>
   );
 }

@@ -25,13 +25,17 @@ describe("webhook batch processing", () => {
       .mockResolvedValueOnce({ duplicate: false, messageId: "message-1" })
       .mockRejectedValueOnce(new Error("agent failed"));
 
-    const result = await processWebhookBatch([
-      inboundMessage("wamid.1"),
-      inboundMessage("wamid.2"),
-    ]);
+    const result = await processWebhookBatch(
+      [
+        inboundMessage("wamid.1"),
+        inboundMessage("wamid.2"),
+      ],
+      { requestId: "req_12345678" },
+    );
 
     expect(result).toEqual({
       ok: false,
+      requestId: "req_12345678",
       processed: 1,
       failed: 1,
       results: [
@@ -55,6 +59,10 @@ describe("webhook batch processing", () => {
         externalMessageId: "wamid.2",
         error: expect.any(Error),
       }),
+    );
+    expect(mocks.processInboundMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ externalMessageId: "wamid.1" }),
+      { requestId: "req_12345678" },
     );
   });
 });

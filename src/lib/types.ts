@@ -5,6 +5,7 @@ export type ConversationStatus = "active" | "escalated" | "closed";
 export type SenderRole = "customer" | "agent" | "operator" | "system";
 export type EscalationStatus = "open" | "claimed" | "resolved";
 export type DeliveryStatus = "pending" | "sent" | "skipped" | "failed";
+export type KnowledgeRefreshStatus = "open" | "completed" | "skipped";
 
 export type Client = {
   id: string;
@@ -135,6 +136,20 @@ export type KnowledgeChunk = {
   token_estimate: number;
   score?: number;
   metadata: Record<string, unknown>;
+};
+
+export type KnowledgeRefreshRequest = {
+  id: string;
+  client_id: string;
+  status: KnowledgeRefreshStatus;
+  cadence: string;
+  due_at: Date;
+  notes: string | null;
+  created_by_user_id: string | null;
+  completed_by_user_id: string | null;
+  completed_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
 export type Escalation = {

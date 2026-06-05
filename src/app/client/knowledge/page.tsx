@@ -2,8 +2,10 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getClient, getKnowledgeSources } from "@/lib/dashboard";
+import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
 import { AppShell } from "@/components/shell";
 import { ClientNav } from "@/components/client-nav";
+import { KnowledgeRefreshPanel } from "@/components/knowledge-refresh-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +15,10 @@ export default async function ClientKnowledgePage() {
     throw new Error("Client user is missing a client assignment.");
   }
 
-  const [client, knowledge] = await Promise.all([
+  const [client, knowledge, refreshRequests] = await Promise.all([
     getClient(user.clientId),
     getKnowledgeSources(user.clientId),
+    getKnowledgeRefreshRequests(user.clientId),
   ]);
   if (!client) {
     throw new Error("Client record not found.");
@@ -117,6 +120,13 @@ export default async function ClientKnowledgePage() {
           </div>
         </div>
       </section>
+
+      <div className="mt-6">
+        <KnowledgeRefreshPanel
+          requests={refreshRequests}
+          action="/api/client/knowledge-refresh"
+        />
+      </div>
     </AppShell>
   );
 }

@@ -1,9 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { flushRetryableOutboundMessages } from "../src/lib/channels/outbox";
 import { logError, logInfo } from "../src/lib/logger";
 
 async function main() {
   const result = await flushRetryableOutboundMessages({
-    requestId: `outbox-retry-${Date.now()}`,
+    requestId: `outbox-retry-${randomUUID()}`,
     limit: Number(process.env.PRONTO_OUTBOX_RETRY_LIMIT ?? 25),
     staleSendingMinutes: Number(
       process.env.PRONTO_OUTBOX_STALE_SENDING_MINUTES ?? 10,
