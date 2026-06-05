@@ -81,14 +81,14 @@ x 2026-05-17 (A) 2026-05-17 Document Pronto as purpose-driven business AI and no
 (B) 2026-05-17 Add Instagram DMs channel adapter through Meta Graph API +Channels @engineering phase:v2
 (B) 2026-05-17 Add email channel adapter through Postmark or Resend +Channels @engineering phase:v2
 (B) 2026-05-17 Add LINE and Zalo feasibility notes for SEA expansion after Singapore validation +Channels @research phase:scale
-(B) 2026-05-17 Build client dashboard analytics for conversation volume, escalation rate, response time, CSAT, and knowledge gaps +Dashboard @engineering phase:tighten
+x 2026-06-05 (B) 2026-05-17 Build client dashboard analytics for conversation volume, escalation rate, response time, CSAT, and knowledge gaps +Dashboard @engineering phase:tighten
 (B) 2026-05-17 Build operator workflow for creating clients, assigning users, and selecting plan tier; channel configuration screen already exists +Dashboard @engineering phase:tighten
 x 2026-05-17 (B) 2026-05-17 Build manual override workflow for operators and client owners +Dashboard @engineering phase:tighten
-(B) 2026-05-17 Build conversation search and filters by channel, status, escalation reason, date, customer, and review outcome +Dashboard @engineering phase:tighten
+x 2026-06-05 (B) 2026-05-17 Build conversation search and filters by channel, status, escalation reason, date, customer, and review outcome +Dashboard @engineering phase:tighten
 (B) 2026-05-17 Add bulk escalation handling for clients with multiple staff +Dashboard @engineering phase:tighten
-(B) 2026-05-17 Add knowledge gap report from low-confidence and escalated conversations +Dashboard @quality phase:tighten
+x 2026-06-05 (B) 2026-05-17 Add knowledge gap report from low-confidence and escalated conversations +Dashboard @quality phase:tighten
 (B) 2026-05-17 Add monthly client check-in report generator with performance summary and recommended knowledge updates +Ops @dashboard phase:tighten
-(B) 2026-05-17 Add tier-specific SLA tracking for Starter 24h business-hours, Growth 4h business-hours, and Scale 1h business-hours +Ops @dashboard phase:tighten
+x 2026-06-05 (B) 2026-05-17 Add tier-specific SLA tracking for Starter 24h business-hours, Growth 4h business-hours, and Scale 1h business-hours +Ops @dashboard phase:tighten
 (B) 2026-05-17 Add sales funnel tracking for discovery calls, proposals, trials, launches, conversion rates, and time-to-contract +GTM @business phase:tighten
 (B) 2026-05-17 Add trial workflow for 2-4 week scoped paid pilots with fee credited toward setup on conversion +Pricing @business phase:pilot
 (B) 2026-05-17 Add pricing records for setup fee, Starter, Growth, Scale, Enterprise, and custom add-ons +Pricing @business phase:pilot
@@ -125,7 +125,8 @@ x 2026-05-17 (B) 2026-05-17 Create technical architecture runbook for templated 
 x 2026-05-17 (B) 2026-05-17 Create incident post-mortem template for hallucination, data breach, channel outage, and integration failure +Docs @ops phase:pilot
 x 2026-06-05 (B) 2026-05-17 Extend structured logging and request IDs from webhooks into agent runs, retrieval, provider calls, and background outbound sends +Observability @engineering phase:pilot
 x 2026-06-05 (B) 2026-06-04 Add background outbound outbox retry worker for failed or stale sending messages beyond the immediate in-route local-release flush +Channels @engineering phase:tighten
-(B) 2026-05-17 Add error tracking and alerting for webhook failures, LLM failures, database errors, and outbound send failures +Observability @engineering phase:tighten
+x 2026-06-05 (B) 2026-06-05 Add local operational alert scaffolding for failed outbound sends, degraded channels, overdue knowledge refreshes, and quality blockers +Observability @dashboard phase:tighten
+(B) 2026-05-17 Add persistent error tracking and external alerting for webhook failures, LLM failures, database errors, and outbound send failures +Observability @engineering phase:tighten
 (B) 2026-05-17 Add LangSmith or custom trace view for conversation review and model debugging +Observability @engineering phase:tighten
 (B) 2026-05-17 Add per-client cost alert when estimated monthly variable cost exceeds tier margin assumptions +Costing @business phase:tighten
 (B) 2026-05-17 Add load and cost model for standard SME 500 conversations, Growth 2000 conversations, Scale 6000 conversations, and heavy 3000+ conversations +Costing @business phase:tighten

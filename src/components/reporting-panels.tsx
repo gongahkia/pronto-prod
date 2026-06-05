@@ -17,7 +17,7 @@ export function ClientAnalyticsCards({
   analytics: ClientDashboardAnalytics;
 }) {
   return (
-    <section className="grid gap-4 md:grid-cols-5">
+    <section className="grid gap-4 md:grid-cols-6">
       <StatCard label="Conversations" value={analytics.conversationCount} />
       <StatCard
         label="Escalation rate"
@@ -34,6 +34,7 @@ export function ClientAnalyticsCards({
         value={analytics.csatAverage ? analytics.csatAverage.toFixed(1) : "Pending"}
         hint={`${analytics.csatResponses} responses`}
       />
+      <StatCard label="Knowledge gaps" value={analytics.knowledgeGapCount} />
     </section>
   );
 }
@@ -48,7 +49,7 @@ export function ConversationFilterForm({
   includeReview?: boolean;
 }) {
   return (
-    <form action={action} className="grid gap-3 p-4 md:grid-cols-4 xl:grid-cols-7">
+    <form action={action} className="grid gap-3 p-4 md:grid-cols-4 xl:grid-cols-9">
       <input
         name="q"
         defaultValue={filters.query ?? ""}
@@ -95,6 +96,20 @@ export function ConversationFilterForm({
           <option value="needs_knowledge_update">Needs knowledge update</option>
         </select>
       ) : null}
+      <input
+        name="from"
+        type="date"
+        defaultValue={filters.from ?? ""}
+        className="rounded-md border border-line px-3 py-2 text-sm"
+        aria-label="From date"
+      />
+      <input
+        name="to"
+        type="date"
+        defaultValue={filters.to ?? ""}
+        className="rounded-md border border-line px-3 py-2 text-sm"
+        aria-label="To date"
+      />
       <div className="flex gap-2">
         <button className="ui-primary-button px-3 py-2">Filter</button>
         <Link href={action} className="ui-button px-3 py-2">

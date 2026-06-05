@@ -7,21 +7,28 @@ import {
   getOpenEscalations,
   getRecentConversations,
 } from "@/lib/dashboard";
+import { getOperationalAlerts, getSlaSummary } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import { StatCard } from "@/components/stat-card";
 import { Badge } from "@/components/badge";
 import { DeliveryStatusBadge } from "@/components/delivery-status";
 import { OperatorNav } from "@/components/operator/operator-nav";
+import {
+  OperationalAlertsPanel,
+  SlaPanel,
+} from "@/components/reporting-panels";
 
 export const dynamic = "force-dynamic";
 
 export default async function OperatorPage() {
   const user = await requireUser("operator");
-  const [metrics, clients, escalations, conversations] = await Promise.all([
+  const [metrics, clients, escalations, conversations, alerts, sla] = await Promise.all([
     getMetrics(),
     getClients(),
     getOpenEscalations(),
     getRecentConversations(undefined, 8),
+    getOperationalAlerts({ limit: 8 }),
+    getSlaSummary(),
   ]);
 
   return (
@@ -34,11 +41,12 @@ export default async function OperatorPage() {
       </div>
       <OperatorNav active="clients" />
 
-      <section className="grid gap-4 md:grid-cols-5">
+      <section className="grid gap-4 md:grid-cols-6">
         <StatCard label="Active clients" value={metrics.activeClients} />
         <StatCard label="Conversations" value={metrics.conversations} />
         <StatCard label="Triage items" value={metrics.escalations} />
         <StatCard label="Actionable triage" value={metrics.openEscalations} />
+        <StatCard label="SLA breaches" value={sla.breachedItems} />
         <StatCard
           label="Hallucinations"
           value={metrics.hallucinationIncidents}
@@ -105,6 +113,11 @@ export default async function OperatorPage() {
             )}
           </div>
         </div>
+      </section>
+
+      <section className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+        <SlaPanel summary={sla} />
+        <OperationalAlertsPanel alerts={alerts} />
       </section>
 
       <section className="mt-6 ui-panel">

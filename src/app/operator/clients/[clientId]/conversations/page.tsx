@@ -1,16 +1,17 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import {
-  getClient,
-  getClientConversationTriage,
-} from "@/lib/dashboard";
+import { getClient } from "@/lib/dashboard";
+import { getFilteredConversations } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
-import { Badge } from "@/components/badge";
 import {
   OperatorClientHeader,
   OperatorClientNav,
 } from "@/components/operator/operator-nav";
+import {
+  ConversationFilterForm,
+  ConversationList,
+  filtersFromSearchParams,
+} from "@/components/reporting-panels";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function OperatorClientConversationsPage({
   searchParams,
 }: {
   params: Promise<{ clientId: string }>;
-  searchParams?: Promise<{ conversationId?: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requireUser("operator");
   const { clientId } = await params;
@@ -28,11 +29,15 @@ export default async function OperatorClientConversationsPage({
   if (!client) {
     notFound();
   }
-  if (resolvedSearchParams.conversationId) {
-    redirect(`/operator/clients/${client.id}/conversations/${resolvedSearchParams.conversationId}`);
+  const conversationId = Array.isArray(resolvedSearchParams.conversationId)
+    ? resolvedSearchParams.conversationId[0]
+    : resolvedSearchParams.conversationId;
+  if (conversationId) {
+    redirect(`/operator/clients/${client.id}/conversations/${conversationId}`);
   }
 
-  const conversations = await getClientConversationTriage(client.id, 30);
+  const filters = filtersFromSearchParams(resolvedSearchParams, client.id);
+  const conversations = await getFilteredConversations({ ...filters, limit: 50 });
 
   return (
     <AppShell user={user} active="operator">
@@ -46,31 +51,16 @@ export default async function OperatorClientConversationsPage({
         <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Conversation queue</h2>
         </div>
-        <div className="divide-y divide-line">
-          {conversations.length === 0 ? (
-            <p className="p-4 text-sm text-muted">No conversations yet.</p>
-          ) : (
-            conversations.map((conversation) => (
-              <Link
-                key={conversation.id}
-                href={`/operator/clients/${client.id}/conversations/${conversation.id}`}
-                className="block p-4 hover:bg-surface-hover"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium">{conversation.customer_name ?? conversation.customer_handle}</p>
-                  <Badge tone={conversation.status === "escalated" ? "red" : "green"}>
-                    {conversation.status}
-                  </Badge>
-                  <Badge>{conversation.channel_kind}</Badge>
-                  {conversation.active_escalation_reason_code ? (
-                    <Badge tone="red">{conversation.active_escalation_reason_code}</Badge>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-sm text-muted">{conversation.last_message}</p>
-              </Link>
-            ))
-          )}
-        </div>
+        <ConversationFilterForm
+          action={`/operator/clients/${client.id}/conversations`}
+          filters={filters}
+        />
+        <ConversationList
+          conversations={conversations}
+          hrefForConversation={(conversation) =>
+            `/operator/clients/${client.id}/conversations/${conversation.id}`
+          }
+        />
       </section>
     </AppShell>
   );

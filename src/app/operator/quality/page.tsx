@@ -6,23 +6,27 @@ import {
   getOpenEscalations,
   getOperatorConversationTriage,
 } from "@/lib/dashboard";
+import { getKnowledgeGapReport, getSlaSummary } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
 import { OperatorNav } from "@/components/operator/operator-nav";
 import { StatCard } from "@/components/stat-card";
+import {
+  KnowledgeGapPanel,
+  SlaPanel,
+} from "@/components/reporting-panels";
 
 export const dynamic = "force-dynamic";
 
 export default async function OperatorQualityPage() {
   const user = await requireUser("operator");
-  const [metrics, escalations, conversations] = await Promise.all([
+  const [metrics, escalations, conversations, gaps, sla] = await Promise.all([
     getMetrics(),
     getOpenEscalations(),
     getOperatorConversationTriage(25),
+    getKnowledgeGapReport({ limit: 20 }),
+    getSlaSummary(),
   ]);
-  const escalatedConversations = conversations.filter(
-    (conversation) => conversation.status === "escalated",
-  );
 
   return (
     <AppShell user={user} active="operator">
@@ -34,10 +38,11 @@ export default async function OperatorQualityPage() {
       </div>
       <OperatorNav active="quality" />
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-5">
         <StatCard label="Hallucinations" value={metrics.hallucinationIncidents} hint="Target: zero" />
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
         <StatCard label="Actionable triage" value={metrics.openEscalations} />
+        <StatCard label="Knowledge gaps" value={gaps.length} />
         <StatCard label="Recent review queue" value={conversations.length} />
       </section>
 
@@ -75,31 +80,43 @@ export default async function OperatorQualityPage() {
           </div>
         </div>
 
-        <div className="ui-panel">
-          <div className="ui-panel-header">
-            <h2 className="text-base font-semibold">Triage QA</h2>
-          </div>
-          <div className="divide-y divide-line">
-            {escalatedConversations.length === 0 && escalations.length === 0 ? (
-              <p className="p-4 text-sm text-muted">No active triage cases to audit.</p>
-            ) : (
-              escalations.map((escalation) => (
-                <Link
-                  key={escalation.id}
-                  href={`/operator/clients/${escalation.client_id}/conversations/${escalation.conversation_id}`}
-                  className="block p-4 hover:bg-surface-hover"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">{escalation.client_name}</p>
-                    <Badge tone="red">{escalation.reason_code}</Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-muted">{escalation.customer_message}</p>
-                </Link>
-              ))
-            )}
+        <div className="space-y-6">
+          <SlaPanel summary={sla} />
+          <div className="ui-panel">
+            <div className="ui-panel-header">
+              <h2 className="text-base font-semibold">Triage QA</h2>
+            </div>
+            <div className="divide-y divide-line">
+              {escalations.length === 0 ? (
+                <p className="p-4 text-sm text-muted">No active triage cases to audit.</p>
+              ) : (
+                escalations.map((escalation) => (
+                  <Link
+                    key={escalation.id}
+                    href={`/operator/clients/${escalation.client_id}/conversations/${escalation.conversation_id}`}
+                    className="block p-4 hover:bg-surface-hover"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{escalation.client_name}</p>
+                      <Badge tone="red">{escalation.reason_code}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted">{escalation.customer_message}</p>
+                  </Link>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </section>
+
+      <div className="mt-6">
+        <KnowledgeGapPanel
+          gaps={gaps}
+          hrefForGap={(gap) =>
+            `/operator/clients/${gap.client_id}/conversations/${gap.conversation_id}`
+          }
+        />
+      </div>
     </AppShell>
   );
 }
