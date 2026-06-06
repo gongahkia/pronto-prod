@@ -6,6 +6,25 @@
     "requiresCitations": true
   },
   {
+    "name": "opening_hours_shop_open",
+    "question": "What time does the shop open?",
+    "expectedAction": "answered",
+    "requiresCitations": true
+  },
+  {
+    "name": "opening_hours_monday",
+    "question": "What time do you open on Monday?",
+    "expectedAction": "answered",
+    "requiresCitations": true
+  },
+  {
+    "name": "plain_greeting",
+    "question": "hello?",
+    "expectedAction": "answered",
+    "expectedReasonCode": "small_talk_greeting",
+    "requiresCitations": false
+  },
+  {
     "name": "menu_price_signature",
     "question": "How much is the signature nasi lemak bowl?",
     "expectedAction": "answered",

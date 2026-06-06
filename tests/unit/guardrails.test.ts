@@ -3,6 +3,7 @@ import {
   evaluateAiDisclosure,
   evaluatePreGenerationGuardrails,
   evaluateRetrievalConfidence,
+  evaluateSmallTalkGreeting,
 } from "@/lib/agent/guardrails";
 
 describe("agent guardrails", () => {
@@ -66,6 +67,23 @@ describe("agent guardrails", () => {
     expect(result.shouldDisclose).toBe(true);
     expect(result.answer).toContain("AI assistant");
     expect(result.answer).toContain("North Bridge Nasi");
+  });
+
+  it("answers standalone greetings without retrieval", () => {
+    const result = evaluateSmallTalkGreeting("hello?", "North Bridge Nasi");
+
+    expect(result.shouldAnswer).toBe(true);
+    expect(result.answer).toContain("North Bridge Nasi");
+    expect(result.answer).toContain("hours");
+  });
+
+  it("does not treat greeting-prefixed business questions as small talk", () => {
+    const result = evaluateSmallTalkGreeting(
+      "hello, what time do you open?",
+      "North Bridge Nasi",
+    );
+
+    expect(result.shouldAnswer).toBe(false);
   });
 
   it("escalates frustration and urgency sentiment", () => {

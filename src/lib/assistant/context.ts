@@ -9,6 +9,7 @@ import {
   getKnowledgeSources,
 } from "@/lib/dashboard";
 import { getEmbeddingProvider } from "@/lib/llm";
+import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
 import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
 import { getClientAssistantChangeRequests } from "@/lib/client-assistant-requests";
 import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
@@ -537,15 +538,18 @@ async function retrieveRelevantKnowledge(
   );
   const model = config.rows[0]?.embedding_model ?? process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
   try {
+    const normalizedQuery = normalizeKnowledgeQuery(message);
     const [embedding] = await getEmbeddingProvider(config.rows[0]?.embedding_provider).embed(
-      [message],
+      [normalizedQuery.embeddingText],
       model,
       {
         clientId,
         operation: "embedding",
       },
     );
-    return retrieveKnowledge(clientId, embedding, 6);
+    return retrieveKnowledge(clientId, embedding, 6, {
+      queryText: normalizedQuery.searchQuery,
+    });
   } catch {
     return [];
   }

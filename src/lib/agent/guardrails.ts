@@ -12,6 +12,11 @@ export type AiDisclosureResult = {
   answer: string | null;
 };
 
+export type SmallTalkGreetingResult = {
+  shouldAnswer: boolean;
+  answer: string | null;
+};
+
 const refundComplaintPatterns = [
   /\brefund\b/i,
   /\bcomplain/i,
@@ -76,6 +81,9 @@ const aiDisclosurePatterns = [
   /\bis this (a )?(bot|robot|ai|human|person)\b/i,
   /\bhuman or (ai|bot|robot)\b/i,
 ];
+
+const greetingOnlyPattern =
+  /^(hi|hello|hey|hiya|yo|good morning|good afternoon|good evening|morning|afternoon|evening)( there)?[!.?\s]*$/i;
 
 type GuardrailCheck = {
   patterns: RegExp[];
@@ -204,6 +212,21 @@ export function evaluateAiDisclosure(
   return {
     shouldDisclose: true,
     answer: `I am Pronto's AI assistant for ${clientName}. I can help with verified business information, and I will escalate to the team when a human should take over.`,
+  };
+}
+
+export function evaluateSmallTalkGreeting(
+  customerMessage: string,
+  clientName: string,
+): SmallTalkGreetingResult {
+  const compact = customerMessage.trim().replace(/\s+/g, " ");
+  if (!greetingOnlyPattern.test(compact)) {
+    return { shouldAnswer: false, answer: null };
+  }
+
+  return {
+    shouldAnswer: true,
+    answer: `Hi, I can help with ${clientName}'s hours, menu, reservations, delivery, and dietary questions.`,
   };
 }
 

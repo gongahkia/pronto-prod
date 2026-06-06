@@ -4,6 +4,7 @@ import {
   evaluateAiDisclosure,
   evaluatePreGenerationGuardrails,
   evaluateRetrievalConfidence,
+  evaluateSmallTalkGreeting,
 } from "@/lib/agent/guardrails";
 import { evaluatePostGenerationSelfCheck } from "@/lib/agent/self-check";
 import { getPromptBrandVoiceProfile } from "@/lib/brand-voice";
@@ -13,6 +14,7 @@ import {
   recordAgentUsageEvent,
 } from "@/lib/costing";
 import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
+import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
 import { appBaseUrl } from "@/lib/env";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
 import { failoverModelChoice, selectModel } from "@/lib/llm/catalog";
@@ -75,6 +77,40 @@ export async function runAgentForMessage(input: {
     throw new Error("Agent cannot run without client and config records.");
   }
 
+  const smallTalkGreeting = evaluateSmallTalkGreeting(
+    input.customerMessage,
+    client.name,
+  );
+  if (smallTalkGreeting.shouldAnswer && smallTalkGreeting.answer) {
+    logInfo("agent.small_talk_greeting_answered", {
+      requestId: input.requestId,
+      clientId: input.clientId,
+      channelId: input.channelId,
+      conversationId: input.conversationId,
+      customerMessageId: input.customerMessageId,
+    });
+    const recorded = await recordDirectAgentAnswer(input, {
+      answer: smallTalkGreeting.answer,
+      confidence: 1,
+      reasonCode: "small_talk_greeting",
+      metadata: {
+        policy: "safe_small_talk",
+      },
+    });
+
+    return {
+      action: "answered",
+      responseText: smallTalkGreeting.answer,
+      reasonCode: "small_talk_greeting",
+      reasonDetail:
+        "Customer sent a standalone greeting, so the agent answered without retrieval.",
+      confidence: 1,
+      citedChunks: [],
+      agentMessageId: recorded.agentMessageId,
+      csatUrl: recorded.csatUrl,
+    };
+  }
+
   const aiDisclosure = evaluateAiDisclosure(input.customerMessage, client.name);
   if (aiDisclosure.shouldDisclose && aiDisclosure.answer) {
     logInfo("agent.ai_disclosure_answered", {
@@ -84,25 +120,14 @@ export async function runAgentForMessage(input: {
       conversationId: input.conversationId,
       customerMessageId: input.customerMessageId,
     });
-    const agentMessage = await query<{ id: string }>(
-      `
-        insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
-        values ($1, $2, $3, $4, 'agent', $5, $6)
-        returning id
-      `,
-      [
-        input.conversationId,
-        input.clientId,
-        input.channelId,
-        `agent-${randomUUID()}`,
-        aiDisclosure.answer,
-        {
-          confidence: 1,
-          reasonCode: "ai_disclosure",
-          policy: "direct_customer_disclosure",
-        },
-      ],
-    );
+    const recorded = await recordDirectAgentAnswer(input, {
+      answer: aiDisclosure.answer,
+      confidence: 1,
+      reasonCode: "ai_disclosure",
+      metadata: {
+        policy: "direct_customer_disclosure",
+      },
+    });
 
     return {
       action: "answered",
@@ -111,7 +136,8 @@ export async function runAgentForMessage(input: {
       reasonDetail: "Customer directly asked whether the agent is AI or human.",
       confidence: 1,
       citedChunks: [],
-      agentMessageId: agentMessage.rows[0].id,
+      agentMessageId: recorded.agentMessageId,
+      csatUrl: recorded.csatUrl,
     };
   }
 
@@ -156,8 +182,9 @@ export async function runAgentForMessage(input: {
     embeddingModel: config.embedding_model,
   });
 
+  const normalizedKnowledgeQuery = normalizeKnowledgeQuery(input.customerMessage);
   const [embedding] = await getEmbeddingProvider(config.embedding_provider).embed(
-    [input.customerMessage],
+    [normalizedKnowledgeQuery.embeddingText],
     config.embedding_model,
     {
       requestId: input.requestId,
@@ -173,15 +200,17 @@ export async function runAgentForMessage(input: {
     provider: config.embedding_provider,
     model: config.embedding_model,
     operation: "embedding",
-    estimate: estimateEmbeddingCost(input.customerMessage),
+    estimate: estimateEmbeddingCost(normalizedKnowledgeQuery.embeddingText),
     metadata: {
       requestId: input.requestId,
       customerMessageId: input.customerMessageId,
+      normalizedKnowledgeCategories: normalizedKnowledgeQuery.categories,
     },
   });
   const chunks = await retrieveKnowledge(input.clientId, embedding, 5, {
     requestId: input.requestId,
     conversationId: input.conversationId,
+    queryText: normalizedKnowledgeQuery.searchQuery,
   });
   const retrievalThreshold = Number(config.retrieval_threshold);
   const retrievalCheck = evaluateRetrievalConfidence(
@@ -198,6 +227,7 @@ export async function runAgentForMessage(input: {
     threshold: retrievalThreshold,
     shouldEscalate: retrievalCheck.shouldEscalate,
     reasonCode: retrievalCheck.reasonCode,
+    normalizedKnowledgeCategories: normalizedKnowledgeQuery.categories,
   });
 
   if (retrievalCheck.shouldEscalate) {
@@ -450,6 +480,76 @@ export async function createEscalation(input: {
       escalationId: escalation.rows[0].id,
     };
   });
+}
+
+async function recordDirectAgentAnswer(
+  input: {
+    clientId: string;
+    channelId: string;
+    conversationId: string;
+    customerMessageId: string;
+    requestId?: string;
+  },
+  output: {
+    answer: string;
+    confidence: number;
+    reasonCode: string;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<{ agentMessageId: string; csatUrl: string }> {
+  const csatUrl = buildCsatUrl(input.conversationId);
+  const agentMessage = await query<{ id: string }>(
+    `
+      insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
+      values ($1, $2, $3, $4, 'agent', $5, $6)
+      returning id
+    `,
+    [
+      input.conversationId,
+      input.clientId,
+      input.channelId,
+      `agent-${randomUUID()}`,
+      output.answer,
+      {
+        confidence: output.confidence,
+        reasonCode: output.reasonCode,
+        citedChunkIds: [],
+        csatUrl,
+        ...output.metadata,
+      },
+    ],
+  );
+
+  await query(
+    "update conversations set status = 'active', last_message_at = now() where id = $1",
+    [input.conversationId],
+  );
+  await query(
+    "insert into metric_events (client_id, event_type, value, metadata) values ($1, 'agent_answered', $2, $3)",
+    [
+      input.clientId,
+      output.confidence,
+      {
+        reasonCode: output.reasonCode,
+        conversationId: input.conversationId,
+      },
+    ],
+  );
+
+  logInfo("agent.direct_answer_recorded", {
+    requestId: input.requestId,
+    clientId: input.clientId,
+    channelId: input.channelId,
+    conversationId: input.conversationId,
+    customerMessageId: input.customerMessageId,
+    agentMessageId: agentMessage.rows[0].id,
+    reasonCode: output.reasonCode,
+  });
+
+  return {
+    agentMessageId: agentMessage.rows[0].id,
+    csatUrl: `${csatUrl}?messageId=${agentMessage.rows[0].id}`,
+  };
 }
 
 async function safeRecordUsage(
