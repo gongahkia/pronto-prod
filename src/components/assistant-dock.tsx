@@ -122,6 +122,7 @@ export function AssistantDock() {
       setThreadId(body.threadId);
       setMessages((current) => [
         ...current.filter((item) => !item.id.startsWith("optimistic-")),
+        { id: `sent-${Date.now()}`, role: "user", body: message },
         body.message,
       ]);
       setProposals((current) => [...current, ...(body.proposals ?? [])]);
