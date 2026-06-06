@@ -38,16 +38,16 @@ export default async function ClientConversationPage({
   const returnTo = `/client/conversations/${conversation.id}`;
 
   return (
-    <AppShell user={user} active="client" clientActive="conversations" workspaceName={client.name}>
+    <AppShell user={user} active="client" clientActive="inbox" workspaceName={client.name}>
       <div className="mb-5">
-        <Link href="/client" className="text-xs font-medium text-accent hover:text-accent-dark">
-          Back to conversations
+        <Link href="/client/inbox" className="text-xs font-medium text-accent hover:text-accent-dark">
+          Back to inbox
         </Link>
         <h1 className="mt-1.5 text-xl font-semibold tracking-[-0.01em]">
-          {client.name}
+          Customer conversation
         </h1>
         <p className="text-sm text-muted">
-          Review this customer conversation and handle the active triage item.
+          Review this thread and reply when Pronto needs help.
         </p>
       </div>
       <div className="space-y-6">

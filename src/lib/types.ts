@@ -6,6 +6,17 @@ export type SenderRole = "customer" | "agent" | "operator" | "system";
 export type EscalationStatus = "open" | "claimed" | "resolved";
 export type DeliveryStatus = "pending" | "sent" | "skipped" | "failed";
 export type KnowledgeRefreshStatus = "open" | "completed" | "skipped";
+export type ClientAssistantChangeRequestKind =
+  | "assistant_change"
+  | "handoff_rule"
+  | "tone"
+  | "scope"
+  | "other";
+export type ClientAssistantChangeRequestStatus =
+  | "open"
+  | "reviewing"
+  | "resolved"
+  | "dismissed";
 
 export type Client = {
   id: string;
@@ -148,6 +159,18 @@ export type KnowledgeRefreshRequest = {
   created_by_user_id: string | null;
   completed_by_user_id: string | null;
   completed_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export type ClientAssistantChangeRequest = {
+  id: string;
+  client_id: string;
+  created_by_user_id: string | null;
+  kind: ClientAssistantChangeRequestKind;
+  body: string;
+  status: ClientAssistantChangeRequestStatus;
+  resolved_at: Date | null;
   created_at: Date;
   updated_at: Date;
 };

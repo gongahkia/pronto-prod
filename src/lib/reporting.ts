@@ -847,8 +847,7 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
         return severityDelta;
       }
       return dateValue(b.occurredAt) - dateValue(a.occurredAt);
-    })
-    .slice(0, 18);
+    });
 
   const health = clientHealth.rows.map((row): OperatorClientHealth => {
     const degradedChannels = Number(row.degraded_channels);

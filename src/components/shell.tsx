@@ -2,10 +2,9 @@ import {
   AlertTriangle,
   Bot,
   ChevronDown,
-  CircleHelp,
   Database,
-  GitBranch,
   Inbox,
+  LayoutDashboard,
   LogOut,
   MessageSquareText,
   Settings,
@@ -17,7 +16,7 @@ import type { ReactNode } from "react";
 import { OperatorSidebarActions } from "@/components/operator-sidebar-actions";
 import type { SessionUser } from "@/lib/auth";
 
-type ClientSection = "conversations" | "flows" | "knowledge" | "test" | "settings";
+type ClientSection = "overview" | "inbox" | "knowledge" | "assistant" | "settings";
 type OperatorSection =
   | "clients"
   | "conversations"
@@ -39,10 +38,10 @@ type OperatorSidebarItem = {
 };
 
 const clientSidebarItems: ClientSidebarItem[] = [
-  { href: "/client", label: "Conversations", section: "conversations", icon: MessageSquareText },
-  { href: "/client/flows", label: "Flows", section: "flows", icon: GitBranch },
+  { href: "/client", label: "Overview", section: "overview", icon: LayoutDashboard },
+  { href: "/client/inbox", label: "Inbox", section: "inbox", icon: Inbox },
   { href: "/client/knowledge", label: "Knowledge", section: "knowledge", icon: Database },
-  { href: "/client/test", label: "Test assistant", section: "test", icon: Bot },
+  { href: "/client/assistant", label: "Assistant", section: "assistant", icon: Bot },
   { href: "/client/settings", label: "Settings", section: "settings", icon: Settings },
 ];
 
@@ -57,7 +56,7 @@ export function AppShell({
   user,
   children,
   active,
-  clientActive = "conversations",
+  clientActive = "overview",
   operatorActive = "clients",
   workspaceName,
 }: {
@@ -157,12 +156,7 @@ function ClientSidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pb-3 text-sm">
-        <div className="space-y-1">
-          <ClientUtilityLink href="/client" icon={Inbox} label="Inbox" />
-          <ClientUtilityLink href="/client?status=escalated" icon={CircleHelp} label="Needs reply" />
-        </div>
-
-        <div className="mt-8">
+        <div>
           <div className="mb-1 flex items-center justify-between px-2 text-xs font-medium text-sidebar-muted">
             <span>Workspace</span>
             <ChevronDown size={13} />
@@ -281,26 +275,6 @@ function OperatorSidebarLink({
     >
       <Icon size={16} className="shrink-0" />
       <span className="min-w-0 flex-1 truncate">{item.label}</span>
-    </Link>
-  );
-}
-
-function ClientUtilityLink({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string;
-  icon: typeof Inbox;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex h-8 items-center gap-2 rounded-md px-2 font-medium text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
-    >
-      <Icon size={16} className="shrink-0" />
-      <span className="truncate">{label}</span>
     </Link>
   );
 }
