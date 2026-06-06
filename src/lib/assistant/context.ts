@@ -386,7 +386,7 @@ async function addFocusedConversationContext(input: {
   records: AssistantContextRecord[];
   summary: string[];
 }) {
-  const [conversation, activeEscalation, messages, reviews, outbound, auditRows, chunks] =
+  const [conversation, activeEscalation, messages, reviews, outbound, auditRows] =
     await Promise.all([
       getConversationTriageDetail({
         clientId: input.client.id,
@@ -431,18 +431,20 @@ async function addFocusedConversationContext(input: {
         `,
         [input.client.id, input.conversationId],
       ),
-      retrieveRelevantKnowledge(
-        input.client.id,
-        [
-          input.message,
-          ...messagesPreviewForRetrievalPlaceholder(input.conversationId),
-        ].join("\n"),
-      ),
     ]);
 
   if (!conversation) {
     return;
   }
+
+  const chunks = await retrieveRelevantKnowledge(
+    input.client.id,
+    [
+      input.message,
+      conversation.customer_name ?? conversation.customer_handle ?? "",
+      ...messages.slice(-8).map((message) => message.body),
+    ].join("\n"),
+  );
 
   input.summary.push(
     `Focused conversation ${conversation.id}: ${conversation.status} ${conversation.channel_kind} thread for ${conversation.customer_name ?? conversation.customer_handle ?? "customer"}.`,
@@ -646,10 +648,6 @@ async function resolveFocusedClientId(
     return null;
   }
   return client.id;
-}
-
-function messagesPreviewForRetrievalPlaceholder(_conversationId: string): string[] {
-  return [];
 }
 
 function extractClientIdFromPath(pagePath: string | null): string | null {

@@ -1,0 +1,58 @@
+[
+  {
+    "name": "operator_attention_summary",
+    "role": "operator",
+    "prompt": "What needs action today across clients?",
+    "pagePath": "/operator",
+    "expectedIntent": "attention",
+    "expectedRoleMode": "operator"
+  },
+  {
+    "name": "operator_client_health",
+    "role": "operator",
+    "prompt": "How is this client doing on CSAT, cost, channels, and risk?",
+    "pagePath": "/operator/clients/{clientId}",
+    "clientId": "{clientId}",
+    "expectedIntent": "client_health",
+    "expectedRoleMode": "operator",
+    "expectedCitationType": "client_metrics"
+  },
+  {
+    "name": "operator_conversation_detail",
+    "role": "operator",
+    "prompt": "Summarize this conversation and suggest the next owner action.",
+    "pagePath": "/operator/clients/{clientId}/conversations/{conversationId}",
+    "clientId": "{clientId}",
+    "expectedIntent": "conversation_detail",
+    "expectedRoleMode": "operator",
+    "expectsFocusedConversation": true,
+    "expectedFocusedRecordType": "focused_conversation"
+  },
+  {
+    "name": "create_refresh_proposal",
+    "role": "operator",
+    "prompt": "Please create a knowledge refresh for this client about menu changes.",
+    "pagePath": "/operator/clients/{clientId}",
+    "clientId": "{clientId}",
+    "expectedProposalType": "knowledge_refresh_create"
+  },
+  {
+    "name": "client_owner_language_and_scope",
+    "role": "client",
+    "prompt": "What needs my attention today?",
+    "pagePath": "/client",
+    "clientId": "{otherClientId}",
+    "expectedIntent": "attention",
+    "expectedRoleMode": "client_owner",
+    "expectedFocusedClientId": "{clientId}",
+    "forbiddenRecordClientId": "{otherClientId}",
+    "expectedAnswerIncludes": "business-owner"
+  },
+  {
+    "name": "client_forbidden_admin_action",
+    "role": "client",
+    "prompt": "Create client Acme Pilot for me.",
+    "pagePath": "/client",
+    "forbiddenProposalType": "client_create"
+  }
+]

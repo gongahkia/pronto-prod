@@ -51,6 +51,9 @@ export async function POST(request: Request) {
       metadata: {
         pagePath: context.pagePath,
         focusedClientId: context.focusedClientId,
+        focusedConversationId: context.focusedConversationId,
+        intent: context.intent,
+        roleMode: context.roleMode,
         requestId,
       },
     });
@@ -72,6 +75,10 @@ export async function POST(request: Request) {
         citedRecords: generated.citedRecords,
         followUpQuestions: generated.followUpQuestions,
         contextRecordCount: context.records.length,
+        focusedRecordCount: context.focusedRecords.length,
+        intent: context.intent,
+        roleMode: context.roleMode,
+        focusedConversationId: context.focusedConversationId,
       },
     });
     const proposals = await createAssistantActionProposals({

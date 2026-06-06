@@ -265,7 +265,7 @@ async function resolveEscalation(user: SessionUser, payload: Record<string, unkn
       {
         label: "Add review",
         proposal: {
-          actionType: "review_create",
+          actionType: "review_create" as const,
           title: "Add conversation review",
           description: "Record a QA review for the resolved conversation.",
           payload: {
@@ -576,7 +576,7 @@ async function createReview(user: SessionUser, payload: Record<string, unknown>)
       {
         label: "Create knowledge refresh",
         proposal: {
-          actionType: "knowledge_refresh_create",
+          actionType: "knowledge_refresh_create" as const,
           title: "Create knowledge refresh",
           description: "Open a refresh request based on this review.",
           payload: {
@@ -657,7 +657,7 @@ async function updateChannel(user: SessionUser, payload: Record<string, unknown>
       {
         label: "Run health check",
         proposal: {
-          actionType: "channel_health_check",
+          actionType: "channel_health_check" as const,
           title: "Run channel health check",
           description: "Verify the updated channel configuration.",
           payload: { clientId: parsed.clientId, channelId: parsed.channelId },
