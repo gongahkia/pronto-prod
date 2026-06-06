@@ -13,6 +13,7 @@ import { logWarn, redactErrorMessage } from "@/lib/logger";
 const confirmRequestSchema = z.object({
   proposalId: z.string().uuid(),
   confirmationText: z.string().optional().nullable(),
+  editedPayload: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export async function POST(request: Request) {
@@ -37,10 +38,15 @@ export async function POST(request: Request) {
       user,
       proposal,
       confirmationText: parsed.confirmationText,
+      editedPayload: parsed.editedPayload,
     });
+    const resultWithPayload = {
+      ...result,
+      executedPayload: parsed.editedPayload ?? proposal.payload,
+    };
     await markActionProposalExecuted({
       proposalId: proposal.id,
-      result,
+      result: resultWithPayload,
     });
     const message = await addAssistantMessage({
       threadId: proposal.thread_id,
@@ -49,10 +55,11 @@ export async function POST(request: Request) {
       metadata: {
         actionProposalId: proposal.id,
         actionType: proposal.action_type,
-        result,
+        result: resultWithPayload,
+        nextActions: result.nextActions ?? [],
       },
     });
-    return NextResponse.json({ proposalId: proposal.id, result, message });
+    return NextResponse.json({ proposalId: proposal.id, result: resultWithPayload, message });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Action failed.";
     await markActionProposalFailed({

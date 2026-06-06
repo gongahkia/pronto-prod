@@ -41,6 +41,31 @@ export type AssistantActionDraft = {
   payload: Record<string, unknown>;
 };
 
+export type AssistantIntent =
+  | "attention"
+  | "causal_debug"
+  | "knowledge_update"
+  | "client_health"
+  | "conversation_detail"
+  | "action_request"
+  | "general";
+
+export type AssistantRoleMode = "client_owner" | "operator";
+
+export type AssistantNextAction = {
+  label: string;
+  href?: string;
+  prompt?: string;
+  proposal?: AssistantActionDraft;
+};
+
+export type AssistantActionResult = {
+  message: string;
+  href?: string;
+  data?: Record<string, unknown>;
+  nextActions?: AssistantNextAction[];
+};
+
 export type AssistantGeneratedTurn = {
   answer: string;
   citedRecords: AssistantCitation[];
@@ -61,7 +86,11 @@ export type AssistantContext = {
   pagePath: string | null;
   focusedClientId: string | null;
   focusedClientName: string | null;
+  focusedConversationId: string | null;
+  intent: AssistantIntent;
+  roleMode: AssistantRoleMode;
   summary: string[];
+  focusedRecords: AssistantContextRecord[];
   records: AssistantContextRecord[];
 };
 

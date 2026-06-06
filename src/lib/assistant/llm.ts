@@ -58,7 +58,10 @@ function buildAssistantInstructions(context: AssistantContext): string {
 You are Pronto's in-product operations copilot.
 
 User role: ${context.user.role}
+Role mode: ${context.roleMode}
+Detected intent: ${context.intent}
 Focused client: ${context.focusedClientName ?? context.focusedClientId ?? "none"}
+Focused conversation: ${context.focusedConversationId ?? "none"}
 Current page: ${context.pagePath ?? "unknown"}
 
 Behavior:
@@ -68,6 +71,9 @@ Behavior:
 - Never expose secrets, credentials, webhook tokens, API keys, password hashes, or auth/session values.
 - Client users can only act on their own client. Operators can act across clients.
 - Keep answers concise, operational, and specific.
+- In client_owner mode, write like a business-owner briefing: customer impact, plain priorities, and owner actions.
+- In operator mode, write like an ops console: triage, SLA, risk, cost, quality, and exact next steps.
+- On conversation_detail intent, prioritize the current thread transcript, active escalation, review labels, reply drafts, and knowledge-update opportunities.
 
 Allowed action types:
 ${assistantActionTypes.join(", ")}
@@ -106,6 +112,7 @@ function buildAssistantUserInput(context: AssistantContext, message: string): st
     {
       userMessage: message,
       summary: context.summary,
+      focusedRecords: context.focusedRecords,
       records: context.records,
     },
     null,
@@ -243,7 +250,8 @@ async function generateWithOpenAiCompatible(input: {
 
 function mockAssistantTurn(context: AssistantContext, message: string): AssistantGeneratedTurn {
   const lower = message.toLowerCase();
-  const citations = context.records.slice(0, 5).map((record) => ({
+  const citedSource = context.focusedRecords.length ? context.focusedRecords : context.records;
+  const citations = citedSource.slice(0, 5).map((record) => ({
     type: record.type,
     id: record.id,
     label: record.label,
@@ -251,6 +259,10 @@ function mockAssistantTurn(context: AssistantContext, message: string): Assistan
   }));
   const proposals: AssistantActionDraft[] = [];
   const clientId = context.focusedClientId ?? context.user.clientId;
+  const activeEscalation = context.records.find(
+    (record) => record.type === "active_escalation",
+  );
+  const focusedConversation = context.focusedConversationId;
 
   if (clientId && lower.includes("knowledge refresh")) {
     proposals.push({
@@ -261,6 +273,46 @@ function mockAssistantTurn(context: AssistantContext, message: string): Assistan
         clientId,
         cadence: "monthly",
         notes: message.slice(0, 500),
+      },
+    });
+  }
+  if (clientId && focusedConversation && lower.includes("review")) {
+    proposals.push({
+      actionType: "review_create",
+      title: "Add conversation review",
+      description: "Record a QA review label for this conversation.",
+      payload: {
+        clientId,
+        conversationId: focusedConversation,
+        answerLabel: lower.includes("knowledge")
+          ? "needs_knowledge_update"
+          : "answered_correctly",
+        notes: message.slice(0, 500),
+      },
+    });
+  }
+  if (clientId && activeEscalation && lower.includes("resolve")) {
+    proposals.push({
+      actionType: "escalation_resolve",
+      title: "Resolve escalation",
+      description: "Resolve the active escalation after you review or edit the reply.",
+      payload: {
+        clientId,
+        escalationId: activeEscalation.id,
+        reply: draftReplyFromFocusedRecords(context),
+      },
+    });
+  }
+  if (clientId && focusedConversation && lower.includes("knowledge update")) {
+    proposals.push({
+      actionType: "knowledge_create",
+      title: "Create knowledge update",
+      description: "Add a source note based on this conversation gap.",
+      payload: {
+        clientId,
+        title: "Conversation knowledge update",
+        content: message.slice(0, 1000),
+        sourceType: "assistant_generated",
       },
     });
   }
@@ -299,6 +351,9 @@ function mockAssistantTurn(context: AssistantContext, message: string): Assistan
 
   return {
     answer: [
+      context.roleMode === "client_owner"
+        ? "Here is the business-owner view."
+        : "Here is the operator view.",
       context.summary[0] ?? "I can answer from the Pronto workspace context available to your role.",
       citations.length
         ? "I found relevant Pronto records and linked the most useful ones below."
@@ -311,6 +366,18 @@ function mockAssistantTurn(context: AssistantContext, message: string): Assistan
     ],
     actionProposals: proposals,
   };
+}
+
+function draftReplyFromFocusedRecords(context: AssistantContext): string {
+  const customerMessage = context.focusedRecords.find(
+    (record) =>
+      record.type === "focused_message" &&
+      (record.data.senderRole === "customer" || record.data.sender_role === "customer"),
+  );
+  if (customerMessage && typeof customerMessage.data.body === "string") {
+    return `Thanks for reaching out. We are checking this and will get back to you shortly.`;
+  }
+  return "Thanks for reaching out. We are checking this and will get back to you shortly.";
 }
 
 function assistantTurnJsonSchema(): Record<string, unknown> {

@@ -1,6 +1,13 @@
 import { canAccessClient } from "@/lib/rbac";
 import { query } from "@/lib/db";
-import { getClient, getChannels, getKnowledgeSources } from "@/lib/dashboard";
+import {
+  getClient,
+  getChannels,
+  getConversationActionableEscalation,
+  getConversationMessages,
+  getConversationTriageDetail,
+  getKnowledgeSources,
+} from "@/lib/dashboard";
 import { getEmbeddingProvider } from "@/lib/llm";
 import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
 import { getClientAssistantChangeRequests } from "@/lib/client-assistant-requests";
@@ -23,9 +30,15 @@ import type {
   KnowledgeChunk,
   Message,
 } from "@/lib/types";
-import type { AssistantContext, AssistantContextRecord } from "@/lib/assistant/types";
+import type {
+  AssistantContext,
+  AssistantContextRecord,
+  AssistantIntent,
+  AssistantRoleMode,
+} from "@/lib/assistant/types";
 
 const MAX_RECORDS = 90;
+const MAX_FOCUSED_RECORDS = 30;
 
 export async function buildAssistantContext(input: {
   user: SessionUser;
@@ -34,10 +47,16 @@ export async function buildAssistantContext(input: {
   clientId?: string | null;
 }): Promise<AssistantContext> {
   const pagePath = normalizePagePath(input.pagePath);
+  const pageEntities = extractAssistantPageEntities(pagePath);
+  const intent = classifyAssistantIntent(input.message, pagePath);
+  const roleMode: AssistantRoleMode =
+    input.user.role === "operator" ? "operator" : "client_owner";
   const focusedClientId = await resolveFocusedClientId(input.user, {
     pagePath,
     submittedClientId: input.clientId ?? null,
+    extractedClientId: pageEntities.clientId,
   });
+  const focusedConversationId = pageEntities.conversationId;
 
   const records: AssistantContextRecord[] = [];
   const summary: string[] = [];
@@ -94,6 +113,16 @@ export async function buildAssistantContext(input: {
         records,
         summary,
       });
+      if (focusedConversationId) {
+        await addFocusedConversationContext({
+          user: input.user,
+          client,
+          conversationId: focusedConversationId,
+          message: input.message,
+          records,
+          summary,
+        });
+      }
     }
   } else if (input.user.role === "client" && input.user.clientId) {
     const client = await getClient(input.user.clientId);
@@ -106,10 +135,28 @@ export async function buildAssistantContext(input: {
         records,
         summary,
       });
+      if (focusedConversationId) {
+        await addFocusedConversationContext({
+          user: input.user,
+          client,
+          conversationId: focusedConversationId,
+          message: input.message,
+          records,
+          summary,
+        });
+      }
     }
   } else if (input.user.role === "operator") {
     await addCrossClientOperationalRecords(records);
   }
+
+  const rankedRecords = rankAssistantContextRecords(records, {
+    intent,
+    focusedConversationId,
+  });
+  const focusedRecords = rankedRecords
+    .filter((row) => isFocusedConversationRecord(row, focusedConversationId))
+    .slice(0, MAX_FOCUSED_RECORDS);
 
   return {
     user: {
@@ -122,8 +169,12 @@ export async function buildAssistantContext(input: {
     pagePath,
     focusedClientId,
     focusedClientName,
+    focusedConversationId,
+    intent,
+    roleMode,
     summary,
-    records: records.slice(0, MAX_RECORDS),
+    focusedRecords,
+    records: rankedRecords.slice(0, MAX_RECORDS),
   };
 }
 
@@ -327,6 +378,120 @@ async function addCrossClientOperationalRecords(records: AssistantContextRecord[
   }
 }
 
+async function addFocusedConversationContext(input: {
+  user: SessionUser;
+  client: Client;
+  conversationId: string;
+  message: string;
+  records: AssistantContextRecord[];
+  summary: string[];
+}) {
+  const [conversation, activeEscalation, messages, reviews, outbound, auditRows, chunks] =
+    await Promise.all([
+      getConversationTriageDetail({
+        clientId: input.client.id,
+        conversationId: input.conversationId,
+      }),
+      getConversationActionableEscalation({
+        clientId: input.client.id,
+        conversationId: input.conversationId,
+      }),
+      getConversationMessages(input.conversationId),
+      query(
+        `
+          select *
+          from reviews
+          where client_id = $1 and conversation_id = $2
+          order by created_at desc
+          limit 8
+        `,
+        [input.client.id, input.conversationId],
+      ),
+      query(
+        `
+          select id, status, attempt_count, last_error, metadata, created_at, updated_at, sent_at
+          from outbound_messages
+          where client_id = $1 and conversation_id = $2
+          order by created_at desc
+          limit 8
+        `,
+        [input.client.id, input.conversationId],
+      ),
+      query(
+        `
+          select action, target_type, target_id, metadata, created_at
+          from audit_logs
+          where client_id = $1
+            and (
+              metadata->>'conversationId' = $2
+              or target_id::text = $2
+            )
+          order by created_at desc
+          limit 10
+        `,
+        [input.client.id, input.conversationId],
+      ),
+      retrieveRelevantKnowledge(
+        input.client.id,
+        [
+          input.message,
+          ...messagesPreviewForRetrievalPlaceholder(input.conversationId),
+        ].join("\n"),
+      ),
+    ]);
+
+  if (!conversation) {
+    return;
+  }
+
+  input.summary.push(
+    `Focused conversation ${conversation.id}: ${conversation.status} ${conversation.channel_kind} thread for ${conversation.customer_name ?? conversation.customer_handle ?? "customer"}.`,
+  );
+  input.records.push(record("focused_conversation", conversation.id, "Current conversation", conversationHref(input.user, input.client.id, conversation.id), conversation));
+
+  if (activeEscalation) {
+    input.records.push(record("active_escalation", activeEscalation.id, activeEscalation.reason_code, conversationHref(input.user, input.client.id, conversation.id), activeEscalation));
+  }
+  for (const message of messages) {
+    input.records.push(record("focused_message", message.id, `${message.sender_role}: ${message.body.slice(0, 90)}`, conversationHref(input.user, input.client.id, conversation.id), {
+      id: message.id,
+      conversationId: message.conversation_id,
+      clientId: message.client_id,
+      channelId: message.channel_id,
+      senderRole: message.sender_role,
+      body: message.body,
+      metadata: redactAssistantContextValue(message.metadata),
+      createdAt: message.created_at,
+    }));
+  }
+  for (const row of reviews.rows) {
+    input.records.push(record("conversation_review", row.id, row.answer_label ?? "Review", conversationHref(input.user, input.client.id, conversation.id), row));
+  }
+  for (const row of outbound.rows) {
+    input.records.push(record("conversation_outbound", row.id, row.status, conversationHref(input.user, input.client.id, conversation.id), {
+      ...row,
+      metadata: redactAssistantContextValue(row.metadata),
+    }));
+  }
+  for (const row of auditRows.rows) {
+    input.records.push(record("conversation_audit", String(row.target_id ?? row.action), row.action, conversationHref(input.user, input.client.id, conversation.id), {
+      ...row,
+      metadata: redactAssistantContextValue(row.metadata),
+    }));
+  }
+  for (const chunk of chunks) {
+    input.records.push(record("conversation_relevant_chunk", chunk.id, `Relevant source chunk ${chunk.chunk_index}`, `${clientHref(input.user, input.client.id)}/knowledge/${chunk.source_id}`, {
+      id: chunk.id,
+      sourceId: chunk.source_id,
+      clientId: chunk.client_id,
+      chunkIndex: chunk.chunk_index,
+      content: chunk.content,
+      score: chunk.score,
+      metadata: redactAssistantContextValue(chunk.metadata),
+    }));
+  }
+}
+
 async function addRecentMessages(
   records: AssistantContextRecord[],
   clientId: string,
@@ -384,14 +549,95 @@ async function retrieveRelevantKnowledge(
   }
 }
 
+export function classifyAssistantIntent(
+  message: string,
+  pagePath: string | null,
+): AssistantIntent {
+  const lower = message.toLowerCase();
+  if (extractAssistantPageEntities(pagePath).conversationId) {
+    return "conversation_detail";
+  }
+  if (/\b(why|happen|happened|cause|root cause|debug|failed|failure|trace|diagnose)\b/.test(lower)) {
+    return "causal_debug";
+  }
+  if (/\b(knowledge|source|policy|missing|update|gap|draft.*policy|what should we update)\b/.test(lower)) {
+    return "knowledge_update";
+  }
+  if (/\b(health|doing|performance|metrics|csat|cost|margin|usage|channels?)\b/.test(lower)) {
+    return "client_health";
+  }
+  if (/\b(attention|today|urgent|risk|sla|breach|action|queue|inbox|blocker|priority)\b/.test(lower)) {
+    return "attention";
+  }
+  if (/\b(create|add|update|delete|resolve|claim|retry|send|mark|change|configure|offboard)\b/.test(lower)) {
+    return "action_request";
+  }
+  return "general";
+}
+
+export function extractAssistantPageEntities(pagePath: string | null): {
+  clientId: string | null;
+  conversationId: string | null;
+} {
+  if (!pagePath) {
+    return { clientId: null, conversationId: null };
+  }
+  const operatorConversation = pagePath.match(
+    /\/operator\/clients\/([^/?#]+)\/conversations\/([^/?#]+)/,
+  );
+  if (operatorConversation?.[1] && operatorConversation[2]) {
+    return {
+      clientId: decodeURIComponent(operatorConversation[1]),
+      conversationId: decodeURIComponent(operatorConversation[2]),
+    };
+  }
+  const clientConversation = pagePath.match(/\/client\/conversations\/([^/?#]+)/);
+  if (clientConversation?.[1]) {
+    return {
+      clientId: null,
+      conversationId: decodeURIComponent(clientConversation[1]),
+    };
+  }
+  const operatorClient = pagePath.match(/\/operator\/clients\/([^/?#]+)/);
+  return {
+    clientId: operatorClient?.[1] ? decodeURIComponent(operatorClient[1]) : null,
+    conversationId: null,
+  };
+}
+
+export function rankAssistantContextRecords(
+  records: AssistantContextRecord[],
+  input: { intent: AssistantIntent; focusedConversationId?: string | null },
+): AssistantContextRecord[] {
+  return [...records].sort((a, b) => {
+    const focusedDelta =
+      focusedRecordRank(b, input.focusedConversationId) -
+      focusedRecordRank(a, input.focusedConversationId);
+    if (focusedDelta !== 0) {
+      return focusedDelta;
+    }
+    const intentDelta =
+      intentRecordRank(input.intent, b.type) - intentRecordRank(input.intent, a.type);
+    if (intentDelta !== 0) {
+      return intentDelta;
+    }
+    return typeRank(b.type) - typeRank(a.type);
+  });
+}
+
 async function resolveFocusedClientId(
   user: SessionUser,
-  input: { pagePath: string | null; submittedClientId: string | null },
+  input: {
+    pagePath: string | null;
+    submittedClientId: string | null;
+    extractedClientId?: string | null;
+  },
 ): Promise<string | null> {
   if (user.role === "client") {
     return user.clientId;
   }
-  const candidate = input.submittedClientId ?? extractClientIdFromPath(input.pagePath);
+  const candidate =
+    input.submittedClientId ?? input.extractedClientId ?? extractClientIdFromPath(input.pagePath);
   if (!candidate) {
     return null;
   }
@@ -400,6 +646,10 @@ async function resolveFocusedClientId(
     return null;
   }
   return client.id;
+}
+
+function messagesPreviewForRetrievalPlaceholder(_conversationId: string): string[] {
+  return [];
 }
 
 function extractClientIdFromPath(pagePath: string | null): string | null {
@@ -446,4 +696,105 @@ function conversationHref(user: SessionUser, clientId: string, conversationId: s
 
 function operatorConversationHref(clientId: string, conversationId: string): string {
   return `/operator/clients/${clientId}/conversations/${conversationId}`;
+}
+
+function isFocusedConversationRecord(
+  record: AssistantContextRecord,
+  conversationId: string | null,
+): boolean {
+  if (!conversationId) {
+    return false;
+  }
+  return focusedRecordRank(record, conversationId) > 0;
+}
+
+function focusedRecordRank(
+  record: AssistantContextRecord,
+  conversationId: string | null | undefined,
+): number {
+  if (!conversationId) {
+    return 0;
+  }
+  if (record.id === conversationId) {
+    return 8;
+  }
+  const dataConversationId = record.data.conversation_id ?? record.data.conversationId;
+  return dataConversationId === conversationId ? 6 : 0;
+}
+
+function intentRecordRank(intent: AssistantIntent, type: string): number {
+  const byIntent: Record<AssistantIntent, Record<string, number>> = {
+    attention: {
+      operational_alert: 10,
+      active_escalation: 10,
+      client_health: 9,
+      knowledge_refresh_request: 8,
+      assistant_change_request: 7,
+      channel: 6,
+    },
+    causal_debug: {
+      focused_message: 10,
+      message: 9,
+      conversation_outbound: 9,
+      conversation_review: 8,
+      conversation_audit: 8,
+      audit_log: 7,
+      channel: 6,
+    },
+    knowledge_update: {
+      knowledge_gap: 10,
+      conversation_relevant_chunk: 9,
+      knowledge_chunk: 9,
+      knowledge_source: 8,
+      focused_message: 6,
+      conversation_review: 5,
+    },
+    client_health: {
+      client_metrics: 10,
+      client_health: 9,
+      channel: 8,
+      operational_alert: 7,
+      conversation: 5,
+    },
+    conversation_detail: {
+      focused_conversation: 12,
+      active_escalation: 11,
+      focused_message: 10,
+      conversation_review: 9,
+      conversation_outbound: 8,
+      conversation_relevant_chunk: 7,
+    },
+    action_request: {
+      active_escalation: 10,
+      focused_conversation: 9,
+      knowledge_refresh_request: 8,
+      assistant_change_request: 7,
+      channel: 6,
+      knowledge_source: 6,
+    },
+    general: {
+      operational_alert: 7,
+      client_metrics: 6,
+      client_health: 6,
+      conversation: 5,
+      knowledge_gap: 5,
+    },
+  };
+  return byIntent[intent][type] ?? 0;
+}
+
+function typeRank(type: string): number {
+  if (type.includes("focused") || type.includes("active")) {
+    return 5;
+  }
+  if (type.includes("alert") || type.includes("health")) {
+    return 4;
+  }
+  if (type.includes("conversation") || type === "message") {
+    return 3;
+  }
+  if (type.includes("knowledge")) {
+    return 2;
+  }
+  return 1;
 }

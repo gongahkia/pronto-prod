@@ -33,16 +33,11 @@ import {
 } from "@/lib/triage-flow";
 import type { SessionUser } from "@/lib/auth";
 import type {
+  AssistantActionResult,
   AssistantActionProposalRecord,
   AssistantActionType,
 } from "@/lib/assistant/types";
 import type { ChannelStatus } from "@/lib/types";
-
-type ActionResult = {
-  message: string;
-  href?: string;
-  data?: Record<string, unknown>;
-};
 
 const clientAllowedActions = new Set<AssistantActionType>([
   "escalation_claim",
@@ -71,7 +66,8 @@ export async function executeAssistantAction(input: {
   user: SessionUser;
   proposal: AssistantActionProposalRecord;
   confirmationText?: string | null;
-}): Promise<ActionResult> {
+  editedPayload?: Record<string, unknown> | null;
+}): Promise<AssistantActionResult> {
   if (!isAssistantActionAllowedForUser(input.user, input.proposal.action_type)) {
     throw new Error("This action is not available for your role.");
   }
@@ -82,49 +78,51 @@ export async function executeAssistantAction(input: {
     throw new Error(`Type ${input.proposal.requires_typed_confirmation} to confirm this action.`);
   }
 
+  const payload = input.editedPayload ?? input.proposal.payload;
+
   switch (input.proposal.action_type) {
     case "escalation_claim":
-      return claimEscalation(input.user, input.proposal.payload);
+      return claimEscalation(input.user, payload);
     case "escalation_resolve":
-      return resolveEscalation(input.user, input.proposal.payload);
+      return resolveEscalation(input.user, payload);
     case "escalation_retry_outbound":
-      return retryOutbound(input.user, input.proposal.payload);
+      return retryOutbound(input.user, payload);
     case "knowledge_create":
-      return createKnowledge(input.user, input.proposal.payload);
+      return createKnowledge(input.user, payload);
     case "knowledge_update":
-      return updateKnowledge(input.user, input.proposal.payload);
+      return updateKnowledge(input.user, payload);
     case "knowledge_delete":
-      return deleteKnowledge(input.user, input.proposal.payload);
+      return deleteKnowledge(input.user, payload);
     case "knowledge_refresh_create":
-      return createRefresh(input.user, input.proposal.payload);
+      return createRefresh(input.user, payload);
     case "knowledge_refresh_resolve":
-      return resolveRefresh(input.user, input.proposal.payload);
+      return resolveRefresh(input.user, payload);
     case "assistant_request_create":
-      return createAssistantRequest(input.user, input.proposal.payload);
+      return createAssistantRequest(input.user, payload);
     case "review_create":
-      return createReview(input.user, input.proposal.payload);
+      return createReview(input.user, payload);
     case "channel_health_check":
-      return channelHealth(input.user, input.proposal.payload);
+      return channelHealth(input.user, payload);
     case "channel_update":
-      return updateChannel(input.user, input.proposal.payload);
+      return updateChannel(input.user, payload);
     case "client_create":
-      return createClient(input.user, input.proposal.payload);
+      return createClient(input.user, payload);
     case "commercial_update":
-      return updateCommercial(input.user, input.proposal.payload);
+      return updateCommercial(input.user, payload);
     case "agent_config_update":
-      return updateAgentConfig(input.user, input.proposal.payload);
+      return updateAgentConfig(input.user, payload);
     case "brand_voice_update_document":
-      return updateBrandVoice(input.user, input.proposal.payload);
+      return updateBrandVoice(input.user, payload);
     case "brand_voice_add_example":
-      return addBrandExample(input.user, input.proposal.payload);
+      return addBrandExample(input.user, payload);
     case "brand_voice_toggle_example":
-      return toggleBrandExample(input.user, input.proposal.payload);
+      return toggleBrandExample(input.user, payload);
     case "brand_voice_delete_example":
-      return deleteBrandExample(input.user, input.proposal.payload);
+      return deleteBrandExample(input.user, payload);
     case "offboarding_export":
-      return exportOffboarding(input.user, input.proposal.payload);
+      return exportOffboarding(input.user, payload);
     case "offboarding_delete":
-      return deleteOffboarding(input.user, input.proposal.payload);
+      return deleteOffboarding(input.user, payload);
   }
 }
 
@@ -149,6 +147,16 @@ async function claimEscalation(user: SessionUser, payload: Record<string, unknow
   return {
     message: "Escalation claimed.",
     href: conversationHref(user, escalation.client_id, escalation.conversation_id),
+    nextActions: [
+      {
+        label: "Open conversation",
+        href: conversationHref(user, escalation.client_id, escalation.conversation_id),
+      },
+      {
+        label: "Draft a reply",
+        prompt: "Draft a concise customer reply for this escalation.",
+      },
+    ],
   };
 }
 
@@ -249,6 +257,26 @@ async function resolveEscalation(user: SessionUser, payload: Record<string, unkn
   return {
     message: "Escalation resolved.",
     href: conversationHref(user, escalation.client_id, escalation.conversation_id),
+    nextActions: [
+      {
+        label: "Open conversation",
+        href: conversationHref(user, escalation.client_id, escalation.conversation_id),
+      },
+      {
+        label: "Add review",
+        proposal: {
+          actionType: "review_create",
+          title: "Add conversation review",
+          description: "Record a QA review for the resolved conversation.",
+          payload: {
+            clientId: escalation.client_id,
+            conversationId: escalation.conversation_id,
+            answerLabel: "answered_correctly",
+            notes: "Resolved from assistant action.",
+          },
+        },
+      },
+    ],
   };
 }
 
@@ -284,7 +312,13 @@ async function retryOutbound(user: SessionUser, payload: Record<string, unknown>
     targetId: outbound.rows[0].id,
     metadata: { result },
   });
-  return { message: `Outbound retry ${result.status}.`, data: result };
+  return {
+    message: `Outbound retry ${result.status}.`,
+    data: result,
+    nextActions: [
+      { label: "Open conversation", href: conversationHref(user, escalation.client_id, escalation.conversation_id) },
+    ],
+  };
 }
 
 async function createKnowledge(user: SessionUser, payload: Record<string, unknown>) {
@@ -308,6 +342,10 @@ async function createKnowledge(user: SessionUser, payload: Record<string, unknow
     message: `Knowledge source created with ${result.chunkCount} chunks.`,
     href: knowledgeHref(user, clientId, result.sourceId),
     data: result,
+    nextActions: [
+      { label: "Open source", href: knowledgeHref(user, clientId, result.sourceId) },
+      { label: "Run a test question", prompt: "Test whether the assistant can answer using the new source." },
+    ],
   };
 }
 
@@ -334,6 +372,10 @@ async function updateKnowledge(user: SessionUser, payload: Record<string, unknow
     message: `Knowledge source updated with ${result.chunkCount} chunks.`,
     href: knowledgeHref(user, clientId, parsed.sourceId),
     data: result,
+    nextActions: [
+      { label: "Open source", href: knowledgeHref(user, clientId, parsed.sourceId) },
+      { label: "Summarize the change", prompt: "Summarize what changed in this knowledge source." },
+    ],
   };
 }
 
@@ -352,7 +394,11 @@ async function deleteKnowledge(user: SessionUser, payload: Record<string, unknow
   if (!deleted) {
     throw new Error("Knowledge source not found.");
   }
-  return { message: "Knowledge source deleted.", href: `${clientBaseHref(user, clientId)}/knowledge` };
+  return {
+    message: "Knowledge source deleted.",
+    href: `${clientBaseHref(user, clientId)}/knowledge`,
+    nextActions: [{ label: "Open knowledge", href: `${clientBaseHref(user, clientId)}/knowledge` }],
+  };
 }
 
 async function createRefresh(user: SessionUser, payload: Record<string, unknown>) {
@@ -377,7 +423,15 @@ async function createRefresh(user: SessionUser, payload: Record<string, unknown>
     targetId: request.id,
     metadata: { cadence: request.cadence },
   });
-  return { message: "Knowledge refresh request created.", href: `${clientBaseHref(user, clientId)}/knowledge`, data: { requestId: request.id } };
+  return {
+    message: "Knowledge refresh request created.",
+    href: `${clientBaseHref(user, clientId)}/knowledge`,
+    data: { requestId: request.id },
+    nextActions: [
+      { label: "Open knowledge", href: `${clientBaseHref(user, clientId)}/knowledge` },
+      { label: "Draft missing policy", prompt: "Draft the missing policy text for this refresh request." },
+    ],
+  };
 }
 
 async function resolveRefresh(user: SessionUser, payload: Record<string, unknown>) {
@@ -407,7 +461,11 @@ async function resolveRefresh(user: SessionUser, payload: Record<string, unknown
     targetId: request.id,
     metadata: { status: parsed.status },
   });
-  return { message: `Knowledge refresh marked ${parsed.status}.`, href: `${clientBaseHref(user, clientId)}/knowledge` };
+  return {
+    message: `Knowledge refresh marked ${parsed.status}.`,
+    href: `${clientBaseHref(user, clientId)}/knowledge`,
+    nextActions: [{ label: "Open knowledge", href: `${clientBaseHref(user, clientId)}/knowledge` }],
+  };
 }
 
 async function createAssistantRequest(user: SessionUser, payload: Record<string, unknown>) {
@@ -424,7 +482,14 @@ async function createAssistantRequest(user: SessionUser, payload: Record<string,
     kind: parsed.kind,
     body: parsed.body,
   });
-  return { message: "Assistant change request created.", href: `${clientBaseHref(user, clientId)}/assistant`, data: { requestId: request.id } };
+  return {
+    message: "Assistant change request created.",
+    href: `${clientBaseHref(user, clientId)}/assistant`,
+    data: { requestId: request.id },
+    nextActions: [
+      { label: "Open assistant settings", href: `${clientBaseHref(user, clientId)}/assistant` },
+    ],
+  };
 }
 
 async function createReview(user: SessionUser, payload: Record<string, unknown>) {
@@ -502,7 +567,27 @@ async function createReview(user: SessionUser, payload: Record<string, unknown>)
     targetId: inserted.rows[0].id,
     metadata: { conversationId: parsed.conversationId, answerLabel: parsed.answerLabel ?? null },
   });
-  return { message: "Review created.", href: conversationHref(user, clientId, parsed.conversationId), data: { reviewId: inserted.rows[0].id } };
+  return {
+    message: "Review created.",
+    href: conversationHref(user, clientId, parsed.conversationId),
+    data: { reviewId: inserted.rows[0].id },
+    nextActions: [
+      { label: "Open conversation", href: conversationHref(user, clientId, parsed.conversationId) },
+      {
+        label: "Create knowledge refresh",
+        proposal: {
+          actionType: "knowledge_refresh_create",
+          title: "Create knowledge refresh",
+          description: "Open a refresh request based on this review.",
+          payload: {
+            clientId,
+            cadence: "monthly",
+            notes: parsed.notes || "Review indicates a follow-up may be needed.",
+          },
+        },
+      },
+    ],
+  };
 }
 
 async function channelHealth(user: SessionUser, payload: Record<string, unknown>) {
@@ -519,7 +604,12 @@ async function channelHealth(user: SessionUser, payload: Record<string, unknown>
     targetId: parsed.channelId,
     metadata: health,
   });
-  return { message: `Channel health: ${health.status}.`, href: `/operator/clients/${parsed.clientId}/channels`, data: health };
+  return {
+    message: `Channel health: ${health.status}.`,
+    href: `/operator/clients/${parsed.clientId}/channels`,
+    data: health,
+    nextActions: [{ label: "Open channels", href: `/operator/clients/${parsed.clientId}/channels` }],
+  };
 }
 
 async function updateChannel(user: SessionUser, payload: Record<string, unknown>) {
@@ -560,7 +650,21 @@ async function updateChannel(user: SessionUser, payload: Record<string, unknown>
     targetId: parsed.channelId,
     metadata: { status: parsed.status, settings: redactSecrets(parsed.settings) },
   });
-  return { message: "Channel updated.", href: `/operator/clients/${parsed.clientId}/channels` };
+  return {
+    message: "Channel updated.",
+    href: `/operator/clients/${parsed.clientId}/channels`,
+    nextActions: [
+      {
+        label: "Run health check",
+        proposal: {
+          actionType: "channel_health_check",
+          title: "Run channel health check",
+          description: "Verify the updated channel configuration.",
+          payload: { clientId: parsed.clientId, channelId: parsed.channelId },
+        },
+      },
+    ],
+  };
 }
 
 async function createClient(user: SessionUser, payload: Record<string, unknown>) {
@@ -656,7 +760,15 @@ async function createClient(user: SessionUser, payload: Record<string, unknown>)
     );
     return createdClientId;
   });
-  return { message: "Client created.", href: `/operator/clients/${clientId}`, data: { clientId } };
+  return {
+    message: "Client created.",
+    href: `/operator/clients/${clientId}`,
+    data: { clientId },
+    nextActions: [
+      { label: "Open client", href: `/operator/clients/${clientId}` },
+      { label: "Add knowledge", href: `/operator/clients/${clientId}/knowledge` },
+    ],
+  };
 }
 
 async function updateCommercial(user: SessionUser, payload: Record<string, unknown>) {
@@ -680,7 +792,11 @@ async function updateCommercial(user: SessionUser, payload: Record<string, unkno
     ...parsed,
     actorUserId: user.userId,
   });
-  return { message: "Commercial and launch assumptions updated.", href: `/operator/clients/${parsed.clientId}` };
+  return {
+    message: "Commercial and launch assumptions updated.",
+    href: `/operator/clients/${parsed.clientId}`,
+    nextActions: [{ label: "Open client", href: `/operator/clients/${parsed.clientId}` }],
+  };
 }
 
 async function updateAgentConfig(user: SessionUser, payload: Record<string, unknown>) {
@@ -712,7 +828,14 @@ async function updateAgentConfig(user: SessionUser, payload: Record<string, unkn
   if (!updated) {
     throw new Error("Agent config not found.");
   }
-  return { message: "Agent config updated.", href: `/operator/clients/${parsed.clientId}` };
+  return {
+    message: "Agent config updated.",
+    href: `/operator/clients/${parsed.clientId}`,
+    nextActions: [
+      { label: "Open assistant config", href: `/operator/clients/${parsed.clientId}` },
+      { label: "Test the assistant", href: `/operator/clients/${parsed.clientId}/test` },
+    ],
+  };
 }
 
 async function updateBrandVoice(user: SessionUser, payload: Record<string, unknown>) {
@@ -735,7 +858,11 @@ async function updateBrandVoice(user: SessionUser, payload: Record<string, unkno
   if (!updated) {
     throw new Error("Client not found.");
   }
-  return { message: "Brand voice document updated.", href: `/operator/clients/${parsed.clientId}` };
+  return {
+    message: "Brand voice document updated.",
+    href: `/operator/clients/${parsed.clientId}`,
+    nextActions: [{ label: "Open client", href: `/operator/clients/${parsed.clientId}` }],
+  };
 }
 
 async function addBrandExample(user: SessionUser, payload: Record<string, unknown>) {
@@ -756,7 +883,12 @@ async function addBrandExample(user: SessionUser, payload: Record<string, unknow
   if (!example) {
     throw new Error("Client not found.");
   }
-  return { message: "Brand voice example added.", href: `/operator/clients/${parsed.clientId}`, data: { exampleId: example.id } };
+  return {
+    message: "Brand voice example added.",
+    href: `/operator/clients/${parsed.clientId}`,
+    data: { exampleId: example.id },
+    nextActions: [{ label: "Open client", href: `/operator/clients/${parsed.clientId}` }],
+  };
 }
 
 async function toggleBrandExample(user: SessionUser, payload: Record<string, unknown>) {
@@ -775,7 +907,11 @@ async function toggleBrandExample(user: SessionUser, payload: Record<string, unk
   if (!updated) {
     throw new Error("Brand voice example not found.");
   }
-  return { message: "Brand voice example updated.", href: `/operator/clients/${parsed.clientId}` };
+  return {
+    message: "Brand voice example updated.",
+    href: `/operator/clients/${parsed.clientId}`,
+    nextActions: [{ label: "Open client", href: `/operator/clients/${parsed.clientId}` }],
+  };
 }
 
 async function deleteBrandExample(user: SessionUser, payload: Record<string, unknown>) {
@@ -789,7 +925,11 @@ async function deleteBrandExample(user: SessionUser, payload: Record<string, unk
   if (!deleted) {
     throw new Error("Brand voice example not found.");
   }
-  return { message: "Brand voice example deleted.", href: `/operator/clients/${parsed.clientId}` };
+  return {
+    message: "Brand voice example deleted.",
+    href: `/operator/clients/${parsed.clientId}`,
+    nextActions: [{ label: "Open client", href: `/operator/clients/${parsed.clientId}` }],
+  };
 }
 
 async function exportOffboarding(user: SessionUser, payload: Record<string, unknown>) {
@@ -808,6 +948,7 @@ async function exportOffboarding(user: SessionUser, payload: Record<string, unkn
     message: "Offboarding export prepared in the assistant result.",
     href: `/operator/clients/${parsed.clientId}`,
     data: redactSecrets(exported) as Record<string, unknown>,
+    nextActions: [{ label: "Open offboarding", href: `/operator/clients/${parsed.clientId}/offboarding` }],
   };
 }
 
@@ -819,7 +960,12 @@ async function deleteOffboarding(user: SessionUser, payload: Record<string, unkn
     confirmSlug: parsed.confirmSlug,
     actorUserId: user.userId,
   });
-  return { message: `Client ${deleted.name} deleted for offboarding.`, href: "/operator", data: deleted };
+  return {
+    message: `Client ${deleted.name} deleted for offboarding.`,
+    href: "/operator",
+    data: deleted,
+    nextActions: [{ label: "Open portfolio", href: "/operator" }],
+  };
 }
 
 function normalizeClientId(user: SessionUser, submitted?: string): string {
