@@ -34,7 +34,7 @@ export default async function ClientKnowledgePage() {
   return (
     <AppShell user={user} active="client" clientActive="knowledge" workspaceName={client.name}>
       <div className="mb-5">
-        <h1 className="text-xl font-semibold tracking-[-0.01em]">Knowledge</h1>
+        <h1 className="text-xl font-semibold">Knowledge</h1>
         <p className="text-sm text-muted">
           What Pronto knows about your business, and what needs updating.
         </p>

@@ -43,7 +43,7 @@ export default async function ClientInboxPage({
     <AppShell user={user} active="client" clientActive="inbox" workspaceName={client.name}>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-[-0.01em]">Inbox</h1>
+          <h1 className="text-xl font-semibold">Inbox</h1>
           <p className="text-sm text-muted">
             Customer conversations ordered by what needs your attention first.
           </p>

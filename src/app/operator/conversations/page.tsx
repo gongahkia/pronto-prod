@@ -35,7 +35,7 @@ export default async function OperatorConversationsPage({
     <AppShell user={user} active="operator" operatorActive="conversations">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-[-0.01em]">Conversations</h1>
+          <h1 className="text-xl font-semibold">Conversations</h1>
           <p className="text-sm text-muted">
             Cross-client live inbox for triage, owner follow-up, and debugging.
           </p>

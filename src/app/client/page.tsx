@@ -60,7 +60,7 @@ export default async function ClientOverviewPage() {
     <AppShell user={user} active="client" clientActive="overview" workspaceName={client.name}>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-[-0.01em]">Overview</h1>
+          <h1 className="text-xl font-semibold">Overview</h1>
           <p className="text-sm text-muted">
             Business view of what Pronto handled, where it needs you, and what needs updating.
           </p>

@@ -461,7 +461,7 @@ export function TriageFlowEditor({
 
   return (
     <div className={`grid gap-4 ${activeTab === "editor" ? "2xl:grid-cols-[minmax(0,1fr)_23rem]" : ""}`}>
-      <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-shell)] shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-shell)]">
         <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[var(--flow-line)] bg-[var(--flow-header)] px-4 py-2.5 text-[var(--flow-text)]">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-8 items-center justify-center rounded-md border border-[var(--flow-line)] bg-[var(--flow-control)] text-[var(--success)]">
@@ -521,7 +521,7 @@ export function TriageFlowEditor({
               </>
             ) : null}
             <button
-              className="inline-flex items-center gap-2 rounded-md bg-[#ff6d5a] px-3 py-2 text-sm font-semibold text-white hover:bg-[#ff806f] disabled:cursor-not-allowed disabled:opacity-60"
+              className="ui-primary-button gap-2 px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"
               type="button"
               disabled={!validation.ok || saveState.status === "saving"}
               onClick={saveFlow}
@@ -611,7 +611,7 @@ export function TriageFlowEditor({
 
       {activeTab === "editor" ? (
         <aside className="space-y-4">
-        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)] shadow-sm">
+        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)]">
           <div className="flex items-center justify-between border-b border-[var(--flow-line)] px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold">Selected node</h2>
@@ -650,7 +650,7 @@ export function TriageFlowEditor({
           )}
         </section>
 
-        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)] shadow-sm">
+        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)]">
           <div className="flex items-center justify-between border-b border-[var(--flow-line)] px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold">Execution shape</h2>
@@ -668,7 +668,7 @@ export function TriageFlowEditor({
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)] shadow-sm">
+        <section className="overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)]">
           <div className="flex items-center justify-between border-b border-[var(--flow-line)] px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold">Guardrail preview</h2>
@@ -745,7 +745,7 @@ function ExecutionsTab({
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">{rule.label}</p>
                     <span
-                      className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
                         rule.enabled
                           ? "border-success/30 bg-success-bg text-success"
                           : "border-[var(--flow-line)] bg-[var(--flow-soft)] text-[var(--flow-muted)]"
@@ -922,8 +922,8 @@ function TriageNodeCard({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`group relative w-[17rem] rounded-lg border bg-[var(--flow-node)] p-3 text-left shadow-[0_8px_22px_color-mix(in_srgb,var(--foreground)_12%,transparent)] ${
-        disabled ? "border-[#575b67] opacity-70" : icon.shellClass
+      className={`group relative w-[17rem] rounded-lg border bg-[var(--flow-node)] p-3 text-left ${
+        disabled ? "border-[var(--flow-line)] opacity-70" : icon.shellClass
       } ${selected ? "ring-2 ring-accent ring-offset-2 ring-offset-[var(--flow-canvas)]" : ""}`}
     >
       {nodeData.kind !== "channel" ? (
@@ -945,7 +945,7 @@ function TriageNodeCard({ data, selected }: NodeProps) {
             <p className="line-clamp-2 text-[0.94rem] font-semibold leading-tight text-[var(--flow-text)]">
               {nodeData.label}
             </p>
-            <span className="shrink-0 rounded border border-[var(--flow-line)] bg-[var(--flow-soft)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-normal text-[var(--flow-muted)]">
+            <span className="shrink-0 rounded-full border border-[var(--flow-line)] bg-[var(--flow-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--flow-muted)]">
               {disabled ? "off" : nodeData.badge}
             </span>
           </div>
@@ -1000,7 +1000,7 @@ function NodeEditorPopup({
   const Icon = icon.Icon;
 
   return (
-    <div className="absolute right-4 top-4 z-20 w-[min(26rem,calc(100%-2rem))] overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)] shadow-2xl">
+    <div className="absolute right-4 top-4 z-20 w-[min(26rem,calc(100%-2rem))] overflow-hidden rounded-lg border border-[var(--flow-line)] bg-[var(--flow-panel)] text-[var(--flow-text)]">
       <div className="flex items-start justify-between gap-3 border-b border-[var(--flow-line)] bg-[var(--flow-header)] px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className={`flex size-10 shrink-0 items-center justify-center rounded-md border border-[var(--flow-line)] bg-[var(--flow-node-icon)] ${icon.iconClass}`}>
@@ -1025,7 +1025,7 @@ function NodeEditorPopup({
 
       <div className="max-h-[calc(46rem-5rem)] space-y-3 overflow-auto p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] px-2 py-1 text-xs font-medium uppercase text-[var(--flow-muted)]">
+          <span className="rounded-full border border-[var(--flow-line)] bg-[var(--flow-soft)] px-2.5 py-1 text-xs font-medium text-[var(--flow-muted)]">
             {canDelete ? "custom node" : "starter node"}
           </span>
           {canDelete ? (
@@ -1106,7 +1106,7 @@ function PaletteSelect({
 }) {
   return (
     <label className="relative flex min-w-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-[var(--flow-line)] bg-[var(--flow-soft)] px-2 py-2 text-[11px] font-medium text-[var(--flow-muted)] hover:bg-[var(--flow-control-hover)]">
-      <CircleAlert size={18} className="text-[#ffb85c]" />
+      <CircleAlert size={18} className="text-warning" />
       Rule
       <select
         aria-label="Add decision rule"
@@ -1257,34 +1257,34 @@ function iconForNode(nodeData: TriageFlowNodeData): NodeIconConfig {
 function iconConfig(Icon: LucideIcon, tone: "green" | "blue" | "purple" | "orange" | "red" | "gray"): NodeIconConfig {
   const tones = {
     green: {
-      shellClass: "border-[#1b8f5a]",
-      iconClass: "text-[#41d990]",
-      portClass: "!bg-[#41d990]",
+      shellClass: "border-success/30",
+      iconClass: "text-success",
+      portClass: "!bg-success",
     },
     blue: {
-      shellClass: "border-[#4f67d8]",
-      iconClass: "text-[#8ca2ff]",
-      portClass: "!bg-[#8ca2ff]",
+      shellClass: "border-accent/35",
+      iconClass: "text-accent",
+      portClass: "!bg-accent",
     },
     purple: {
-      shellClass: "border-[#715fd9]",
-      iconClass: "text-[#a997ff]",
-      portClass: "!bg-[#a997ff]",
+      shellClass: "border-link/35",
+      iconClass: "text-link",
+      portClass: "!bg-link",
     },
     orange: {
-      shellClass: "border-[#a76724]",
-      iconClass: "text-[#ffb85c]",
-      portClass: "!bg-[#ffb85c]",
+      shellClass: "border-warning/35",
+      iconClass: "text-warning",
+      portClass: "!bg-warning",
     },
     red: {
-      shellClass: "border-[#a84a44]",
-      iconClass: "text-[#ff867d]",
-      portClass: "!bg-[#ff867d]",
+      shellClass: "border-danger/35",
+      iconClass: "text-danger",
+      portClass: "!bg-danger",
     },
     gray: {
-      shellClass: "border-[#575b67]",
-      iconClass: "text-white/65",
-      portClass: "!bg-[#9ca3af]",
+      shellClass: "border-[var(--flow-line)]",
+      iconClass: "text-muted",
+      portClass: "!bg-muted",
     },
   } satisfies Record<string, Omit<NodeIconConfig, "Icon">>;
 
@@ -1306,15 +1306,15 @@ function runtimeLabel(nodeData: TriageFlowNodeData): string {
 
 function miniMapNodeColor(nodeData: TriageFlowNodeData): string {
   if (nodeData.kind === "channel") {
-    return "#41d990";
+    return "#087443";
   }
   if (nodeData.kind === "decision") {
-    return nodeData.enabled === false ? "#6b7280" : "#ffb85c";
+    return nodeData.enabled === false ? "#6b7280" : "#455dd3";
   }
   if (nodeData.kind === "outcome") {
-    return "#8ca2ff";
+    return "#0075de";
   }
-  return "#9ca3af";
+  return "#6b7280";
 }
 
 function evaluateLocalGuardrail(

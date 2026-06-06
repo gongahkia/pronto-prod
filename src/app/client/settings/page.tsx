@@ -27,7 +27,7 @@ export default async function ClientSettingsPage() {
   return (
     <AppShell user={user} active="client" clientActive="settings" workspaceName={client.name}>
       <div className="mb-5">
-        <h1 className="text-xl font-semibold tracking-[-0.01em]">Settings</h1>
+        <h1 className="text-xl font-semibold">Settings</h1>
         <p className="text-sm text-muted">
           Business details and owner contact points Pronto uses for handoffs.
         </p>

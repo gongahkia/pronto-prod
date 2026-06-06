@@ -37,7 +37,7 @@ export default async function ClientAssistantPage() {
     <AppShell user={user} active="client" clientActive="assistant" workspaceName={client.name}>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-[-0.01em]">Assistant</h1>
+          <h1 className="text-xl font-semibold">Assistant</h1>
           <p className="text-sm text-muted">
             See what Pronto answers, when it asks a human, and test customer questions.
           </p>

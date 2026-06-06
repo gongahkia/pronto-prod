@@ -36,7 +36,7 @@ export default async function OperatorQualityPage() {
       operatorActive="quality"
     >
       <div className="mb-5">
-        <h1 className="text-xl font-semibold tracking-[-0.01em]">Quality</h1>
+        <h1 className="text-xl font-semibold">Quality</h1>
         <p className="text-sm text-muted">
           Internal QA view for hallucinations, over-escalation, missing knowledge, and pilot blockers.
         </p>

@@ -19,7 +19,7 @@ export default async function OperatorPage() {
     <AppShell user={user} active="operator" operatorActive="clients">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-[-0.01em]">Clients</h1>
+          <h1 className="text-xl font-semibold">Clients</h1>
           <p className="text-sm text-muted">
             Portfolio health, launch state, and operational risk across every client.
           </p>

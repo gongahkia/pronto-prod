@@ -43,7 +43,7 @@ export default async function ClientConversationPage({
         <Link href="/client/inbox" className="text-xs font-medium text-accent hover:text-accent-dark">
           Back to inbox
         </Link>
-        <h1 className="mt-1.5 text-xl font-semibold tracking-[-0.01em]">
+        <h1 className="mt-1.5 text-xl font-semibold">
           Customer conversation
         </h1>
         <p className="text-sm text-muted">
