@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-:root {
+:root,
+:root[data-pronto-theme="day"] {
   color-scheme: light;
   --background: #ffffff;
   --foreground: #000000;
@@ -49,6 +50,110 @@
   --flow-muted: var(--muted);
   --flow-minimap-mask: rgba(245, 247, 251, 0.72);
   --flow-handle-ring: var(--flow-canvas);
+}
+
+:root[data-pronto-theme="night"] {
+  color-scheme: dark;
+  --background: #0f1424;
+  --foreground: #f8fafc;
+  --muted: #aab4c8;
+  --panel: #151b2c;
+  --surface: #1c2437;
+  --surface-subtle: #131a2a;
+  --surface-hover: #233052;
+  --input: #101827;
+  --line: #ffffff1f;
+  --line-strong: #ffffff33;
+  --sidebar: #101a52;
+  --sidebar-foreground: #ffffff;
+  --sidebar-muted: color-mix(in srgb, #ffffff 72%, #101a52);
+  --sidebar-line: color-mix(in srgb, #ffffff 16%, #101a52);
+  --sidebar-active: #455dd3;
+  --accent: #6377ea;
+  --accent-dark: #455dd3;
+  --accent-soft: #233052;
+  --link: #7ab8ff;
+  --danger: #ff8a7a;
+  --danger-bg: color-mix(in srgb, #d92d20 18%, var(--panel));
+  --success: #4ad991;
+  --success-bg: color-mix(in srgb, #087443 22%, var(--panel));
+  --warning: #f2b457;
+  --warning-bg: color-mix(in srgb, #a15c07 24%, var(--panel));
+  --flow-shell: var(--panel);
+  --flow-header: var(--surface);
+  --flow-panel: var(--panel);
+  --flow-palette: var(--surface);
+  --flow-canvas: #101827;
+  --flow-node: #151b2c;
+  --flow-node-icon: #1c2437;
+  --flow-control: #151b2c;
+  --flow-control-hover: #233052;
+  --flow-active: #233052;
+  --flow-soft: #1c2437;
+  --flow-line: #ffffff1f;
+  --flow-grid: #34405c;
+  --flow-edge: #aab4c8;
+  --flow-edge-active: #6377ea;
+  --flow-edge-selected: var(--accent);
+  --flow-edge-label: #aab4c8;
+  --flow-edge-label-bg: #151b2c;
+  --flow-text: var(--foreground);
+  --flow-muted: var(--muted);
+  --flow-minimap-mask: rgba(15, 20, 36, 0.72);
+  --flow-handle-ring: var(--flow-canvas);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-pronto-theme]) {
+    color-scheme: dark;
+    --background: #0f1424;
+    --foreground: #f8fafc;
+    --muted: #aab4c8;
+    --panel: #151b2c;
+    --surface: #1c2437;
+    --surface-subtle: #131a2a;
+    --surface-hover: #233052;
+    --input: #101827;
+    --line: #ffffff1f;
+    --line-strong: #ffffff33;
+    --sidebar: #101a52;
+    --sidebar-foreground: #ffffff;
+    --sidebar-muted: color-mix(in srgb, #ffffff 72%, #101a52);
+    --sidebar-line: color-mix(in srgb, #ffffff 16%, #101a52);
+    --sidebar-active: #455dd3;
+    --accent: #6377ea;
+    --accent-dark: #455dd3;
+    --accent-soft: #233052;
+    --link: #7ab8ff;
+    --danger: #ff8a7a;
+    --danger-bg: color-mix(in srgb, #d92d20 18%, var(--panel));
+    --success: #4ad991;
+    --success-bg: color-mix(in srgb, #087443 22%, var(--panel));
+    --warning: #f2b457;
+    --warning-bg: color-mix(in srgb, #a15c07 24%, var(--panel));
+    --flow-shell: var(--panel);
+    --flow-header: var(--surface);
+    --flow-panel: var(--panel);
+    --flow-palette: var(--surface);
+    --flow-canvas: #101827;
+    --flow-node: #151b2c;
+    --flow-node-icon: #1c2437;
+    --flow-control: #151b2c;
+    --flow-control-hover: #233052;
+    --flow-active: #233052;
+    --flow-soft: #1c2437;
+    --flow-line: #ffffff1f;
+    --flow-grid: #34405c;
+    --flow-edge: #aab4c8;
+    --flow-edge-active: #6377ea;
+    --flow-edge-selected: var(--accent);
+    --flow-edge-label: #aab4c8;
+    --flow-edge-label-bg: #151b2c;
+    --flow-text: var(--foreground);
+    --flow-muted: var(--muted);
+    --flow-minimap-mask: rgba(15, 20, 36, 0.72);
+    --flow-handle-ring: var(--flow-canvas);
+  }
 }
 
 @theme inline {
