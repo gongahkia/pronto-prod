@@ -47,8 +47,8 @@ export function PilotConsole({ clientId }: { clientId: string }) {
   return (
     <section className="ui-panel">
       <div className="ui-panel-header">
-        <h2 className="text-base font-semibold">Test assistant</h2>
-        <p className="text-sm text-muted">Try customer questions without sending live channel traffic.</p>
+        <h2 className="text-base font-semibold">Try a customer question</h2>
+        <p className="text-sm text-muted">Check how Pronto responds without sending live channel traffic.</p>
       </div>
       <div className="flex h-72 flex-col gap-3 overflow-y-auto p-4">
         {entries.length === 0 ? (

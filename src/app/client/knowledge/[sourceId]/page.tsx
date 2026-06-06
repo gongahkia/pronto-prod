@@ -40,8 +40,8 @@ export default async function ClientKnowledgeSourcePage({
   return (
     <AppShell user={user} active="client" clientActive="knowledge" workspaceName={client.name}>
       <div className="mb-5">
-        <h1 className="text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
-        <p className="text-sm text-muted">Review and edit assistant knowledge sources.</p>
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">Knowledge source</h1>
+        <p className="text-sm text-muted">Review and edit what Pronto can use when answering customers.</p>
       </div>
       <section className="ui-panel">
         <div className="ui-panel-header">
