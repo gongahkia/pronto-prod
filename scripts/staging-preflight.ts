@@ -6,6 +6,7 @@ import {
   envApiKeyForProvider,
   resolveProviderApiKey,
 } from "../src/lib/llm/credentials";
+import { azureOpenAiBaseUrl } from "../src/lib/llm/azure";
 import { validateChannelHealthConfig } from "../src/lib/channels/health";
 import type { Channel } from "../src/lib/types";
 
@@ -120,10 +121,8 @@ async function checkProviderCredentials() {
   const generationKey = await resolveKey(provider);
   checks.push({
     name: `Generation provider (${provider})`,
-    status: generationKey ? "pass" : "fail",
-    detail: generationKey
-      ? "Generation provider credential is available."
-      : `Set an environment key or saved encrypted credential for ${provider}.`,
+    status: generationKey && providerRuntimeConfigured(provider) ? "pass" : "fail",
+    detail: providerCredentialDetail(provider, generationKey),
   });
 
   const openAiKey = await resolveKey("openai");
@@ -142,6 +141,20 @@ async function checkProviderCredentials() {
       ? "PRONTO_SECRETS_KEY is present for saved provider credentials."
       : "PRONTO_SECRETS_KEY is required before using DB-backed provider credentials.",
   });
+}
+
+function providerRuntimeConfigured(provider: string): boolean {
+  return provider !== "azure" || Boolean(azureOpenAiBaseUrl());
+}
+
+function providerCredentialDetail(provider: string, key: string | null): string {
+  if (!key) {
+    return `Set an environment key or saved encrypted credential for ${provider}.`;
+  }
+  if (!providerRuntimeConfigured(provider)) {
+    return "Credential is available, but AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT is missing.";
+  }
+  return "Generation provider credential is available.";
 }
 
 async function resolveKey(provider: string): Promise<string | null> {

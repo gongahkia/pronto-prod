@@ -9,11 +9,16 @@ export type ModelChoice = {
   costLabel: "low" | "standard" | "premium";
 };
 
-const modelCatalog: Record<"openai" | "anthropic", Record<LlmTask, ModelChoice>> = {
+const modelCatalog: Record<"openai" | "azure" | "anthropic", Record<LlmTask, ModelChoice>> = {
   openai: {
     agent_answer: { provider: "openai", model: "gpt-5.5", costLabel: "standard" },
     routing: { provider: "openai", model: "gpt-5.4-mini", costLabel: "low" },
     fallback: { provider: "openai", model: "gpt-5.5", costLabel: "premium" },
+  },
+  azure: {
+    agent_answer: { provider: "azure", model: "gpt-5.5", costLabel: "standard" },
+    routing: { provider: "azure", model: "gpt-5.4-mini", costLabel: "low" },
+    fallback: { provider: "azure", model: "gpt-5.5", costLabel: "premium" },
   },
   anthropic: {
     agent_answer: { provider: "anthropic", model: "claude-sonnet-4-5", costLabel: "standard" },
@@ -40,10 +45,13 @@ export function selectModel(input: {
     };
   }
 
-  const envModel =
+  const envModel = (
     provider === "anthropic"
       ? process.env.ANTHROPIC_RESPONSE_MODEL
-      : process.env.OPENAI_RESPONSE_MODEL;
+      : provider === "azure"
+        ? process.env.AZURE_OPENAI_RESPONSE_MODEL
+        : process.env.OPENAI_RESPONSE_MODEL
+  )?.trim() || undefined;
   const catalogChoice = modelCatalog[provider][input.task];
 
   return {
@@ -55,6 +63,6 @@ export function selectModel(input: {
 export function failoverModelChoice(): ModelChoice {
   return {
     ...modelCatalog.openai.fallback,
-    model: process.env.OPENAI_RESPONSE_MODEL ?? modelCatalog.openai.fallback.model,
+    model: process.env.OPENAI_RESPONSE_MODEL?.trim() || modelCatalog.openai.fallback.model,
   };
 }

@@ -68,6 +68,7 @@ export function ProviderTestConsole({
           >
             <option value="mock">Mock local</option>
             <option value="openai">OpenAI</option>
+            <option value="azure">Azure OpenAI</option>
             <option value="anthropic">Anthropic</option>
             {selectableFreeProviders().map((candidate) => (
               <option key={candidate.id} value={candidate.id}>

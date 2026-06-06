@@ -1,4 +1,5 @@
 import { AnthropicProvider } from "@/lib/llm/anthropic";
+import { AzureOpenAiProvider } from "@/lib/llm/azure";
 import { isFreeLlmProviderId, type FreeLlmProviderId } from "@/lib/llm/free-providers";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import { OpenAiProvider } from "@/lib/llm/openai";
@@ -10,7 +11,7 @@ import type {
   LlmProvider,
 } from "@/lib/llm/types";
 
-export type LlmProviderName = "mock" | "openai" | "anthropic" | FreeLlmProviderId;
+export type LlmProviderName = "mock" | "openai" | "azure" | "anthropic" | FreeLlmProviderId;
 
 class MockProvider implements LlmProvider {
   async generateGroundedAnswer(
@@ -26,10 +27,11 @@ class MockProvider implements LlmProvider {
 
 const mockProvider = new MockProvider();
 const openAiProvider = new OpenAiProvider();
+const azureOpenAiProvider = new AzureOpenAiProvider();
 const anthropicProvider = new AnthropicProvider();
 
 export function normalizeProviderName(value: string | null | undefined): LlmProviderName {
-  if (value === "anthropic" || value === "openai" || value === "mock") {
+  if (value === "anthropic" || value === "azure" || value === "openai" || value === "mock") {
     return value;
   }
   if (isFreeLlmProviderId(value)) {
@@ -50,6 +52,9 @@ export function getGenerationProvider(provider: string | null | undefined): LlmP
         openAiProvider.embed(texts, model, context),
     };
   }
+  if (normalized === "azure") {
+    return azureOpenAiProvider;
+  }
   if (isFreeLlmProviderId(normalized)) {
     return new OpenAiCompatibleProvider(normalized);
   }
@@ -63,6 +68,9 @@ export function getEmbeddingProvider(provider: string | null | undefined): LlmPr
   }
   if (isFreeLlmProviderId(normalized)) {
     return mockProvider;
+  }
+  if (normalized === "azure") {
+    return azureOpenAiProvider;
   }
   return openAiProvider;
 }

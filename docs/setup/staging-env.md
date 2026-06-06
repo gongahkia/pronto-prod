@@ -16,6 +16,18 @@ Set these before running a realistic pilot staging environment.
 - `OPENAI_RESPONSE_MODEL`: Default response model. Current MVP default is `gpt-5.5`.
 - `OPENAI_EMBEDDING_MODEL`: Default embedding model. Current MVP default is `text-embedding-3-small`.
 
+## Azure OpenAI
+
+Use `PRONTO_LLM_PROVIDER=azure` or select Azure OpenAI in the operator Agent tuning panel.
+
+- `AZURE_OPENAI_API_KEY`: Azure OpenAI key for live Azure calls.
+- `AZURE_OPENAI_BASE_URL`: Azure v1 base URL, for example `https://<resource>.openai.azure.com/openai/v1/`.
+- `AZURE_OPENAI_ENDPOINT`: Optional shorthand endpoint, for example `https://<resource>.openai.azure.com`; Pronto appends `/openai/v1/`.
+- `AZURE_OPENAI_RESPONSE_MODEL`: Azure response deployment name.
+- `AZURE_OPENAI_EMBEDDING_MODEL`: Azure embedding deployment name.
+
+The first-class Azure path targets Azure OpenAI's v1 OpenAI-compatible API. Older Azure `api-version` deployment URLs are not used by this app path.
+
 ## WhatsApp Cloud API
 
 - `WHATSAPP_GRAPH_VERSION`: Meta Graph API version for WhatsApp send and health checks. Defaults to `v20.0` for current local-release compatibility.

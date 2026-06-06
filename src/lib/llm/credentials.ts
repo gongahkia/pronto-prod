@@ -108,6 +108,9 @@ export function envApiKeyForProvider(provider: string | null | undefined): strin
   if (provider === "openai") {
     return process.env.OPENAI_API_KEY?.trim() || null;
   }
+  if (provider === "azure") {
+    return process.env.AZURE_OPENAI_API_KEY?.trim() || null;
+  }
   if (provider === "anthropic") {
     return process.env.ANTHROPIC_API_KEY?.trim() || null;
   }

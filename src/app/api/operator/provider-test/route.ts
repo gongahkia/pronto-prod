@@ -105,6 +105,7 @@ function isAllowedResponseProvider(value: string): boolean {
   return (
     value === "mock" ||
     value === "openai" ||
+    value === "azure" ||
     value === "anthropic" ||
     selectableFreeProviders().some((provider) => provider.id === value)
   );

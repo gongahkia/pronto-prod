@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { shouldUseMockAi } from "@/lib/env";
 import { logInfo, logWarn } from "@/lib/logger";
 import { normalizeProviderName } from "@/lib/llm";
+import { getAzureOpenAiClient } from "@/lib/llm/azure";
 import { selectModel } from "@/lib/llm/catalog";
 import { resolveProviderApiKey } from "@/lib/llm/credentials";
 import { freeProviderById, isFreeLlmProviderId } from "@/lib/llm/free-providers";
@@ -43,6 +44,9 @@ export async function generateAssistantTurn(input: {
   }
   if (provider === "anthropic") {
     return generateWithAnthropic({ ...input, model });
+  }
+  if (provider === "azure") {
+    return generateWithAzure({ ...input, model });
   }
   if (provider === "openai") {
     return generateWithOpenAi({ ...input, model });
@@ -134,6 +138,38 @@ async function generateWithOpenAi(input: {
     apiKey,
     baseURL: process.env.OPENAI_BASE_URL || undefined,
   });
+  const response = await client.responses.create({
+    model: input.model,
+    instructions: buildAssistantInstructions(input.context),
+    input: [
+      {
+        role: "user",
+        content: [{ type: "input_text", text: buildAssistantUserInput(input.context, input.message) }],
+      },
+    ],
+    store: false,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "pronto_assistant_turn",
+        strict: true,
+        schema: assistantTurnJsonSchema(),
+      },
+    },
+  });
+  return assistantGeneratedTurnSchema.parse(parseJsonObject(response.output_text));
+}
+
+async function generateWithAzure(input: {
+  context: AssistantContext;
+  message: string;
+  model: string;
+  requestId?: string;
+}): Promise<AssistantGeneratedTurn> {
+  const client = await getAzureOpenAiClient();
+  if (!client) {
+    return mockAssistantTurn(input.context, input.message);
+  }
   const response = await client.responses.create({
     model: input.model,
     instructions: buildAssistantInstructions(input.context),

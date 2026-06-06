@@ -38,13 +38,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Response provider is not supported." }, { status: 400 });
   }
 
-  if (!["mock", "openai"].includes(embeddingProvider)) {
+  if (!["mock", "openai", "azure"].includes(embeddingProvider)) {
     logWarn("agent_config.invalid_embedding_provider", {
       actorUserId: user.userId,
       clientId,
       embeddingProvider,
     });
-    return NextResponse.json({ error: "Embedding provider must be mock or openai." }, { status: 400 });
+    return NextResponse.json({ error: "Embedding provider must be mock, openai, or azure." }, { status: 400 });
   }
 
   if (!isSafeModelName(responseModel) || !isSafeModelName(embeddingModel)) {
@@ -139,6 +139,7 @@ function isAllowedResponseProvider(value: string): boolean {
   return (
     value === "mock" ||
     value === "openai" ||
+    value === "azure" ||
     value === "anthropic" ||
     selectableFreeProviders().some((provider) => provider.id === value)
   );

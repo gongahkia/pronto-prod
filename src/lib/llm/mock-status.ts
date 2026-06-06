@@ -1,4 +1,5 @@
 import { shouldUseMockAi } from "@/lib/env";
+import { azureOpenAiBaseUrl } from "@/lib/llm/azure";
 import { envApiKeyForProvider } from "@/lib/llm/credentials";
 import { normalizeProviderName } from "@/lib/llm";
 import { freeProviderById, isFreeLlmProviderId } from "@/lib/llm/free-providers";
@@ -39,17 +40,33 @@ export function getMockAiStatus(): MockAiStatus {
   if (responseProvider === "openai" && !envApiKeyForProvider("openai")) {
     details.push("OPENAI_API_KEY is not set, so customer-agent OpenAI calls fall back to mock output.");
   }
+  if (responseProvider === "azure") {
+    if (!envApiKeyForProvider("azure")) {
+      details.push("AZURE_OPENAI_API_KEY is not set, so customer-agent Azure OpenAI calls fall back to mock output.");
+    }
+    if (!azureOpenAiBaseUrl()) {
+      details.push("AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT is not set, so customer-agent Azure OpenAI calls fall back to mock output.");
+    }
+  }
   if (responseProvider === "anthropic" && !process.env.ANTHROPIC_API_KEY?.trim()) {
     details.push("ANTHROPIC_API_KEY is not set, so customer-agent Anthropic calls fall back to mock output.");
   }
   if (assistantProvider === "openai" && !envApiKeyForProvider("openai")) {
     details.push("OPENAI_API_KEY is not set, so the assistant dock uses its local mock fallback.");
   }
+  if (assistantProvider === "azure") {
+    if (!envApiKeyForProvider("azure")) {
+      details.push("AZURE_OPENAI_API_KEY is not set, so the assistant dock uses its local mock fallback.");
+    }
+    if (!azureOpenAiBaseUrl()) {
+      details.push("AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT is not set, so the assistant dock uses its local mock fallback.");
+    }
+  }
   if (assistantProvider === "anthropic" && !process.env.ANTHROPIC_API_KEY?.trim()) {
     details.push("ANTHROPIC_API_KEY is not set, so the assistant dock uses its local mock fallback.");
   }
   if (!envApiKeyForProvider("openai")) {
-    details.push("OPENAI_API_KEY is not set, so retrieval embeddings use deterministic mock vectors.");
+    details.push("OPENAI_API_KEY is not set, so clients configured for OpenAI embeddings use deterministic mock vectors.");
   }
   for (const provider of [responseProvider, assistantProvider]) {
     if (!isFreeLlmProviderId(provider)) {
