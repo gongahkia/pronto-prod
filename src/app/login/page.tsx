@@ -15,7 +15,7 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
-      <section className="w-full max-w-md ui-panel p-6 shadow-sm">
+      <section className="w-full max-w-md ui-panel p-6">
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-accent text-white">
             <BotMessageSquare size={22} />

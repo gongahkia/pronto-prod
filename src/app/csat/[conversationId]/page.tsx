@@ -20,8 +20,8 @@ export default async function CsatPage({
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
-      <section className="w-full max-w-md rounded-lg border border-line bg-panel p-5 shadow-sm">
-        <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted">
+      <section className="w-full max-w-md rounded-lg border border-line bg-panel p-6">
+        <p className="text-xs font-medium text-muted">
           Pronto feedback
         </p>
         <h1 className="mt-2 text-xl font-semibold">{context.client.name}</h1>

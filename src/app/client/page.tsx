@@ -209,9 +209,9 @@ function AttentionCard({
   href: string;
 }) {
   return (
-    <Link href={href} className="rounded-md border border-line bg-surface p-3 hover:bg-surface-hover">
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">{label}</p>
-      <p className="mt-2 text-xl font-semibold">{value}</p>
+    <Link href={href} className="rounded-lg border border-line bg-surface p-4 hover:bg-surface-hover">
+      <p className="text-sm font-medium leading-[18px] text-muted">{label}</p>
+      <p className="mt-3 text-[30px] font-normal leading-9">{value}</p>
       <p className="mt-1 text-sm text-muted">{detail}</p>
     </Link>
   );

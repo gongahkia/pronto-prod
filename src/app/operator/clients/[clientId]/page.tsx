@@ -202,17 +202,17 @@ function OperatorOverviewTabs({
   activeSection: OverviewSection;
 }) {
   return (
-    <nav className="mt-5 grid gap-2 rounded-md border border-line bg-panel p-1 md:grid-cols-3 xl:grid-cols-6">
+    <nav className="mt-5 grid gap-2 rounded-lg border border-line bg-panel p-1 md:grid-cols-3 xl:grid-cols-6">
       {overviewTabs.map((tab) => {
         const isActive = activeSection === tab.id;
         return (
           <Link
             key={tab.id}
             href={`${basePath}?section=${tab.id}`}
-            className={`rounded-[5px] px-3 py-2 text-sm transition ${
+            className={`rounded-md px-3 py-2 text-sm transition ${
               isActive
-                ? "bg-surface text-foreground shadow-sm"
-                : "text-muted hover:bg-surface-hover hover:text-foreground"
+                ? "bg-surface text-link"
+                : "text-muted hover:bg-surface-hover hover:text-link"
             }`}
           >
             <span className="block font-medium">{tab.label}</span>

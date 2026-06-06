@@ -84,7 +84,7 @@ export function AppShell({
       )}
 
       <div className="min-w-0 flex-1">
-        <header className="border-b border-line bg-panel/90 backdrop-blur lg:hidden">
+        <header className="border-b border-line bg-panel/95 backdrop-blur lg:hidden">
           <div className="flex items-center justify-between px-4 py-3">
             <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white">
@@ -96,13 +96,13 @@ export function AppShell({
               <Link
                 href={primaryHref}
                 aria-current={active === user.role ? "page" : undefined}
-                className="rounded-md bg-surface px-2.5 py-1.5 text-sm font-medium text-foreground"
+                className="rounded-md bg-surface px-2.5 py-1.5 text-sm font-medium text-link"
               >
                 {primaryLabel}
               </Link>
               <form action="/api/auth/logout" method="post">
                 <button
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-muted hover:bg-surface-hover hover:text-foreground"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-muted hover:bg-surface-hover hover:text-link"
                   title="Log out"
                 >
                   <LogOut size={15} />
@@ -145,9 +145,9 @@ function ClientSidebar({
       <div className="flex items-center gap-2 px-4 py-4">
         <Link
           href="/client"
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-sm font-semibold hover:bg-sidebar-active"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-base font-medium hover:bg-sidebar-active"
         >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-accent text-[10px] font-bold text-white">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-xs font-bold text-sidebar">
             {initials || "P"}
           </span>
           <span className="truncate">{workspaceName}</span>
@@ -155,9 +155,9 @@ function ClientSidebar({
         </Link>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-3 text-sm">
+      <nav className="flex-1 overflow-y-auto px-3 pb-3 text-base">
         <div>
-          <div className="mb-1 flex items-center justify-between px-2 text-xs font-medium text-sidebar-muted">
+          <div className="mb-2 flex items-center justify-between px-2 text-sm font-medium text-sidebar-muted">
             <span>Workspace</span>
             <ChevronDown size={13} />
           </div>
@@ -170,7 +170,7 @@ function ClientSidebar({
                 <Link
                   key={item.section}
                   href={item.href}
-                  className={`flex h-8 items-center gap-2 rounded-md px-2 font-medium ${
+                  className={`flex h-9 items-center gap-2 rounded-md px-2 font-medium ${
                     isActive
                       ? "bg-sidebar-active text-sidebar-foreground"
                       : "text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
@@ -189,7 +189,7 @@ function ClientSidebar({
         <p className="truncate px-2 pb-2 text-xs text-sidebar-muted">{email}</p>
         <form action="/api/auth/logout" method="post">
           <button
-            className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
+            className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-sm text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
             title="Log out"
           >
             <LogOut size={15} />
@@ -213,9 +213,9 @@ function OperatorSidebar({
       <div className="flex items-center gap-2 px-4 py-4">
         <Link
           href="/operator"
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-sm font-semibold hover:bg-sidebar-active"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-base font-medium hover:bg-sidebar-active"
         >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-sidebar-active text-[10px] font-bold text-sidebar-foreground">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-xs font-bold text-sidebar">
             P
           </span>
           <span className="truncate">Pronto HQ</span>
@@ -224,9 +224,9 @@ function OperatorSidebar({
         <OperatorSidebarActions />
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-3 text-sm">
+      <nav className="flex-1 overflow-y-auto px-3 pb-3 text-base">
         <div>
-          <div className="mb-1 flex items-center justify-between px-2 text-xs font-medium text-sidebar-muted">
+          <div className="mb-2 flex items-center justify-between px-2 text-sm font-medium text-sidebar-muted">
             <span>Workspace</span>
             <ChevronDown size={13} />
           </div>
@@ -242,7 +242,7 @@ function OperatorSidebar({
         <p className="truncate px-2 pb-2 text-xs text-sidebar-muted">{email}</p>
         <form action="/api/auth/logout" method="post">
           <button
-            className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
+            className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-sm text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
             title="Log out"
           >
             <LogOut size={15} />
@@ -267,7 +267,7 @@ function OperatorSidebarLink({
   return (
     <Link
       href={item.href}
-      className={`flex h-8 items-center gap-2 rounded-md px-2 font-medium ${
+      className={`flex h-9 items-center gap-2 rounded-md px-2 font-medium ${
         isActive
           ? "bg-sidebar-active text-sidebar-foreground"
           : "text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
@@ -281,15 +281,15 @@ function OperatorSidebarLink({
 
 function ClientMobileNav({ active }: { active: ClientSection }) {
   return (
-    <nav className="flex gap-1 overflow-x-auto border-t border-line px-3 py-2 text-sm">
+    <nav className="flex gap-1 overflow-x-auto border-t border-line px-3 py-2 text-base">
       {clientSidebarItems.map((item) => (
         <Link
           key={item.section}
           href={item.href}
           className={`shrink-0 rounded-md px-3 py-1.5 font-medium ${
             active === item.section
-              ? "bg-surface text-foreground"
-              : "text-muted hover:bg-surface-hover hover:text-foreground"
+              ? "bg-surface text-link"
+              : "text-muted hover:bg-surface-hover hover:text-link"
           }`}
         >
           {item.label}
@@ -301,15 +301,15 @@ function ClientMobileNav({ active }: { active: ClientSection }) {
 
 function OperatorMobileNav({ active }: { active: OperatorSection }) {
   return (
-    <nav className="flex gap-1 overflow-x-auto border-t border-line px-3 py-2 text-sm">
+    <nav className="flex gap-1 overflow-x-auto border-t border-line px-3 py-2 text-base">
       {operatorWorkspaceItems.map((item) => (
         <Link
           key={item.section}
           href={item.href}
           className={`shrink-0 rounded-md px-3 py-1.5 font-medium ${
             active === item.section
-              ? "bg-surface text-foreground"
-              : "text-muted hover:bg-surface-hover hover:text-foreground"
+              ? "bg-surface text-link"
+              : "text-muted hover:bg-surface-hover hover:text-link"
           }`}
         >
           {item.label}

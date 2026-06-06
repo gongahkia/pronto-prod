@@ -88,9 +88,9 @@ function InfoCard({
   detail: string;
 }) {
   return (
-    <div className="ui-panel px-4 py-3">
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">{label}</p>
-      <p className="mt-2 truncate text-lg font-semibold text-foreground">{value}</p>
+    <div className="ui-panel p-6">
+      <p className="text-sm font-medium leading-[18px] text-muted">{label}</p>
+      <p className="mt-3 truncate text-[20px] font-normal leading-6 text-foreground">{value}</p>
       <p className="mt-1 text-sm text-muted">{detail}</p>
     </div>
   );

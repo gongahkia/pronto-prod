@@ -8,14 +8,14 @@ export function Badge({
   tone?: "neutral" | "green" | "red" | "amber";
 }) {
   const tones = {
-    neutral: "border-line bg-surface text-muted",
+    neutral: "border-line bg-surface text-foreground",
     green: "border-success/25 bg-success-bg text-success",
     red: "border-danger/25 bg-danger-bg text-danger",
     amber: "border-warning/25 bg-warning-bg text-warning",
   };
 
   return (
-    <span className={`inline-flex items-center rounded-[5px] border px-1.5 py-0.5 text-[11px] font-medium leading-4 ${tones[tone]}`}>
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium leading-4 ${tones[tone]}`}>
       {children}
     </span>
   );

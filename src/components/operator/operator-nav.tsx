@@ -18,15 +18,15 @@ const operatorItems: OperatorNavItem[] = [
 
 export function OperatorNav({ active }: { active: OperatorTab }) {
   return (
-    <nav className="mb-5 flex flex-wrap gap-1 rounded-md border border-line bg-panel p-1 text-sm">
+    <nav className="mb-5 flex flex-wrap gap-1 rounded-lg border border-line bg-panel p-1 text-sm">
       {operatorItems.map((item) => (
         <Link
           key={item.key}
           href={item.href}
-          className={`rounded-[5px] px-3 py-1.5 font-medium ${
+          className={`rounded-md px-3 py-1.5 font-medium ${
             active === item.key
-              ? "bg-surface text-foreground shadow-[0_1px_1px_rgba(15,23,42,0.05)]"
-              : "text-muted hover:bg-surface-hover hover:text-foreground"
+              ? "bg-surface text-link"
+              : "text-muted hover:bg-surface-hover hover:text-link"
           }`}
         >
           {item.label}
@@ -74,7 +74,7 @@ export function OperatorClientHeader({
         <Link href="/operator" className="text-xs font-medium text-accent hover:text-accent-dark">
           Back to operator dashboard
         </Link>
-        <h1 className="mt-1.5 text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
+        <h1 className="mt-1.5 text-xl font-semibold">{client.name}</h1>
         <p className="max-w-3xl text-sm text-muted">{description ?? client.brand_voice}</p>
       </div>
       <Badge tone="amber">{client.status}</Badge>
@@ -90,15 +90,15 @@ export function OperatorClientNav({
   active: OperatorClientTab;
 }) {
   return (
-    <nav className="mb-5 flex flex-wrap gap-1 rounded-md border border-line bg-panel p-1 text-sm">
+    <nav className="mb-5 flex flex-wrap gap-1 rounded-lg border border-line bg-panel p-1 text-sm">
       {clientItems.map((item) => (
         <Link
           key={item.key}
           href={item.href(clientId)}
-          className={`rounded-[5px] px-3 py-1.5 font-medium ${
+          className={`rounded-md px-3 py-1.5 font-medium ${
             active === item.key
-              ? "bg-surface text-foreground shadow-[0_1px_1px_rgba(15,23,42,0.05)]"
-              : "text-muted hover:bg-surface-hover hover:text-foreground"
+              ? "bg-surface text-link"
+              : "text-muted hover:bg-surface-hover hover:text-link"
           }`}
         >
           {item.label}

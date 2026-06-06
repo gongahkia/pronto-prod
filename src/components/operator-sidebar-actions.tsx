@@ -82,7 +82,7 @@ export function OperatorSidebarActions() {
           onMouseDown={() => setMode(null)}
         >
           <section
-            className="absolute left-4 top-16 w-[min(31rem,calc(100vw-2rem))] rounded-lg border border-line bg-panel text-foreground shadow-2xl lg:left-[19.25rem]"
+            className="absolute left-4 top-16 w-[min(31rem,calc(100vw-2rem))] rounded-lg border border-line bg-panel text-foreground lg:left-[19.25rem]"
             role="dialog"
             aria-modal="true"
             aria-label={mode === "search" ? "Search operator workspace" : "Create client"}

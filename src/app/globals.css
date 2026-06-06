@@ -2,102 +2,53 @@
 
 :root {
   color-scheme: light;
-  --background: #f7f8fb;
-  --foreground: #17181d;
-  --muted: #69707d;
+  --background: #ffffff;
+  --foreground: #000000;
+  --muted: #6b7280;
   --panel: #ffffff;
-  --surface: #f1f3f8;
-  --surface-hover: #eaedf5;
+  --surface: #f5f7fb;
+  --surface-subtle: #f5f7fb;
+  --surface-hover: #eef2ff;
   --input: #ffffff;
-  --line: #dce0ea;
-  --line-strong: #c9cedb;
-  --sidebar: #0e1016;
-  --sidebar-foreground: #f6f7fb;
-  --sidebar-muted: #888fa0;
-  --sidebar-line: #20232d;
-  --sidebar-active: #1a1d27;
-  --accent: #5e6ad2;
-  --accent-dark: #4f5bbe;
-  --accent-soft: #eef0ff;
+  --line: #0000001a;
+  --line-strong: #0000002e;
+  --sidebar: #213183;
+  --sidebar-foreground: #ffffff;
+  --sidebar-muted: color-mix(in srgb, #ffffff 72%, #213183);
+  --sidebar-line: color-mix(in srgb, #ffffff 16%, #213183);
+  --sidebar-active: #455dd3;
+  --accent: #455dd3;
+  --accent-dark: #213183;
+  --accent-soft: #eef2ff;
+  --link: #0075de;
   --danger: #d92d20;
-  --danger-bg: #fff1f0;
+  --danger-bg: #fff4f2;
   --success: #087443;
-  --success-bg: #ecfdf3;
+  --success-bg: #eefaf3;
   --warning: #a15c07;
-  --warning-bg: #fffaeb;
+  --warning-bg: #fff8e6;
   --flow-shell: var(--panel);
-  --flow-header: #f6f7fb;
+  --flow-header: var(--surface);
   --flow-panel: var(--panel);
-  --flow-palette: #f8f9fc;
-  --flow-canvas: #eef1f7;
+  --flow-palette: var(--surface);
+  --flow-canvas: #f5f7fb;
   --flow-node: #ffffff;
-  --flow-node-icon: #f1f3f8;
+  --flow-node-icon: #f5f7fb;
   --flow-control: #ffffff;
-  --flow-control-hover: #eaedf5;
-  --flow-active: #eef0ff;
-  --flow-soft: #f7f8fb;
-  --flow-line: #d9deea;
-  --flow-grid: #c9cedb;
-  --flow-edge: #8d95a5;
-  --flow-edge-active: #169b63;
+  --flow-control-hover: #eef2ff;
+  --flow-active: #eef2ff;
+  --flow-soft: #f5f7fb;
+  --flow-line: #0000001a;
+  --flow-grid: #d7dce8;
+  --flow-edge: #6b7280;
+  --flow-edge-active: #455dd3;
   --flow-edge-selected: var(--accent);
-  --flow-edge-label: #4f5665;
+  --flow-edge-label: #6b7280;
   --flow-edge-label-bg: #ffffff;
   --flow-text: var(--foreground);
   --flow-muted: var(--muted);
-  --flow-minimap-mask: rgba(238, 241, 247, 0.72);
+  --flow-minimap-mask: rgba(245, 247, 251, 0.72);
   --flow-handle-ring: var(--flow-canvas);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --background: #111217;
-    --foreground: #f4f5f8;
-    --muted: #969baa;
-    --panel: #17191f;
-    --surface: #1d2028;
-    --surface-hover: #252934;
-    --input: #12141a;
-    --line: #2a2e39;
-    --line-strong: #383d4b;
-    --sidebar: #090a0e;
-    --sidebar-foreground: #f6f7fb;
-    --sidebar-muted: #7f8594;
-    --sidebar-line: #1b1d25;
-    --sidebar-active: #171a22;
-    --accent: #8b92ff;
-    --accent-dark: #a0a6ff;
-    --accent-soft: #222645;
-    --danger: #ff7a70;
-    --danger-bg: #301916;
-    --success: #68d391;
-    --success-bg: #12251b;
-    --warning: #f6b85a;
-    --warning-bg: #2d2111;
-    --flow-shell: #15171d;
-    --flow-header: #24262b;
-    --flow-panel: #17191f;
-    --flow-palette: #17191f;
-    --flow-canvas: #11131a;
-    --flow-node: #2b2d33;
-    --flow-node-icon: #3a3d44;
-    --flow-control: #2d3037;
-    --flow-control-hover: #363941;
-    --flow-active: #121318;
-    --flow-soft: rgba(255, 255, 255, 0.04);
-    --flow-line: #30333d;
-    --flow-grid: rgba(255, 255, 255, 0.16);
-    --flow-edge: #8d929f;
-    --flow-edge-active: #27c783;
-    --flow-edge-selected: #8ca2ff;
-    --flow-edge-label: rgba(255, 255, 255, 0.76);
-    --flow-edge-label-bg: #23262d;
-    --flow-text: #f4f5f8;
-    --flow-muted: rgba(255, 255, 255, 0.56);
-    --flow-minimap-mask: rgba(4, 6, 10, 0.62);
-    --flow-handle-ring: var(--flow-canvas);
-  }
 }
 
 @theme inline {
@@ -106,6 +57,7 @@
   --color-muted: var(--muted);
   --color-panel: var(--panel);
   --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
   --color-surface-hover: var(--surface-hover);
   --color-input: var(--input);
   --color-line: var(--line);
@@ -118,21 +70,26 @@
   --color-accent: var(--accent);
   --color-accent-dark: var(--accent-dark);
   --color-accent-soft: var(--accent-soft);
+  --color-link: var(--link);
   --color-danger: var(--danger);
   --color-danger-bg: var(--danger-bg);
   --color-success: var(--success);
   --color-success-bg: var(--success-bg);
   --color-warning: var(--warning);
   --color-warning-bg: var(--warning-bg);
-  --font-sans: var(--font-sans);
+  --font-sans:
+    "NotionInter", "Inter", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    "NotionInter", "Inter", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 button,
@@ -162,6 +119,7 @@ select {
   background: var(--input);
   color: var(--foreground);
   border-color: var(--line);
+  border-radius: 8px;
 }
 
 input::placeholder,
@@ -182,14 +140,14 @@ a:focus-visible {
 @layer components {
   .ui-panel {
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 12px;
     background: var(--panel);
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 6%, transparent);
+    box-shadow: none;
   }
 
   .ui-panel-header {
     border-bottom: 1px solid var(--line);
-    padding: 0.875rem 1rem;
+    padding: 1.25rem 1.5rem;
   }
 
   .ui-row {
@@ -204,27 +162,32 @@ a:focus-visible {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
-    border: 1px solid var(--line-strong);
+    min-height: 38px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
     background: var(--panel);
-    color: var(--foreground);
-    font-size: 0.875rem;
+    color: var(--link);
+    font-size: 1rem;
+    line-height: 1.25rem;
     font-weight: 500;
   }
 
   .ui-button:hover {
-    background: var(--surface-hover);
+    background: var(--surface);
+    border-color: var(--line-strong);
   }
 
   .ui-primary-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
+    min-height: 38px;
+    border-radius: 8px;
     background: var(--accent);
     color: white;
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-size: 1rem;
+    line-height: 1.25rem;
+    font-weight: 500;
   }
 
   .ui-primary-button:hover {

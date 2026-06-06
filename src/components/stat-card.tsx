@@ -8,9 +8,9 @@ export function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="ui-panel px-4 py-3">
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">{label}</p>
-      <p className="mt-2 text-xl font-semibold tracking-[-0.01em] text-foreground">{value}</p>
+    <div className="ui-panel p-6">
+      <p className="text-sm font-medium leading-[18px] text-muted">{label}</p>
+      <p className="mt-3 text-[30px] font-normal leading-9 text-foreground">{value}</p>
       {hint ? <p className="mt-1 text-sm text-muted">{hint}</p> : null}
     </div>
   );

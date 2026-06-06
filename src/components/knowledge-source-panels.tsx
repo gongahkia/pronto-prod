@@ -32,7 +32,7 @@ export function KnowledgeSourceDiagnostics({
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           {diagnostics.map((item) => (
             <div key={`${item.label}:${item.value}`}>
-              <dt className="text-xs font-medium uppercase tracking-[0.08em] text-muted">
+              <dt className="text-xs font-medium text-muted">
                 {item.label}
               </dt>
               <dd className="mt-1 break-words font-medium">{item.value}</dd>
