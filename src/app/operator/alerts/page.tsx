@@ -23,7 +23,7 @@ export default async function OperatorAlertsPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-[-0.01em]">Alerts</h1>
           <p className="text-sm text-muted">
-            Cross-client action inbox for failed sends, SLA risk, degraded channels, knowledge refreshes, and quality blockers.
+            Cross-client action inbox for failed sends, SLA risk, degraded channels, knowledge refreshes, assistant requests, and quality blockers.
           </p>
         </div>
         <Link className="ui-button px-3 py-2 text-accent" href="/operator/conversations?status=escalated">
@@ -109,6 +109,9 @@ function kindLabel(kind: OperatorActionQueueItem["kind"]): string {
   }
   if (kind === "knowledge") {
     return "Knowledge";
+  }
+  if (kind === "assistant") {
+    return "Assistant";
   }
   return "Quality";
 }

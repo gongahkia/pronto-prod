@@ -76,7 +76,7 @@ export type OperationalAlert = {
 export type OperatorActionQueueItem = {
   id: string;
   severity: "critical" | "warning";
-  kind: "sla" | "outbound" | "channel" | "knowledge" | "quality";
+  kind: "sla" | "outbound" | "channel" | "knowledge" | "quality" | "assistant";
   title: string;
   detail: string;
   clientId: string;
@@ -536,7 +536,16 @@ export async function getOperationalAlerts(input: {
 }
 
 export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter> {
-  const [failedOutbound, escalations, unhealthyChannels, overdueRefreshes, qualityBlockers, clientHealth, actionCounts] =
+  const [
+    failedOutbound,
+    escalations,
+    unhealthyChannels,
+    overdueRefreshes,
+    qualityBlockers,
+    assistantRequests,
+    clientHealth,
+    actionCounts,
+  ] =
     await Promise.all([
       query<{
         id: string;
@@ -673,6 +682,29 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
         `,
       ),
       query<{
+        id: string;
+        client_id: string;
+        client_name: string;
+        kind: string;
+        body: string;
+        created_at: Date;
+      }>(
+        `
+          select
+            car.id,
+            car.client_id,
+            cl.name as client_name,
+            car.kind,
+            car.body,
+            car.created_at
+          from client_assistant_change_requests car
+          join clients cl on cl.id = car.client_id
+          where car.status in ('open', 'reviewing')
+          order by car.created_at desc
+          limit 20
+        `,
+      ),
+      query<{
         client_id: string;
         name: string;
         vertical: string;
@@ -742,6 +774,7 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
         unhealthy_channels: string;
         overdue_refreshes: string;
         quality_blockers: string;
+        assistant_requests: string;
       }>(
         `
           select
@@ -774,7 +807,12 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
               select count(*)
               from reviews
               where hallucination = true or pilot_blocker = true
-            )::text as quality_blockers
+            )::text as quality_blockers,
+            (
+              select count(*)
+              from client_assistant_change_requests
+              where status in ('open', 'reviewing')
+            )::text as assistant_requests
         `,
       ),
     ]);
@@ -840,6 +878,17 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
       href: conversationHref(row.client_id, row.conversation_id),
       occurredAt: row.created_at,
     })),
+    ...assistantRequests.rows.map((row) => ({
+      id: `assistant:${row.id}`,
+      severity: "warning" as const,
+      kind: "assistant" as const,
+      title: "Assistant change requested",
+      detail: `${requestKindLabel(row.kind)}: ${row.body}`,
+      clientId: row.client_id,
+      clientName: row.client_name,
+      href: `/operator/clients/${row.client_id}`,
+      occurredAt: row.created_at,
+    })),
   ]
     .sort((a, b) => {
       const severityDelta = severityRank(b.severity) - severityRank(a.severity);
@@ -885,6 +934,7 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
   const actionableEscalationCount = Number(counts.actionable_escalations);
   const unhealthyChannelCount = Number(counts.unhealthy_channels);
   const overdueRefreshCount = Number(counts.overdue_refreshes);
+  const assistantRequestCount = Number(counts.assistant_requests);
   const degradedClientCount = health.filter((row) => row.degradedChannels > 0).length;
   const launchBlockerCount = health.filter(
     (row) => row.status !== "live" || row.activeChannels === 0 || row.knowledgeSources === 0,
@@ -897,6 +947,7 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
       actionableEscalationCount +
       unhealthyChannelCount +
       overdueRefreshCount +
+      assistantRequestCount +
       qualityBlockerCount,
     slaBreaches: slaBreachCount,
     failedSends: failedSendCount,
@@ -974,6 +1025,22 @@ function severityRank(severity: OperatorActionQueueItem["severity"]): number {
 
 function dateValue(value: Date | null): number {
   return value ? value.getTime() : 0;
+}
+
+function requestKindLabel(kind: string): string {
+  if (kind === "handoff_rule") {
+    return "Handoff rule";
+  }
+  if (kind === "tone") {
+    return "Tone";
+  }
+  if (kind === "scope") {
+    return "Answer scope";
+  }
+  if (kind === "other") {
+    return "Other";
+  }
+  return "Assistant change";
 }
 
 function isDateInput(value: string | undefined): value is string {

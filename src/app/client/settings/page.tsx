@@ -1,10 +1,7 @@
 import { requireUser } from "@/lib/auth";
-import { getAgentConfigDetail } from "@/lib/agent/config";
 import { getBrandVoiceProfile } from "@/lib/brand-voice";
-import { getClient, getMetrics } from "@/lib/dashboard";
+import { getClient } from "@/lib/dashboard";
 import { AppShell } from "@/components/shell";
-import { StatCard } from "@/components/stat-card";
-import { ClientAgentConfigPreview } from "@/components/agent-config-panels";
 import { ClientBrandVoicePreview } from "@/components/local-release-panels";
 
 export const dynamic = "force-dynamic";
@@ -15,49 +12,58 @@ export default async function ClientSettingsPage() {
     throw new Error("Client user is missing a client assignment.");
   }
 
-  const [client, metrics, agentConfig, brandVoice] = await Promise.all([
+  const [client, brandVoice] = await Promise.all([
     getClient(user.clientId),
-    getMetrics(user.clientId),
-    getAgentConfigDetail(user.clientId),
     getBrandVoiceProfile(user.clientId),
   ]);
   if (!client) {
     throw new Error("Client record not found.");
   }
 
+  const location = String(client.business_profile.location ?? "");
+  const ownerChatId = String(client.business_profile.ownerChatId ?? "");
+  const ownerPhone = String(client.business_profile.ownerPhone ?? "");
+
   return (
     <AppShell user={user} active="client" clientActive="settings" workspaceName={client.name}>
       <div className="mb-5">
-        <h1 className="text-xl font-semibold tracking-[-0.01em]">{client.name}</h1>
-        <p className="text-sm text-muted">Manage notifications and service setup.</p>
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">Settings</h1>
+        <p className="text-sm text-muted">
+          Business details and owner contact points Pronto uses for handoffs.
+        </p>
       </div>
-      <section className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Conversations" value={metrics.conversations} />
-        <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
-        <StatCard label="Actionable triage" value={metrics.openEscalations} />
-        <StatCard label="CSAT" value="Pending" hint="Client-facing collection hook" />
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <InfoCard label="Business" value={client.name} detail={location || "No location saved"} />
+        <InfoCard label="Telegram handoff" value={ownerChatId || "Not set"} detail="Owner notification chat" />
+        <InfoCard label="WhatsApp handoff" value={ownerPhone || "Not set"} detail="Owner notification phone" />
       </section>
 
       <section className="mt-6 ui-panel">
         <div className="ui-panel-header">
-          <h2 className="text-base font-semibold">Notification settings</h2>
+          <div>
+            <h2 className="text-base font-semibold">Owner handoff settings</h2>
+            <p className="text-sm text-muted">
+              Where Pronto should notify you when a customer needs a human answer.
+            </p>
+          </div>
         </div>
         <form action="/api/client/settings" method="post" className="space-y-3 p-4">
           <input
             name="location"
-            defaultValue={String(client.business_profile.location ?? "")}
+            defaultValue={location}
             className="w-full rounded-md border border-line px-3 py-2 text-sm"
             placeholder="Business location"
           />
           <input
             name="ownerChatId"
-            defaultValue={String(client.business_profile.ownerChatId ?? "")}
+            defaultValue={ownerChatId}
             className="w-full rounded-md border border-line px-3 py-2 text-sm"
             placeholder="Owner Telegram chat ID"
           />
           <input
             name="ownerPhone"
-            defaultValue={String(client.business_profile.ownerPhone ?? "")}
+            defaultValue={ownerPhone}
             className="w-full rounded-md border border-line px-3 py-2 text-sm"
             placeholder="Owner WhatsApp phone number"
           />
@@ -67,8 +73,25 @@ export default async function ClientSettingsPage() {
         </form>
       </section>
 
-      <ClientAgentConfigPreview detail={agentConfig} />
       <ClientBrandVoicePreview profile={brandVoice} />
     </AppShell>
+  );
+}
+
+function InfoCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="ui-panel px-4 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">{label}</p>
+      <p className="mt-2 truncate text-lg font-semibold text-foreground">{value}</p>
+      <p className="mt-1 text-sm text-muted">{detail}</p>
+    </div>
   );
 }
