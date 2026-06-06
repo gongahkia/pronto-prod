@@ -38,13 +38,6 @@ type OperatorSidebarItem = {
   icon: typeof Inbox;
 };
 
-type OperatorSidebarClient = {
-  clientId: string;
-  name: string;
-  status: string;
-  health?: "critical" | "warning" | "healthy";
-};
-
 const clientSidebarItems: ClientSidebarItem[] = [
   { href: "/client", label: "Conversations", section: "conversations", icon: MessageSquareText },
   { href: "/client/flows", label: "Flows", section: "flows", icon: GitBranch },
@@ -57,7 +50,7 @@ const operatorWorkspaceItems: OperatorSidebarItem[] = [
   { href: "/operator", label: "Clients", section: "clients", icon: UserRound },
   { href: "/operator/conversations", label: "Conversations", section: "conversations", icon: MessageSquareText },
   { href: "/operator/quality", label: "Quality", section: "quality", icon: ShieldCheck },
-  { href: "/operator#alerts", label: "Alerts", section: "alerts", icon: AlertTriangle },
+  { href: "/operator/alerts", label: "Alerts", section: "alerts", icon: AlertTriangle },
 ];
 
 export function AppShell({
@@ -66,7 +59,6 @@ export function AppShell({
   active,
   clientActive = "conversations",
   operatorActive = "clients",
-  operatorClients = [],
   workspaceName,
 }: {
   user: SessionUser;
@@ -74,7 +66,6 @@ export function AppShell({
   active: "operator" | "client";
   clientActive?: ClientSection;
   operatorActive?: OperatorSection;
-  operatorClients?: OperatorSidebarClient[];
   workspaceName?: string;
 }) {
   const primaryHref = user.role === "operator" ? "/operator" : "/client";
@@ -90,7 +81,7 @@ export function AppShell({
           workspaceName={workspaceName ?? "Client workspace"}
         />
       ) : (
-        <OperatorSidebar active={operatorActive} clients={operatorClients} email={user.email} />
+        <OperatorSidebar active={operatorActive} email={user.email} />
       )}
 
       <div className="min-w-0 flex-1">
@@ -218,11 +209,9 @@ function ClientSidebar({
 
 function OperatorSidebar({
   active,
-  clients,
   email,
 }: {
   active: OperatorSection;
-  clients: OperatorSidebarClient[];
   email: string;
 }) {
   return (
@@ -253,30 +242,6 @@ function OperatorSidebar({
             ))}
           </div>
         </div>
-
-        {clients.length > 0 ? (
-          <div className="mt-8">
-            <div className="mb-1 flex items-center justify-between px-2 text-xs font-medium text-sidebar-muted">
-              <span>Clients</span>
-              <ChevronDown size={13} />
-            </div>
-            <div className="space-y-1">
-              {clients.slice(0, 9).map((client) => (
-                <Link
-                  key={client.clientId}
-                  href={`/operator/clients/${client.clientId}`}
-                  className="flex h-8 items-center gap-2 rounded-md px-2 font-medium text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
-                >
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${healthDotClass(client.health)}`} />
-                  <span className="min-w-0 flex-1 truncate">{client.name}</span>
-                  <span className="shrink-0 rounded border border-sidebar-line px-1.5 py-0.5 text-[10px] uppercase leading-none text-sidebar-muted">
-                    {client.status}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        ) : null}
       </nav>
 
       <div className="border-t border-sidebar-line p-3">
@@ -378,14 +343,4 @@ function OperatorMobileNav({ active }: { active: OperatorSection }) {
       ))}
     </nav>
   );
-}
-
-function healthDotClass(health: OperatorSidebarClient["health"]): string {
-  if (health === "critical") {
-    return "bg-danger";
-  }
-  if (health === "warning") {
-    return "bg-warning";
-  }
-  return "bg-success";
 }
