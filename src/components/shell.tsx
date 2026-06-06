@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AssistantDock } from "@/components/assistant-dock";
 import { OperatorSidebarActions } from "@/components/operator-sidebar-actions";
 import type { SessionUser } from "@/lib/auth";
 
@@ -119,6 +120,7 @@ export function AppShell({
         <main className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
           {children}
         </main>
+        <AssistantDock />
       </div>
     </div>
   );
