@@ -41,6 +41,22 @@ export function azureOpenAiBaseUrl(): string | null {
   return `${endpoint.replace(/\/+$/, "")}/openai/v1/`;
 }
 
+export function azureOpenAiResponseModel(): string | undefined {
+  return (
+    process.env.AZURE_OPENAI_RESPONSE_MODEL?.trim() ||
+    process.env.AZURE_OPENAI_DEPLOYMENT?.trim() ||
+    undefined
+  );
+}
+
+export function azureOpenAiEmbeddingModel(): string | undefined {
+  return (
+    process.env.AZURE_OPENAI_EMBEDDING_MODEL?.trim() ||
+    process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT?.trim() ||
+    undefined
+  );
+}
+
 export async function getAzureOpenAiClient(): Promise<OpenAI | null> {
   const apiKey = await resolveProviderApiKey("azure");
   const baseURL = azureOpenAiBaseUrl();

@@ -9,6 +9,7 @@ import {
   getKnowledgeSources,
 } from "@/lib/dashboard";
 import { getEmbeddingProvider } from "@/lib/llm";
+import { azureOpenAiEmbeddingModel } from "@/lib/llm/azure";
 import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
 import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
 import { getClientAssistantChangeRequests } from "@/lib/client-assistant-requests";
@@ -536,7 +537,11 @@ async function retrieveRelevantKnowledge(
     "select embedding_model, embedding_provider from agent_configs where client_id = $1",
     [clientId],
   );
-  const model = config.rows[0]?.embedding_model ?? process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
+  const model =
+    config.rows[0]?.embedding_model ??
+    (config.rows[0]?.embedding_provider === "azure" ? azureOpenAiEmbeddingModel() : undefined) ??
+    process.env.OPENAI_EMBEDDING_MODEL ??
+    "text-embedding-3-small";
   try {
     const normalizedQuery = normalizeKnowledgeQuery(message);
     const [embedding] = await getEmbeddingProvider(config.rows[0]?.embedding_provider).embed(

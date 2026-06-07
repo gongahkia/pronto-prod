@@ -1,4 +1,5 @@
 import { normalizeProviderName, type LlmProviderName } from "@/lib/llm";
+import { azureOpenAiResponseModel } from "@/lib/llm/azure";
 import { freeProviderById, isFreeLlmProviderId } from "@/lib/llm/free-providers";
 
 export type LlmTask = "agent_answer" | "routing" | "fallback";
@@ -49,7 +50,7 @@ export function selectModel(input: {
     provider === "anthropic"
       ? process.env.ANTHROPIC_RESPONSE_MODEL
       : provider === "azure"
-        ? process.env.AZURE_OPENAI_RESPONSE_MODEL
+        ? azureOpenAiResponseModel()
         : process.env.OPENAI_RESPONSE_MODEL
   )?.trim() || undefined;
   const catalogChoice = modelCatalog[provider][input.task];

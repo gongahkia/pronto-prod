@@ -138,7 +138,10 @@ export const assistantCitationSchema = z.object({
   type: z.string().min(1).max(80),
   id: z.string().min(1).max(160),
   label: z.string().min(1).max(200),
-  href: z.string().max(300).optional(),
+  href: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    z.string().max(300).optional(),
+  ),
 });
 
 export const assistantActionDraftSchema = z.object({

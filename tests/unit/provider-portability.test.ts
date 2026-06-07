@@ -56,4 +56,13 @@ describe("provider portability", () => {
       model: "pronto-gpt-deployment",
     });
   });
+
+  it("accepts AZURE_OPENAI_DEPLOYMENT as the response model alias", () => {
+    vi.stubEnv("AZURE_OPENAI_DEPLOYMENT", "legacy-deployment-name");
+
+    expect(selectModel({ provider: "azure", task: "agent_answer" })).toMatchObject({
+      provider: "azure",
+      model: "legacy-deployment-name",
+    });
+  });
 });

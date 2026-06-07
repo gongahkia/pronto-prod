@@ -42,7 +42,7 @@ pnpm outbox:retry
 
 The app defaults to mock AI with `PRONTO_USE_MOCK_AI=1`, so local testing works without paid model keys. To test live providers, set `PRONTO_USE_MOCK_AI=0` and configure provider keys either in `.env` or through the operator provider settings UI.
 
-Azure OpenAI is available as a first-class provider with `PRONTO_LLM_PROVIDER=azure` or the operator Agent tuning panel. Set `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_BASE_URL` or `AZURE_OPENAI_ENDPOINT`, and use Azure deployment names for `AZURE_OPENAI_RESPONSE_MODEL` / `AZURE_OPENAI_EMBEDDING_MODEL`.
+Azure OpenAI is available as a first-class provider with `PRONTO_LLM_PROVIDER=azure` or the operator Agent tuning panel. Set `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_BASE_URL` or `AZURE_OPENAI_ENDPOINT`, and use Azure deployment names for `AZURE_OPENAI_RESPONSE_MODEL` / `AZURE_OPENAI_EMBEDDING_MODEL`. `AZURE_OPENAI_DEPLOYMENT` and `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` are also accepted as aliases.
 
 Free/testing provider controls are available in the operator client settings. No-key providers can be tried locally where the upstream provider still permits unauthenticated calls; key-backed providers require storing the API key with `PRONTO_SECRETS_KEY` configured.
 

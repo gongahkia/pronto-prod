@@ -1,6 +1,7 @@
 import { query, transaction, vectorLiteral } from "@/lib/db";
 import { chunkText } from "@/lib/knowledge/chunk";
 import { getEmbeddingProvider } from "@/lib/llm";
+import { azureOpenAiEmbeddingModel } from "@/lib/llm/azure";
 
 export async function ingestKnowledgeSource(input: {
   clientId: string;
@@ -16,6 +17,7 @@ export async function ingestKnowledgeSource(input: {
   );
   const embeddingModel =
     config.rows[0]?.embedding_model ??
+    (config.rows[0]?.embedding_provider === "azure" ? azureOpenAiEmbeddingModel() : undefined) ??
     process.env.OPENAI_EMBEDDING_MODEL ??
     "text-embedding-3-small";
 

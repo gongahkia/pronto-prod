@@ -25,6 +25,8 @@ Use `PRONTO_LLM_PROVIDER=azure` or select Azure OpenAI in the operator Agent tun
 - `AZURE_OPENAI_ENDPOINT`: Optional shorthand endpoint, for example `https://<resource>.openai.azure.com`; Pronto appends `/openai/v1/`.
 - `AZURE_OPENAI_RESPONSE_MODEL`: Azure response deployment name.
 - `AZURE_OPENAI_EMBEDDING_MODEL`: Azure embedding deployment name.
+- `AZURE_OPENAI_DEPLOYMENT`: Backward-compatible alias for `AZURE_OPENAI_RESPONSE_MODEL`.
+- `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`: Backward-compatible alias for `AZURE_OPENAI_EMBEDDING_MODEL`.
 
 The first-class Azure path targets Azure OpenAI's v1 OpenAI-compatible API. Older Azure `api-version` deployment URLs are not used by this app path.
 
