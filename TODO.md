@@ -84,7 +84,7 @@ x 2026-06-05 (A) 2026-05-17 Add approved-template-only guardrail for any future 
 (B) 2026-05-17 Add email channel adapter through Postmark or Resend +Channels @engineering phase:v2
 (B) 2026-05-17 Add LINE and Zalo feasibility notes for SEA expansion after Singapore validation +Channels @research phase:scale
 x 2026-06-05 (B) 2026-05-17 Build client dashboard analytics for conversation volume, escalation rate, response time, CSAT, and knowledge gaps +Dashboard @engineering phase:tighten
-(B) 2026-05-17 Build operator workflow for creating clients, assigning users, and selecting plan tier; channel configuration screen already exists +Dashboard @engineering phase:tighten
+x 2026-06-10 (B) 2026-05-17 Build operator workflow for creating clients, assigning users, and selecting plan tier; channel configuration screen already exists +Dashboard @engineering phase:tighten
 x 2026-05-17 (B) 2026-05-17 Build manual override workflow for operators and client owners +Dashboard @engineering phase:tighten
 x 2026-06-05 (B) 2026-05-17 Build conversation search and filters by channel, status, escalation reason, date, customer, and review outcome +Dashboard @engineering phase:tighten
 (B) 2026-05-17 Add bulk escalation handling for clients with multiple staff +Dashboard @engineering phase:tighten
@@ -113,7 +113,7 @@ x 2026-06-05 (B) 2026-05-17 Add tier-specific SLA tracking for Starter 24h busin
 (B) 2026-05-17 Identify Singapore SME events for talks, demos, or founder-led content +GTM @marketing phase:scale
 (B) 2026-05-17 Add business health dashboard for active clients, MRR, new ARR, gross margin, churn, NRR, and monthly gross profit +Metrics @business phase:tighten
 (B) 2026-05-17 Add north-star monthly gross profit dashboard and monthly review habit +Metrics @business phase:tighten
-(B) 2026-05-17 Add client concentration warning when any client exceeds 30 percent of MRR +Risk @business phase:tighten
+x 2026-06-10 (B) 2026-05-17 Add client concentration warning when any client exceeds 30 percent of MRR +Risk @business phase:tighten
 (B) 2026-05-17 Add capacity planning dashboard for active clients, active builds, maintenance load, and Gabriel engineering hours +Ops @business phase:tighten
 x 2026-05-17 (B) 2026-05-17 Document hard client cap of 8-12 concurrent active clients for current team +Ops @business phase:pilot
 x 2026-05-17 (B) 2026-05-17 Add hiring trigger note for junior dev or contract engineer at 6+ active clients +Hiring @business phase:tighten
@@ -130,7 +130,7 @@ x 2026-06-05 (B) 2026-06-04 Add background outbound outbox retry worker for fail
 x 2026-06-05 (B) 2026-06-05 Add local operational alert scaffolding for failed outbound sends, degraded channels, overdue knowledge refreshes, and quality blockers +Observability @dashboard phase:tighten
 x 2026-06-10 (B) 2026-05-17 Add persistent error tracking and external alert routing for webhook failures, LLM failures, database errors, and outbound send failures; local operational alert scaffolding already exists +Observability @engineering phase:tighten
 (B) 2026-05-17 Add LangSmith or custom trace view for conversation review and model debugging +Observability @engineering phase:tighten
-(B) 2026-05-17 Add per-client cost alert when estimated monthly variable cost exceeds tier margin assumptions +Costing @business phase:tighten
+x 2026-06-10 (B) 2026-05-17 Add per-client cost alert when estimated monthly variable cost exceeds tier margin assumptions +Costing @business phase:tighten
 (B) 2026-05-17 Add load and cost model for standard SME 500 conversations, Growth 2000 conversations, Scale 6000 conversations, and heavy 3000+ conversations +Costing @business phase:tighten
 (B) 2026-05-17 Add hosting cost tracker for shared compute, vector storage, logs, and agent state per client +Costing @business phase:tighten
 (B) 2026-05-17 Add integration overhead tracker for paid APIs, free tier limits, and custom maintenance burden +Costing @business phase:tighten

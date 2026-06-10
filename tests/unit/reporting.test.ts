@@ -127,6 +127,7 @@ describe("reporting helpers", () => {
         ],
       })
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 
     const result = await getOperationalAlerts({ clientId: "client-1", limit: 5 });

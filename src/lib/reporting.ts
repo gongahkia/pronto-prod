@@ -400,11 +400,15 @@ export async function getSlaSummary(clientId?: string): Promise<SlaSummary> {
   };
 }
 
+const USD_TO_SGD = 1.35;
+const COST_ALERT_WARNING_MARGIN_FRACTION = 0.3;
+const CLIENT_CONCENTRATION_WARNING_THRESHOLD = 0.3;
+
 export async function getOperationalAlerts(input: {
   clientId?: string;
   limit?: number;
 } = {}): Promise<OperationalAlert[]> {
-  const [failedOutbound, unhealthyChannels, staleRefreshes, blockers] =
+  const [failedOutbound, unhealthyChannels, staleRefreshes, blockers, costRows] =
     await Promise.all([
       query<{
         id: string;
@@ -497,6 +501,40 @@ export async function getOperationalAlerts(input: {
         `,
         input.clientId ? [input.clientId] : [],
       ),
+      query<{
+        client_id: string;
+        client_name: string;
+        monthly_retainer_sgd: string;
+        setup_fee_sgd: string;
+        amortized_setup_months: number;
+        hosting_cost_sgd: string;
+        integration_cost_sgd: string;
+        llm_cost_buffer_multiplier: string;
+        monthly_llm_cost_usd: string;
+      }>(
+        `
+          select
+            cl.id as client_id,
+            cl.name as client_name,
+            cca.monthly_retainer_sgd::text,
+            cca.setup_fee_sgd::text,
+            cca.amortized_setup_months,
+            cca.hosting_cost_sgd::text,
+            cca.integration_cost_sgd::text,
+            cca.llm_cost_buffer_multiplier::text,
+            coalesce((
+              select sum(estimated_cost_usd)::text
+              from agent_usage_events
+              where client_id = cl.id
+                and created_at >= now() - interval '30 days'
+            ), '0') as monthly_llm_cost_usd
+          from clients cl
+          join client_commercial_assumptions cca on cca.client_id = cl.id
+          where cl.status <> 'paused'
+            ${input.clientId ? "and cl.id = $1" : ""}
+        `,
+        input.clientId ? [input.clientId] : [],
+      ),
     ]);
 
   const alerts: OperationalAlert[] = [
@@ -530,9 +568,88 @@ export async function getOperationalAlerts(input: {
       detail: `${row.client_name}: ${row.answer_label ?? "hallucination or pilot blocker"}`,
       href: conversationHref(row.client_id, row.conversation_id),
     })),
+    ...costRows.rows
+      .map((row) => evaluateCostAlert(row))
+      .filter((alert): alert is OperationalAlert => alert !== null),
+    ...evaluateConcentrationAlerts(
+      input.clientId ? [] : costRows.rows,
+    ),
   ];
 
   return alerts.slice(0, normalizeLimit(input.limit, 12));
+}
+
+type CostAlertRow = {
+  client_id: string;
+  client_name: string;
+  monthly_retainer_sgd: string;
+  setup_fee_sgd: string;
+  amortized_setup_months: number;
+  hosting_cost_sgd: string;
+  integration_cost_sgd: string;
+  llm_cost_buffer_multiplier: string;
+  monthly_llm_cost_usd: string;
+};
+
+function evaluateConcentrationAlerts(
+  rows: CostAlertRow[],
+): OperationalAlert[] {
+  const retainers = rows.map((row) => ({
+    clientId: row.client_id,
+    clientName: row.client_name,
+    retainer: Number(row.monthly_retainer_sgd),
+  }));
+  const totalMrr = retainers.reduce(
+    (sum, row) => sum + (Number.isFinite(row.retainer) ? row.retainer : 0),
+    0,
+  );
+  if (totalMrr <= 0 || retainers.length < 2) return [];
+  return retainers
+    .filter(
+      (row) => row.retainer / totalMrr >= CLIENT_CONCENTRATION_WARNING_THRESHOLD,
+    )
+    .map((row) => {
+      const share = Math.round((row.retainer / totalMrr) * 100);
+      return {
+        id: `concentration:${row.clientId}`,
+        severity: share >= 50 ? ("critical" as const) : ("warning" as const),
+        title: "Client concentration risk",
+        detail: `${row.clientName} is ${share}% of MRR (threshold ${Math.round(CLIENT_CONCENTRATION_WARNING_THRESHOLD * 100)}%).`,
+        href: `/operator/clients/${row.clientId}?section=commercial`,
+      };
+    });
+}
+
+function evaluateCostAlert(row: CostAlertRow): OperationalAlert | null {
+  const retainer = Number(row.monthly_retainer_sgd);
+  if (!Number.isFinite(retainer) || retainer <= 0) return null;
+  const amortizedSetup =
+    Number(row.setup_fee_sgd) / Math.max(1, Number(row.amortized_setup_months));
+  const monthlyLlmCostSgd =
+    Number(row.monthly_llm_cost_usd) *
+    USD_TO_SGD *
+    Number(row.llm_cost_buffer_multiplier);
+  const margin =
+    retainer +
+    amortizedSetup -
+    Number(row.hosting_cost_sgd) -
+    Number(row.integration_cost_sgd) -
+    monthlyLlmCostSgd;
+
+  if (margin >= retainer * COST_ALERT_WARNING_MARGIN_FRACTION) return null;
+  const severity = margin < 0 ? ("critical" as const) : ("warning" as const);
+  const formattedMargin = `SGD ${Math.round(margin).toLocaleString("en-SG")}`;
+  const formattedLlm = `SGD ${Math.round(monthlyLlmCostSgd).toLocaleString("en-SG")}`;
+  return {
+    id: `cost:${row.client_id}`,
+    severity,
+    title:
+      severity === "critical"
+        ? "Per-client gross margin negative"
+        : "Per-client gross margin below floor",
+    detail: `${row.client_name}: estimated 30-day buffered LLM cost ${formattedLlm} pushes margin to ${formattedMargin}.`,
+    href: `/operator/clients/${row.client_id}?section=commercial`,
+  };
 }
 
 export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter> {

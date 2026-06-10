@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { transaction } from "@/lib/db";
+import { hashPassword } from "@/lib/password";
 import {
   buildDefaultTriageFlow,
   compileTriageFlowToEscalationRules,
 } from "@/lib/triage-flow";
 
 const VALID_STATUS = new Set(["draft", "pilot", "live", "paused"]);
+const MIN_INITIAL_PASSWORD_LENGTH = 8;
+
+function redirectWithError(request: Request, message: string): NextResponse {
+  const url = new URL("/operator/clients/new", request.url);
+  url.searchParams.set("error", message);
+  return NextResponse.redirect(url, 303);
+}
 
 export async function POST(request: Request) {
   const user = await requireUser("operator");
@@ -18,13 +26,32 @@ export async function POST(request: Request) {
   const status = VALID_STATUS.has(submittedStatus) ? submittedStatus : "draft";
   const brandVoice = String(form.get("brandVoice") ?? "").trim() || defaultBrandVoice(name);
   const slug = normalizeSlug(String(form.get("slug") ?? "") || name);
+  const initialUserName = String(form.get("initialUserName") ?? "").trim();
+  const initialUserEmail = String(form.get("initialUserEmail") ?? "").trim().toLowerCase();
+  const initialUserPassword = String(form.get("initialUserPassword") ?? "");
+  const initialUserFields = [initialUserName, initialUserEmail, initialUserPassword];
+  const anyInitialUserField = initialUserFields.some((value) => value.length > 0);
+  const allInitialUserFields = initialUserFields.every((value) => value.length > 0);
 
   if (!name) {
-    return NextResponse.json({ error: "Client name is required." }, { status: 400 });
+    return redirectWithError(request, "Client name is required.");
   }
   if (!slug) {
-    return NextResponse.json({ error: "Client slug is required." }, { status: 400 });
+    return redirectWithError(request, "Client slug is required.");
   }
+  if (anyInitialUserField && !allInitialUserFields) {
+    return redirectWithError(request, "Initial user requires name, email, and password.");
+  }
+  if (allInitialUserFields && initialUserPassword.length < MIN_INITIAL_PASSWORD_LENGTH) {
+    return redirectWithError(
+      request,
+      `Initial user password must be at least ${MIN_INITIAL_PASSWORD_LENGTH} characters.`,
+    );
+  }
+
+  const initialUserPasswordHash = allInitialUserFields
+    ? await hashPassword(initialUserPassword)
+    : null;
 
   const triageFlow = buildDefaultTriageFlow();
   const compiledRules = compileTriageFlowToEscalationRules(triageFlow.nodes);
@@ -137,10 +164,51 @@ export async function POST(request: Request) {
       ],
     );
 
+    if (initialUserPasswordHash) {
+      const existingEmail = await client.query<{ id: string }>(
+        "select id from users where email = $1 limit 1",
+        [initialUserEmail],
+      );
+      if (existingEmail.rows[0]) {
+        throw new ClientCreationError("Initial user email is already in use.");
+      }
+      const userResult = await client.query<{ id: string }>(
+        `insert into users (client_id, email, name, role, password_hash)
+         values ($1, $2, $3, 'client', $4)
+         returning id`,
+        [createdClientId, initialUserEmail, initialUserName, initialUserPasswordHash],
+      );
+      await client.query(
+        "insert into audit_logs (client_id, actor_user_id, action, target_type, target_id, metadata) values ($1, $2, 'client_user.created', 'user', $3, $4::jsonb)",
+        [
+          createdClientId,
+          user.userId,
+          userResult.rows[0].id,
+          JSON.stringify({ email: initialUserEmail, name: initialUserName, role: "client" }),
+        ],
+      );
+    }
+
     return createdClientId;
+  }).catch((error) => {
+    if (error instanceof ClientCreationError) {
+      return { error: error.message } as const;
+    }
+    throw error;
   });
 
+  if (typeof clientId !== "string") {
+    return redirectWithError(request, clientId.error);
+  }
+
   return NextResponse.redirect(new URL(`/operator/clients/${clientId}`, request.url), 303);
+}
+
+class ClientCreationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ClientCreationError";
+  }
 }
 
 function normalizeSlug(value: string): string {

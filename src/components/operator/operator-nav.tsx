@@ -48,6 +48,7 @@ export type OperatorClientTab =
   | "flows"
   | "knowledge"
   | "conversations"
+  | "users"
   | "test"
   | "offboarding";
 
@@ -57,6 +58,7 @@ const clientItems: OperatorClientNavItem[] = [
   { href: (clientId) => `/operator/clients/${clientId}/flows`, label: "Flows", key: "flows" },
   { href: (clientId) => `/operator/clients/${clientId}/knowledge`, label: "Knowledge", key: "knowledge" },
   { href: (clientId) => `/operator/clients/${clientId}/conversations`, label: "Conversations", key: "conversations" },
+  { href: (clientId) => `/operator/clients/${clientId}/users`, label: "Users", key: "users" },
   { href: (clientId) => `/operator/clients/${clientId}/test`, label: "Test", key: "test" },
   { href: (clientId) => `/operator/clients/${clientId}/offboarding`, label: "Offboarding", key: "offboarding" },
 ];
