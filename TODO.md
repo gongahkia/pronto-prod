@@ -122,8 +122,8 @@ x 2026-05-17 (B) 2026-05-17 Add policy that team should not hire ahead of revenu
 x 2026-05-17 (B) 2026-05-17 Document decision rights for Keith, Gabriel, and Astin across scope, legal, pricing, tech, and hiring +Ops @docs phase:pilot
 x 2026-05-17 (B) 2026-05-17 Document Gabriel technical veto on infeasible per-client scope +Ops @docs phase:pilot
 x 2026-05-17 (B) 2026-05-17 Create technical architecture runbook for templated core, RAG, guardrails, channels, integrations, escalation, and dashboard +Docs @engineering phase:pilot
-(B) 2026-05-17 Create onboarding guide so a second engineer can become productive on templated core in under 2 weeks +Docs @engineering phase:tighten
-(B) 2026-05-17 Create integration playbook for scoping, credential collection, API limits, read-only tools, error handling, and client signoff +Docs @engineering phase:tighten
+x 2026-06-10 (B) 2026-05-17 Create onboarding guide so a second engineer can become productive on templated core in under 2 weeks +Docs @engineering phase:tighten
+x 2026-06-10 (B) 2026-05-17 Create integration playbook for scoping, credential collection, API limits, read-only tools, error handling, and client signoff +Docs @engineering phase:tighten
 x 2026-05-17 (B) 2026-05-17 Create incident post-mortem template for hallucination, data breach, channel outage, and integration failure +Docs @ops phase:pilot
 x 2026-06-05 (B) 2026-05-17 Extend structured logging and request IDs from webhooks into agent runs, retrieval, provider calls, and background outbound sends +Observability @engineering phase:pilot
 x 2026-06-05 (B) 2026-06-04 Add background outbound outbox retry worker for failed or stale sending messages beyond the immediate in-route local-release flush +Channels @engineering phase:tighten
