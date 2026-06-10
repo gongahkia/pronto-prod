@@ -36,3 +36,5 @@ Pronto's WhatsApp usage is reactive and customer-service scoped:
 Plain proactive WhatsApp sends are blocked in code unless future implementation passes an approved-template policy path. Do not add broadcasts, marketing pushes, or cold outreach without template approval and policy review.
 
 Meta policy should be reviewed monthly because the boundary between purpose-driven business AI and general-purpose AI can change. Check the WhatsApp Business Terms, Business Messaging Policy, Business Platform pricing page, and developer docs, then record the review in Jira with the date, reviewer, and any needed product or contract changes.
+
+A scheduler-backed monitor exists via `pnpm risk:monitor:policy` (see `scripts/risk-monitor-policy.ts`). It hashes the configured WhatsApp policy URLs and records `risk_monitor_findings` rows on change or fetch failure. Set `PRONTO_RISK_ALERT_WEBHOOK_URL` to deliver external alerts (Slack incoming webhook, PagerDuty events API, or similar) when findings are produced.

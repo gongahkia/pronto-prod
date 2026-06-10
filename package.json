@@ -16,7 +16,9 @@
     "eval": "tsx scripts/eval.ts",
     "assistant:eval": "tsx scripts/assistant-eval.ts",
     "staging:preflight": "tsx scripts/staging-preflight.ts",
-    "outbox:retry": "tsx scripts/retry-outbox.ts"
+    "outbox:retry": "tsx scripts/retry-outbox.ts",
+    "risk:monitor:pricing": "tsx scripts/risk-monitor-pricing.ts",
+    "risk:monitor:policy": "tsx scripts/risk-monitor-policy.ts"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.0",

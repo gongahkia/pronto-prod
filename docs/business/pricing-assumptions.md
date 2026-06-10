@@ -37,4 +37,6 @@ Official provider and channel pricing should be checked before production pricin
 - Google Gemini API pricing: https://ai.google.dev/gemini-api/docs/pricing
 - WhatsApp Business Platform pricing: https://whatsappbusiness.com/products/platform-pricing/
 
-Record each monthly review in Jira with the date, reviewer, changed models or message categories, and whether commercial assumptions need to be updated. This is a manual monitor until a scheduler-backed task exists.
+Record each monthly review in Jira with the date, reviewer, changed models or message categories, and whether commercial assumptions need to be updated.
+
+A scheduler-backed monitor exists via `pnpm risk:monitor:pricing` (see `scripts/risk-monitor-pricing.ts`). It snapshots each provider pricing page, compares the SHA-256 of the body against the previous snapshot, and records `risk_monitor_findings` rows for changed/unreachable sources. Set `PRONTO_RISK_ALERT_WEBHOOK_URL` to receive external alerts when findings are produced. Run nightly or weekly from external cron (Vercel cron, GitHub Actions, or Render scheduler).

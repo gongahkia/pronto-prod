@@ -17,7 +17,7 @@ x 2026-05-17 (A) 2026-05-17 Add channel setup UI copy for Meta webhook URL, Tele
 x 2026-06-04 (A) 2026-05-17 Add production-safe webhook logging with payload redaction for customer phone numbers and message content +Security @engineering phase:pilot
 x 2026-06-04 (A) 2026-06-04 Add webhook batch partial-failure handling so one bad inbound message cannot cause already-processed messages in the same provider delivery to be retried blindly +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add per-client rate limits and inbound message size limits for webhook and console endpoints +Security @engineering phase:pilot
-(B) 2026-06-04 Move rate limits from process memory to a shared store before multi-instance or serverless deployment +Security @engineering phase:tighten
+x 2026-06-10 (B) 2026-06-04 Move rate limits from process memory to a shared store before multi-instance or serverless deployment +Security @engineering phase:tighten
 x 2026-06-04 (A) 2026-05-17 Add real website URL ingestion with crawl depth controls, static content extraction, and robots-aware warnings stored on source metadata +RAG @engineering phase:pilot
 x 2026-06-04 (A) 2026-06-04 Surface knowledge-source metadata warnings in client and operator source detail pages, especially website crawl robots and fetch warnings +RAG @dashboard phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add uploaded document ingestion for PDF, DOCX, TXT, Markdown, and CSV knowledge sources +RAG @engineering phase:pilot
@@ -67,8 +67,8 @@ x 2026-05-17 (A) 2026-05-17 Add provider selection per client and per task with 
 x 2026-06-05 (A) 2026-06-05 Add free/testing LLM provider catalog, OpenAI-compatible adapter, encrypted provider key storage, operator provider controls, and provider test console +ProviderPortability @engineering phase:tighten
 x 2026-06-05 (A) 2026-05-17 Add manual provider pricing monitor task for OpenAI, Anthropic, Gemini, and WhatsApp channel pricing with monthly Jira review cadence +Risk @ops phase:tighten
 x 2026-06-05 (A) 2026-05-17 Add manual Meta WhatsApp Business policy monitor task and compliance posture notes cadence:monthly +Risk @ops phase:tighten
-(A) 2026-06-05 Add scheduler-backed provider pricing diff monitor for OpenAI, Anthropic, Gemini, and WhatsApp channel pricing changes cadence:monthly +Risk @ops phase:tighten
-(A) 2026-06-05 Add scheduler-backed Meta WhatsApp Business policy monitor with external alerting cadence:monthly +Risk @ops phase:tighten
+x 2026-06-10 (A) 2026-06-05 Add scheduler-backed provider pricing diff monitor for OpenAI, Anthropic, Gemini, and WhatsApp channel pricing changes cadence:monthly +Risk @ops phase:tighten
+x 2026-06-10 (A) 2026-06-05 Add scheduler-backed Meta WhatsApp Business policy monitor with external alerting cadence:monthly +Risk @ops phase:tighten
 x 2026-05-17 (A) 2026-05-17 Document Pronto as purpose-driven business AI and not a general-purpose chatbot in product, contract, and channel setup docs +Compliance @docs phase:pilot
 x 2026-06-05 (A) 2026-05-17 Add approved-template-only guardrail for any future proactive WhatsApp notifications +Channels @compliance phase:tighten
 (B) 2026-05-17 Add Google Calendar read-only availability integration with no booking mutations in v1 +Integrations @engineering phase:tighten
