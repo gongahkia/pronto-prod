@@ -18,8 +18,14 @@ vi.mock("@/lib/channels/dispatch", () => ({
 vi.mock("@/lib/logger", () => ({
   logInfo: mocks.logInfo,
   logWarn: mocks.logWarn,
+  logError: vi.fn(),
   redactErrorMessage: (error: unknown) =>
     error instanceof Error ? error.message : String(error),
+  redactForLog: (value: unknown) => value,
+}));
+
+vi.mock("@/lib/error-tracking", () => ({
+  recordErrorEvent: vi.fn().mockResolvedValue(null),
 }));
 
 import {
