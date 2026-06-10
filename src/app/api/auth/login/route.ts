@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const normalizedEmail = normalizeLoginEmail(email);
   const ipKey = coarseIpKey(request);
   const rateLimitKey = `auth:login:${normalizedEmail || "blank"}:${ipKey}`;
-  const rateLimit = getRateLimitStatus(
+  const rateLimit = await getRateLimitStatus(
     rateLimitKey,
     LOGIN_RATE_LIMIT_MAX,
     LOGIN_RATE_LIMIT_WINDOW_MS,
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   const user = await login(email, password);
 
   if (!user) {
-    recordRateLimitHit(
+    await recordRateLimitHit(
       rateLimitKey,
       LOGIN_RATE_LIMIT_MAX,
       LOGIN_RATE_LIMIT_WINDOW_MS,
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL("/login?error=1", request.url), 303);
   }
 
-  resetRateLimit(rateLimitKey);
+  await resetRateLimit(rateLimitKey);
 
   return NextResponse.redirect(
     new URL(user.role === "operator" ? "/operator" : "/client", request.url),

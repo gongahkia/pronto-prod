@@ -27,20 +27,21 @@ import { POST } from "@/app/api/auth/login/route";
 describe("login route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getRateLimitStatus.mockReturnValue({
+    mocks.getRateLimitStatus.mockResolvedValue({
       allowed: true,
       remaining: 5,
       retryAfterSeconds: 0,
     });
-    mocks.recordRateLimitHit.mockReturnValue({
+    mocks.recordRateLimitHit.mockResolvedValue({
       allowed: true,
       remaining: 4,
       retryAfterSeconds: 0,
     });
+    mocks.resetRateLimit.mockResolvedValue(undefined);
   });
 
   it("rate limits repeated failed login attempts before checking credentials", async () => {
-    mocks.getRateLimitStatus.mockReturnValueOnce({
+    mocks.getRateLimitStatus.mockResolvedValueOnce({
       allowed: false,
       remaining: 0,
       retryAfterSeconds: 120,

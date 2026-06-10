@@ -46,7 +46,7 @@ export async function POST(request: Request, context: Context) {
     });
   }
 
-  const rateLimit = checkRateLimit(`webhook:telegram:${channelId}`);
+  const rateLimit = await checkRateLimit(`webhook:telegram:${channelId}`);
   if (!rateLimit.allowed) {
     return new NextResponse("Rate limit exceeded", {
       status: 429,

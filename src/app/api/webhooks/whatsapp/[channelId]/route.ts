@@ -53,7 +53,7 @@ export async function POST(request: Request, context: Context) {
     });
   }
 
-  const rateLimit = checkRateLimit(`webhook:whatsapp:${channelId}`);
+  const rateLimit = await checkRateLimit(`webhook:whatsapp:${channelId}`);
   if (!rateLimit.allowed) {
     return new NextResponse("Rate limit exceeded", {
       status: 429,

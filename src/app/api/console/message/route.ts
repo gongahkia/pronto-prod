@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       { status: 403, headers: requestIdHeaders(requestId) },
     );
   }
-  const rateLimit = checkRateLimit(`console:${requestedClientId}:${user.userId}`);
+  const rateLimit = await checkRateLimit(`console:${requestedClientId}:${user.userId}`);
   if (!rateLimit.allowed) {
     return NextResponse.json(
       { error: "Rate limit exceeded." },
