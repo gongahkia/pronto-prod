@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import { sendChannelText } from "@/lib/channels/dispatch";
 import { policyFromOutboundMetadata } from "@/lib/channels/policy";
 import { query } from "@/lib/db";
+import { recordErrorEvent } from "@/lib/error-tracking";
 import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
 
 type Queryable = Pick<Pool, "query">;
@@ -203,6 +204,21 @@ export async function flushOutboundMessage(
       channelId: outbound.channel_id,
       attemptCount: outbound.attempt_count,
       error,
+    });
+    await recordErrorEvent({
+      eventName: "outbox.flush_failed",
+      source: "outbound",
+      severity: outbound.attempt_count >= DEFAULT_MAX_ATTEMPTS ? "error" : "warning",
+      requestId: options.requestId ?? null,
+      clientId: outbound.client_id,
+      channelId: outbound.channel_id,
+      message,
+      metadata: {
+        outboundMessageId: outbound.id,
+        conversationId: outbound.conversation_id,
+        escalationId: outbound.escalation_id,
+        attemptCount: outbound.attempt_count,
+      },
     });
     return { status: "failed", outboundMessageId: outbound.id, error: message };
   }
