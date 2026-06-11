@@ -8,7 +8,7 @@ import { sendTelegramText } from "@/lib/channels/telegram";
 import { sendWhatsAppText } from "@/lib/channels/whatsapp";
 import { sendMessengerText } from "@/lib/channels/messenger";
 import { sendInstagramText } from "@/lib/channels/instagram";
-import { sendEmail } from "@/lib/channels/email";
+import { lookupReplyThreadingHints, sendEmail } from "@/lib/channels/email";
 import type { Channel } from "@/lib/types";
 
 export async function sendChannelText(input: {
@@ -53,13 +53,20 @@ export async function sendChannelText(input: {
     }
 
     if (channel.kind === "email") {
-      const subject =
-        (channel.settings.defaultSubject as string | undefined) ?? "Re: your inquiry";
+      const threading = await lookupReplyThreadingHints({
+        channelId: channel.id,
+        externalThreadId: input.externalThreadId,
+      });
+      const subjectSetting =
+        (channel.settings.defaultSubject as string | undefined) ?? "your inquiry";
+      const subject = threading.subject ?? subjectSetting;
       await sendEmail({
         channel,
-        to: input.externalThreadId,
+        to: threading.to,
         subject,
         text: input.text,
+        inReplyTo: threading.inReplyTo,
+        references: threading.references,
       });
       await recordOutboundHealth(input.channelId);
       return;

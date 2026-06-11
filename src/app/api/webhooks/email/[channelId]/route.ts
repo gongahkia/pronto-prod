@@ -79,7 +79,7 @@ export async function POST(request: Request, context: Context) {
       headers: requestIdHeaders(requestId),
     });
   }
-  const messages = normalizeEmailPayload(channelId, provider, payload);
+  const messages = await normalizeEmailPayload(channelId, provider, payload);
   return NextResponse.json(await processWebhookBatch(messages, { requestId }), {
     headers: requestIdHeaders(requestId),
   });
