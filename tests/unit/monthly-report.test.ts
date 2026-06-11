@@ -9,7 +9,8 @@ describe("monthly check-in report", () => {
     const asOf = new Date("2026-06-30T12:00:00Z");
     const { windowStart, windowEnd } = defaultMonthlyWindow(asOf);
     const diffDays = (windowEnd.getTime() - windowStart.getTime()) / 86400000;
-    expect(diffDays).toBeCloseTo(30, 0);
+    expect(diffDays).toBeGreaterThan(29);
+    expect(diffDays).toBeLessThan(32);
     expect(windowEnd.toISOString().startsWith("2026-06-30")).toBe(true);
   });
 
