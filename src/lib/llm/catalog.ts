@@ -61,9 +61,32 @@ export function selectModel(input: {
   };
 }
 
-export function failoverModelChoice(): ModelChoice {
-  return {
-    ...modelCatalog.openai.fallback,
-    model: process.env.OPENAI_RESPONSE_MODEL?.trim() || modelCatalog.openai.fallback.model,
-  };
+export function failoverModelChoices(originProvider: string | null | undefined): ModelChoice[] {
+  const origin = normalizeProviderName(originProvider);
+  const chain: Array<"openai" | "azure" | "anthropic"> =
+    origin === "openai"
+      ? ["azure", "anthropic"]
+      : origin === "azure"
+        ? ["openai", "anthropic"]
+        : origin === "anthropic"
+          ? ["openai", "azure"]
+          : ["openai", "azure", "anthropic"];
+  return chain.map((provider) => {
+    const choice = modelCatalog[provider].fallback;
+    const envModel = (
+      provider === "anthropic"
+        ? process.env.ANTHROPIC_RESPONSE_MODEL
+        : provider === "azure"
+          ? azureOpenAiResponseModel()
+          : process.env.OPENAI_RESPONSE_MODEL
+    )?.trim();
+    return {
+      ...choice,
+      model: envModel || choice.model,
+    };
+  });
+}
+
+export function failoverModelChoice(originProvider?: string | null): ModelChoice {
+  return failoverModelChoices(originProvider)[0];
 }

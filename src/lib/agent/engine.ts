@@ -16,13 +16,26 @@ import { getPromptBrandVoiceProfile } from "@/lib/brand-voice";
 import {
   estimateEmbeddingCost,
   estimateGenerationCost,
+  estimateGenerationCostFromTokens,
   recordAgentUsageEvent,
 } from "@/lib/costing";
+import {
+  agentMaxConversationTokens,
+  agentMaxOutputTokens,
+  agentMaxPromptTokens,
+  agentTimeoutMs,
+} from "@/lib/agent/runtime-limits";
+import { estimateTokens } from "@/lib/knowledge/chunk";
 import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
 import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
 import { appBaseUrl } from "@/lib/env";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
-import { failoverModelChoice, selectModel } from "@/lib/llm/catalog";
+import { failoverModelChoices, selectModel } from "@/lib/llm/catalog";
+import {
+  canCallProvider,
+  recordProviderFailure,
+  recordProviderSuccess,
+} from "@/lib/llm/circuit-breaker";
 import {
   buildGroundedAnswerInstructions,
   buildGroundedAnswerUserInput,
@@ -295,6 +308,40 @@ export async function runAgentForMessage(input: {
     chunkCount: chunks.length,
   });
 
+  const conversationTokenEstimate = estimateTokens(
+    [
+      input.customerMessage,
+      ...recentMessagesResult.rows.map((message) => message.body),
+      ...chunks.map((chunk) => chunk.content),
+    ].join("\n"),
+  );
+  if (conversationTokenEstimate > agentMaxConversationTokens()) {
+    trace.addStep("conversation_token_cap_escalated", {
+      conversationTokenEstimate,
+      maxConversationTokens: agentMaxConversationTokens(),
+    });
+    const escalation = await createEscalation({
+      ...input,
+      reasonCode: "context_budget_exceeded",
+      reasonDetail: `Estimated context ${conversationTokenEstimate} tokens exceeds the configured agent cap.`,
+      confidence: 1,
+    });
+    await trace.finalize({
+      status: "escalated",
+      reasonCode: "context_budget_exceeded",
+      confidence: 1,
+      responseProvider: responseModel.provider,
+      responseModel: responseModel.model,
+      embeddingProvider: config.embedding_provider,
+      embeddingModel: config.embedding_model,
+      retrievalTopScore: chunks[0]?.score ?? null,
+      retrievalThreshold,
+      retrievalChunks: chunks,
+      escalationId: escalation.escalationId,
+    });
+    return escalation;
+  }
+
   if (retrievalCheck.shouldEscalate) {
     const escalation = await createEscalation({
       ...input,
@@ -338,64 +385,88 @@ export async function runAgentForMessage(input: {
     })),
     retrievedChunks: chunks,
     responseModel: responseModel.model,
+    maxOutputTokens: agentMaxOutputTokens(),
+    timeoutMs: agentTimeoutMs(),
+    maxPromptTokens: agentMaxPromptTokens(),
   };
 
-  let decision: GroundedAnswerDecision;
+  let decision: GroundedAnswerDecision | undefined;
   let usedFailover = false;
   let failoverProvider: string | undefined;
   let failoverModel: string | undefined;
   let failoverReason: string | undefined;
-  try {
-    decision = await getGenerationProvider(responseModel.provider).generateGroundedAnswer(
-      generationInput,
-    );
-  } catch (error) {
-    if (
-      responseModel.provider === "openai" ||
-      process.env.PRONTO_ENABLE_PROVIDER_FAILOVER === "0"
-    ) {
-      await trace.finalize({
-        status: "escalated",
-        reasonCode: "provider_error",
-        confidence: 0,
-        responseProvider: responseModel.provider,
-        responseModel: responseModel.model,
-        embeddingProvider: config.embedding_provider,
-        embeddingModel: config.embedding_model,
-        retrievalTopScore: chunks[0]?.score ?? null,
-        retrievalThreshold,
-        retrievalChunks: chunks,
-        errorMessage: error instanceof Error ? error.message : String(error),
+  let generationProvider = responseModel.provider;
+  let generationModel = responseModel.model;
+  let generationCostLabel = responseModel.costLabel;
+  let providerError: unknown;
+  const choices =
+    process.env.PRONTO_ENABLE_PROVIDER_FAILOVER === "0"
+      ? [responseModel]
+      : [responseModel, ...failoverModelChoices(responseModel.provider)];
+  for (const choice of choices) {
+    if (!canCallProvider(choice.provider)) {
+      trace.addStep("provider_circuit_open", {
+        provider: choice.provider,
+        model: choice.model,
       });
-      throw error;
+      continue;
     }
-
-    const fallback = failoverModelChoice();
-    usedFailover = true;
-    failoverProvider = fallback.provider;
-    failoverModel = fallback.model;
-    failoverReason = error instanceof Error ? error.message : String(error);
-    logWarn("agent.provider_failover_started", {
-      requestId: input.requestId,
-      clientId: input.clientId,
-      channelId: input.channelId,
-      conversationId: input.conversationId,
-      failedProvider: responseModel.provider,
-      failedModel: responseModel.model,
-      fallbackProvider: fallback.provider,
-      fallbackModel: fallback.model,
-      error,
+    try {
+      decision = await getGenerationProvider(choice.provider).generateGroundedAnswer({
+        ...generationInput,
+        responseModel: choice.model,
+      });
+      recordProviderSuccess(choice.provider);
+      generationProvider = choice.provider;
+      generationModel = choice.model;
+      generationCostLabel = choice.costLabel;
+      if (choice.provider !== responseModel.provider) {
+        usedFailover = true;
+        failoverProvider = choice.provider;
+        failoverModel = choice.model;
+        trace.addStep("provider_failover", {
+          failedProvider: responseModel.provider,
+          failedModel: responseModel.model,
+          fallbackProvider: choice.provider,
+          fallbackModel: choice.model,
+        });
+      }
+      break;
+    } catch (error) {
+      providerError = error;
+      recordProviderFailure(choice.provider);
+      if (choice.provider !== responseModel.provider) {
+        logWarn("agent.provider_failover_failed", {
+          requestId: input.requestId,
+          clientId: input.clientId,
+          channelId: input.channelId,
+          conversationId: input.conversationId,
+          provider: choice.provider,
+          model: choice.model,
+          error,
+        });
+      }
+      if (!failoverReason) {
+        failoverReason = error instanceof Error ? error.message : String(error);
+      }
+    }
+  }
+  if (!decision) {
+    await trace.finalize({
+      status: "escalated",
+      reasonCode: "provider_error",
+      confidence: 0,
+      responseProvider: responseModel.provider,
+      responseModel: responseModel.model,
+      embeddingProvider: config.embedding_provider,
+      embeddingModel: config.embedding_model,
+      retrievalTopScore: chunks[0]?.score ?? null,
+      retrievalThreshold,
+      retrievalChunks: chunks,
+      errorMessage:
+        providerError instanceof Error ? providerError.message : String(providerError),
     });
-    trace.addStep("provider_failover", {
-      failedProvider: responseModel.provider,
-      failedModel: responseModel.model,
-      fallbackProvider: fallback.provider,
-      fallbackModel: fallback.model,
-    });
-    decision = await getGenerationProvider(fallback.provider).generateGroundedAnswer({
-      ...generationInput,
-      responseModel: fallback.model,
-    });
+    throw providerError ?? new Error("No LLM provider was available.");
   }
 
   const citedChunks = chunks.filter((chunk) =>

@@ -25,15 +25,25 @@ export function estimateGenerationCost(input: {
   outputText: string;
   costLabel: CostLabel;
 }): UsageCostEstimate {
-  const inputTokens = estimateTokens(input.inputText);
-  const outputTokens = estimateTokens(input.outputText);
+  return estimateGenerationCostFromTokens({
+    inputTokens: estimateTokens(input.inputText),
+    outputTokens: estimateTokens(input.outputText),
+    costLabel: input.costLabel,
+  });
+}
+
+export function estimateGenerationCostFromTokens(input: {
+  inputTokens: number;
+  outputTokens: number;
+  costLabel: CostLabel;
+}): UsageCostEstimate {
   const rates = usdPerMillionByLabel[input.costLabel];
   return {
-    inputTokens,
-    outputTokens,
+    inputTokens: input.inputTokens,
+    outputTokens: input.outputTokens,
     estimatedCostUsd:
-      (inputTokens / 1_000_000) * rates.input +
-      (outputTokens / 1_000_000) * rates.output,
+      (input.inputTokens / 1_000_000) * rates.input +
+      (input.outputTokens / 1_000_000) * rates.output,
   };
 }
 
