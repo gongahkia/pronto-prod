@@ -4,8 +4,6 @@ import { getClient } from "@/lib/dashboard";
 import { AppShell } from "@/components/shell";
 import { ClientBrandVoicePreview } from "@/components/local-release-panels";
 
-export const dynamic = "force-dynamic";
-
 export default async function ClientSettingsPage() {
   const user = await requireUser("client");
   if (!user.clientId) {

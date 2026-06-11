@@ -27,8 +27,6 @@ import {
 } from "@/components/operator/operator-nav";
 import { StatCard } from "@/components/stat-card";
 
-export const dynamic = "force-dynamic";
-
 type OverviewSection =
   | "workspace"
   | "conversations"

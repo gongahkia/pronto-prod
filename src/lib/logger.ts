@@ -5,6 +5,8 @@ const SENSITIVE_KEY_PATTERN =
 const CONTENT_KEY_PATTERN = /body|content|message|payload|raw|text/i;
 const PHONE_PATTERN = /(?<![a-zA-Z0-9_])(?:\+?\d[\d\s().-]{6,}\d)(?![a-zA-Z0-9_])/g;
 const BEARER_PATTERN = /bearer\s+[a-z0-9._~+/=-]+/gi;
+const QUERY_SECRET_PATTERN =
+  /([?&](?:access_token|token|api_key|key|secret|signature)=)[^&\s]+/gi;
 
 type LogLevel = "info" | "warn" | "error";
 
@@ -98,6 +100,7 @@ function redactValue(value: unknown, depth: number): unknown {
 function redactString(value: string): string {
   return value
     .replace(BEARER_PATTERN, "Bearer [redacted]")
+    .replace(QUERY_SECRET_PATTERN, "$1[redacted]")
     .replace(PHONE_PATTERN, "[redacted-phone]");
 }
 

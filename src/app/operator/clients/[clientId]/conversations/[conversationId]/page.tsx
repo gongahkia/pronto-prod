@@ -15,8 +15,6 @@ import {
 } from "@/components/operator/operator-nav";
 import { OperatorConversationReview } from "@/components/operator/operator-panels";
 
-export const dynamic = "force-dynamic";
-
 export default async function OperatorClientConversationDetailPage({
   params,
 }: {

@@ -8,8 +8,6 @@ import {
 } from "@/components/operator/operator-nav";
 import { OperatorChannelSetup } from "@/components/operator/operator-panels";
 
-export const dynamic = "force-dynamic";
-
 export default async function OperatorClientChannelsPage({
   params,
 }: {

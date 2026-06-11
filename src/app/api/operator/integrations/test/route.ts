@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         provider,
-        error: error instanceof Error ? error.message : String(error),
+        error: redactErrorMessage(error),
       },
       { status: 502, headers: requestIdHeaders(requestId) },
     );

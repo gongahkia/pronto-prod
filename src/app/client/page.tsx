@@ -17,8 +17,6 @@ import { Badge } from "@/components/badge";
 import { ConversationList, KnowledgeGapPanel, SlaPanel } from "@/components/reporting-panels";
 import { StatCard } from "@/components/stat-card";
 
-export const dynamic = "force-dynamic";
-
 export default async function ClientOverviewPage() {
   const user = await requireUser("client");
   if (!user.clientId) {
@@ -90,7 +88,7 @@ export default async function ClientOverviewPage() {
         <StatCard label="Knowledge gaps" value={analytics.knowledgeGapCount} />
       </section>
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-[1fr_0.42fr]">
+      <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.42fr]">
         <div className="ui-panel">
           <div className="ui-panel-header">
             <div>

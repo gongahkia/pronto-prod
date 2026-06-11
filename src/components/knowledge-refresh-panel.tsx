@@ -1,4 +1,5 @@
 import type { KnowledgeRefreshRequest } from "@/lib/types";
+import { formatDate as formatDisplayDate } from "@/lib/date-format";
 import { Badge } from "@/components/badge";
 
 export function KnowledgeRefreshPanel({
@@ -122,7 +123,5 @@ function ResolveRefreshForm({
 }
 
 function formatDate(value: Date): string {
-  return value.toLocaleDateString("en-SG", {
-    dateStyle: "medium",
-  });
+  return formatDisplayDate(value);
 }

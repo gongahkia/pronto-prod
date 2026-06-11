@@ -14,8 +14,6 @@ import {
 } from "@/components/reporting-panels";
 import { StatCard } from "@/components/stat-card";
 
-export const dynamic = "force-dynamic";
-
 export default async function OperatorConversationsPage({
   searchParams,
 }: {

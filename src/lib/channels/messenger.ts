@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
+import { redactErrorMessage } from "@/lib/logger";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
 
@@ -97,7 +98,7 @@ export async function sendMessengerText(input: {
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`Messenger send failed: ${response.status} ${body}`);
+    throw new Error(redactErrorMessage(`Messenger send failed: ${response.status} ${body}`));
   }
 }
 

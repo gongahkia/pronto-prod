@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCsatConversationContext } from "@/lib/csat";
 
-export const dynamic = "force-dynamic";
-
 export default async function CsatPage({
   params,
   searchParams,

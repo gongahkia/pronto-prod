@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/auth";
+import { formatDate as formatDisplayDate } from "@/lib/date-format";
 import { getClient } from "@/lib/dashboard";
 import { getClientAssistantChangeRequests } from "@/lib/client-assistant-requests";
 import { getTriageFlowForClient } from "@/lib/triage-flow-store";
@@ -7,8 +8,6 @@ import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
 import { PilotConsole } from "@/components/pilot-console";
 import { StatCard } from "@/components/stat-card";
-
-export const dynamic = "force-dynamic";
 
 export default async function ClientAssistantPage() {
   const user = await requireUser("client");
@@ -185,10 +184,7 @@ function formatDate(value: Date | null): string {
   if (!value) {
     return "Not published";
   }
-  return value.toLocaleDateString("en-SG", {
-    month: "short",
-    day: "numeric",
-  });
+  return formatDisplayDate(value);
 }
 
 function kindLabel(kind: string): string {

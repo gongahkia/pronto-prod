@@ -2,15 +2,26 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getOpenEscalations } from "@/lib/dashboard";
 import { AppShell } from "@/components/shell";
+import {
+  PaginationControls,
+  pageFromSearchParams,
+} from "@/components/reporting-panels";
 
-export const dynamic = "force-dynamic";
-
-export default async function OperatorAllEscalationsPage() {
+export default async function OperatorAllEscalationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser("operator");
-  const escalations = await getOpenEscalations();
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const page = pageFromSearchParams(resolvedSearchParams);
+  const limit = 50;
+  const escalations = await getOpenEscalations({ limit: limit + 1, offset: (page - 1) * limit });
+  const hasNext = escalations.length > limit;
+  const visibleEscalations = escalations.slice(0, limit);
 
-  const byClient = new Map<string, typeof escalations>();
-  for (const escalation of escalations) {
+  const byClient = new Map<string, typeof visibleEscalations>();
+  for (const escalation of visibleEscalations) {
     const bucket = byClient.get(escalation.client_id) ?? [];
     bucket.push(escalation);
     byClient.set(escalation.client_id, bucket);
@@ -58,6 +69,12 @@ export default async function OperatorAllEscalationsPage() {
           );
         })}
       </ul>
+      <PaginationControls
+        action="/operator/escalations"
+        searchParams={resolvedSearchParams}
+        page={page}
+        hasNext={hasNext}
+      />
     </AppShell>
   );
 }

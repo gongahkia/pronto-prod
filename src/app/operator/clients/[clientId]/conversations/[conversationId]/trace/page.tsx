@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { formatDateTime } from "@/lib/date-format";
 import { getClient } from "@/lib/dashboard";
 import { getConversationTrace } from "@/lib/trace";
 import { AppShell } from "@/components/shell";
@@ -8,8 +9,6 @@ import {
   OperatorClientHeader,
   OperatorClientNav,
 } from "@/components/operator/operator-nav";
-
-export const dynamic = "force-dynamic";
 
 export default async function OperatorConversationTracePage({
   params,
@@ -79,8 +78,8 @@ export default async function OperatorConversationTracePage({
                   <div className="font-mono text-xs uppercase tracking-wide text-muted">
                     {run.status} · {run.reason_code ?? "—"}
                   </div>
-                  <time className="font-mono text-xs text-muted">
-                    {run.created_at.toISOString()}
+                  <time className="font-mono text-xs text-muted" dateTime={run.created_at.toISOString()}>
+                    {formatDateTime(run.created_at)}
                   </time>
                 </div>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -168,8 +167,8 @@ export default async function OperatorConversationTracePage({
                 <span className="font-mono text-xs uppercase tracking-wide text-muted">
                   {event.label}
                 </span>
-                <time className="font-mono text-xs text-muted">
-                  {event.at.toISOString()}
+                <time className="font-mono text-xs text-muted" dateTime={event.at.toISOString()}>
+                  {formatDateTime(event.at)}
                 </time>
               </div>
               <div className="mt-1 whitespace-pre-wrap text-sm">{event.body}</div>

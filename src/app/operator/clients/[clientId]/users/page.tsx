@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { formatDate } from "@/lib/date-format";
 import { getClient } from "@/lib/dashboard";
 import { query } from "@/lib/db";
 import { AppShell } from "@/components/shell";
@@ -8,8 +9,6 @@ import {
   OperatorClientHeader,
   OperatorClientNav,
 } from "@/components/operator/operator-nav";
-
-export const dynamic = "force-dynamic";
 
 type ClientUserRow = {
   id: string;
@@ -57,7 +56,7 @@ export default async function ClientUsersPage({
         </p>
       ) : null}
       {params2.ok ? (
-        <p className="mb-4 rounded-md border border-green-500/25 bg-green-500/10 px-3 py-2 text-sm">
+        <p className="mb-4 rounded-md border border-success/25 bg-success-bg px-3 py-2 text-sm text-success">
           {decodeURIComponent(params2.ok)}
         </p>
       ) : null}
@@ -80,7 +79,7 @@ export default async function ClientUsersPage({
                     <p className="font-medium">{row.name}</p>
                     <p className="text-sm text-muted">{row.email}</p>
                     <p className="text-xs text-muted">
-                      Added {row.created_at.toLocaleDateString("en-SG")}
+                      Added {formatDate(row.created_at)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

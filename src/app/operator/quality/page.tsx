@@ -15,8 +15,6 @@ import { Badge } from "@/components/badge";
 import { StatCard } from "@/components/stat-card";
 import { ConversationList, KnowledgeGapPanel } from "@/components/reporting-panels";
 
-export const dynamic = "force-dynamic";
-
 export default async function OperatorQualityPage() {
   const user = await requireUser("operator");
   const [commandCenter, metrics, escalations, conversations, gaps] = await Promise.all([

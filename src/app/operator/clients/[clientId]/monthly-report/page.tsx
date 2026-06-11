@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { isoDate } from "@/lib/date-format";
 import { getClient } from "@/lib/dashboard";
 import {
   defaultMonthlyWindow,
@@ -11,8 +12,6 @@ import {
   OperatorClientHeader,
   OperatorClientNav,
 } from "@/components/operator/operator-nav";
-
-export const dynamic = "force-dynamic";
 
 export default async function OperatorClientMonthlyReportPage({
   params,
@@ -55,7 +54,7 @@ export default async function OperatorClientMonthlyReportPage({
           <input
             type="date"
             name="asOf"
-            defaultValue={validAsOf.toISOString().slice(0, 10)}
+            defaultValue={isoDate(validAsOf)}
             className="ui-input ml-2"
           />
         </label>
@@ -68,8 +67,7 @@ export default async function OperatorClientMonthlyReportPage({
         <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Monthly check-in</h2>
           <p className="text-sm text-muted">
-            Window {report.windowStart.toISOString().slice(0, 10)} →{" "}
-            {report.windowEnd.toISOString().slice(0, 10)}
+            Window {isoDate(report.windowStart)} → {isoDate(report.windowEnd)}
           </p>
         </div>
         <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">

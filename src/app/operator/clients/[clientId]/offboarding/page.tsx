@@ -8,8 +8,6 @@ import {
 } from "@/components/operator/operator-nav";
 import { OperatorOffboardingPanel } from "@/components/operator/operator-panels";
 
-export const dynamic = "force-dynamic";
-
 export default async function OperatorClientOffboardingPage({
   params,
 }: {

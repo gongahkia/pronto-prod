@@ -4,18 +4,29 @@ import { getOpenEscalations } from "@/lib/dashboard";
 import { listClientStaff } from "@/lib/escalations-bulk";
 import { AppShell } from "@/components/shell";
 import { BulkEscalationList } from "@/components/bulk-escalation-list";
+import {
+  PaginationControls,
+  pageFromSearchParams,
+} from "@/components/reporting-panels";
 
-export const dynamic = "force-dynamic";
-
-export default async function ClientEscalationsPage() {
+export default async function ClientEscalationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser("client");
   if (!user.clientId) {
     notFound();
   }
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const page = pageFromSearchParams(resolvedSearchParams);
+  const limit = 20;
   const [escalations, staff] = await Promise.all([
-    getOpenEscalations(user.clientId),
+    getOpenEscalations({ clientId: user.clientId, limit: limit + 1, offset: (page - 1) * limit }),
     listClientStaff(user.clientId),
   ]);
+  const hasNext = escalations.length > limit;
+  const visibleEscalations = escalations.slice(0, limit);
 
   return (
     <AppShell user={user} active="client">
@@ -34,7 +45,7 @@ export default async function ClientEscalationsPage() {
         <div className="p-4">
           <BulkEscalationList
             clientId={user.clientId}
-            escalations={escalations}
+            escalations={visibleEscalations}
             staff={staff}
             allowAssign={staff.length > 1}
             hrefForConversation={(_, conversationId) =>
@@ -42,6 +53,12 @@ export default async function ClientEscalationsPage() {
             }
           />
         </div>
+        <PaginationControls
+          action="/client/escalations"
+          searchParams={resolvedSearchParams}
+          page={page}
+          hasNext={hasNext}
+        />
       </section>
     </AppShell>
   );

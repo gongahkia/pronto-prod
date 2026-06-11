@@ -8,24 +8,34 @@ import {
   OperatorClientNav,
 } from "@/components/operator/operator-nav";
 import { BulkEscalationList } from "@/components/bulk-escalation-list";
-
-export const dynamic = "force-dynamic";
+import {
+  PaginationControls,
+  pageFromSearchParams,
+} from "@/components/reporting-panels";
 
 export default async function OperatorClientEscalationsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ clientId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requireUser("operator");
   const { clientId } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const page = pageFromSearchParams(resolvedSearchParams);
+  const limit = 20;
   const [client, escalations, staff] = await Promise.all([
     getClient(clientId),
-    getOpenEscalations(clientId),
+    getOpenEscalations({ clientId, limit: limit + 1, offset: (page - 1) * limit }),
     listClientStaff(clientId),
   ]);
   if (!client) {
     notFound();
   }
+
+  const hasNext = escalations.length > limit;
+  const visibleEscalations = escalations.slice(0, limit);
 
   return (
     <AppShell user={user} active="operator">
@@ -45,7 +55,7 @@ export default async function OperatorClientEscalationsPage({
         <div className="p-4">
           <BulkEscalationList
             clientId={client.id}
-            escalations={escalations}
+            escalations={visibleEscalations}
             staff={staff}
             allowAssign
             hrefForConversation={(_, conversationId) =>
@@ -53,6 +63,12 @@ export default async function OperatorClientEscalationsPage({
             }
           />
         </div>
+        <PaginationControls
+          action={`/operator/clients/${client.id}/escalations`}
+          searchParams={resolvedSearchParams}
+          page={page}
+          hasNext={hasNext}
+        />
       </section>
     </AppShell>
   );

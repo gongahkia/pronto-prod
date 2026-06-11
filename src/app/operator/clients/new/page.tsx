@@ -2,8 +2,6 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { AppShell } from "@/components/shell";
 
-export const dynamic = "force-dynamic";
-
 const PLAN_TIERS = [
   { value: "pilot", label: "Pilot (2-4 week scoped)" },
   { value: "starter", label: "Starter (24h business-hours SLA)" },

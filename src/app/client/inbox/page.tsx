@@ -16,8 +16,6 @@ import {
 } from "@/components/reporting-panels";
 import { Badge } from "@/components/badge";
 
-export const dynamic = "force-dynamic";
-
 export default async function ClientInboxPage({
   searchParams,
 }: {

@@ -15,6 +15,7 @@ import type { Channel, ChannelKind, Client, Message } from "@/lib/types";
 import { Badge } from "@/components/badge";
 import { DeliveryStatusBadge } from "@/components/delivery-status";
 import { EscalationOutboundStatus } from "@/components/escalation-outbound-status";
+import { KnowledgeFileInput } from "@/components/knowledge-file-input";
 
 export function OperatorEscalationList({
   escalations,
@@ -476,15 +477,7 @@ export function OperatorKnowledgeIngestion({ clientId }: { clientId: string }) {
           className="w-full rounded-md border border-line px-3 py-2 text-sm"
           placeholder="Paste FAQ, menu, policy, or brand content"
         />
-        <input
-          name="file"
-          type="file"
-          accept=".pdf,.docx,.txt,.md,.markdown,.csv,text/plain,text/markdown,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          className="w-full rounded-md border border-line px-3 py-2 text-sm"
-        />
-        <p className="text-xs text-muted">
-          Supports PDF, DOCX, TXT, Markdown, and CSV up to 8 MB. Uploaded files are converted into source text before embedding.
-        </p>
+        <KnowledgeFileInput />
         <button className="ui-primary-button px-4 py-2">
           Add source
         </button>

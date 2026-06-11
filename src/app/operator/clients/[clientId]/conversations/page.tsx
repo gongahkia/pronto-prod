@@ -15,8 +15,6 @@ import {
   pageFromSearchParams,
 } from "@/components/reporting-panels";
 
-export const dynamic = "force-dynamic";
-
 export default async function OperatorClientConversationsPage({
   params,
   searchParams,

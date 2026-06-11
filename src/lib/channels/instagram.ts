@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
+import { redactErrorMessage } from "@/lib/logger";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
 
@@ -103,7 +104,7 @@ export async function sendInstagramText(input: {
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`Instagram send failed: ${response.status} ${body}`);
+    throw new Error(redactErrorMessage(`Instagram send failed: ${response.status} ${body}`));
   }
 }
 

@@ -13,8 +13,6 @@ import {
 } from "@/components/operator/operator-nav";
 import { IntegrationsPanel } from "@/components/integrations-panel";
 
-export const dynamic = "force-dynamic";
-
 export default async function OperatorClientIntegrationsPage({
   params,
 }: {

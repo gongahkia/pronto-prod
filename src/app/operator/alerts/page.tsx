@@ -9,8 +9,6 @@ import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
 import { StatCard } from "@/components/stat-card";
 
-export const dynamic = "force-dynamic";
-
 export default async function OperatorAlertsPage() {
   const user = await requireUser("operator");
   const commandCenter = await getOperatorCommandCenter();

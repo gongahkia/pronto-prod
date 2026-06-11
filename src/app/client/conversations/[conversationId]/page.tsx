@@ -11,8 +11,6 @@ import { AppShell } from "@/components/shell";
 import { ConversationTriagePanel } from "@/components/conversation-triage-panel";
 import { ConversationTranscript } from "@/components/conversation-transcript";
 
-export const dynamic = "force-dynamic";
-
 export default async function ClientConversationPage({
   params,
 }: {

@@ -1,4 +1,5 @@
 import type { BrandVoiceProfile } from "@/lib/brand-voice";
+import { formatDate } from "@/lib/date-format";
 import type { PilotReadinessSummary } from "@/lib/pilot-metrics";
 import type { Client } from "@/lib/types";
 import { formatSgd } from "@/lib/costing";
@@ -347,7 +348,7 @@ function durationOrPending(value: number | null | undefined): string {
 }
 
 function dateOrPending(value: Date | null | undefined): string {
-  return value ? value.toLocaleDateString("en-SG", { dateStyle: "medium" }) : "Pending";
+  return value ? formatDate(value) : "Pending";
 }
 
 function toDatetimeLocal(value: Date): string {

@@ -1,6 +1,7 @@
 import { ArrowRight, RadioTower } from "lucide-react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { formatDate } from "@/lib/date-format";
 import {
   getOperatorCommandCenter,
   type OperatorClientHealth,
@@ -8,8 +9,6 @@ import {
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
 import { StatCard } from "@/components/stat-card";
-
-export const dynamic = "force-dynamic";
 
 export default async function OperatorPage() {
   const user = await requireUser("operator");
@@ -72,14 +71,16 @@ export default async function OperatorPage() {
 
 function ClientPortfolioRow({ client }: { client: OperatorClientHealth }) {
   return (
-    <Link
-      href={`/operator/clients/${client.clientId}`}
-      className="block p-4 hover:bg-surface-hover"
-    >
+    <div className="p-4 hover:bg-surface-hover">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium">{client.name}</p>
+            <Link
+              href={`/operator/clients/${client.clientId}`}
+              className="font-medium text-accent hover:text-accent-dark"
+            >
+              {client.name}
+            </Link>
             <Badge tone={healthTone(client.health)}>{client.health}</Badge>
             <Badge tone="neutral">{client.status}</Badge>
             <Badge tone="neutral">{client.planTier}</Badge>
@@ -89,7 +90,7 @@ function ClientPortfolioRow({ client }: { client: OperatorClientHealth }) {
           </p>
         </div>
 
-        <div className="grid gap-2 text-xs text-muted sm:grid-cols-3 xl:w-[38rem] xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2 text-xs text-muted md:grid-cols-3 xl:w-[38rem] xl:grid-cols-6">
           <PortfolioMetric
             label="Channels"
             value={`${client.activeChannels}/${client.degradedChannels}`}
@@ -115,12 +116,16 @@ function ClientPortfolioRow({ client }: { client: OperatorClientHealth }) {
             value={client.knowledgeSources}
             danger={client.knowledgeSources === 0}
           />
-          <div className="flex items-center justify-end text-accent">
-            <ArrowRight size={17} />
-          </div>
+          <Link
+            href={`/operator/clients/${client.clientId}`}
+            className="flex items-center justify-end text-accent"
+            aria-label={`Open ${client.name}`}
+          >
+            <ArrowRight size={17} aria-hidden="true" />
+          </Link>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -157,8 +162,5 @@ function formatWhen(value: Date | null): string {
   if (!value) {
     return "not seen yet";
   }
-  return value.toLocaleDateString("en-SG", {
-    month: "short",
-    day: "numeric",
-  });
+  return formatDate(value);
 }

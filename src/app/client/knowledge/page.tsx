@@ -1,16 +1,16 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { formatDate as formatDisplayDate } from "@/lib/date-format";
 import { getClient, getKnowledgeSources } from "@/lib/dashboard";
 import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
 import { getKnowledgeGapReport } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
+import { KnowledgeFileInput } from "@/components/knowledge-file-input";
 import { KnowledgeRefreshPanel } from "@/components/knowledge-refresh-panel";
 import { KnowledgeGapPanel } from "@/components/reporting-panels";
 import { StatCard } from "@/components/stat-card";
-
-export const dynamic = "force-dynamic";
 
 export default async function ClientKnowledgePage() {
   const user = await requireUser("client");
@@ -44,7 +44,7 @@ export default async function ClientKnowledgePage() {
         <StatCard label="Sources" value={knowledge.length} />
         <StatCard label="Open refreshes" value={openRefreshes.length} />
         <StatCard label="Knowledge gaps" value={gaps.length} />
-        <StatCard label="Latest source" value={formatDate(latestSource)} />
+        <StatCard label="Latest source" value={formatKnowledgeDate(latestSource)} />
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[1fr_0.75fr]">
@@ -74,7 +74,7 @@ export default async function ClientKnowledgePage() {
                       <Badge>{source.source_type}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted">
-                      {source.chunk_count} searchable sections · added {formatDate(source.created_at)}
+                      {source.chunk_count} searchable sections · added {formatKnowledgeDate(source.created_at)}
                     </p>
                   </div>
                   <ArrowRight size={17} className="shrink-0 text-muted" />
@@ -147,15 +147,7 @@ export default async function ClientKnowledgePage() {
             className="w-full rounded-md border border-line px-3 py-2 text-sm"
             placeholder="Paste menu, policy, opening hours, FAQs, or service notes"
           />
-          <input
-            name="file"
-            type="file"
-            accept=".pdf,.docx,.txt,.md,.markdown,.csv,text/plain,text/markdown,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            className="w-full rounded-md border border-line px-3 py-2 text-sm"
-          />
-          <p className="text-xs text-muted">
-            Supports PDF, DOCX, TXT, Markdown, and CSV up to 8 MB.
-          </p>
+          <KnowledgeFileInput />
           <button className="ui-primary-button px-4 py-2">
             Add source
           </button>
@@ -165,12 +157,9 @@ export default async function ClientKnowledgePage() {
   );
 }
 
-function formatDate(value: Date | null): string {
+function formatKnowledgeDate(value: Date | null): string {
   if (!value) {
     return "None";
   }
-  return value.toLocaleDateString("en-SG", {
-    month: "short",
-    day: "numeric",
-  });
+  return formatDisplayDate(value);
 }

@@ -12,8 +12,6 @@ import {
   KnowledgeSourceVersionHistory,
 } from "@/components/knowledge-source-panels";
 
-export const dynamic = "force-dynamic";
-
 export default async function ClientKnowledgeSourcePage({
   params,
 }: {

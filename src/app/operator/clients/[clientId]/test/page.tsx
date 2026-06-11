@@ -8,8 +8,6 @@ import {
 } from "@/components/operator/operator-nav";
 import { PilotConsole } from "@/components/pilot-console";
 
-export const dynamic = "force-dynamic";
-
 export default async function OperatorClientTestPage({
   params,
 }: {
