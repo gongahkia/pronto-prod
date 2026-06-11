@@ -46,12 +46,18 @@ export default async function OperatorClientConversationDetailPage({
       />
       <OperatorClientNav clientId={client.id} active="conversations" />
 
-      <div className="mb-4">
+      <div className="mb-4 flex items-center gap-3 text-xs font-medium">
         <Link
           href={`/operator/clients/${client.id}/conversations`}
-          className="text-xs font-medium text-accent hover:text-accent-dark"
+          className="text-accent hover:text-accent-dark"
         >
           Back to conversation queue
+        </Link>
+        <Link
+          href={`/operator/clients/${client.id}/conversations/${conversation.id}/trace`}
+          className="text-accent hover:text-accent-dark"
+        >
+          View trace
         </Link>
       </div>
 

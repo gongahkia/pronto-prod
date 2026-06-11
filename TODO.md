@@ -129,7 +129,7 @@ x 2026-06-05 (B) 2026-05-17 Extend structured logging and request IDs from webho
 x 2026-06-05 (B) 2026-06-04 Add background outbound outbox retry worker for failed or stale sending messages beyond the immediate in-route local-release flush +Channels @engineering phase:tighten
 x 2026-06-05 (B) 2026-06-05 Add local operational alert scaffolding for failed outbound sends, degraded channels, overdue knowledge refreshes, and quality blockers +Observability @dashboard phase:tighten
 x 2026-06-10 (B) 2026-05-17 Add persistent error tracking and external alert routing for webhook failures, LLM failures, database errors, and outbound send failures; local operational alert scaffolding already exists +Observability @engineering phase:tighten
-(B) 2026-05-17 Add LangSmith or custom trace view for conversation review and model debugging +Observability @engineering phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add LangSmith or custom trace view for conversation review and model debugging +Observability @engineering phase:tighten
 x 2026-06-10 (B) 2026-05-17 Add per-client cost alert when estimated monthly variable cost exceeds tier margin assumptions +Costing @business phase:tighten
 x 2026-06-11 (B) 2026-05-17 Add load and cost model for standard SME 500 conversations, Growth 2000 conversations, Scale 6000 conversations, and heavy 3000+ conversations +Costing @business phase:tighten
 x 2026-06-11 (B) 2026-05-17 Add hosting cost tracker for shared compute, vector storage, logs, and agent state per client +Costing @business phase:tighten
