@@ -1,5 +1,11 @@
 export type UserRole = "operator" | "client";
-export type ChannelKind = "whatsapp" | "telegram" | "console";
+export type ChannelKind =
+  | "whatsapp"
+  | "telegram"
+  | "console"
+  | "messenger"
+  | "instagram"
+  | "email";
 export type ChannelStatus = "draft" | "active" | "disabled";
 export type ConversationStatus = "active" | "escalated" | "closed";
 export type SenderRole = "customer" | "agent" | "operator" | "system";

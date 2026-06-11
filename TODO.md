@@ -1,6 +1,6 @@
-(A) 2026-05-17 Wire real live provider credentials and complete at least one PRONTO_USE_MOCK_AI=0 local staging run; readiness UI/checklist exists but requires keys +ProntoMVP @engineering phase:pilot
-(A) 2026-05-17 Configure live Meta WhatsApp Cloud API app, phone number ID, app secret, access token, and webhook verify token; channel readiness UI exists but requires real Meta values +Channels @engineering phase:pilot
-(A) 2026-05-17 Configure live Telegram bot token, webhook secret, and HTTPS tunnel registration; channel readiness UI exists but requires real Telegram values +Channels @engineering phase:pilot
+x 2026-06-11 (A) 2026-05-17 Wire real live provider credentials and complete at least one PRONTO_USE_MOCK_AI=0 local staging run; readiness UI/checklist exists but requires keys +ProntoMVP @engineering phase:pilot
+x 2026-06-11 (A) 2026-05-17 Configure live Meta WhatsApp Cloud API app, phone number ID, app secret, access token, and webhook verify token; channel readiness UI exists but requires real Meta values +Channels @engineering phase:pilot
+x 2026-06-11 (A) 2026-05-17 Configure live Telegram bot token, webhook secret, and HTTPS tunnel registration; channel readiness UI exists but requires real Telegram values +Channels @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add staging environment variables checklist for OpenAI, WhatsApp, Telegram, auth secret, app base URL, and database URL +Ops @engineering phase:pilot
 x 2026-05-17 (A) 2026-05-17 Build golden eval set for opening hours, menu, reservation explanation, refund complaint, unknown policy, allergy, urgency, and out-of-scope requests +Pilot @quality phase:pilot
 x 2026-05-17 (A) 2026-05-17 Add automated eval runner that replays golden customer questions against seeded client knowledge and records answer versus escalation +Pilot @quality phase:pilot
@@ -71,18 +71,18 @@ x 2026-06-10 (A) 2026-06-05 Add scheduler-backed provider pricing diff monitor f
 x 2026-06-10 (A) 2026-06-05 Add scheduler-backed Meta WhatsApp Business policy monitor with external alerting cadence:monthly +Risk @ops phase:tighten
 x 2026-05-17 (A) 2026-05-17 Document Pronto as purpose-driven business AI and not a general-purpose chatbot in product, contract, and channel setup docs +Compliance @docs phase:pilot
 x 2026-06-05 (A) 2026-05-17 Add approved-template-only guardrail for any future proactive WhatsApp notifications +Channels @compliance phase:tighten
-(B) 2026-05-17 Add Google Calendar read-only availability integration with no booking mutations in v1 +Integrations @engineering phase:tighten
-(B) 2026-05-17 Add Calendly read-only availability integration with no booking mutations in v1 +Integrations @engineering phase:tighten
-(B) 2026-05-17 Add Shopify product catalog and order-status read-only integration with refund and modification escalation +Integrations @engineering phase:tighten
-(B) 2026-05-17 Add WooCommerce product catalog and order-status read-only integration with refund and modification escalation +Integrations @engineering phase:tighten
-(B) 2026-05-17 Add delivery or 3PL tracking read-only integration pattern with no delivery-time promises unless source confirms it +Integrations @engineering phase:tighten
-(B) 2026-05-17 Add custom inventory database integration pattern with standardized read-only tools +Integrations @engineering phase:tighten
-(B) 2026-05-17 Build integration library covering top 5 most-requested APIs from pilots +Integrations @engineering phase:tighten
-(B) 2026-05-17 Add non-LLM integration credential storage plan with secret redaction and per-client rotation process; LLM provider credential storage exists +Security @engineering phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add Google Calendar read-only availability integration with no booking mutations in v1 +Integrations @engineering phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add Calendly read-only availability integration with no booking mutations in v1 +Integrations @engineering phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add Shopify product catalog and order-status read-only integration with refund and modification escalation +Integrations @engineering phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add WooCommerce product catalog and order-status read-only integration with refund and modification escalation +Integrations @engineering phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add delivery or 3PL tracking read-only integration pattern with no delivery-time promises unless source confirms it +Integrations @engineering phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add custom inventory database integration pattern with standardized read-only tools +Integrations @engineering phase:tighten
+x 2026-06-11 (B) 2026-05-17 Build integration library covering top 5 most-requested APIs from pilots +Integrations @engineering phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add non-LLM integration credential storage plan with secret redaction and per-client rotation process; LLM provider credential storage exists +Security @engineering phase:tighten
 (B) 2026-05-17 Add Messenger channel adapter through Meta Graph API +Channels @engineering phase:v2
 (B) 2026-05-17 Add Instagram DMs channel adapter through Meta Graph API +Channels @engineering phase:v2
 (B) 2026-05-17 Add email channel adapter through Postmark or Resend +Channels @engineering phase:v2
-(B) 2026-05-17 Add LINE and Zalo feasibility notes for SEA expansion after Singapore validation +Channels @research phase:scale
+x 2026-06-11 (B) 2026-05-17 Add LINE and Zalo feasibility notes for SEA expansion after Singapore validation +Channels @research phase:scale
 x 2026-06-05 (B) 2026-05-17 Build client dashboard analytics for conversation volume, escalation rate, response time, CSAT, and knowledge gaps +Dashboard @engineering phase:tighten
 x 2026-06-10 (B) 2026-05-17 Build operator workflow for creating clients, assigning users, and selecting plan tier; channel configuration screen already exists +Dashboard @engineering phase:tighten
 x 2026-05-17 (B) 2026-05-17 Build manual override workflow for operators and client owners +Dashboard @engineering phase:tighten
@@ -91,30 +91,30 @@ x 2026-06-05 (B) 2026-05-17 Build conversation search and filters by channel, st
 x 2026-06-05 (B) 2026-05-17 Add knowledge gap report from low-confidence and escalated conversations +Dashboard @quality phase:tighten
 (B) 2026-05-17 Add monthly client check-in performance report generator with summary metrics and recommended knowledge updates; knowledge refresh workflow already exists +Ops @dashboard phase:tighten
 x 2026-06-05 (B) 2026-05-17 Add tier-specific SLA tracking for Starter 24h business-hours, Growth 4h business-hours, and Scale 1h business-hours +Ops @dashboard phase:tighten
-(B) 2026-05-17 Add sales funnel tracking for discovery calls, proposals, trials, launches, conversion rates, and time-to-contract +GTM @business phase:tighten
-(B) 2026-05-17 Add trial workflow for 2-4 week scoped paid pilots with fee credited toward setup on conversion +Pricing @business phase:pilot
-(B) 2026-05-17 Add pricing plan and add-on catalog records for setup fee, Starter, Growth, Scale, Enterprise, and custom add-ons; per-client commercial assumptions already exist +Pricing @business phase:pilot
-(B) 2026-05-17 Confirm SGD versus USD billing and document the decision +Pricing @business phase:pilot
-(B) 2026-05-17 Confirm annual prepay discount, recommended as 2 months free +Pricing @business phase:pilot
-(B) 2026-05-17 Confirm referral incentive, recommended as 1 month free for referrer when new client signs +Pricing @business phase:pilot
-(B) 2026-05-17 Add add-on pricing placeholders for new channels, integrations, analytics dashboards, custom reports, and multilingual upgrades +Pricing @business phase:tighten
-(B) 2026-05-17 Create 20-30 minute discovery call checklist for CS pain, channel mix, query volume, data sources, scope, and escalation boundaries +GTM @sales phase:pilot
-(B) 2026-05-17 Create proposal template covering scope, channels, data sources, pricing, timeline, pilot criteria, and launch path +GTM @sales phase:pilot
-(B) 2026-05-17 Create deep discovery checklist for brand voice, static sources, live sources, integrations, and escalation rules +GTM @sales phase:pilot
-(B) 2026-05-17 Create first 3-5 client outreach list from founder network across F&B, e-commerce, Carousell, and Shopee contacts +GTM @sales phase:validate
-(B) 2026-05-17 Define pilot discount terms in exchange for case studies, testimonials, and right to use brand in marketing +GTM @sales phase:validate
-(B) 2026-05-17 Draft case study template with before baseline, response time, conversion impact, escalation rate, and client quote +GTM @marketing phase:validate
-(B) 2026-05-17 Create referral partner list for web designers, branding agencies, and Singapore SME marketing consultants +GTM @partnerships phase:tighten
-(B) 2026-05-17 Draft targeted LinkedIn outreach sequence for Singapore SME owners in F&B and e-commerce +GTM @sales phase:tighten
-(B) 2026-05-17 Research PSG Grant pre-approval requirements, vendor criteria, timeline, and documentation package +GTM @research phase:tighten
-(B) 2026-05-17 Prepare PSG Grant pre-approval application plan if Pronto qualifies +GTM @business phase:tighten
-(B) 2026-05-17 Define SEO landing page keywords for AI customer service Singapore and vertical-specific variants +GTM @marketing phase:scale
-(B) 2026-05-17 Evaluate paid search only after unit economics and conversion rates support CAC payback +GTM @marketing phase:scale
-(B) 2026-05-17 Identify Singapore SME events for talks, demos, or founder-led content +GTM @marketing phase:scale
-(B) 2026-05-17 Add business health dashboard for active clients, MRR, new ARR, gross margin, churn, NRR, and monthly gross profit +Metrics @business phase:tighten
-(B) 2026-05-17 Add north-star monthly gross profit dashboard and monthly review habit +Metrics @business phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add sales funnel tracking for discovery calls, proposals, trials, launches, conversion rates, and time-to-contract +GTM @business phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add trial workflow for 2-4 week scoped paid pilots with fee credited toward setup on conversion +Pricing @business phase:pilot
+x 2026-06-11 (B) 2026-05-17 Add pricing plan and add-on catalog records for setup fee, Starter, Growth, Scale, Enterprise, and custom add-ons; per-client commercial assumptions already exist +Pricing @business phase:pilot
+x 2026-06-11 (B) 2026-05-17 Confirm SGD versus USD billing and document the decision +Pricing @business phase:pilot
+x 2026-06-11 (B) 2026-05-17 Confirm annual prepay discount, recommended as 2 months free +Pricing @business phase:pilot
+x 2026-06-11 (B) 2026-05-17 Confirm referral incentive, recommended as 1 month free for referrer when new client signs +Pricing @business phase:pilot
+x 2026-06-11 (B) 2026-05-17 Add add-on pricing placeholders for new channels, integrations, analytics dashboards, custom reports, and multilingual upgrades +Pricing @business phase:tighten
+x 2026-06-11 (B) 2026-05-17 Create 20-30 minute discovery call checklist for CS pain, channel mix, query volume, data sources, scope, and escalation boundaries +GTM @sales phase:pilot
+x 2026-06-11 (B) 2026-05-17 Create proposal template covering scope, channels, data sources, pricing, timeline, pilot criteria, and launch path +GTM @sales phase:pilot
+x 2026-06-11 (B) 2026-05-17 Create deep discovery checklist for brand voice, static sources, live sources, integrations, and escalation rules +GTM @sales phase:pilot
+x 2026-06-11 (B) 2026-05-17 Create first 3-5 client outreach list from founder network across F&B, e-commerce, Carousell, and Shopee contacts +GTM @sales phase:validate
+x 2026-06-11 (B) 2026-05-17 Define pilot discount terms in exchange for case studies, testimonials, and right to use brand in marketing +GTM @sales phase:validate
+x 2026-06-11 (B) 2026-05-17 Draft case study template with before baseline, response time, conversion impact, escalation rate, and client quote +GTM @marketing phase:validate
+x 2026-06-11 (B) 2026-05-17 Create referral partner list for web designers, branding agencies, and Singapore SME marketing consultants +GTM @partnerships phase:tighten
+x 2026-06-11 (B) 2026-05-17 Draft targeted LinkedIn outreach sequence for Singapore SME owners in F&B and e-commerce +GTM @sales phase:tighten
+x 2026-06-11 (B) 2026-05-17 Research PSG Grant pre-approval requirements, vendor criteria, timeline, and documentation package +GTM @research phase:tighten
+x 2026-06-11 (B) 2026-05-17 Prepare PSG Grant pre-approval application plan if Pronto qualifies +GTM @business phase:tighten
+x 2026-06-11 (B) 2026-05-17 Define SEO landing page keywords for AI customer service Singapore and vertical-specific variants +GTM @marketing phase:scale
+x 2026-06-11 (B) 2026-05-17 Evaluate paid search only after unit economics and conversion rates support CAC payback +GTM @marketing phase:scale
+x 2026-06-11 (B) 2026-05-17 Identify Singapore SME events for talks, demos, or founder-led content +GTM @marketing phase:scale
+x 2026-06-11 (B) 2026-05-17 Add business health dashboard for active clients, MRR, new ARR, gross margin, churn, NRR, and monthly gross profit +Metrics @business phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add north-star monthly gross profit dashboard and monthly review habit +Metrics @business phase:tighten
 x 2026-06-10 (B) 2026-05-17 Add client concentration warning when any client exceeds 30 percent of MRR +Risk @business phase:tighten
-(B) 2026-05-17 Add capacity planning dashboard for active clients, active builds, maintenance load, and Gabriel engineering hours +Ops @business phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add capacity planning dashboard for active clients, active builds, maintenance load, and Gabriel engineering hours +Ops @business phase:tighten
 x 2026-05-17 (B) 2026-05-17 Document hard client cap of 8-12 concurrent active clients for current team +Ops @business phase:pilot
 x 2026-05-17 (B) 2026-05-17 Add hiring trigger note for junior dev or contract engineer at 6+ active clients +Hiring @business phase:tighten
 x 2026-05-17 (B) 2026-05-17 Add hiring trigger note for customer success or ops contractor at 10+ active clients +Hiring @business phase:tighten
@@ -131,17 +131,17 @@ x 2026-06-05 (B) 2026-06-05 Add local operational alert scaffolding for failed o
 x 2026-06-10 (B) 2026-05-17 Add persistent error tracking and external alert routing for webhook failures, LLM failures, database errors, and outbound send failures; local operational alert scaffolding already exists +Observability @engineering phase:tighten
 (B) 2026-05-17 Add LangSmith or custom trace view for conversation review and model debugging +Observability @engineering phase:tighten
 x 2026-06-10 (B) 2026-05-17 Add per-client cost alert when estimated monthly variable cost exceeds tier margin assumptions +Costing @business phase:tighten
-(B) 2026-05-17 Add load and cost model for standard SME 500 conversations, Growth 2000 conversations, Scale 6000 conversations, and heavy 3000+ conversations +Costing @business phase:tighten
-(B) 2026-05-17 Add hosting cost tracker for shared compute, vector storage, logs, and agent state per client +Costing @business phase:tighten
-(B) 2026-05-17 Add integration overhead tracker for paid APIs, free tier limits, and custom maintenance burden +Costing @business phase:tighten
-(C) 2026-05-17 Revisit Pinecone or Weaviate only if pgvector scale, latency, or ops burden demands it +Roadmap @engineering phase:scale
-(C) 2026-05-17 Evaluate fine-tuning only for high-volume clients where voice consistency is mission-critical +Roadmap @engineering phase:scale
-(C) 2026-05-17 Evaluate self-serve lower tier only after 15-30 paying clients and no cannibalization risk +Roadmap @business phase:scale
-(C) 2026-05-17 Add Malaysia expansion research after Singapore repeatable wins +Roadmap @business phase:scale
-(C) 2026-05-17 Add SEA rollout roadmap with channel differences for Malaysia, Indonesia, Thailand, and Vietnam +Roadmap @business phase:expand
-(C) 2026-05-17 Research professional indemnity insurance once revenue supports the premium +Risk @legal phase:tighten
-(C) 2026-05-17 Maintain competitor watch list for SleekFlow, Wati, Respond.io, Trengo, Omnichat, Manychat, AI Super, Elevatespot, aichatbot.sg, Kaizenaire, CommzGate, Intercom, and Zendesk AI cadence:quarterly +Risk @business
-(C) 2026-05-17 Build public proof points from Phase 1 case studies before structured outbound and paid marketing +GTM @marketing phase:tighten
-(C) 2026-05-17 Define Phase 1 go/no-go criteria for unit economics, delivery time, pilot conversion, and failure mode resolution +Roadmap @business phase:validate
-(C) 2026-05-17 Define Phase 2 go/no-go criteria for standard pricing, 5-10 clients, PSG progress, clinic expansion, and integration library +Roadmap @business phase:tighten
-(C) 2026-05-17 Define Phase 3 go/no-go criteria for 15-30 clients, self-serve evaluation, Malaysia exploration, and team capacity +Roadmap @business phase:scale
+x 2026-06-11 (B) 2026-05-17 Add load and cost model for standard SME 500 conversations, Growth 2000 conversations, Scale 6000 conversations, and heavy 3000+ conversations +Costing @business phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add hosting cost tracker for shared compute, vector storage, logs, and agent state per client +Costing @business phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add integration overhead tracker for paid APIs, free tier limits, and custom maintenance burden +Costing @business phase:tighten
+x 2026-06-11 (C) 2026-05-17 Revisit Pinecone or Weaviate only if pgvector scale, latency, or ops burden demands it +Roadmap @engineering phase:scale
+x 2026-06-11 (C) 2026-05-17 Evaluate fine-tuning only for high-volume clients where voice consistency is mission-critical +Roadmap @engineering phase:scale
+x 2026-06-11 (C) 2026-05-17 Evaluate self-serve lower tier only after 15-30 paying clients and no cannibalization risk +Roadmap @business phase:scale
+x 2026-06-11 (C) 2026-05-17 Add Malaysia expansion research after Singapore repeatable wins +Roadmap @business phase:scale
+x 2026-06-11 (C) 2026-05-17 Add SEA rollout roadmap with channel differences for Malaysia, Indonesia, Thailand, and Vietnam +Roadmap @business phase:expand
+x 2026-06-11 (C) 2026-05-17 Research professional indemnity insurance once revenue supports the premium +Risk @legal phase:tighten
+x 2026-06-11 (C) 2026-05-17 Maintain competitor watch list for SleekFlow, Wati, Respond.io, Trengo, Omnichat, Manychat, AI Super, Elevatespot, aichatbot.sg, Kaizenaire, CommzGate, Intercom, and Zendesk AI cadence:quarterly +Risk @business
+x 2026-06-11 (C) 2026-05-17 Build public proof points from Phase 1 case studies before structured outbound and paid marketing +GTM @marketing phase:tighten
+x 2026-06-11 (C) 2026-05-17 Define Phase 1 go/no-go criteria for unit economics, delivery time, pilot conversion, and failure mode resolution +Roadmap @business phase:validate
+x 2026-06-11 (C) 2026-05-17 Define Phase 2 go/no-go criteria for standard pricing, 5-10 clients, PSG progress, clinic expansion, and integration library +Roadmap @business phase:tighten
+x 2026-06-11 (C) 2026-05-17 Define Phase 3 go/no-go criteria for 15-30 clients, self-serve evaluation, Malaysia exploration, and team capacity +Roadmap @business phase:scale
