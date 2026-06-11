@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import type { QueryResultRow } from "pg";
 import { query } from "@/lib/db";
 import type { IntegrationCredentialRecord, IntegrationProvider } from "@/lib/integrations/types";
+import { validatedSecretMaterial } from "@/lib/secret-key";
 
 type EncryptedRow = IntegrationCredentialRecord & {
   encrypted_api_key: string;
@@ -165,10 +166,7 @@ function decryptSecret(input: { ciphertext: string; nonce: string; tag: string }
 }
 
 function encryptionKey(): Buffer {
-  const material = process.env.PRONTO_SECRETS_KEY;
-  if (!material) {
-    throw new Error("PRONTO_SECRETS_KEY is required to save or read integration credentials.");
-  }
+  const material = validatedSecretMaterial("PRONTO_SECRETS_KEY");
   return createHash("sha256").update(material).digest();
 }
 

@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import type { QueryResultRow } from "pg";
 import { query } from "@/lib/db";
+import { validatedSecretMaterial } from "@/lib/secret-key";
 
 export type ProviderCredentialStatus = {
   provider: string;
@@ -171,10 +172,7 @@ function decryptSecret(input: {
 }
 
 function encryptionKey(): Buffer {
-  const material = process.env.PRONTO_SECRETS_KEY;
-  if (!material) {
-    throw new Error("PRONTO_SECRETS_KEY is required to save or read provider credentials.");
-  }
+  const material = validatedSecretMaterial("PRONTO_SECRETS_KEY");
   return createHash("sha256").update(material).digest();
 }
 
