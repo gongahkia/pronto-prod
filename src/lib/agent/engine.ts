@@ -414,12 +414,36 @@ export async function runAgentForMessage(input: {
       reasonCode: selfCheck.reasonCode,
       confidence: selfCheck.confidence,
     });
-    return createEscalation({
+    trace.addStep("self_check_escalated", {
+      reasonCode: selfCheck.reasonCode,
+      confidence: selfCheck.confidence,
+    });
+    const escalation = await createEscalation({
       ...input,
       reasonCode: selfCheck.reasonCode,
       reasonDetail: selfCheck.reasonDetail,
       confidence: selfCheck.confidence,
     });
+    await trace.finalize({
+      status: "escalated",
+      reasonCode: selfCheck.reasonCode,
+      confidence: selfCheck.confidence,
+      responseProvider: responseModel.provider,
+      responseModel: responseModel.model,
+      embeddingProvider: config.embedding_provider,
+      embeddingModel: config.embedding_model,
+      retrievalTopScore: chunks[0]?.score ?? null,
+      retrievalThreshold,
+      retrievalChunks: chunks,
+      citedChunkIds: decision.citedChunkIds,
+      promptText: `${buildGroundedAnswerInstructions(generationInput)}\n\n${buildGroundedAnswerUserInput(generationInput)}`,
+      usedFailover,
+      failoverProvider,
+      failoverModel,
+      failoverReason,
+      escalationId: escalation.escalationId,
+    });
+    return escalation;
   }
 
   if (decision.action === "escalate" || !decision.answer || !citedChunks.length) {
@@ -433,7 +457,12 @@ export async function runAgentForMessage(input: {
       confidence: decision.confidence,
       citedChunkCount: citedChunks.length,
     });
-    return createEscalation({
+    trace.addStep("model_decision_escalated", {
+      reasonCode: decision.reasonCode,
+      confidence: decision.confidence,
+      citedChunkCount: citedChunks.length,
+    });
+    const escalation = await createEscalation({
       ...input,
       reasonCode: decision.reasonCode,
       reasonDetail:
@@ -442,6 +471,26 @@ export async function runAgentForMessage(input: {
           : decision.reasonDetail,
       confidence: decision.confidence,
     });
+    await trace.finalize({
+      status: "escalated",
+      reasonCode: decision.reasonCode,
+      confidence: decision.confidence,
+      responseProvider: responseModel.provider,
+      responseModel: responseModel.model,
+      embeddingProvider: config.embedding_provider,
+      embeddingModel: config.embedding_model,
+      retrievalTopScore: chunks[0]?.score ?? null,
+      retrievalThreshold,
+      retrievalChunks: chunks,
+      citedChunkIds: decision.citedChunkIds,
+      promptText: `${buildGroundedAnswerInstructions(generationInput)}\n\n${buildGroundedAnswerUserInput(generationInput)}`,
+      usedFailover,
+      failoverProvider,
+      failoverModel,
+      failoverReason,
+      escalationId: escalation.escalationId,
+    });
+    return escalation;
   }
 
   const csatUrl = buildCsatUrl(input.conversationId);
@@ -489,6 +538,29 @@ export async function runAgentForMessage(input: {
     reasonCode: decision.reasonCode,
     confidence: decision.confidence,
     citedChunkCount: citedChunks.length,
+  });
+  trace.addStep("run_answered", {
+    agentMessageId: agentMessage.rows[0].id,
+    reasonCode: decision.reasonCode,
+  });
+  await trace.finalize({
+    status: "answered",
+    reasonCode: decision.reasonCode,
+    confidence: decision.confidence,
+    responseProvider: responseModel.provider,
+    responseModel: responseModel.model,
+    embeddingProvider: config.embedding_provider,
+    embeddingModel: config.embedding_model,
+    retrievalTopScore: chunks[0]?.score ?? null,
+    retrievalThreshold,
+    retrievalChunks: chunks,
+    citedChunkIds: decision.citedChunkIds,
+    promptText: `${buildGroundedAnswerInstructions(generationInput)}\n\n${buildGroundedAnswerUserInput(generationInput)}`,
+    usedFailover,
+    failoverProvider,
+    failoverModel,
+    failoverReason,
+    agentMessageId: agentMessage.rows[0].id,
   });
 
   return {

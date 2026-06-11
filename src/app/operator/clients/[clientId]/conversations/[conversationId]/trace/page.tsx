@@ -47,16 +47,115 @@ export default async function OperatorConversationTracePage({
         <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Trace totals</h2>
         </div>
-        <div className="grid gap-3 p-4 sm:grid-cols-4">
+        <div className="grid gap-3 p-4 sm:grid-cols-3 lg:grid-cols-6">
+          <Stat label="Agent runs" value={String(trace.totals.agentRuns)} />
           <Stat label="Provider calls" value={String(trace.totals.providerCalls)} />
           <Stat label="Input tokens" value={String(trace.totals.inputTokens)} />
           <Stat label="Output tokens" value={String(trace.totals.outputTokens)} />
           <Stat
-            label="Estimated cost (USD)"
+            label="Est. cost (USD)"
             value={trace.totals.estimatedCostUsd.toFixed(6)}
+          />
+          <Stat
+            label="Avg latency"
+            value={
+              trace.totals.avgLatencyMs === null
+                ? "—"
+                : `${Math.round(trace.totals.avgLatencyMs)} ms`
+            }
           />
         </div>
       </section>
+
+      {trace.agentTraces.length > 0 && (
+        <section className="ui-panel mt-6">
+          <div className="ui-panel-header">
+            <h2 className="text-base font-semibold">Agent runs</h2>
+          </div>
+          <ul className="divide-y divide-border">
+            {trace.agentTraces.map((run) => (
+              <li key={run.id} className="px-4 py-3 text-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-3">
+                  <div className="font-mono text-xs uppercase tracking-wide text-muted">
+                    {run.status} · {run.reason_code ?? "—"}
+                  </div>
+                  <time className="font-mono text-xs text-muted">
+                    {run.created_at.toISOString()}
+                  </time>
+                </div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <span className="text-muted">Provider:</span>{" "}
+                    {run.response_provider ?? "—"}/{run.response_model ?? "—"}
+                  </div>
+                  <div>
+                    <span className="text-muted">Embedding:</span>{" "}
+                    {run.embedding_provider ?? "—"}/{run.embedding_model ?? "—"}
+                  </div>
+                  <div>
+                    <span className="text-muted">Top score:</span>{" "}
+                    {run.retrieval_top_score === null
+                      ? "—"
+                      : run.retrieval_top_score.toFixed(4)}{" "}
+                    / threshold{" "}
+                    {run.retrieval_threshold === null
+                      ? "—"
+                      : run.retrieval_threshold.toFixed(4)}
+                  </div>
+                  <div>
+                    <span className="text-muted">Latency:</span>{" "}
+                    {run.latency_ms === null ? "—" : `${run.latency_ms} ms`}
+                  </div>
+                  <div>
+                    <span className="text-muted">Confidence:</span>{" "}
+                    {run.confidence === null ? "—" : run.confidence.toFixed(2)}
+                  </div>
+                  <div>
+                    <span className="text-muted">Chunks:</span>{" "}
+                    {run.retrieval_chunk_count} retrieved,{" "}
+                    {run.cited_chunk_ids.length} cited
+                  </div>
+                  {run.prompt_hash && (
+                    <div className="font-mono text-xs">
+                      <span className="text-muted">Prompt hash:</span>{" "}
+                      {run.prompt_hash.slice(0, 12)}…
+                    </div>
+                  )}
+                  {run.used_failover && (
+                    <div className="text-yellow-500">
+                      Failover → {run.failover_provider}/{run.failover_model}
+                    </div>
+                  )}
+                </div>
+                {run.error_message && (
+                  <p className="mt-2 text-red-500">{run.error_message}</p>
+                )}
+                {run.steps.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs text-accent">
+                      {run.steps.length} steps
+                    </summary>
+                    <ol className="mt-2 space-y-1 text-xs">
+                      {run.steps.map((step, index) => (
+                        <li key={index} className="font-mono">
+                          <span className="text-muted">{step.at}</span>{" "}
+                          <span className="font-semibold">{step.label}</span>
+                          {step.detail && (
+                            <span className="text-muted">
+                              {" "}
+                              {JSON.stringify(step.detail)}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="ui-panel mt-6">
         <div className="ui-panel-header">
