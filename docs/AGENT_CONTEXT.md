@@ -20,8 +20,10 @@ Minimal map of the repo for a coding agent. Pair with `docs/architecture.md` for
 
 ### `src/app/`
 - `api/` — route handlers.
-  - `webhooks/whatsapp/[channelId]` and `webhooks/telegram/[channelId]` — inbound channel webhooks (verify signature, normalize, batch-process).
+  - `webhooks/{whatsapp,telegram,messenger,instagram,email}/[channelId]` — inbound channel webhooks (verify signature, normalize, batch-process).
   - `escalations` — claim/resolve/retry + bulk_claim/bulk_assign/bulk_resolve.
+  - `operator/integrations` (POST/DELETE) + `operator/integrations/test` (POST) — integration credential CRUD + live test calls.
+  - `operator/monthly-report` (GET) — JSON-shaped monthly check-in.
   - `assistant`, `client`, `console`, `csat`, `auth`, `operator` — feature endpoints.
 - `operator/` — operator dashboard pages.
   - `clients/[clientId]/...` — per-client admin: conversations, channels, knowledge, flows, users, escalations, test, offboarding.
@@ -32,9 +34,11 @@ Minimal map of the repo for a coding agent. Pair with `docs/architecture.md` for
 
 ### `src/lib/`
 - **Core engine**
-  - `agent/engine.ts` — main agent run: small-talk → AI disclosure → pre-gen guardrails → retrieval → provider selection (+failover) → self-check → escalation or answer.
+  - `agent/engine.ts` — main agent run: small-talk → AI disclosure → pre-gen guardrails → retrieval → integration tools → provider selection (+failover) → self-check → escalation or answer. Emits a row to `agent_traces` on every return path.
   - `agent/guardrails.ts` — pre-gen topic/sentiment/scope checks compiled from `agent_configs.escalation_rules`.
   - `agent/self-check.ts` — post-gen citation + traceability check.
+  - `agent/trace.ts` — `AgentTraceBuilder` that records per-run telemetry to `agent_traces`.
+  - `agent/integration-tools.ts` — intent detector + invoker for live read-only integrations; results become synthetic high-score knowledge chunks tagged `live_source: true`.
   - `agent/config.ts`, `agent/readiness.ts` — per-client agent config + live-readiness signal.
 - **Knowledge / RAG**
   - `knowledge/ingest.ts`, `parse-upload.ts`, `chunk.ts`, `website.ts` — ingestion + chunking for PDF/DOCX/TXT/MD/CSV + crawl.
@@ -93,6 +97,7 @@ Numeric prefix is run order. Highlights:
 - `019` **integration_credentials** (encrypted, per-client, rotation tracking).
 - `020` **v2 channel kinds**: `messenger`, `instagram`, `email`.
 - `021` **escalations.assigned_to_user_id**.
+- `022` **agent_traces** (per-run trace: retrieval scores, prompt hash, latency, failover, steps).
 
 ### `scripts/`
 - `migrate.ts`, `seed.ts` — schema + fixtures.
