@@ -8,6 +8,8 @@ Set these before running a realistic pilot staging environment.
 - `AUTH_SECRET`: Long random secret for signed HTTP-only auth cookies.
 - `APP_BASE_URL`: Public base URL used in owner takeover links and webhook setup copy.
 - `PRONTO_USE_MOCK_AI`: `0` for live OpenAI calls, `1` for deterministic local mock AI.
+- `PRONTO_SECRETS_KEY`: 32+ character secret used to encrypt saved provider and integration credentials.
+- `PRONTO_ENFORCE_TENANT_SQL`: Set to `1` in staging to fail client-session SQL touching tenant tables without `client_id`. Production enables this unless `PRONTO_DISABLE_TENANT_SQL_GATE=1`.
 
 ## OpenAI
 
@@ -25,7 +27,6 @@ Use `PRONTO_LLM_PROVIDER=azure` or select Azure OpenAI in the operator Agent tun
 - `AZURE_OPENAI_ENDPOINT`: Optional shorthand endpoint, for example `https://<resource>.openai.azure.com`; Pronto appends `/openai/v1/`.
 - `AZURE_OPENAI_RESPONSE_MODEL`: Azure response deployment name.
 - `AZURE_OPENAI_EMBEDDING_MODEL`: Azure embedding deployment name.
-- `PRONTO_ENFORCE_TENANT_SQL`: Set to `1` in staging to fail client-session SQL touching tenant tables without `client_id`. Production enables this unless `PRONTO_DISABLE_TENANT_SQL_GATE=1`.
 - `AZURE_OPENAI_DEPLOYMENT`: Backward-compatible alias for `AZURE_OPENAI_RESPONSE_MODEL`.
 - `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`: Backward-compatible alias for `AZURE_OPENAI_EMBEDDING_MODEL`.
 
@@ -61,6 +62,56 @@ Per-channel credentials/settings should be preferred for real clients:
 - `webhookSecret`
 - `ownerChatId`
 
+## Messenger
+
+- `META_GRAPH_VERSION`: Meta Graph API version for Messenger and Instagram. Defaults to `v20.0`.
+- `MESSENGER_PAGE_ACCESS_TOKEN`: Fallback page access token.
+- `MESSENGER_APP_SECRET`: Fallback app secret for `X-Hub-Signature-256`.
+- `MESSENGER_VERIFY_TOKEN`: Fallback webhook verification token.
+
+Per-channel credentials/settings should be preferred for real clients:
+
+- `pageAccessToken`
+- `appSecret`
+- `verifyToken`
+
+## Instagram
+
+- `META_GRAPH_VERSION`: Meta Graph API version for Messenger and Instagram. Defaults to `v20.0`.
+- `INSTAGRAM_PAGE_ACCESS_TOKEN`: Fallback page access token.
+- `INSTAGRAM_APP_SECRET`: Fallback app secret for `X-Hub-Signature-256`.
+- `INSTAGRAM_VERIFY_TOKEN`: Fallback webhook verification token.
+
+Per-channel credentials/settings should be preferred for real clients:
+
+- `pageAccessToken`
+- `appSecret`
+- `igUserId`
+- `verifyToken`
+
+## Email
+
+Use either Postmark or Resend.
+
+- `POSTMARK_API_TOKEN`: Fallback Postmark server token.
+- `POSTMARK_FROM_ADDRESS`: Fallback Postmark sender address.
+- `POSTMARK_WEBHOOK_SECRET`: Fallback Postmark inbound/events webhook secret.
+- `RESEND_API_KEY`: Fallback Resend API key.
+- `RESEND_FROM_ADDRESS`: Fallback Resend sender address.
+- `RESEND_WEBHOOK_SECRET`: Fallback Resend inbound/events webhook secret.
+
+Per-channel credentials/settings should be preferred for real clients:
+
+- `provider`: `postmark` or `resend`
+- `apiKey`
+- `fromAddress`
+- `webhookSecret`
+
+## Optional Ops Alerts
+
+- `PRONTO_ERROR_ALERT_WEBHOOK_URL`: External error-alert webhook.
+- `PRONTO_RISK_ALERT_WEBHOOK_URL`: External pricing/policy risk-monitor webhook.
+
 ## Required Checks
 
 - Run `pnpm staging:preflight` after setting env vars and before live channel testing. It verifies live AI mode, secret placeholders, database reachability, provider credential availability, and Telegram/WhatsApp channel config without printing secret values.
@@ -70,5 +121,7 @@ Per-channel credentials/settings should be preferred for real clients:
 - Confirm the operator Agent tuning panel shows live AI readiness for the selected provider and model.
 - Confirm WhatsApp webhook verification succeeds.
 - Confirm Telegram webhook sends a 200 response with the configured secret header.
+- Confirm Messenger/Instagram webhook verification succeeds if those channels are enabled.
+- Confirm email inbound and email event webhooks return 200 if email is enabled.
 - Confirm an ordinary known F&B question answers from sources.
 - Confirm refund, complaint, and booking mutation requests escalate.

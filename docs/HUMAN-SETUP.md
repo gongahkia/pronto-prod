@@ -26,6 +26,17 @@ Seeded clients default to OpenAI for embeddings, so Azure must be selected there
 
 For deployment, store provider keys in deployment/platform secrets, not in committed files. The app already has provider wiring for Azure OpenAI, OpenAI, Anthropic, Groq, OpenRouter, GitHub Models, Hugging Face, Cerebras, and other OpenAI-compatible providers.
 
+Deployment core env:
+
+```env
+DATABASE_URL=...
+AUTH_SECRET=<32+ chars>
+APP_BASE_URL=https://<public-app-host>
+PRONTO_SECRETS_KEY=<32+ chars>
+PRONTO_USE_MOCK_AI=0
+PRONTO_ENFORCE_TENANT_SQL=1
+```
+
 ## Webhooks
 
 A webhook is a public HTTPS URL that WhatsApp, Telegram, Messenger, Instagram, or email providers call when a customer sends a message.
@@ -212,6 +223,56 @@ Per-channel credential fields:
 Per-channel setting:
 
 - `verifyToken`
+
+## Email
+
+Use Postmark or Resend.
+
+Required:
+
+- API key
+- Verified sender/from address
+- Webhook secret you generate
+- Public HTTPS webhook URL
+
+Inbound webhook:
+
+```text
+https://<public-host>/api/webhooks/email/<channelId>
+```
+
+Delivery/bounce event webhook:
+
+```text
+https://<public-host>/api/webhooks/email/<channelId>/events
+```
+
+Postmark env:
+
+```env
+POSTMARK_API_TOKEN=...
+POSTMARK_FROM_ADDRESS=support@example.com
+POSTMARK_WEBHOOK_SECRET=...
+```
+
+Resend env:
+
+```env
+RESEND_API_KEY=...
+RESEND_FROM_ADDRESS=support@example.com
+RESEND_WEBHOOK_SECRET=...
+```
+
+Per-channel credential fields:
+
+- `provider`: `postmark` or `resend`
+- `apiKey`
+- `fromAddress`
+
+Per-channel setting:
+
+- `webhookSecret`
+- optional `defaultSubject`
 
 ## Verification
 
