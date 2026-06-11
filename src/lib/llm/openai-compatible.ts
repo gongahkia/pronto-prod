@@ -28,6 +28,10 @@ type ChatCompletionResponse = {
       content?: string | null;
     };
   }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
 };
 
 export class OpenAiCompatibleProvider implements LlmProvider {
@@ -58,14 +62,20 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       throw new Error(`${provider.name} API key is not configured.`);
     }
 
-    const response = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), input.timeoutMs ?? 25_000);
+    let response: Response;
+    try {
+      response = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       },
+      signal: abort.signal,
       body: JSON.stringify({
         model: input.responseModel,
+        max_tokens: input.maxOutputTokens,
         temperature: 0,
         messages: [
           {
@@ -81,7 +91,10 @@ export class OpenAiCompatibleProvider implements LlmProvider {
           },
         ],
       }),
-    });
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       const body = await response.text();
@@ -132,6 +145,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
           reasonDetail:
             "The model attempted to answer without a customer-facing answer or source citation.",
           citedChunkIds: parsed.citedChunkIds,
+          usage: tokenUsage(body.usage),
         };
       }
       logInfo("llm.generation_completed", {
@@ -145,7 +159,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         confidence: parsed.confidence,
         citedChunkCount: parsed.citedChunkIds.length,
       });
-      return parsed;
+      return { ...parsed, usage: tokenUsage(body.usage) };
     } catch (error) {
       logWarn("llm_provider.invalid_decision_json", {
         requestId: input.requestId,
@@ -158,4 +172,19 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       throw error;
     }
   }
+}
+
+function tokenUsage(
+  usage: ChatCompletionResponse["usage"],
+): { inputTokens: number; outputTokens: number } | undefined {
+  if (
+    typeof usage?.prompt_tokens !== "number" ||
+    typeof usage.completion_tokens !== "number"
+  ) {
+    return undefined;
+  }
+  return {
+    inputTokens: usage.prompt_tokens,
+    outputTokens: usage.completion_tokens,
+  };
 }
