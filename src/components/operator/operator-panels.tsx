@@ -16,6 +16,7 @@ import { Badge } from "@/components/badge";
 import { DeliveryStatusBadge } from "@/components/delivery-status";
 import { EscalationOutboundStatus } from "@/components/escalation-outbound-status";
 import { KnowledgeFileInput } from "@/components/knowledge-file-input";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 
 export function OperatorEscalationList({
   escalations,
@@ -189,9 +190,9 @@ export function OperatorChannelSetup({
                   />
                 </label>
               ) : null}
-              <button className="ui-button px-3 py-2">
+              <PendingSubmitButton className="ui-button px-3 py-2" pendingText="Saving...">
                 Save channel
-              </button>
+              </PendingSubmitButton>
               <button
                 form={`health-${channel.id}`}
                 className="ml-2 ui-button px-3 py-2"
@@ -478,9 +479,9 @@ export function OperatorKnowledgeIngestion({ clientId }: { clientId: string }) {
           placeholder="Paste FAQ, menu, policy, or brand content"
         />
         <KnowledgeFileInput />
-        <button className="ui-primary-button px-4 py-2">
+        <PendingSubmitButton className="ui-primary-button px-4 py-2" pendingText="Adding...">
           Add source
-        </button>
+        </PendingSubmitButton>
       </form>
     </div>
   );

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { recordAuditLog } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { canAccessClient } from "@/lib/rbac";
 
 type Context = { params: Promise<{ clientId: string; userId: string }> };
 
@@ -23,6 +24,9 @@ export async function POST(request: Request, context: Context) {
 
   const actor = await requireUser("operator");
   const { clientId, userId } = await context.params;
+  if (!canAccessClient(actor, clientId)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
 
   if (userId === actor.userId) {
     return redirectWithMessage(request, clientId, "error", "You cannot remove yourself.");

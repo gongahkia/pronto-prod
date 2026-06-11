@@ -10,6 +10,7 @@
 ## Staging
 
 - Require TLS for all public endpoints.
+- Set `PRONTO_SECRETS_KEY` to at least 32 bytes before saving provider or integration credentials.
 - Store database volumes on encrypted infrastructure.
 - Store channel credentials and provider API keys outside source control.
 - Restrict database access to application runtime and authorized operators.
@@ -25,3 +26,11 @@
 - Log secret access and rotation.
 - Redact phone numbers, customer message bodies, and provider credentials from logs.
 
+## PRONTO_SECRETS_KEY Rotation
+
+1. Schedule a maintenance window and pause credential edits.
+2. Export current provider and integration credentials from the secrets manager or operator records.
+3. Set the new `PRONTO_SECRETS_KEY` value in the runtime environment.
+4. Re-save each provider and integration credential so it is encrypted with the new key.
+5. Restart application workers and run provider/integration tests.
+6. Remove the old key from runtime and secret-manager history according to policy.

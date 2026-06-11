@@ -34,6 +34,7 @@ pnpm lint
 pnpm test
 pnpm build
 pnpm outbox:retry
+pnpm retention:prune --dry-run
 ```
 
 `pnpm outbox:retry` runs the local outbound retry worker once. Use it after testing failed WhatsApp/Telegram owner replies or stale `sending` rows.

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { AppShell } from "@/components/shell";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 
 const PLAN_TIERS = [
   { value: "pilot", label: "Pilot (2-4 week scoped)" },
@@ -157,9 +158,12 @@ export default async function NewClientPage({
           <Link href="/operator" className="ui-button px-4 py-2 text-muted">
             Cancel
           </Link>
-          <button className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-dark">
+          <PendingSubmitButton
+            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-dark disabled:opacity-60"
+            pendingText="Creating..."
+          >
             Create client
-          </button>
+          </PendingSubmitButton>
         </div>
       </form>
     </AppShell>

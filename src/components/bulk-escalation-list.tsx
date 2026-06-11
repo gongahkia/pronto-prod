@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { EscalationWithContext } from "@/lib/dashboard";
+import { RelativeTime } from "@/components/relative-time";
 
 export type BulkEscalationListProps = {
   clientId: string;
@@ -209,9 +210,9 @@ export function BulkEscalationList(props: BulkEscalationListProps) {
                 <span className="font-mono text-xs text-muted">
                   {escalation.status}
                 </span>
-                <time className="ml-auto font-mono text-xs text-muted" dateTime={escalation.created_at.toISOString()}>
-                  {escalation.created_at.toISOString()}
-                </time>
+                <span className="ml-auto font-mono text-xs text-muted">
+                  <RelativeTime value={escalation.created_at} />
+                </span>
               </div>
               <p className="mt-1 text-sm">{escalation.customer_message}</p>
               <p className="mt-1 text-xs text-muted">{escalation.reason_detail}</p>

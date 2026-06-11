@@ -4,6 +4,7 @@ import { recordAuditLog } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
+import { canAccessClient } from "@/lib/rbac";
 
 const MIN_PASSWORD_LENGTH = 8;
 const VALID_ROLES = new Set(["client", "operator"]);
@@ -27,6 +28,9 @@ export async function POST(request: Request, context: Context) {
 
   const actor = await requireUser("operator");
   const { clientId } = await context.params;
+  if (!canAccessClient(actor, clientId)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
 
   const clientResult = await query<{ id: string }>(
     "select id from clients where id = $1 limit 1",
@@ -99,4 +103,3 @@ export async function POST(request: Request, context: Context) {
     `Added ${email}.`,
   );
 }
-

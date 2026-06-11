@@ -9,6 +9,7 @@ import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
 import { KnowledgeFileInput } from "@/components/knowledge-file-input";
 import { KnowledgeRefreshPanel } from "@/components/knowledge-refresh-panel";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import { KnowledgeGapPanel } from "@/components/reporting-panels";
 import { StatCard } from "@/components/stat-card";
 
@@ -148,9 +149,9 @@ export default async function ClientKnowledgePage() {
             placeholder="Paste menu, policy, opening hours, FAQs, or service notes"
           />
           <KnowledgeFileInput />
-          <button className="ui-primary-button px-4 py-2">
+          <PendingSubmitButton className="ui-primary-button px-4 py-2" pendingText="Adding...">
             Add source
-          </button>
+          </PendingSubmitButton>
         </form>
       </section>
     </AppShell>

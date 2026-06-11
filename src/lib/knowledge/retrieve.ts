@@ -58,7 +58,7 @@ export async function retrieveKnowledge(
               kc.embedding_model,
               kc.embedding_dimensions,
               kc.metadata,
-              ${vectorDistance.replaceAll("embedding", "kc.embedding")} as distance
+              ${vectorDistance.split("embedding").join("kc.embedding")} as distance
             from knowledge_chunks kc, fts_query
             where kc.client_id = $1
               and kc.embedding_dimensions = $6

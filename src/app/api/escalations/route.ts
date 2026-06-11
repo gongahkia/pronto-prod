@@ -107,7 +107,7 @@ export async function POST(request: Request) {
         previousStatus: outbound.status,
         result: flushResult.status,
       },
-    }, { isolationLevel: "serializable", retries: 2 });
+    });
 
     return NextResponse.redirect(new URL(returnTo, request.url), 303);
   }
@@ -213,7 +213,7 @@ export async function POST(request: Request) {
         },
         client,
       );
-    });
+    }, { isolationLevel: "serializable", retries: 2 });
 
     if (outboundMessageId) {
       await flushOutboundMessage(outboundMessageId);

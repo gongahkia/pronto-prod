@@ -4,6 +4,7 @@ import { Search, SquarePen, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 
 type ActionMode = "search" | "create" | null;
 
@@ -218,9 +219,12 @@ export function OperatorSidebarActions() {
                   <button className="ui-button px-3 py-2" type="button" onClick={() => setMode(null)}>
                     Cancel
                   </button>
-                  <button className="ui-primary-button px-4 py-2" type="submit">
+                  <PendingSubmitButton
+                    className="ui-primary-button px-4 py-2"
+                    pendingText="Creating..."
+                  >
                     Create client
-                  </button>
+                  </PendingSubmitButton>
                 </div>
               </form>
             )}

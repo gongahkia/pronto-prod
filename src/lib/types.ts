@@ -152,8 +152,8 @@ export type KnowledgeChunk = {
   chunk_index: number;
   content: string;
   token_estimate: number;
-  embedding_model: string;
-  embedding_dimensions: number;
+  embedding_model?: string;
+  embedding_dimensions?: number;
   score?: number;
   metadata: Record<string, unknown>;
 };
