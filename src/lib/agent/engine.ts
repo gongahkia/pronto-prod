@@ -7,6 +7,7 @@ import {
   evaluateSmallTalkGreeting,
 } from "@/lib/agent/guardrails";
 import { evaluatePostGenerationSelfCheck } from "@/lib/agent/self-check";
+import { AgentTraceBuilder } from "@/lib/agent/trace";
 import { getPromptBrandVoiceProfile } from "@/lib/brand-voice";
 import {
   estimateEmbeddingCost,
@@ -54,6 +55,14 @@ export async function runAgentForMessage(input: {
     customerMessageId: input.customerMessageId,
   });
 
+  const trace = new AgentTraceBuilder({
+    clientId: input.clientId,
+    conversationId: input.conversationId,
+    customerMessageId: input.customerMessageId,
+    requestId: input.requestId,
+  });
+  trace.addStep("run_started");
+
   const [clientResult, configResult, recentMessagesResult, brandVoiceProfile] = await Promise.all([
     query<Client>("select * from clients where id = $1", [input.clientId]),
     query<AgentConfig>("select * from agent_configs where client_id = $1", [
@@ -97,6 +106,13 @@ export async function runAgentForMessage(input: {
         policy: "safe_small_talk",
       },
     });
+    trace.addStep("small_talk_greeting_answered");
+    await trace.finalize({
+      status: "answered",
+      reasonCode: "small_talk_greeting",
+      confidence: 1,
+      agentMessageId: recorded.agentMessageId,
+    });
 
     return {
       action: "answered",
@@ -128,6 +144,13 @@ export async function runAgentForMessage(input: {
         policy: "direct_customer_disclosure",
       },
     });
+    trace.addStep("ai_disclosure_answered");
+    await trace.finalize({
+      status: "answered",
+      reasonCode: "ai_disclosure",
+      confidence: 1,
+      agentMessageId: recorded.agentMessageId,
+    });
 
     return {
       action: "answered",
@@ -155,12 +178,23 @@ export async function runAgentForMessage(input: {
       reasonCode: precheck.reasonCode,
       confidence: precheck.confidence,
     });
-    return createEscalation({
+    trace.addStep("pre_generation_escalated", {
+      reasonCode: precheck.reasonCode,
+      confidence: precheck.confidence,
+    });
+    const escalation = await createEscalation({
       ...input,
       reasonCode: precheck.reasonCode,
       reasonDetail: precheck.reasonDetail,
       confidence: precheck.confidence,
     });
+    await trace.finalize({
+      status: "escalated",
+      reasonCode: precheck.reasonCode,
+      confidence: precheck.confidence,
+      escalationId: escalation.escalationId,
+    });
+    return escalation;
   }
 
   const responseProvider =
@@ -176,6 +210,12 @@ export async function runAgentForMessage(input: {
     clientId: input.clientId,
     channelId: input.channelId,
     conversationId: input.conversationId,
+    responseProvider: responseModel.provider,
+    responseModel: responseModel.model,
+    embeddingProvider: config.embedding_provider,
+    embeddingModel: config.embedding_model,
+  });
+  trace.addStep("provider_selected", {
     responseProvider: responseModel.provider,
     responseModel: responseModel.model,
     embeddingProvider: config.embedding_provider,
@@ -229,14 +269,33 @@ export async function runAgentForMessage(input: {
     reasonCode: retrievalCheck.reasonCode,
     normalizedKnowledgeCategories: normalizedKnowledgeQuery.categories,
   });
+  trace.addStep("retrieval_evaluated", {
+    topScore: chunks[0]?.score ?? null,
+    threshold: retrievalThreshold,
+    chunkCount: chunks.length,
+  });
 
   if (retrievalCheck.shouldEscalate) {
-    return createEscalation({
+    const escalation = await createEscalation({
       ...input,
       reasonCode: retrievalCheck.reasonCode,
       reasonDetail: retrievalCheck.reasonDetail,
       confidence: retrievalCheck.confidence,
     });
+    await trace.finalize({
+      status: "escalated",
+      reasonCode: retrievalCheck.reasonCode,
+      confidence: retrievalCheck.confidence,
+      responseProvider: responseModel.provider,
+      responseModel: responseModel.model,
+      embeddingProvider: config.embedding_provider,
+      embeddingModel: config.embedding_model,
+      retrievalTopScore: chunks[0]?.score ?? null,
+      retrievalThreshold,
+      retrievalChunks: chunks,
+      escalationId: escalation.escalationId,
+    });
+    return escalation;
   }
 
   const generationInput = {
@@ -262,6 +321,10 @@ export async function runAgentForMessage(input: {
   };
 
   let decision: GroundedAnswerDecision;
+  let usedFailover = false;
+  let failoverProvider: string | undefined;
+  let failoverModel: string | undefined;
+  let failoverReason: string | undefined;
   try {
     decision = await getGenerationProvider(responseModel.provider).generateGroundedAnswer(
       generationInput,
@@ -271,10 +334,27 @@ export async function runAgentForMessage(input: {
       responseModel.provider === "openai" ||
       process.env.PRONTO_ENABLE_PROVIDER_FAILOVER === "0"
     ) {
+      await trace.finalize({
+        status: "escalated",
+        reasonCode: "provider_error",
+        confidence: 0,
+        responseProvider: responseModel.provider,
+        responseModel: responseModel.model,
+        embeddingProvider: config.embedding_provider,
+        embeddingModel: config.embedding_model,
+        retrievalTopScore: chunks[0]?.score ?? null,
+        retrievalThreshold,
+        retrievalChunks: chunks,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
 
     const fallback = failoverModelChoice();
+    usedFailover = true;
+    failoverProvider = fallback.provider;
+    failoverModel = fallback.model;
+    failoverReason = error instanceof Error ? error.message : String(error);
     logWarn("agent.provider_failover_started", {
       requestId: input.requestId,
       clientId: input.clientId,
@@ -285,6 +365,12 @@ export async function runAgentForMessage(input: {
       fallbackProvider: fallback.provider,
       fallbackModel: fallback.model,
       error,
+    });
+    trace.addStep("provider_failover", {
+      failedProvider: responseModel.provider,
+      failedModel: responseModel.model,
+      fallbackProvider: fallback.provider,
+      fallbackModel: fallback.model,
     });
     decision = await getGenerationProvider(fallback.provider).generateGroundedAnswer({
       ...generationInput,
