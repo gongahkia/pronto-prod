@@ -10,7 +10,9 @@ import {
 import {
   ConversationFilterForm,
   ConversationList,
+  PaginationControls,
   filtersFromSearchParams,
+  pageFromSearchParams,
 } from "@/components/reporting-panels";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +39,15 @@ export default async function OperatorClientConversationsPage({
   }
 
   const filters = filtersFromSearchParams(resolvedSearchParams, client.id);
-  const conversations = await getFilteredConversations({ ...filters, limit: 50 });
+  const page = pageFromSearchParams(resolvedSearchParams);
+  const limit = 50;
+  const conversations = await getFilteredConversations({
+    ...filters,
+    limit: limit + 1,
+    offset: (page - 1) * limit,
+  });
+  const hasNext = conversations.length > limit;
+  const visibleConversations = conversations.slice(0, limit);
 
   return (
     <AppShell user={user} active="operator">
@@ -56,10 +66,16 @@ export default async function OperatorClientConversationsPage({
           filters={filters}
         />
         <ConversationList
-          conversations={conversations}
+          conversations={visibleConversations}
           hrefForConversation={(conversation) =>
             `/operator/clients/${client.id}/conversations/${conversation.id}`
           }
+        />
+        <PaginationControls
+          action={`/operator/clients/${client.id}/conversations`}
+          searchParams={resolvedSearchParams}
+          page={page}
+          hasNext={hasNext}
         />
       </section>
     </AppShell>

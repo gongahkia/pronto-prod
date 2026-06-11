@@ -8,7 +8,9 @@ import { AppShell } from "@/components/shell";
 import {
   ConversationFilterForm,
   ConversationList,
+  PaginationControls,
   filtersFromSearchParams,
+  pageFromSearchParams,
 } from "@/components/reporting-panels";
 import { StatCard } from "@/components/stat-card";
 
@@ -22,14 +24,18 @@ export default async function OperatorConversationsPage({
   const user = await requireUser("operator");
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const filters = filtersFromSearchParams(resolvedSearchParams);
+  const page = pageFromSearchParams(resolvedSearchParams);
+  const limit = 75;
   const conversations = prioritizeLiveInbox(
-    await getFilteredConversations({ ...filters, limit: 75 }),
+    await getFilteredConversations({ ...filters, limit: limit + 1, offset: (page - 1) * limit }),
   );
+  const hasNext = conversations.length > limit;
+  const visibleConversations = conversations.slice(0, limit);
 
-  const actionable = conversations.filter((conversation) => conversation.active_escalation_id).length;
-  const escalated = conversations.filter((conversation) => conversation.status === "escalated").length;
-  const active = conversations.filter((conversation) => conversation.status === "active").length;
-  const reviewed = conversations.filter((conversation) => conversation.latest_review_label).length;
+  const actionable = visibleConversations.filter((conversation) => conversation.active_escalation_id).length;
+  const escalated = visibleConversations.filter((conversation) => conversation.status === "escalated").length;
+  const active = visibleConversations.filter((conversation) => conversation.status === "active").length;
+  const reviewed = visibleConversations.filter((conversation) => conversation.latest_review_label).length;
 
   return (
     <AppShell user={user} active="operator" operatorActive="conversations">
@@ -68,12 +74,18 @@ export default async function OperatorConversationsPage({
         </div>
         <ConversationFilterForm action="/operator/conversations" filters={filters} />
         <ConversationList
-          conversations={conversations}
+          conversations={visibleConversations}
           hrefForConversation={(conversation) =>
             `/operator/clients/${conversation.client_id}/conversations/${conversation.id}`
           }
           showClient
           ctaLabel="Open"
+        />
+        <PaginationControls
+          action="/operator/conversations"
+          searchParams={resolvedSearchParams}
+          page={page}
+          hasNext={hasNext}
         />
       </section>
     </AppShell>

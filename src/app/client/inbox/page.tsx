@@ -10,7 +10,9 @@ import { AppShell } from "@/components/shell";
 import {
   ConversationFilterForm,
   ConversationList,
+  PaginationControls,
   filtersFromSearchParams,
+  pageFromSearchParams,
 } from "@/components/reporting-panels";
 import { Badge } from "@/components/badge";
 
@@ -28,9 +30,11 @@ export default async function ClientInboxPage({
 
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const filters = filtersFromSearchParams(resolvedSearchParams, user.clientId);
+  const page = pageFromSearchParams(resolvedSearchParams);
+  const limit = 75;
   const [client, conversations, analytics] = await Promise.all([
     getClient(user.clientId),
-    getFilteredConversations({ ...filters, limit: 75 }),
+    getFilteredConversations({ ...filters, limit: limit + 1, offset: (page - 1) * limit }),
     getClientDashboardAnalytics(user.clientId),
   ]);
   if (!client) {
@@ -38,6 +42,8 @@ export default async function ClientInboxPage({
   }
 
   const sortedConversations = sortClientInbox(conversations);
+  const hasNext = sortedConversations.length > limit;
+  const visibleConversations = sortedConversations.slice(0, limit);
 
   return (
     <AppShell user={user} active="client" clientActive="inbox" workspaceName={client.name}>
@@ -80,10 +86,16 @@ export default async function ClientInboxPage({
           includeReview={false}
         />
         <ConversationList
-          conversations={sortedConversations}
+          conversations={visibleConversations}
           hrefForConversation={(conversation) => `/client/conversations/${conversation.id}`}
           emptyText="No conversations match these filters."
           ctaLabel="Open"
+        />
+        <PaginationControls
+          action="/client/inbox"
+          searchParams={resolvedSearchParams}
+          page={page}
+          hasNext={hasNext}
         />
       </section>
     </AppShell>

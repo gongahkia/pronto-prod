@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { channelKinds } from "@/lib/channels/catalog";
 import type { Channel, ConversationStatus, EscalationStatus } from "@/lib/types";
 
 export type ConversationFilterInput = {
@@ -11,6 +12,7 @@ export type ConversationFilterInput = {
   from?: string;
   to?: string;
   limit?: number;
+  offset?: number;
 };
 
 export type FilteredConversation = {
@@ -117,7 +119,7 @@ type SqlFilter = {
   values: unknown[];
 };
 
-const channelKinds = new Set(["whatsapp", "telegram", "console"]);
+const channelKindSet = new Set(channelKinds);
 const conversationStatuses = new Set(["active", "escalated", "closed"]);
 
 const actionableEscalationCondition = `
@@ -132,6 +134,7 @@ export async function getFilteredConversations(
 ): Promise<FilteredConversation[]> {
   const filters = buildConversationFilters(input);
   const limit = normalizeLimit(input.limit, 50);
+  const offset = normalizeOffset(input.offset);
   const result = await query<FilteredConversation>(
     `
       select
@@ -186,8 +189,9 @@ export async function getFilteredConversations(
       ${filters.where.length ? `where ${filters.where.join(" and ")}` : ""}
       order by c.last_message_at desc
       limit $${filters.values.length + 1}
+      offset $${filters.values.length + 2}
     `,
-    [...filters.values, limit],
+    [...filters.values, limit, offset],
   );
   return result.rows;
 }
@@ -276,10 +280,12 @@ export async function getClientDashboardAnalytics(
 export async function getKnowledgeGapReport(input: {
   clientId?: string;
   limit?: number;
+  offset?: number;
 } = {}): Promise<KnowledgeGapRow[]> {
   const params: unknown[] = [];
   const clientFilter = input.clientId ? `and c.client_id = $${pushParam(params, input.clientId)}` : "";
   const limit = normalizeLimit(input.limit, 20);
+  const offset = normalizeOffset(input.offset);
   const result = await query<KnowledgeGapRow>(
     `
       with gap_candidates as (
@@ -337,8 +343,9 @@ export async function getKnowledgeGapReport(input: {
       from gap_candidates
       order by last_message_at desc
       limit $${params.length + 1}
+      offset $${params.length + 2}
     `,
-    [...params, limit],
+    [...params, limit, offset],
   );
   return result.rows;
 }
@@ -1092,7 +1099,7 @@ function buildConversationFilters(input: ConversationFilterInput): SqlFilter {
       or lm.body ilike $${param}
     )`);
   }
-  if (input.channelKind && channelKinds.has(input.channelKind)) {
+  if (input.channelKind && channelKindSet.has(input.channelKind as Channel["kind"])) {
     where.push(`ch.kind = $${pushParam(values, input.channelKind)}::channel_kind`);
   }
   if (input.status && conversationStatuses.has(input.status)) {
@@ -1126,6 +1133,13 @@ function normalizeLimit(value: number | undefined, fallback: number): number {
     return fallback;
   }
   return Math.min(value, 100);
+}
+
+function normalizeOffset(value: number | undefined): number {
+  if (!Number.isInteger(value) || value === undefined || value < 0) {
+    return 0;
+  }
+  return value;
 }
 
 function parseNullableNumber(value: string | null | undefined): number | null {

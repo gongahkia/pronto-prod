@@ -8,6 +8,7 @@ import type {
   OperationalAlert,
   SlaSummary,
 } from "@/lib/reporting";
+import { channelDefinitions } from "@/lib/channels/catalog";
 import { Badge } from "@/components/badge";
 import { StatCard } from "@/components/stat-card";
 
@@ -62,9 +63,11 @@ export function ConversationFilterForm({
         className="rounded-md border border-line px-3 py-2 text-sm"
       >
         <option value="">All channels</option>
-        <option value="console">Console</option>
-        <option value="whatsapp">WhatsApp</option>
-        <option value="telegram">Telegram</option>
+        {channelDefinitions.map((channel) => (
+          <option key={channel.kind} value={channel.kind}>
+            {channel.label}
+          </option>
+        ))}
       </select>
       <select
         name="status"
@@ -173,6 +176,40 @@ export function ConversationList({
         ))
       )}
     </div>
+  );
+}
+
+export function PaginationControls({
+  action,
+  searchParams,
+  page,
+  hasNext,
+}: {
+  action: string;
+  searchParams: Record<string, string | string[] | undefined>;
+  page: number;
+  hasNext: boolean;
+}) {
+  if (page <= 1 && !hasNext) return null;
+
+  return (
+    <nav className="flex items-center justify-between gap-3 border-t border-line p-4 text-sm" aria-label="Pagination">
+      <Link
+        href={pageHref(action, searchParams, page - 1)}
+        aria-disabled={page <= 1}
+        className={`ui-button px-3 py-2 ${page <= 1 ? "pointer-events-none opacity-50" : ""}`}
+      >
+        Previous
+      </Link>
+      <span className="text-muted">Page {page}</span>
+      <Link
+        href={pageHref(action, searchParams, page + 1)}
+        aria-disabled={!hasNext}
+        className={`ui-button px-3 py-2 ${hasNext ? "" : "pointer-events-none opacity-50"}`}
+      >
+        Next
+      </Link>
+    </nav>
   );
 }
 
@@ -306,8 +343,30 @@ export function filtersFromSearchParams(
   };
 }
 
+export function pageFromSearchParams(
+  searchParams: Record<string, string | string[] | undefined>,
+): number {
+  const value = Number(firstParam(searchParams.page) ?? "1");
+  return Number.isInteger(value) && value > 0 ? value : 1;
+}
+
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function pageHref(
+  action: string,
+  searchParams: Record<string, string | string[] | undefined>,
+  page: number,
+): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    const first = firstParam(value);
+    if (first && key !== "page") params.set(key, first);
+  }
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return query ? `${action}?${query}` : action;
 }
 
 function formatDuration(seconds: number | null): string {

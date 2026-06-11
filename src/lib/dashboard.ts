@@ -304,8 +304,11 @@ export async function getConversationMessages(
 }
 
 export async function getOpenEscalations(
-  clientId?: string,
+  input?: string | { clientId?: string; limit?: number; offset?: number },
 ): Promise<EscalationWithContext[]> {
+  const clientId = typeof input === "string" ? input : input?.clientId;
+  const limit = normalizeLimit(typeof input === "string" ? undefined : input?.limit, 20);
+  const offset = normalizeOffset(typeof input === "string" ? undefined : input?.offset);
   const result = await query<EscalationWithContext>(
     `
       select
@@ -335,11 +338,26 @@ export async function getOpenEscalations(
       ${clientId ? "where e.client_id = $1 and" : "where"}
         ${actionableEscalationCondition}
       order by e.created_at desc
-      limit 20
+      limit $${clientId ? 2 : 1}
+      offset $${clientId ? 3 : 2}
     `,
-    clientId ? [clientId] : [],
+    clientId ? [clientId, limit, offset] : [limit, offset],
   );
   return result.rows;
+}
+
+function normalizeLimit(value: number | undefined, fallback: number): number {
+  if (!Number.isInteger(value) || !value || value < 1) {
+    return fallback;
+  }
+  return Math.min(value, 100);
+}
+
+function normalizeOffset(value: number | undefined): number {
+  if (!Number.isInteger(value) || value === undefined || value < 0) {
+    return 0;
+  }
+  return value;
 }
 
 export async function getConversationActionableEscalation(input: {
