@@ -7,6 +7,11 @@ import {
 } from "@/lib/channels/outbox";
 import { query, transaction } from "@/lib/db";
 import { canAccessClient } from "@/lib/rbac";
+import {
+  bulkAssignEscalations,
+  bulkClaimEscalations,
+  bulkResolveEscalations,
+} from "@/lib/escalations-bulk";
 import type { ChannelKind, EscalationStatus } from "@/lib/types";
 
 type EscalationActionRecord = {
@@ -35,6 +40,37 @@ export async function POST(request: Request) {
     String(form.get("returnTo") ?? ""),
     user.role === "operator" ? "/operator" : "/client",
   );
+
+  if (action === "bulk_claim" || action === "bulk_resolve" || action === "bulk_assign") {
+    const clientId = String(form.get("clientId") ?? "");
+    if (!canAccessClient(user, clientId)) {
+      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    }
+    const ids = form.getAll("escalationIds").map((value) => String(value));
+    let result;
+    if (action === "bulk_claim") {
+      result = await bulkClaimEscalations({
+        escalationIds: ids,
+        clientId,
+        actorUserId: user.userId,
+      });
+    } else if (action === "bulk_assign") {
+      result = await bulkAssignEscalations({
+        escalationIds: ids,
+        clientId,
+        assigneeUserId: String(form.get("assigneeUserId") ?? ""),
+        actorUserId: user.userId,
+      });
+    } else {
+      result = await bulkResolveEscalations({
+        escalationIds: ids,
+        clientId,
+        actorUserId: user.userId,
+        resolutionNote: String(form.get("resolutionNote") ?? "").trim() || undefined,
+      });
+    }
+    return NextResponse.json(result);
+  }
 
   const escalation = await loadEscalation(escalationId);
   if (!escalation) {

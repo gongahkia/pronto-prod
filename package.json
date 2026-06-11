@@ -18,7 +18,8 @@
     "staging:preflight": "tsx scripts/staging-preflight.ts",
     "outbox:retry": "tsx scripts/retry-outbox.ts",
     "risk:monitor:pricing": "tsx scripts/risk-monitor-pricing.ts",
-    "risk:monitor:policy": "tsx scripts/risk-monitor-policy.ts"
+    "risk:monitor:policy": "tsx scripts/risk-monitor-policy.ts",
+    "monthly:report": "tsx scripts/monthly-report.ts"
   },
   "dependencies": {
     "@xyflow/react": "^12.11.0",

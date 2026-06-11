@@ -87,9 +87,9 @@ x 2026-06-05 (B) 2026-05-17 Build client dashboard analytics for conversation vo
 x 2026-06-10 (B) 2026-05-17 Build operator workflow for creating clients, assigning users, and selecting plan tier; channel configuration screen already exists +Dashboard @engineering phase:tighten
 x 2026-05-17 (B) 2026-05-17 Build manual override workflow for operators and client owners +Dashboard @engineering phase:tighten
 x 2026-06-05 (B) 2026-05-17 Build conversation search and filters by channel, status, escalation reason, date, customer, and review outcome +Dashboard @engineering phase:tighten
-(B) 2026-05-17 Add bulk escalation handling for clients with multiple staff +Dashboard @engineering phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add bulk escalation handling for clients with multiple staff +Dashboard @engineering phase:tighten
 x 2026-06-05 (B) 2026-05-17 Add knowledge gap report from low-confidence and escalated conversations +Dashboard @quality phase:tighten
-(B) 2026-05-17 Add monthly client check-in performance report generator with summary metrics and recommended knowledge updates; knowledge refresh workflow already exists +Ops @dashboard phase:tighten
+x 2026-06-11 (B) 2026-05-17 Add monthly client check-in performance report generator with summary metrics and recommended knowledge updates; knowledge refresh workflow already exists +Ops @dashboard phase:tighten
 x 2026-06-05 (B) 2026-05-17 Add tier-specific SLA tracking for Starter 24h business-hours, Growth 4h business-hours, and Scale 1h business-hours +Ops @dashboard phase:tighten
 x 2026-06-11 (B) 2026-05-17 Add sales funnel tracking for discovery calls, proposals, trials, launches, conversion rates, and time-to-contract +GTM @business phase:tighten
 x 2026-06-11 (B) 2026-05-17 Add trial workflow for 2-4 week scoped paid pilots with fee credited toward setup on conversion +Pricing @business phase:pilot

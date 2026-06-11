@@ -195,6 +195,7 @@ export type Escalation = {
   customer_handoff_error: string | null;
   owner_notification_status: DeliveryStatus;
   owner_notification_error: string | null;
+  assigned_to_user_id: string | null;
   created_at: Date;
   resolved_at: Date | null;
 };
