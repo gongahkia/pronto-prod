@@ -23,6 +23,7 @@ const anthropicDecisionSchema = z.object({
 
 type AnthropicMessageResponse = {
   content?: Array<{ type: string; text?: string }>;
+  usage?: { input_tokens?: number; output_tokens?: number };
 };
 
 export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAnswer"> {
@@ -45,6 +46,8 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
     }
 
     let response: Response;
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), input.timeoutMs ?? 25_000);
     try {
       response = await fetch(
         `${process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com"}/v1/messages`,
@@ -55,9 +58,10 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
             "x-api-key": process.env.ANTHROPIC_API_KEY,
             "anthropic-version": "2023-06-01",
           },
+          signal: abort.signal,
           body: JSON.stringify({
             model: input.responseModel,
-            max_tokens: 800,
+            max_tokens: input.maxOutputTokens ?? 800,
             system: buildGroundedAnswerInstructions(input),
             messages: [
               {
@@ -78,6 +82,8 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
         error,
       });
       throw error;
+    } finally {
+      clearTimeout(timeout);
     }
 
     if (!response.ok) {
@@ -122,6 +128,7 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
         reasonDetail:
           "The model attempted to answer without a customer-facing answer or source citation.",
         citedChunkIds: parsed.citedChunkIds,
+        usage: tokenUsage(body.usage),
       };
     }
 
@@ -137,6 +144,21 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
       citedChunkCount: parsed.citedChunkIds.length,
     });
 
-    return parsed;
+    return { ...parsed, usage: tokenUsage(body.usage) };
   }
+}
+
+function tokenUsage(
+  usage: AnthropicMessageResponse["usage"],
+): { inputTokens: number; outputTokens: number } | undefined {
+  if (
+    typeof usage?.input_tokens !== "number" ||
+    typeof usage.output_tokens !== "number"
+  ) {
+    return undefined;
+  }
+  return {
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
+  };
 }

@@ -7,6 +7,12 @@ export type GroundedAnswerDecision = {
   reasonCode: string;
   reasonDetail: string;
   citedChunkIds: string[];
+  usage?: LlmTokenUsage;
+};
+
+export type LlmTokenUsage = {
+  inputTokens: number;
+  outputTokens: number;
 };
 
 export type GenerateAnswerInput = {
@@ -26,6 +32,9 @@ export type GenerateAnswerInput = {
   recentMessages: { senderRole: string; body: string }[];
   retrievedChunks: KnowledgeChunk[];
   responseModel: string;
+  maxOutputTokens?: number;
+  timeoutMs?: number;
+  maxPromptTokens?: number;
 };
 
 export type LlmCallContext = {

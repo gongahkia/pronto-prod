@@ -119,10 +119,16 @@ export class OpenAiProvider implements LlmProvider {
       return mockGroundedAnswer(input);
     }
 
-    let response: { output_text: string };
+    let response: {
+      output_text: string;
+      usage?: { input_tokens: number; output_tokens: number };
+    };
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), input.timeoutMs ?? 25_000);
     try {
       response = await client.responses.create({
         model: input.responseModel,
+        max_output_tokens: input.maxOutputTokens,
         instructions: buildGroundedAnswerInstructions(input),
         input: [
           {
@@ -163,7 +169,7 @@ export class OpenAiProvider implements LlmProvider {
             },
           },
         },
-      });
+      }, { signal: abort.signal });
     } catch (error) {
       logWarn("llm.generation_failed", {
         requestId: input.requestId,
@@ -174,6 +180,8 @@ export class OpenAiProvider implements LlmProvider {
         error,
       });
       throw error;
+    } finally {
+      clearTimeout(timeout);
     }
 
     const parsedJson = parseJsonObject(response.output_text);
@@ -188,6 +196,7 @@ export class OpenAiProvider implements LlmProvider {
         reasonDetail:
           "The model attempted to answer without a customer-facing answer or source citation.",
         citedChunkIds: parsed.citedChunkIds,
+        usage: tokenUsage(response.usage),
       };
     }
 
@@ -203,6 +212,16 @@ export class OpenAiProvider implements LlmProvider {
       citedChunkCount: parsed.citedChunkIds.length,
     });
 
-    return parsed;
+    return { ...parsed, usage: tokenUsage(response.usage) };
   }
+}
+
+function tokenUsage(
+  usage: { input_tokens: number; output_tokens: number } | undefined,
+): { inputTokens: number; outputTokens: number } | undefined {
+  if (!usage) return undefined;
+  return {
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
+  };
 }
