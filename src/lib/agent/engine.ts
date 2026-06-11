@@ -8,6 +8,10 @@ import {
 } from "@/lib/agent/guardrails";
 import { evaluatePostGenerationSelfCheck } from "@/lib/agent/self-check";
 import { AgentTraceBuilder } from "@/lib/agent/trace";
+import {
+  integrationResultsToKnowledgeChunks,
+  runIntegrationsForMessage,
+} from "@/lib/agent/integration-tools";
 import { getPromptBrandVoiceProfile } from "@/lib/brand-voice";
 import {
   estimateEmbeddingCost,
@@ -247,11 +251,26 @@ export async function runAgentForMessage(input: {
       normalizedKnowledgeCategories: normalizedKnowledgeQuery.categories,
     },
   });
-  const chunks = await retrieveKnowledge(input.clientId, embedding, 5, {
+  const staticChunks = await retrieveKnowledge(input.clientId, embedding, 5, {
     requestId: input.requestId,
     conversationId: input.conversationId,
     queryText: normalizedKnowledgeQuery.searchQuery,
   });
+  const integrationResults = await runIntegrationsForMessage({
+    clientId: input.clientId,
+    message: input.customerMessage,
+    requestId: input.requestId,
+  });
+  if (integrationResults.length) {
+    trace.addStep("integration_tools_invoked", {
+      providers: integrationResults.map((result) => result.provider),
+    });
+  }
+  const integrationChunks = integrationResultsToKnowledgeChunks(
+    input.clientId,
+    integrationResults,
+  );
+  const chunks = [...integrationChunks, ...staticChunks];
   const retrievalThreshold = Number(config.retrieval_threshold);
   const retrievalCheck = evaluateRetrievalConfidence(
     chunks[0]?.score,
