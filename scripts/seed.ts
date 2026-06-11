@@ -134,6 +134,7 @@ The owner should review the conversation and send the final customer reply.
 ];
 
 async function main() {
+  assertSeedAllowed();
   const pool = getPool();
   const operatorHash = await hashPassword("pronto-operator");
   const clientHash = await hashPassword("pronto-client");
@@ -401,8 +402,18 @@ async function main() {
       const embedding = deterministicEmbedding(chunk.content);
       await pool.query(
         `
-          insert into knowledge_chunks (source_id, client_id, chunk_index, content, token_estimate, embedding, metadata)
-          values ($1, $2, $3, $4, $5, $6::vector, $7)
+          insert into knowledge_chunks (
+            source_id,
+            client_id,
+            chunk_index,
+            content,
+            token_estimate,
+            embedding,
+            embedding_model,
+            embedding_dimensions,
+            metadata
+          )
+          values ($1, $2, $3, $4, $5, $6::vector, $7, $8, $9)
         `,
         [
           source.id,
@@ -411,6 +422,8 @@ async function main() {
           chunk.content,
           chunk.tokenEstimate,
           vectorLiteral(embedding),
+          "text-embedding-3-small",
+          embedding.length,
           { seed: true },
         ],
       );
@@ -442,6 +455,12 @@ async function main() {
   console.log("Client login: owner@northbridgenasi.sg / pronto-client");
 
   await pool.end();
+}
+
+function assertSeedAllowed(): void {
+  if (process.env.NODE_ENV === "production" && !process.argv.includes("--force")) {
+    throw new Error("Refusing to run seed in production without --force.");
+  }
 }
 
 main().catch((error) => {

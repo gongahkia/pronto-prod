@@ -130,6 +130,7 @@ export type Conversation = {
   status: ConversationStatus;
   last_message_at: Date;
   created_at: Date;
+  deleted_at: Date | null;
 };
 
 export type Message = {
@@ -151,6 +152,8 @@ export type KnowledgeChunk = {
   chunk_index: number;
   content: string;
   token_estimate: number;
+  embedding_model: string;
+  embedding_dimensions: number;
   score?: number;
   metadata: Record<string, unknown>;
 };

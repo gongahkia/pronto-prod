@@ -77,8 +77,17 @@ export async function ingestKnowledgeSource(input: {
     for (const [index, chunk] of chunks.entries()) {
       await client.query(
         `
-          insert into knowledge_chunks (source_id, client_id, chunk_index, content, token_estimate, embedding)
-          values ($1, $2, $3, $4, $5, $6::vector)
+          insert into knowledge_chunks (
+            source_id,
+            client_id,
+            chunk_index,
+            content,
+            token_estimate,
+            embedding,
+            embedding_model,
+            embedding_dimensions
+          )
+          values ($1, $2, $3, $4, $5, $6::vector, $7, $8)
         `,
         [
           sourceId,
@@ -87,6 +96,8 @@ export async function ingestKnowledgeSource(input: {
           chunk.content,
           chunk.tokenEstimate,
           vectorLiteral(embeddings[index]),
+          embeddingModel,
+          embeddings[index].length,
         ],
       );
     }
