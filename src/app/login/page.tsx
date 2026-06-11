@@ -40,7 +40,7 @@ export default async function LoginPage({
               autoComplete="username"
               required
               className="mt-1 w-full rounded-md border border-line px-3 py-2 outline-none focus:border-accent"
-              placeholder="operator@pronto.sg"
+              placeholder="you@example.com"
             />
           </label>
           <label className="block text-sm font-medium">
@@ -51,7 +51,7 @@ export default async function LoginPage({
               autoComplete="current-password"
               required
               className="mt-1 w-full rounded-md border border-line px-3 py-2 outline-none focus:border-accent"
-              placeholder="pronto-operator"
+              placeholder="Password"
             />
           </label>
           <button className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-dark">
