@@ -79,9 +79,9 @@ x 2026-06-11 (B) 2026-05-17 Add delivery or 3PL tracking read-only integration p
 x 2026-06-11 (B) 2026-05-17 Add custom inventory database integration pattern with standardized read-only tools +Integrations @engineering phase:tighten
 x 2026-06-11 (B) 2026-05-17 Build integration library covering top 5 most-requested APIs from pilots +Integrations @engineering phase:tighten
 x 2026-06-11 (B) 2026-05-17 Add non-LLM integration credential storage plan with secret redaction and per-client rotation process; LLM provider credential storage exists +Security @engineering phase:tighten
-(B) 2026-05-17 Add Messenger channel adapter through Meta Graph API +Channels @engineering phase:v2
-(B) 2026-05-17 Add Instagram DMs channel adapter through Meta Graph API +Channels @engineering phase:v2
-(B) 2026-05-17 Add email channel adapter through Postmark or Resend +Channels @engineering phase:v2
+x 2026-06-11 (B) 2026-05-17 Add Messenger channel adapter through Meta Graph API +Channels @engineering phase:v2
+x 2026-06-11 (B) 2026-05-17 Add Instagram DMs channel adapter through Meta Graph API +Channels @engineering phase:v2
+x 2026-06-11 (B) 2026-05-17 Add email channel adapter through Postmark or Resend +Channels @engineering phase:v2
 x 2026-06-11 (B) 2026-05-17 Add LINE and Zalo feasibility notes for SEA expansion after Singapore validation +Channels @research phase:scale
 x 2026-06-05 (B) 2026-05-17 Build client dashboard analytics for conversation volume, escalation rate, response time, CSAT, and knowledge gaps +Dashboard @engineering phase:tighten
 x 2026-06-10 (B) 2026-05-17 Build operator workflow for creating clients, assigning users, and selecting plan tier; channel configuration screen already exists +Dashboard @engineering phase:tighten
