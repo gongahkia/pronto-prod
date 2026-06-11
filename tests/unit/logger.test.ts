@@ -56,6 +56,9 @@ describe("logger", () => {
     expect(redactErrorMessage(new Error("Bearer abc +6591234567"))).toBe(
       "Bearer [redacted] [redacted-phone]",
     );
+    expect(redactErrorMessage("https://graph.test/me?access_token=abc123&ok=1")).toBe(
+      "https://graph.test/me?access_token=[redacted]&ok=1",
+    );
 
     warn.mockRestore();
   });

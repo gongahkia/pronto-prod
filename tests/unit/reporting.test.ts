@@ -51,7 +51,19 @@ describe("reporting helpers", () => {
       "2026-06-01",
       "2026-06-05",
       20,
+      0,
     ]);
+  });
+
+  it("accepts v2 channel kinds in conversation filters", async () => {
+    mocks.query.mockResolvedValueOnce({ rows: [] });
+
+    await getFilteredConversations({ channelKind: "messenger", limit: 10, offset: 20 });
+
+    const [sql, params] = mocks.query.mock.calls[0];
+    expect(sql).toContain("ch.kind = $1::channel_kind");
+    expect(sql).toContain("offset $3");
+    expect(params).toEqual(["messenger", 10, 20]);
   });
 
   it("summarizes client analytics from existing tables", async () => {

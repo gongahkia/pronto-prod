@@ -55,7 +55,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const parsedSettings = parseJsonObject(String(form.get("settings") || "{}"), "settings");
+  const settingsRaw = form.get("settings");
+  const parsedSettings = parseJsonObject(String(settingsRaw || "{}"), "settings");
+  if (settingsRaw !== null && !parsedSettings.ok) {
+    return NextResponse.json({ error: parsedSettings.error }, { status: 400 });
+  }
   const submittedSettings = parsedSettings.ok ? parsedSettings.value : {};
   const holdingReply = form.get("escalationHoldingReply");
   const settingsBase = mergeStructuredFields({
@@ -68,10 +72,11 @@ export async function POST(request: Request) {
     holdingReply === null
       ? settingsBase
       : mergeEscalationHoldingReply(settingsBase, String(holdingReply));
-  const credentials = parseJsonObject(
-    String(form.get("credentials") || "{}"),
-    "credentials",
-  );
+  const credentialsRaw = form.get("credentials");
+  const credentials = parseJsonObject(String(credentialsRaw || "{}"), "credentials");
+  if (credentialsRaw !== null && !credentials.ok) {
+    return NextResponse.json({ error: credentials.error }, { status: 400 });
+  }
   const credentialValue = mergeStructuredFields({
     base: channel.credentials,
     submitted: credentials.ok ? credentials.value : {},

@@ -7,7 +7,7 @@ import {
   OperatorClientHeader,
   OperatorClientNav,
 } from "@/components/operator/operator-nav";
-import { TriageFlowEditor } from "@/components/triage-flow-editor";
+import { TriageFlowEditorLoader } from "@/components/triage-flow-editor-loader";
 
 export default async function OperatorClientFlowsPage({
   params,
@@ -32,7 +32,7 @@ export default async function OperatorClientFlowsPage({
       />
       <OperatorClientNav clientId={client.id} active="flows" />
 
-      <TriageFlowEditor
+      <TriageFlowEditorLoader
         initialNodes={flow.nodes}
         initialEdges={flow.edges}
         initialCompiledRules={flow.compiledEscalationRules}
