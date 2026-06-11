@@ -1,3 +1,6 @@
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+
 export type WebsiteKnowledgeCrawl = {
   title: string;
   content: string;
@@ -128,9 +131,8 @@ async function loadRobotsRules(
 ): Promise<string[]> {
   const robotsUrl = new URL("/robots.txt", startUrl);
   try {
-    const response = await fetchImpl(robotsUrl.toString(), {
+    const response = await fetchUrl(robotsUrl, fetchImpl, {
       headers: { Accept: "text/plain" },
-      redirect: "follow",
     });
     if (!response.ok) {
       return [];
@@ -183,9 +185,8 @@ async function fetchHtmlPage(
 ): Promise<ExtractedPage | null> {
   let response: Response;
   try {
-    response = await fetchImpl(url.toString(), {
+    response = await fetchUrl(url, fetchImpl, {
       headers: { Accept: "text/html,application/xhtml+xml" },
-      redirect: "follow",
     });
   } catch (error) {
     if (required) {
@@ -215,6 +216,106 @@ async function fetchHtmlPage(
   }
 
   return extractHtmlPage(url.toString(), await response.text());
+}
+
+async function fetchUrl(
+  url: URL,
+  fetchImpl: typeof fetch,
+  init: RequestInit,
+  redirectsRemaining = 5,
+): Promise<Response> {
+  if (fetchImpl === fetch) {
+    await assertPublicHttpUrl(url);
+  }
+  const response = await fetchImpl(url.toString(), {
+    ...init,
+    redirect: "manual",
+  });
+  if (!isRedirect(response.status)) {
+    return response;
+  }
+  if (redirectsRemaining <= 0) {
+    throw new Error("Website redirected too many times.");
+  }
+  const location = response.headers.get("location");
+  if (!location) {
+    throw new Error("Website redirect did not include a location.");
+  }
+  const nextUrl = parseWebsiteUrl(new URL(location, url).toString());
+  return fetchUrl(nextUrl, fetchImpl, init, redirectsRemaining - 1);
+}
+
+async function assertPublicHttpUrl(url: URL): Promise<void> {
+  if (url.username || url.password) {
+    throw new Error("Website URL credentials are not allowed.");
+  }
+  const hostname = url.hostname.toLowerCase();
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) {
+    throw new Error("Website URL must not target localhost.");
+  }
+  const addresses = isIP(hostname)
+    ? [{ address: hostname }]
+    : await lookup(hostname, { all: true, verbatim: true });
+  if (!addresses.length) {
+    throw new Error("Website hostname did not resolve.");
+  }
+  if (addresses.some(({ address }) => isPrivateAddress(address))) {
+    throw new Error("Website URL must resolve to a public IP address.");
+  }
+}
+
+function isRedirect(status: number): boolean {
+  return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
+}
+
+function isPrivateAddress(address: string): boolean {
+  const version = isIP(address);
+  if (version === 4) {
+    return isPrivateIpv4(address);
+  }
+  if (version === 6) {
+    return isPrivateIpv6(address);
+  }
+  return true;
+}
+
+function isPrivateIpv4(address: string): boolean {
+  const parts = address.split(".").map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return true;
+  }
+  const [a, b, c] = parts;
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 192 && b === 0 && c <= 2) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    (a === 198 && b === 51 && c === 100) ||
+    (a === 203 && b === 0 && c === 113) ||
+    a >= 224
+  );
+}
+
+function isPrivateIpv6(address: string): boolean {
+  const normalized = address.toLowerCase();
+  if (normalized.startsWith("::ffff:")) {
+    return isPrivateIpv4(normalized.slice("::ffff:".length));
+  }
+  return (
+    normalized === "::1" ||
+    normalized === "::" ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("fe8") ||
+    normalized.startsWith("fe9") ||
+    normalized.startsWith("fea") ||
+    normalized.startsWith("feb")
+  );
 }
 
 function extractHtmlPage(url: string, html: string): ExtractedPage {

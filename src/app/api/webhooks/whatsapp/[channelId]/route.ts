@@ -1,4 +1,3 @@
-import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import {
   getWhatsAppChannel,
@@ -6,6 +5,7 @@ import {
   verifyWhatsAppSignature,
 } from "@/lib/channels/whatsapp";
 import { processWebhookBatch } from "@/lib/channels/webhook-batch";
+import { claimWebhookEvent, replayHeaders } from "@/lib/channels/webhook-replay";
 import { checkRateLimit, isBodyWithinLimit } from "@/lib/http-limits";
 import { requestIdFromRequest, requestIdHeaders } from "@/lib/logger";
 
@@ -36,9 +36,6 @@ export async function GET(request: Request, context: Context) {
 }
 
 export async function POST(request: Request, context: Context) {
-  const csrf = assertSameOrigin(request);
-  if (csrf) return csrf;
-
   const requestId = requestIdFromRequest(request);
   const { channelId } = await context.params;
   const channel = await getWhatsAppChannel(channelId);
@@ -82,6 +79,25 @@ export async function POST(request: Request, context: Context) {
       status: 401,
       headers: requestIdHeaders(requestId),
     });
+  }
+  const replay = await claimWebhookEvent({
+    provider: "whatsapp",
+    channelId,
+    rawBody,
+    ...replayHeaders(request),
+    metadata: { requestId },
+  });
+  if (!replay.ok) {
+    return new NextResponse(replay.reason, {
+      status: 401,
+      headers: requestIdHeaders(requestId),
+    });
+  }
+  if (replay.duplicate) {
+    return NextResponse.json(
+      { ok: true, duplicate: true },
+      { headers: requestIdHeaders(requestId) },
+    );
   }
 
   let payload: Record<string, unknown>;

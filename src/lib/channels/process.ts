@@ -60,7 +60,7 @@ export async function processInboundMessage(
       `
         insert into conversations (client_id, channel_id, external_thread_id, customer_name, customer_handle)
         values ($1, $2, $3, $4, $5)
-        on conflict (channel_id, external_thread_id) do update set
+        on conflict (channel_id, external_thread_id) where deleted_at is null do update set
           customer_name = coalesce(excluded.customer_name, conversations.customer_name),
           customer_handle = excluded.customer_handle,
           last_message_at = now()
@@ -111,7 +111,7 @@ export async function processInboundMessage(
     }
 
     return { conversation: conversation.rows[0], message: insertedMessage, duplicate: false };
-  });
+  }, { isolationLevel: "serializable", retries: 2 });
 
   if (created.duplicate) {
     logInfo("inbound_message.concurrent_duplicate", {

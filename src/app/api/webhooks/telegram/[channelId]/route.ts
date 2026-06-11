@@ -1,4 +1,3 @@
-import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import {
   getTelegramChannel,
@@ -6,6 +5,7 @@ import {
   verifyTelegramSecret,
 } from "@/lib/channels/telegram";
 import { processWebhookBatch } from "@/lib/channels/webhook-batch";
+import { claimWebhookEvent, replayHeaders } from "@/lib/channels/webhook-replay";
 import { checkRateLimit, isBodyWithinLimit } from "@/lib/http-limits";
 import { requestIdFromRequest, requestIdHeaders } from "@/lib/logger";
 
@@ -14,9 +14,6 @@ type Context = {
 };
 
 export async function POST(request: Request, context: Context) {
-  const csrf = assertSameOrigin(request);
-  if (csrf) return csrf;
-
   const requestId = requestIdFromRequest(request);
   const { channelId } = await context.params;
   const channel = await getTelegramChannel(channelId);
@@ -58,6 +55,25 @@ export async function POST(request: Request, context: Context) {
         "Retry-After": String(rateLimit.retryAfterSeconds),
       }),
     });
+  }
+  const replay = await claimWebhookEvent({
+    provider: "telegram",
+    channelId,
+    rawBody,
+    ...replayHeaders(request),
+    metadata: { requestId },
+  });
+  if (!replay.ok) {
+    return new NextResponse(replay.reason, {
+      status: 401,
+      headers: requestIdHeaders(requestId),
+    });
+  }
+  if (replay.duplicate) {
+    return NextResponse.json(
+      { ok: true, duplicate: true },
+      { headers: requestIdHeaders(requestId) },
+    );
   }
 
   let payload: Record<string, unknown>;

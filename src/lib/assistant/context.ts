@@ -554,6 +554,7 @@ async function retrieveRelevantKnowledge(
     );
     return retrieveKnowledge(clientId, embedding, 6, {
       queryText: normalizedQuery.searchQuery,
+      embeddingModel: model,
     });
   } catch {
     return [];

@@ -116,5 +116,5 @@ export async function ingestKnowledgeSource(input: {
     );
 
     return { sourceId, chunkCount: chunks.length };
-  });
+  }, { isolationLevel: "serializable", retries: 2 });
 }

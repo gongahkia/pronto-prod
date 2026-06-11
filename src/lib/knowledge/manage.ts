@@ -231,7 +231,7 @@ export async function updateKnowledgeSourceForClient(input: {
     );
 
     return { sourceId: input.sourceId, chunkCount: chunks.length };
-  });
+  }, { isolationLevel: "serializable", retries: 2 });
 }
 
 export async function deleteKnowledgeSourceForClient(input: {
@@ -267,5 +267,5 @@ export async function deleteKnowledgeSourceForClient(input: {
     );
 
     return true;
-  });
+  }, { isolationLevel: "serializable", retries: 2 });
 }

@@ -48,7 +48,7 @@ export async function bulkClaimEscalations(input: {
       applied: updated.rows.length,
       skipped: ids.filter((id) => !appliedSet.has(id)),
     };
-  });
+  }, { isolationLevel: "serializable", retries: 2 });
 }
 
 export async function bulkAssignEscalations(input: {
@@ -107,7 +107,7 @@ export async function bulkAssignEscalations(input: {
       applied: updated.rows.length,
       skipped: ids.filter((id) => !appliedSet.has(id)),
     };
-  });
+  }, { isolationLevel: "serializable", retries: 2 });
 }
 
 export async function bulkResolveEscalations(input: {
@@ -160,7 +160,7 @@ export async function bulkResolveEscalations(input: {
       applied: updated.rows.length,
       skipped: ids.filter((id) => !appliedSet.has(id)),
     };
-  });
+  }, { isolationLevel: "serializable", retries: 2 });
 }
 
 export async function listClientStaff(clientId: string): Promise<

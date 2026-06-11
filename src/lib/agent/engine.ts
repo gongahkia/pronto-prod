@@ -255,6 +255,7 @@ export async function runAgentForMessage(input: {
     requestId: input.requestId,
     conversationId: input.conversationId,
     queryText: normalizedKnowledgeQuery.searchQuery,
+    embeddingModel: config.embedding_model,
   });
   const integrationResults = await runIntegrationsForMessage({
     clientId: input.clientId,
@@ -656,7 +657,7 @@ export async function createEscalation(input: {
       citedChunks: [],
       escalationId: escalation.rows[0].id,
     };
-  });
+  }, { isolationLevel: "serializable", retries: 2 });
 }
 
 async function recordDirectAgentAnswer(
