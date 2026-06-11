@@ -60,7 +60,7 @@ export async function sendChannelText(input: {
       const subjectSetting =
         (channel.settings.defaultSubject as string | undefined) ?? "your inquiry";
       const subject = threading.subject ?? subjectSetting;
-      await sendEmail({
+      const { messageId } = await sendEmail({
         channel,
         to: threading.to,
         subject,
@@ -68,6 +68,23 @@ export async function sendChannelText(input: {
         inReplyTo: threading.inReplyTo,
         references: threading.references,
       });
+      await query(
+        `
+          update messages
+          set metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{outgoingMessageId}', to_jsonb($3::text), true)
+          where id = (
+            select m.id
+            from messages m
+            join conversations c on c.id = m.conversation_id
+            where c.channel_id = $1
+              and c.external_thread_id = $2
+              and m.sender_role in ('agent', 'operator')
+            order by m.created_at desc
+            limit 1
+          )
+        `,
+        [channel.id, input.externalThreadId, messageId],
+      );
       await recordOutboundHealth(input.channelId);
       return;
     }

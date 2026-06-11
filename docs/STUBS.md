@@ -13,6 +13,18 @@ These four bullets are marked done because all in-repo code is implemented. Only
 ## Migration safety
 - `db/migrations/020_v2_channels.sql` uses `ALTER TYPE … ADD VALUE IF NOT EXISTS`. Works on Postgres 12+. On older versions, split into a manual step.
 - `db/migrations/022_agent_traces.sql` adds a new table; safe to apply incrementally.
+- `db/migrations/023_email_suppressions.sql` adds bounce/complaint suppression table.
+
+## Email robustness (added 2026-06-11)
+- **Threading by RFC headers.** Inbound parses `Message-Id`, `In-Reply-To`, `References` (Postmark `Headers` array + Resend `data.headers`). Thread resolution: search prior inbound (`messages.external_message_id`) and outbound (`messages.metadata.outgoingMessageId`); falls back to `In-Reply-To`, then subject, then from-address. Outbound replies set `Message-Id`, `In-Reply-To`, `References` headers and persist the outgoing Message-Id on the agent message so future customer replies thread correctly.
+- **Auto-responder suppression.** Skips inbound when `Auto-Submitted` ≠ `no`, when `Precedence` is `bulk|list|junk|auto_reply`, when `List-Unsubscribe` is present, or when subject matches "Out of office" / "Automatic reply" / "Auto-reply" / "Away from office".
+- **Attachment detection.** Postmark `Attachments` and Resend `attachments` are parsed; attachment-only mails are normalized with `unsupportedMediaType: "email_attachment"` (engine escalates); text+attachment mails preserve text and note ignored files.
+- **HTML→text fallback.** When `TextBody` is empty but `HtmlBody` exists, `stripHtml` extracts readable text (block tags become newlines, entities decoded, scripts/styles removed).
+- **DMARC/SPF/DKIM check.** Parses `Authentication-Results`; if any of `spf|dkim|dmarc` are `fail|softfail|policy`, the message is normalized with `unsupportedMediaType: "email_auth_failed"` so the agent escalates rather than answering a spoof.
+- **CC capture.** Postmark `CcFull` and Resend `cc` are parsed into the message's `raw.parsed.cc` array.
+- **Bounce / spam complaint webhook.** New route `POST /api/webhooks/email/[channelId]/events`. Postmark `RecordType: Bounce|HardBounce|SpamComplaint|Delivery` and Resend `email.bounced|email.complained|email.delivered` are handled. Bounces/complaints (1) write to the new `email_suppressions` table (unique per `client_id + email_address`), (2) update the matching `outbound_messages` row to `status='failed'` with the bounce reason stored in `metadata.deliveryFailure`.
+- **Suppression list enforcement.** `sendEmail` checks `email_suppressions` before each send and throws if the recipient is suppressed — prevents loops with broken addresses.
+- **Auto-response loop guards.** Every outbound carries `Auto-Submitted: auto-replied` and `X-Auto-Response-Suppress: All`, so reciprocal autoresponders see we're already automated and (per RFC 3834) shouldn't reply.
 
 ## Resolved on 2026-06-11
 - v2 channel inbound webhook routes — `src/app/api/webhooks/{messenger,instagram,email}/[channelId]/route.ts` now exist with the same signature/secret/rate-limit/redaction pattern as WhatsApp and Telegram. Health checks and config validators in `lib/channels/health.ts` branch on all five channel kinds. `lib/channels/process.ts` now sends the escalation holding reply on every non-console channel kind.

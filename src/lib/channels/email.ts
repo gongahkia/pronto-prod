@@ -140,7 +140,7 @@ function parsePostmark(payload: Record<string, unknown>): ParsedEmail | null {
   const attachments = Array.isArray(payload.Attachments)
     ? (payload.Attachments as Record<string, unknown>[]).map((attachment) => ({
         name: stringValue(attachment.Name) ?? "unnamed",
-        contentType: stringValue(attachment.ContentType),
+        contentType: stringValue(attachment.ContentType) ?? null,
         size: typeof attachment.ContentLength === "number" ? attachment.ContentLength : null,
       }))
     : [];
@@ -178,7 +178,7 @@ function parseResend(payload: Record<string, unknown>): ParsedEmail | null {
   const attachments = Array.isArray(data.attachments)
     ? (data.attachments as Record<string, unknown>[]).map((attachment) => ({
         name: stringValue(attachment.filename) ?? "unnamed",
-        contentType: stringValue(attachment.content_type),
+        contentType: stringValue(attachment.content_type) ?? null,
         size: typeof attachment.size === "number" ? attachment.size : null,
       }))
     : [];
@@ -385,7 +385,7 @@ export async function isEmailSuppressed(input: {
       "select id from email_suppressions where client_id = $1 and lower(email_address) = lower($2) limit 1",
       [input.clientId, input.emailAddress],
     );
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   } catch (error) {
     if (
       error &&

@@ -21,6 +21,7 @@ Minimal map of the repo for a coding agent. Pair with `docs/architecture.md` for
 ### `src/app/`
 - `api/` — route handlers.
   - `webhooks/{whatsapp,telegram,messenger,instagram,email}/[channelId]` — inbound channel webhooks (verify signature, normalize, batch-process).
+  - `webhooks/email/[channelId]/events` — Postmark/Resend bounce / spam-complaint / delivery webhook.
   - `escalations` — claim/resolve/retry + bulk_claim/bulk_assign/bulk_resolve.
   - `operator/integrations` (POST/DELETE) + `operator/integrations/test` (POST) — integration credential CRUD + live test calls.
   - `operator/monthly-report` (GET) — JSON-shaped monthly check-in.
@@ -46,7 +47,9 @@ Minimal map of the repo for a coding agent. Pair with `docs/architecture.md` for
   - `knowledge/manage.ts`, `metadata.ts`, `refresh.ts` — admin operations + monthly-refresh queue.
 - **Channels**
   - `channels/whatsapp.ts`, `telegram.ts` — inbound normalize + signature/secret verify + outbound send.
-  - `channels/messenger.ts`, `instagram.ts`, `email.ts` — v2 adapters (Meta Graph for FB/IG; Postmark or Resend for email).
+  - `channels/messenger.ts`, `instagram.ts` — Meta Graph FB/IG adapters.
+  - `channels/email.ts` — Postmark/Resend adapter with RFC-5322 threading (`Message-Id` / `In-Reply-To` / `References`), auto-responder suppression, attachment + DMARC handling, HTML→text fallback, outbound `Auto-Submitted` / `X-Auto-Response-Suppress`, and a suppression list (`email_suppressions`).
+  - `channels/email-events.ts` — bounce / spam-complaint / delivery webhook handler; writes to `email_suppressions` and marks `outbound_messages` failed.
   - `channels/dispatch.ts` — kind-aware send wrapper. `policy.ts` — WhatsApp template-only guardrail.
   - `channels/process.ts` — inbound message → conversation upsert → agent run → outbound send or escalation handoff.
   - `channels/webhook-batch.ts` — partial-failure aware batch handler for one provider delivery.
@@ -98,6 +101,7 @@ Numeric prefix is run order. Highlights:
 - `020` **v2 channel kinds**: `messenger`, `instagram`, `email`.
 - `021` **escalations.assigned_to_user_id**.
 - `022` **agent_traces** (per-run trace: retrieval scores, prompt hash, latency, failover, steps).
+- `023` **email_suppressions** (per-client bounce/complaint blocklist for the email channel).
 
 ### `scripts/`
 - `migrate.ts`, `seed.ts` — schema + fixtures.
