@@ -185,9 +185,10 @@ export async function updateKnowledgeSourceForClient(input: {
       ],
     );
 
-    await client.query("delete from knowledge_chunks where source_id = $1", [
-      input.sourceId,
-    ]);
+    await client.query(
+      "delete from knowledge_chunks where source_id = $1 and client_id = $2",
+      [input.sourceId, input.clientId],
+    );
 
     for (const [index, chunk] of chunks.entries()) {
       await client.query(
