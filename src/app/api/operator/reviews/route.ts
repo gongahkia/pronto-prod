@@ -9,6 +9,7 @@ import {
   optionalEnumValue,
   rootCauses,
 } from "@/lib/reviews";
+import { canAccessClient } from "@/lib/rbac";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
@@ -35,6 +36,12 @@ export async function POST(request: Request) {
     String(form.get("returnTo") ?? ""),
     `/operator/clients/${clientId}/conversations`,
   );
+  if (!clientId || !conversationId) {
+    return NextResponse.json({ error: "clientId and conversationId are required." }, { status: 400 });
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
 
   const review = await query<{ id: string }>(
     `
