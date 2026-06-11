@@ -128,14 +128,15 @@ export async function executeAssistantAction(input: {
 
 async function claimEscalation(user: SessionUser, payload: Record<string, unknown>) {
   const { escalationId } = z.object({ escalationId: stringSchema }).parse(payload);
-  const escalation = await loadEscalation(escalationId);
+  const escalation = await loadEscalation(escalationId, scopedClientId(user));
   if (!escalation) {
     throw new Error("Escalation not found.");
   }
   requireClientAccess(user, escalation.client_id);
-  await query("update escalations set status = 'claimed' where id = $1 and status = 'open'", [
-    escalation.id,
-  ]);
+  await query(
+    "update escalations set status = 'claimed' where id = $1 and client_id = $2 and status = 'open'",
+    [escalation.id, escalation.client_id],
+  );
   await recordAuditLog({
     clientId: escalation.client_id,
     actorUserId: user.userId,
@@ -165,7 +166,7 @@ async function resolveEscalation(user: SessionUser, payload: Record<string, unkn
     escalationId: stringSchema,
     reply: z.string().trim().max(3000).optional().default(""),
   }).parse(payload);
-  const escalation = await loadEscalation(parsed.escalationId);
+  const escalation = await loadEscalation(parsed.escalationId, scopedClientId(user));
   if (!escalation) {
     throw new Error("Escalation not found.");
   }
@@ -177,10 +178,10 @@ async function resolveEscalation(user: SessionUser, payload: Record<string, unkn
         update escalations
         set status = 'resolved',
             resolved_at = coalesce(resolved_at, now())
-        where id = $1 and status <> 'resolved'
+        where id = $1 and client_id = $2 and status <> 'resolved'
         returning id
       `,
-      [escalation.id],
+      [escalation.id, escalation.client_id],
     );
     if (!resolved.rowCount) {
       return;
@@ -225,8 +226,8 @@ async function resolveEscalation(user: SessionUser, payload: Record<string, unkn
       outboundMessageId = outbound.id;
     }
     await client.query(
-      "update conversations set status = 'closed', last_message_at = now() where id = $1",
-      [escalation.conversation_id],
+      "update conversations set status = 'closed', last_message_at = now() where id = $1 and client_id = $2",
+      [escalation.conversation_id, escalation.client_id],
     );
     await client.query(
       "insert into metric_events (client_id, event_type, value, metadata) values ($1, 'escalation_resolved', 1, $2)",
@@ -285,7 +286,7 @@ async function retryOutbound(user: SessionUser, payload: Record<string, unknown>
     escalationId: stringSchema,
     outboundMessageId: stringSchema,
   }).parse(payload);
-  const escalation = await loadEscalation(parsed.escalationId);
+  const escalation = await loadEscalation(parsed.escalationId, scopedClientId(user));
   if (!escalation) {
     throw new Error("Escalation not found.");
   }
@@ -993,6 +994,12 @@ function requireOperator(user: SessionUser): void {
   }
 }
 
+function scopedClientId(user: SessionUser): string | undefined {
+  if (user.role !== "client") return undefined;
+  if (!user.clientId) throw new Error("Forbidden.");
+  return user.clientId;
+}
+
 async function assertChannelBelongsToClient(channelId: string, clientId: string): Promise<void> {
   const channel = await query<{ id: string }>(
     "select id from channels where id = $1 and client_id = $2",
@@ -1013,7 +1020,10 @@ type EscalationActionRecord = {
   channel_kind: string;
 };
 
-async function loadEscalation(escalationId: string): Promise<EscalationActionRecord | null> {
+async function loadEscalation(
+  escalationId: string,
+  clientId?: string,
+): Promise<EscalationActionRecord | null> {
   const result = await query<EscalationActionRecord>(
     `
       select
@@ -1028,8 +1038,9 @@ async function loadEscalation(escalationId: string): Promise<EscalationActionRec
       join conversations c on c.id = e.conversation_id
       join channels ch on ch.id = c.channel_id
       where e.id = $1
+        ${clientId ? "and e.client_id = $2" : ""}
     `,
-    [escalationId],
+    clientId ? [escalationId, clientId] : [escalationId],
   );
   return result.rows[0] ?? null;
 }

@@ -86,7 +86,7 @@ describe("inbound channel processing", () => {
       text: "Team Pronto will take over from here.",
     });
     expectHoldingReplyInsert("Team Pronto will take over from here.");
-    expect(mocks.notifyOwnerOfEscalation).toHaveBeenCalledWith("escalation-1");
+    expect(mocks.notifyOwnerOfEscalation).toHaveBeenCalledWith("escalation-1", "client-1");
   });
 
   it("falls back when a WhatsApp escalation holding reply is not configured", async () => {
@@ -112,12 +112,13 @@ describe("inbound channel processing", () => {
 
     await processInboundMessage(inboundWhatsAppMessage());
 
-    expect(mocks.notifyOwnerOfEscalation).toHaveBeenCalledWith("escalation-1");
+    expect(mocks.notifyOwnerOfEscalation).toHaveBeenCalledWith("escalation-1", "client-1");
     expect(mocks.query.mock.calls[2][0]).toContain("customer_handoff_status");
     expect(mocks.query.mock.calls[2][1]).toEqual([
       "escalation-1",
       "failed",
       "WhatsApp send failed",
+      "client-1",
     ]);
   });
 

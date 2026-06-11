@@ -53,6 +53,7 @@ describe("owner escalation notifications", () => {
       "escalation-1",
       "sent",
       null,
+      "client-1",
     ]);
     expect(result.status).toBe("sent");
   });
@@ -72,6 +73,7 @@ describe("owner escalation notifications", () => {
       "escalation-1",
       "skipped",
       "No owner notification destination configured.",
+      "client-1",
     ]);
     expect(result.status).toBe("skipped");
   });
@@ -92,6 +94,7 @@ describe("owner escalation notifications", () => {
       "escalation-1",
       "failed",
       "Telegram send failed",
+      "client-1",
     ]);
   });
 });

@@ -183,7 +183,7 @@ export async function processInboundMessage(
           reasonCode: result.reasonCode,
           requestId: options.requestId,
         });
-        await recordCustomerHandoffStatus(result.escalationId, "sent", null);
+        await recordCustomerHandoffStatus(result.escalationId, channel.client_id, "sent", null);
       } catch (error) {
         logWarn("escalation_holding_reply_failed", {
           requestId: options.requestId,
@@ -194,6 +194,7 @@ export async function processInboundMessage(
         });
         await recordCustomerHandoffStatus(
           result.escalationId,
+          channel.client_id,
           "failed",
           errorToMessage(error),
         );
@@ -201,20 +202,21 @@ export async function processInboundMessage(
     } else {
       await recordCustomerHandoffStatus(
         result.escalationId,
+        channel.client_id,
         "skipped",
         `No customer holding reply is configured for ${inbound.channelKind}.`,
       );
     }
 
     try {
-      await notifyOwnerOfEscalation(result.escalationId);
+      await notifyOwnerOfEscalation(result.escalationId, channel.client_id);
     } catch (error) {
       logWarn("owner_notification_failed", {
         requestId: options.requestId,
         escalationId: result.escalationId,
         error,
       });
-      await recordOwnerNotificationFailure(result.escalationId, error);
+      await recordOwnerNotificationFailure(result.escalationId, channel.client_id, error);
     }
   }
 
@@ -239,6 +241,7 @@ function appendCsatLink(responseText: string, csatUrl: string | undefined): stri
 
 async function recordCustomerHandoffStatus(
   escalationId: string,
+  clientId: string,
   status: "sent" | "skipped" | "failed",
   error: string | null,
 ): Promise<void> {
@@ -247,14 +250,15 @@ async function recordCustomerHandoffStatus(
       update escalations
       set customer_handoff_status = $2,
           customer_handoff_error = $3
-      where id = $1
+      where id = $1 and client_id = $4
     `,
-    [escalationId, status, error],
+    [escalationId, status, error, clientId],
   );
 }
 
 async function recordOwnerNotificationFailure(
   escalationId: string,
+  clientId: string,
   error: unknown,
 ): Promise<void> {
   await query(
@@ -262,9 +266,9 @@ async function recordOwnerNotificationFailure(
       update escalations
       set owner_notification_status = 'failed',
           owner_notification_error = $2
-      where id = $1
+      where id = $1 and client_id = $3
     `,
-    [escalationId, errorToMessage(error)],
+    [escalationId, errorToMessage(error), clientId],
   );
 }
 

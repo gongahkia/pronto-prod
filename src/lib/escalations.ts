@@ -24,6 +24,7 @@ export type OwnerNotificationResult = {
 
 export async function notifyOwnerOfEscalation(
   escalationId: string,
+  clientId?: string,
 ): Promise<OwnerNotificationResult> {
   const escalationResult = await query<EscalationNotification>(
     `
@@ -41,8 +42,9 @@ export async function notifyOwnerOfEscalation(
       join messages m on m.id = e.message_id
       join conversations c on c.id = e.conversation_id
       where e.id = $1
+        ${clientId ? "and e.client_id = $2" : ""}
     `,
-    [escalationId],
+    clientId ? [escalationId, clientId] : [escalationId],
   );
   const escalation = escalationResult.rows[0];
   if (!escalation) {
@@ -67,7 +69,7 @@ export async function notifyOwnerOfEscalation(
     escalation.business_profile,
   );
   if (!channelSelection) {
-    return recordOwnerNotificationResult(escalation.id, {
+    return recordOwnerNotificationResult(escalation.id, escalation.client_id, {
       status: "skipped",
       detail: channelResult.rows.length
         ? "No owner notification destination configured."
@@ -92,7 +94,7 @@ export async function notifyOwnerOfEscalation(
       text,
     });
   } catch (error) {
-    return recordOwnerNotificationResult(escalation.id, {
+    return recordOwnerNotificationResult(escalation.id, escalation.client_id, {
       status: "failed",
       detail: errorToMessage(error),
       channelId: channel.id,
@@ -101,7 +103,7 @@ export async function notifyOwnerOfEscalation(
     });
   }
 
-  return recordOwnerNotificationResult(escalation.id, {
+  return recordOwnerNotificationResult(escalation.id, escalation.client_id, {
     status: "sent",
     detail: "Owner notification sent.",
     channelId: channel.id,
@@ -152,6 +154,7 @@ function ownerDestination(channel: Channel): string | null {
 
 async function recordOwnerNotificationResult(
   escalationId: string,
+  clientId: string,
   result: OwnerNotificationResult,
 ): Promise<OwnerNotificationResult> {
   await query(
@@ -160,9 +163,9 @@ async function recordOwnerNotificationResult(
       set owner_notification_status = $2,
           owner_notification_error = $3,
           owner_notified_at = case when $2 = 'sent' then now() else owner_notified_at end
-      where id = $1
+      where id = $1 and client_id = $4
     `,
-    [escalationId, result.status, result.status === "sent" ? null : result.detail],
+    [escalationId, result.status, result.status === "sent" ? null : result.detail, clientId],
   );
   return result;
 }
