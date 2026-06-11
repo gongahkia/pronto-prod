@@ -1,3 +1,4 @@
+import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { recordAuditLog } from "@/lib/audit";
@@ -14,6 +15,9 @@ import type { IntegrationProvider } from "@/lib/integrations/types";
 import { requestIdFromRequest, requestIdHeaders } from "@/lib/logger";
 
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const requestId = requestIdFromRequest(request);
   const user = await requireUser("operator");
   if (!credentialEncryptionConfigured()) {
@@ -73,6 +77,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const requestId = requestIdFromRequest(request);
   const user = await requireUser("operator");
   const payload = (await request.json()) as {

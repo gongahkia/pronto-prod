@@ -48,6 +48,10 @@ export function IntegrationsPanel(props: Props) {
   const [error, setError] = useState<string | null>(null);
   const [test, setTest] = useState<TestResultState>({ kind: "idle" });
   const [testArgs, setTestArgs] = useState<Record<string, string>>({});
+  const [pendingDelete, setPendingDelete] = useState<{
+    provider: IntegrationProvider;
+    label: string | null;
+  } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function changeProvider(provider: IntegrationProvider) {
@@ -78,8 +82,7 @@ export function IntegrationsPanel(props: Props) {
       }),
     });
     if (!response.ok) {
-      const text = await response.text();
-      setError(text || "Save failed.");
+      setError(await responseErrorMessage(response, "Save failed."));
       return;
     }
     setMessage("Saved.");
@@ -87,22 +90,22 @@ export function IntegrationsPanel(props: Props) {
     startTransition(() => router.refresh());
   }
 
-  async function remove(provider: IntegrationProvider, label: string | null) {
-    if (!confirm(`Delete ${provider} credential?`)) return;
+  async function remove() {
+    if (!pendingDelete) return;
     const response = await fetch("/api/operator/integrations", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         clientId: props.clientId,
-        provider,
-        label: label ?? undefined,
+        provider: pendingDelete.provider,
+        label: pendingDelete.label ?? undefined,
       }),
     });
     if (!response.ok) {
-      const text = await response.text();
-      setError(text || "Delete failed.");
+      setError(await responseErrorMessage(response, "Delete failed."));
       return;
     }
+    setPendingDelete(null);
     startTransition(() => router.refresh());
   }
 
@@ -133,7 +136,7 @@ export function IntegrationsPanel(props: Props) {
         <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Connected integrations</h2>
         </div>
-        <ul className="divide-y divide-border">
+        <ul className="divide-y divide-line">
           {props.credentials.length === 0 && (
             <li className="px-4 py-6 text-center text-sm text-muted">
               No integration credentials connected yet.
@@ -159,7 +162,12 @@ export function IntegrationsPanel(props: Props) {
               <button
                 type="button"
                 className="ui-button px-3 py-1"
-                onClick={() => remove(credential.provider as IntegrationProvider, credential.label)}
+                onClick={() =>
+                  setPendingDelete({
+                    provider: credential.provider as IntegrationProvider,
+                    label: credential.label,
+                  })
+                }
                 disabled={isPending}
               >
                 Delete
@@ -256,8 +264,8 @@ export function IntegrationsPanel(props: Props) {
               >
                 Save
               </button>
-              {message && <span className="text-xs text-emerald-500">{message}</span>}
-              {error && <span className="text-xs text-red-500">{error}</span>}
+              {message && <span className="text-xs text-success">{message}</span>}
+              {error && <span className="text-xs text-danger">{error}</span>}
             </div>
           </form>
         </div>
@@ -294,14 +302,58 @@ export function IntegrationsPanel(props: Props) {
             Run test
           </button>
           {test.kind === "result" && (
-            <pre className="overflow-x-auto rounded bg-surface-2 p-3 text-xs">
+            <pre className="overflow-x-auto rounded bg-surface p-3 text-xs">
               {JSON.stringify(test.body, null, 2)}
             </pre>
           )}
         </div>
       </section>
+      {pendingDelete ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="delete-credential-title"
+          aria-describedby="delete-credential-description"
+        >
+          <div className="w-full max-w-sm rounded-lg border border-line bg-panel p-4 shadow-xl">
+            <h2 id="delete-credential-title" className="text-base font-semibold">
+              Delete credential?
+            </h2>
+            <p id="delete-credential-description" className="mt-2 text-sm text-muted">
+              This removes the saved {pendingDelete.provider} credential for this client.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="ui-button px-3 py-2"
+                onClick={() => setPendingDelete(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ui-danger-button px-3 py-2"
+                onClick={remove}
+                disabled={isPending}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
+}
+
+async function responseErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body.error === "string" && body.error ? body.error : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function testArgsConfig(provider: IntegrationProvider): { name: string; label: string }[] {

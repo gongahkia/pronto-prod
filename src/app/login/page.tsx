@@ -12,6 +12,7 @@ export default async function LoginPage({
     redirect(user.role === "operator" ? "/operator" : "/client");
   }
   const params = await searchParams;
+  const showSeedCredentials = process.env.NODE_ENV !== "production";
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
@@ -57,11 +58,13 @@ export default async function LoginPage({
             Sign in
           </button>
         </form>
-        <div className="mt-5 rounded-md bg-surface p-3 text-xs text-muted">
-          <p>Seed credentials after `pnpm db:seed`:</p>
-          <p>operator@pronto.sg / pronto-operator</p>
-          <p>owner@northbridgenasi.sg / pronto-client</p>
-        </div>
+        {showSeedCredentials ? (
+          <div className="mt-5 rounded-md bg-surface p-3 text-xs text-muted">
+            <p>Seed credentials after `pnpm db:seed`:</p>
+            <p>operator@pronto.sg / pronto-operator</p>
+            <p>owner@northbridgenasi.sg / pronto-client</p>
+          </div>
+        ) : null}
       </section>
     </main>
   );

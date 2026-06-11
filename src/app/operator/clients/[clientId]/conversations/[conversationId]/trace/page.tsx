@@ -72,7 +72,7 @@ export default async function OperatorConversationTracePage({
           <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Agent runs</h2>
           </div>
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-line">
             {trace.agentTraces.map((run) => (
               <li key={run.id} className="px-4 py-3 text-sm">
                 <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -122,13 +122,13 @@ export default async function OperatorConversationTracePage({
                     </div>
                   )}
                   {run.used_failover && (
-                    <div className="text-yellow-500">
+                    <div className="text-warning">
                       Failover → {run.failover_provider}/{run.failover_model}
                     </div>
                   )}
                 </div>
                 {run.error_message && (
-                  <p className="mt-2 text-red-500">{run.error_message}</p>
+                  <p className="mt-2 text-danger">{run.error_message}</p>
                 )}
                 {run.steps.length > 0 && (
                   <details className="mt-2">
@@ -161,7 +161,7 @@ export default async function OperatorConversationTracePage({
         <div className="ui-panel-header">
           <h2 className="text-base font-semibold">Timeline</h2>
         </div>
-        <ol className="divide-y divide-border">
+        <ol className="divide-y divide-line">
           {mergedEvents(trace).map((event) => (
             <li key={event.key} className="px-4 py-3 text-sm">
               <div className="flex items-baseline justify-between gap-3">
@@ -174,7 +174,7 @@ export default async function OperatorConversationTracePage({
               </div>
               <div className="mt-1 whitespace-pre-wrap text-sm">{event.body}</div>
               {event.meta && (
-                <pre className="mt-2 overflow-x-auto rounded bg-surface-2 p-2 text-xs">
+                <pre className="mt-2 overflow-x-auto rounded bg-surface p-2 text-xs">
                   {event.meta}
                 </pre>
               )}
@@ -188,7 +188,7 @@ export default async function OperatorConversationTracePage({
           <div className="ui-panel-header">
             <h2 className="text-base font-semibold">QA reviews</h2>
           </div>
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-line">
             {trace.reviews.map((review) => (
               <li key={review.id} className="px-4 py-3 text-sm">
                 <div className="flex flex-wrap gap-3">
@@ -277,7 +277,7 @@ function safeStringify(value: unknown): string {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-border bg-surface-2 px-3 py-2">
+    <div className="rounded border border-line bg-surface px-3 py-2">
       <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
       <div className="mt-1 text-lg font-semibold">{value}</div>
     </div>

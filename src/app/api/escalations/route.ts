@@ -1,3 +1,4 @@
+import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { recordAuditLog } from "@/lib/audit";
@@ -32,6 +33,9 @@ type OwnerReplyOutboundRecord = {
 };
 
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const user = await requireUser();
   const form = await request.formData();
   const escalationId = String(form.get("escalationId") ?? "");

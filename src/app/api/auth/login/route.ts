@@ -1,3 +1,4 @@
+import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { login } from "@/lib/auth";
 import { recordAuditLog } from "@/lib/audit";
@@ -11,6 +12,9 @@ const LOGIN_RATE_LIMIT_MAX = 5;
 const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60_000;
 
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const form = await request.formData();
   const email = String(form.get("email") ?? "");
   const password = String(form.get("password") ?? "");

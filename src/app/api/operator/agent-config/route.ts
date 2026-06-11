@@ -1,3 +1,4 @@
+import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { updateAgentConfigForClient } from "@/lib/agent/config";
@@ -9,6 +10,9 @@ import { selectableFreeProviders } from "@/lib/llm/free-providers";
 import { logWarn } from "@/lib/logger";
 
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const user = await requireUser("operator");
   const form = await request.formData();
   const clientId = String(form.get("clientId") ?? "");

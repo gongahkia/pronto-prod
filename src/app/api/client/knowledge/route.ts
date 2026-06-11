@@ -1,3 +1,4 @@
+import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { ingestKnowledgeSource } from "@/lib/knowledge/ingest";
@@ -5,6 +6,9 @@ import { parseKnowledgeUpload } from "@/lib/knowledge/parse-upload";
 import { crawlWebsiteKnowledge } from "@/lib/knowledge/website";
 
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const user = await requireUser("client");
   if (!user.clientId) {
     return NextResponse.json({ error: "Client user has no client." }, { status: 400 });

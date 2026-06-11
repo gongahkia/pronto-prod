@@ -1,3 +1,4 @@
+import { assertSameOrigin } from "@/lib/http/csrf";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
@@ -9,6 +10,9 @@ import { canAccessClient } from "@/lib/rbac";
 import type { Channel } from "@/lib/types";
 
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const requestId = requestIdFromRequest(request);
   const user = await requireUser();
   const body = await request.json();

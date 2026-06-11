@@ -145,7 +145,8 @@ export default async function NewClientPage({
               Initial password
               <input
                 name="initialUserPassword"
-                type="text"
+                type="password"
+                autoComplete="new-password"
                 minLength={8}
                 className="mt-1 w-full rounded-md border border-line px-3 py-2 outline-none focus:border-accent"
                 placeholder="At least 8 characters"

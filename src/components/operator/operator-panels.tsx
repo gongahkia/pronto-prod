@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { appBaseUrl } from "@/lib/env";
+import { channelDefinition } from "@/lib/channels/catalog";
 import {
   getEscalationHoldingReply,
   settingsWithoutEscalationHoldingReply,
@@ -10,7 +11,7 @@ import type {
   EscalationWithContext,
   KnowledgeSourceSummary,
 } from "@/lib/dashboard";
-import type { Channel, Client, Message } from "@/lib/types";
+import type { Channel, ChannelKind, Client, Message } from "@/lib/types";
 import { Badge } from "@/components/badge";
 import { DeliveryStatusBadge } from "@/components/delivery-status";
 import { EscalationOutboundStatus } from "@/components/escalation-outbound-status";
@@ -147,19 +148,15 @@ export function OperatorChannelSetup({
                   Last send failed: {channel.last_outbound_error}
                 </p>
               ) : null}
-              {channel.kind === "whatsapp" || channel.kind === "telegram" ? (
+              {channelDefinition(channel.kind).webhookLabel ? (
                 <div className="rounded-md bg-surface p-3 text-xs text-muted">
                   <p className="font-medium text-foreground">
-                    {channel.kind === "whatsapp" ? "Meta webhook URL" : "Telegram webhook URL"}
+                    {channelDefinition(channel.kind).webhookLabel}
                   </p>
                   <p className="mt-1 break-all font-mono">
                     {appBaseUrl()}/api/webhooks/{channel.kind}/{channel.id}
                   </p>
-                  <p className="mt-2">
-                    {channel.kind === "whatsapp"
-                      ? "Use the verify token in settings.verifyToken and the app secret in credentials.appSecret for X-Hub-Signature-256 checks."
-                      : "Register this URL with setWebhook and pass settings.webhookSecret as X-Telegram-Bot-Api-Secret-Token."}
-                  </p>
+                  <p className="mt-2">{channelDefinition(channel.kind).webhookHint}</p>
                   <p className="mt-1">
                     For local testing, expose port 3000 with an HTTPS tunnel and set APP_BASE_URL to that public URL.
                   </p>
@@ -179,18 +176,7 @@ export function OperatorChannelSetup({
                   placeholder="Phone number ID / bot ID"
                 />
               </div>
-              <textarea
-                name="settings"
-                rows={3}
-                defaultValue={JSON.stringify(
-                  channel.kind === "whatsapp"
-                    ? settingsWithoutEscalationHoldingReply(channel.settings)
-                    : channel.settings,
-                  null,
-                  2,
-                )}
-                className="w-full rounded-md border border-line px-3 py-2 font-mono text-xs"
-              />
+              <ChannelStructuredFields channel={channel} />
               {channel.kind === "whatsapp" ? (
                 <label className="block space-y-2 text-sm font-medium">
                   <span>Escalation holding reply</span>
@@ -202,12 +188,6 @@ export function OperatorChannelSetup({
                   />
                 </label>
               ) : null}
-              <textarea
-                name="credentials"
-                rows={3}
-                defaultValue={JSON.stringify(channel.credentials, null, 2)}
-                className="w-full rounded-md border border-line px-3 py-2 font-mono text-xs"
-              />
               <button className="ui-button px-3 py-2">
                 Save channel
               </button>
@@ -237,6 +217,109 @@ type ChannelReadinessCheck = {
   tone: "green" | "amber" | "red";
   detail: string;
 };
+
+type ChannelField = {
+  scope: "settings" | "credentials";
+  name: string;
+  label: string;
+  secret?: boolean;
+  kind?: "text" | "select";
+  options?: string[];
+};
+
+const channelFields: Record<ChannelKind, ChannelField[]> = {
+  console: [],
+  whatsapp: [
+    { scope: "credentials", name: "accessToken", label: "Access token", secret: true },
+    { scope: "credentials", name: "phoneNumberId", label: "Phone number ID" },
+    { scope: "credentials", name: "appSecret", label: "App secret", secret: true },
+    { scope: "settings", name: "verifyToken", label: "Webhook verify token", secret: true },
+    { scope: "settings", name: "ownerPhone", label: "Owner WhatsApp phone" },
+  ],
+  telegram: [
+    { scope: "credentials", name: "botToken", label: "Bot token", secret: true },
+    { scope: "settings", name: "webhookSecret", label: "Webhook secret", secret: true },
+    { scope: "settings", name: "ownerChatId", label: "Owner Telegram chat" },
+  ],
+  messenger: [
+    { scope: "credentials", name: "pageAccessToken", label: "Page access token", secret: true },
+    { scope: "credentials", name: "appSecret", label: "App secret", secret: true },
+    { scope: "settings", name: "verifyToken", label: "Webhook verify token", secret: true },
+  ],
+  instagram: [
+    { scope: "credentials", name: "pageAccessToken", label: "Page access token", secret: true },
+    { scope: "credentials", name: "appSecret", label: "App secret", secret: true },
+    { scope: "credentials", name: "igUserId", label: "Instagram user ID" },
+    { scope: "settings", name: "verifyToken", label: "Webhook verify token", secret: true },
+  ],
+  email: [
+    {
+      scope: "credentials",
+      name: "provider",
+      label: "Email provider",
+      kind: "select",
+      options: ["postmark", "resend"],
+    },
+    { scope: "credentials", name: "apiKey", label: "API key", secret: true },
+    { scope: "credentials", name: "fromAddress", label: "From address" },
+    { scope: "settings", name: "webhookSecret", label: "Inbound webhook secret", secret: true },
+    { scope: "settings", name: "eventWebhookSecret", label: "Event webhook secret", secret: true },
+    { scope: "settings", name: "defaultSubject", label: "Default reply subject" },
+  ],
+};
+
+function ChannelStructuredFields({ channel }: { channel: Channel }) {
+  const fields = channelFields[channel.kind];
+  if (!fields.length) {
+    return <p className="rounded-md bg-surface p-3 text-xs text-muted">No channel credentials required.</p>;
+  }
+
+  const visibleSettings =
+    channel.kind === "whatsapp"
+      ? settingsWithoutEscalationHoldingReply(channel.settings)
+      : channel.settings;
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {fields.map((field) => {
+        const source = field.scope === "settings" ? visibleSettings : channel.credentials;
+        const current = source[field.name];
+        const name = `${field.scope}.${field.name}`;
+        if (field.kind === "select") {
+          return (
+            <label key={name} className="block text-sm">
+              <span className="font-medium">{field.label}</span>
+              <select
+                name={name}
+                defaultValue={typeof current === "string" ? current : field.options?.[0]}
+                className="ui-input mt-1 block w-full px-3 py-2"
+              >
+                {(field.options ?? []).map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          );
+        }
+        return (
+          <label key={name} className="block text-sm">
+            <span className="font-medium">{field.label}</span>
+            <input
+              name={name}
+              type={field.secret ? "password" : "text"}
+              defaultValue={field.secret ? "" : typeof current === "string" ? current : ""}
+              placeholder={field.secret && typeof current === "string" && current ? "Saved; leave blank to keep" : ""}
+              autoComplete={field.secret ? "new-password" : undefined}
+              className="ui-input mt-1 block w-full px-3 py-2"
+            />
+          </label>
+        );
+      })}
+    </div>
+  );
+}
 
 function ChannelReadinessChecklist({ channel }: { channel: Channel }) {
   const checks = channelReadinessChecks(channel);

@@ -6,7 +6,11 @@ export function MockAiBanner({ status }: { status: MockAiStatus }) {
   }
 
   return (
-    <div className="border-b border-[#D92D20]/25 bg-[#FFF4F2] px-4 py-2 text-sm text-[#7A271A]">
+    <div
+      className="border-b border-[#D92D20]/25 bg-[#FFF4F2] px-4 py-2 text-sm text-[#7A271A]"
+      role="status"
+      aria-live="polite"
+    >
       <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-medium">Dev mock AI active</span>
         <span>{status.reason}</span>

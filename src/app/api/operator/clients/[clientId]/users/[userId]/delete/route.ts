@@ -1,3 +1,4 @@
+import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { recordAuditLog } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
@@ -17,6 +18,9 @@ function redirectWithMessage(
 }
 
 export async function POST(request: Request, context: Context) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const actor = await requireUser("operator");
   const { clientId, userId } = await context.params;
 

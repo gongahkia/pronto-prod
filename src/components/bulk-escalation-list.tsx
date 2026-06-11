@@ -76,8 +76,7 @@ export function BulkEscalationList(props: BulkEscalationListProps) {
     try {
       const response = await fetch("/api/escalations", { method: "POST", body });
       if (!response.ok) {
-        const text = await response.text();
-        setState({ kind: "error", message: text || "Bulk action failed." });
+        setState({ kind: "error", message: await responseErrorMessage(response) });
         return;
       }
       const json = (await response.json()) as {
@@ -102,7 +101,10 @@ export function BulkEscalationList(props: BulkEscalationListProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3 rounded border border-border bg-surface-2 p-3 text-sm">
+      <fieldset className="flex flex-wrap items-center gap-3 rounded border border-line bg-surface p-3 text-sm">
+        <legend className="px-1 text-xs font-semibold text-muted">
+          Bulk escalation selection
+        </legend>
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -168,17 +170,17 @@ export function BulkEscalationList(props: BulkEscalationListProps) {
           </button>
         </div>
         {state.kind === "success" && (
-          <p className="text-xs text-emerald-500">{state.message}</p>
+          <p className="text-xs text-success">{state.message}</p>
         )}
         {state.kind === "error" && (
-          <p className="text-xs text-red-500">{state.message}</p>
+          <p className="text-xs text-danger">{state.message}</p>
         )}
         {state.kind === "running" && (
           <p className="text-xs text-muted">Running {state.action}…</p>
         )}
-      </div>
+      </fieldset>
 
-      <ul className="divide-y divide-border rounded border border-border">
+      <ul className="divide-y divide-line rounded border border-line">
         {props.escalations.length === 0 && (
           <li className="px-4 py-6 text-center text-sm text-muted">
             No open escalations.
@@ -207,8 +209,8 @@ export function BulkEscalationList(props: BulkEscalationListProps) {
                 <span className="font-mono text-xs text-muted">
                   {escalation.status}
                 </span>
-                <time className="ml-auto font-mono text-xs text-muted">
-                  {new Date(escalation.created_at).toISOString()}
+                <time className="ml-auto font-mono text-xs text-muted" dateTime={escalation.created_at.toISOString()}>
+                  {escalation.created_at.toISOString()}
                 </time>
               </div>
               <p className="mt-1 text-sm">{escalation.customer_message}</p>
@@ -219,4 +221,13 @@ export function BulkEscalationList(props: BulkEscalationListProps) {
       </ul>
     </div>
   );
+}
+
+async function responseErrorMessage(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body.error === "string" && body.error ? body.error : "Bulk action failed.";
+  } catch {
+    return "Bulk action failed.";
+  }
 }

@@ -14,8 +14,11 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AssistantDock } from "@/components/assistant-dock";
+import { AutoRefresh } from "@/components/auto-refresh";
+import { MockAiBanner } from "@/components/mock-ai-banner";
 import { OperatorSidebarActions } from "@/components/operator-sidebar-actions";
 import type { SessionUser } from "@/lib/auth";
+import { getMockAiStatus } from "@/lib/llm/mock-status";
 
 type ClientSection = "overview" | "inbox" | "knowledge" | "assistant" | "settings";
 type OperatorSection =
@@ -71,58 +74,73 @@ export function AppShell({
   const primaryHref = user.role === "operator" ? "/operator" : "/client";
   const primaryLabel = user.role === "operator" ? "Operator" : "Client";
   const isClient = user.role === "client";
+  const mockAiStatus = getMockAiStatus();
 
   return (
-    <div className="min-h-screen bg-background text-foreground lg:flex">
-      {isClient ? (
-        <ClientSidebar
-          active={clientActive}
-          email={user.email}
-          workspaceName={workspaceName ?? "Client workspace"}
-        />
-      ) : (
-        <OperatorSidebar active={operatorActive} email={user.email} />
-      )}
+    <>
+      <MockAiBanner status={mockAiStatus} />
+      <AutoRefresh />
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+      <div className="min-h-screen bg-background text-foreground lg:flex">
+        {isClient ? (
+          <ClientSidebar
+            active={clientActive}
+            email={user.email}
+            workspaceName={workspaceName ?? "Client workspace"}
+          />
+        ) : (
+          <OperatorSidebar active={operatorActive} email={user.email} />
+        )}
 
-      <div className="min-w-0 flex-1">
-        <header className="border-b border-line bg-panel/95 backdrop-blur lg:hidden">
-          <div className="flex items-center justify-between px-4 py-3">
-            <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white">
-                P
-              </span>
-              Pronto
-            </Link>
-            <div className="flex items-center gap-2">
-              <Link
-                href={primaryHref}
-                aria-current={active === user.role ? "page" : undefined}
-                className="rounded-md bg-surface px-2.5 py-1.5 text-sm font-medium text-link"
-              >
-                {primaryLabel}
+        <div className="min-w-0 flex-1">
+          <header className="border-b border-line bg-panel/95 backdrop-blur lg:hidden">
+            <div className="flex items-center justify-between px-4 py-3">
+              <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white">
+                  P
+                </span>
+                Pronto
               </Link>
-              <form action="/api/auth/logout" method="post">
-                <button
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-muted hover:bg-surface-hover hover:text-link"
-                  title="Log out"
+              <div className="min-w-0 flex-1 px-3">
+                <p className="truncate text-sm font-medium">
+                  {isClient ? workspaceName ?? "Client workspace" : "Pronto HQ"}
+                </p>
+                <p className="truncate text-xs text-muted">{user.email}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={primaryHref}
+                  aria-current={active === user.role ? "page" : undefined}
+                  className="rounded-md bg-surface px-2.5 py-1.5 text-sm font-medium text-link"
                 >
-                  <LogOut size={15} />
-                </button>
-              </form>
+                  {primaryLabel}
+                </Link>
+                <form action="/api/auth/logout" method="post">
+                  <button
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-muted hover:bg-surface-hover hover:text-link"
+                    title="Log out"
+                    aria-label="Log out"
+                  >
+                    <LogOut size={15} aria-hidden="true" />
+                  </button>
+                </form>
+              </div>
             </div>
-          </div>
-          {isClient ? (
-            <ClientMobileNav active={clientActive} />
-          ) : (
-            <OperatorMobileNav active={operatorActive} />
-          )}
-        </header>
-        <main className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
-          {children}
-        </main>
-        <AssistantDock />
+            {isClient ? (
+              <ClientMobileNav active={clientActive} />
+            ) : (
+              <OperatorMobileNav active={operatorActive} />
+            )}
+          </header>
+          <main id="main-content" className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+            {children}
+          </main>
+          <AssistantDock />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -153,7 +171,7 @@ function ClientSidebar({
             {initials || "P"}
           </span>
           <span className="truncate">{workspaceName}</span>
-          <ChevronDown size={14} className="shrink-0 text-sidebar-muted" />
+          <ChevronDown size={14} className="shrink-0 text-sidebar-muted" aria-hidden="true" />
         </Link>
       </div>
 
@@ -161,7 +179,7 @@ function ClientSidebar({
         <div>
           <div className="mb-2 flex items-center justify-between px-2 text-sm font-medium text-sidebar-muted">
             <span>Workspace</span>
-            <ChevronDown size={13} />
+            <ChevronDown size={13} aria-hidden="true" />
           </div>
           <div className="space-y-1">
             {clientSidebarItems.map((item) => {
@@ -194,7 +212,7 @@ function ClientSidebar({
             className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-sm text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
             title="Log out"
           >
-            <LogOut size={15} />
+            <LogOut size={15} aria-hidden="true" />
             Log out
           </button>
         </form>
@@ -221,7 +239,7 @@ function OperatorSidebar({
             P
           </span>
           <span className="truncate">Pronto HQ</span>
-          <ChevronDown size={14} className="shrink-0 text-sidebar-muted" />
+          <ChevronDown size={14} className="shrink-0 text-sidebar-muted" aria-hidden="true" />
         </Link>
         <OperatorSidebarActions />
       </div>
@@ -230,7 +248,7 @@ function OperatorSidebar({
         <div>
           <div className="mb-2 flex items-center justify-between px-2 text-sm font-medium text-sidebar-muted">
             <span>Workspace</span>
-            <ChevronDown size={13} />
+            <ChevronDown size={13} aria-hidden="true" />
           </div>
           <div className="space-y-1">
             {operatorWorkspaceItems.map((item) => (
@@ -247,7 +265,7 @@ function OperatorSidebar({
             className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-sm text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
             title="Log out"
           >
-            <LogOut size={15} />
+            <LogOut size={15} aria-hidden="true" />
             Log out
           </button>
         </form>

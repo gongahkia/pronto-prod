@@ -2,11 +2,25 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { mergeEscalationHoldingReply } from "@/lib/channels/escalation-handoff";
 import { query } from "@/lib/db";
-import type { ChannelStatus } from "@/lib/types";
+import { assertSameOrigin } from "@/lib/http/csrf";
+import type { ChannelKind, ChannelStatus } from "@/lib/types";
 
 const channelStatuses: ChannelStatus[] = ["draft", "active", "disabled"];
+const secretFieldNames = new Set([
+  "accessToken",
+  "appSecret",
+  "botToken",
+  "pageAccessToken",
+  "apiKey",
+  "verifyToken",
+  "webhookSecret",
+  "eventWebhookSecret",
+]);
 
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const user = await requireUser("operator");
   const form = await request.formData();
   const channelId = String(form.get("channelId") ?? "");
@@ -21,8 +35,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid channel status." }, { status: 400 });
   }
 
-  const channelResult = await query<{ client_id: string }>(
-    "select client_id from channels where id = $1",
+  const channelResult = await query<{
+    client_id: string;
+    kind: ChannelKind;
+    settings: Record<string, unknown>;
+    credentials: Record<string, unknown>;
+  }>(
+    "select client_id, kind, settings, credentials from channels where id = $1",
     [channelId],
   );
   const channel = channelResult.rows[0];
@@ -37,21 +56,28 @@ export async function POST(request: Request) {
   }
 
   const parsedSettings = parseJsonObject(String(form.get("settings") || "{}"), "settings");
-  if (!parsedSettings.ok) {
-    return NextResponse.json({ error: parsedSettings.error }, { status: 400 });
-  }
+  const submittedSettings = parsedSettings.ok ? parsedSettings.value : {};
   const holdingReply = form.get("escalationHoldingReply");
+  const settingsBase = mergeStructuredFields({
+    base: channel.settings,
+    submitted: submittedSettings,
+    form,
+    scope: "settings",
+  });
   const settings =
     holdingReply === null
-      ? parsedSettings.value
-      : mergeEscalationHoldingReply(parsedSettings.value, String(holdingReply));
+      ? settingsBase
+      : mergeEscalationHoldingReply(settingsBase, String(holdingReply));
   const credentials = parseJsonObject(
     String(form.get("credentials") || "{}"),
     "credentials",
   );
-  if (!credentials.ok) {
-    return NextResponse.json({ error: credentials.error }, { status: 400 });
-  }
+  const credentialValue = mergeStructuredFields({
+    base: channel.credentials,
+    submitted: credentials.ok ? credentials.value : {},
+    form,
+    scope: "credentials",
+  });
 
   await query(
     `
@@ -63,7 +89,7 @@ export async function POST(request: Request) {
           updated_at = now()
       where id = $1
     `,
-    [channelId, status, externalId, settings, credentials.value],
+    [channelId, status, externalId, settings, credentialValue],
   );
   await query(
     "insert into audit_logs (client_id, actor_user_id, action, target_type, target_id, metadata) values ($1, $2, 'channel.updated', 'channel', $3, $4)",
@@ -71,6 +97,27 @@ export async function POST(request: Request) {
   );
 
   return NextResponse.redirect(new URL(returnTo, request.url), 303);
+}
+
+function mergeStructuredFields(input: {
+  base: Record<string, unknown>;
+  submitted: Record<string, unknown>;
+  form: FormData;
+  scope: "settings" | "credentials";
+}): Record<string, unknown> {
+  const next = { ...input.base, ...input.submitted };
+  for (const [key, value] of input.form.entries()) {
+    const prefix = `${input.scope}.`;
+    if (!key.startsWith(prefix)) continue;
+    const field = key.slice(prefix.length);
+    const text = String(value).trim();
+    if (!text) {
+      if (!secretFieldNames.has(field)) delete next[field];
+      continue;
+    }
+    next[field] = text;
+  }
+  return next;
 }
 
 export function parseJsonObject(

@@ -27,7 +27,7 @@ export default async function OperatorAllEscalationsPage() {
       </div>
 
       {byClient.size === 0 && (
-        <p className="rounded border border-border bg-surface-2 p-4 text-sm text-muted">
+        <p className="rounded border border-line bg-surface p-4 text-sm text-muted">
           No open escalations across clients.
         </p>
       )}
@@ -38,7 +38,7 @@ export default async function OperatorAllEscalationsPage() {
           return (
             <li
               key={clientId}
-              className="rounded border border-border bg-surface-2 p-4 text-sm"
+              className="rounded border border-line bg-surface p-4 text-sm"
             >
               <div className="flex items-center justify-between">
                 <div>

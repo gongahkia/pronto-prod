@@ -1,3 +1,4 @@
+import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import {
@@ -19,6 +20,9 @@ import {
 } from "@/lib/logger";
 
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const requestId = requestIdFromRequest(request);
   await requireUser("operator");
 

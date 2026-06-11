@@ -107,7 +107,7 @@ export default async function OperatorClientMonthlyReportPage({
           <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Top escalation reasons</h2>
           </div>
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-line">
             {report.topEscalationReasons.map((row) => (
               <li
                 key={row.reason_code}
@@ -126,7 +126,7 @@ export default async function OperatorClientMonthlyReportPage({
           <div className="ui-panel-header">
             <h2 className="text-base font-semibold">Recommendations</h2>
           </div>
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-line">
             {report.recommendations.map((rec, index) => (
               <li key={index} className="px-4 py-3 text-sm">
                 <p className="font-mono text-xs uppercase tracking-wide text-muted">
@@ -154,7 +154,7 @@ export default async function OperatorClientMonthlyReportPage({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-border bg-surface-2 px-3 py-2">
+    <div className="rounded border border-line bg-surface px-3 py-2">
       <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
       <div className="mt-1 text-lg font-semibold">{value}</div>
     </div>

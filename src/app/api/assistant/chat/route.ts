@@ -1,3 +1,4 @@
+import { assertSameOrigin } from "@/lib/http/csrf";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -20,6 +21,9 @@ const chatRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const user = await requireUser();
   const requestId = randomUUID();
   let parsed: z.infer<typeof chatRequestSchema>;

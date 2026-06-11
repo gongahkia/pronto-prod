@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { recordCsatResponse } from "@/lib/csat";
+import { assertSameOrigin } from "@/lib/http/csrf";
 import { logWarn } from "@/lib/logger";
 
 export async function POST(request: Request) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const form = await request.formData();
   const conversationId = String(form.get("conversationId") ?? "");
   const messageId = String(form.get("messageId") ?? "");
