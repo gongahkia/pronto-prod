@@ -82,6 +82,7 @@ describe("outbound message outbox", () => {
 
     expect(mocks.sendChannelText).toHaveBeenCalledWith({
       channelId: "channel-1",
+      clientId: "client-1",
       externalThreadId: "6590000000",
       text: "We will help.",
     });
@@ -101,6 +102,7 @@ describe("outbound message outbox", () => {
     expect(mocks.query.mock.calls[1][1]).toEqual([
       "outbound-1",
       "WhatsApp send failed",
+      "client-1",
     ]);
     expect(result).toEqual({
       status: "failed",

@@ -101,7 +101,9 @@ describe("escalation route", () => {
       }),
       expect.any(Object),
     );
-    expect(mocks.flushOutboundMessage).toHaveBeenCalledWith("outbound-1");
+    expect(mocks.flushOutboundMessage).toHaveBeenCalledWith("outbound-1", {
+      clientId: "client-1",
+    });
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
       "http://localhost/operator/clients/client-1/conversations/conversation-1",
@@ -137,7 +139,9 @@ describe("escalation route", () => {
       }),
     );
 
-    expect(mocks.flushOutboundMessage).toHaveBeenCalledWith("outbound-1");
+    expect(mocks.flushOutboundMessage).toHaveBeenCalledWith("outbound-1", {
+      clientId: "client-1",
+    });
     expect(mocks.recordAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "escalation.outbound_retry",

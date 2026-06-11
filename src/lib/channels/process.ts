@@ -157,6 +157,7 @@ export async function processInboundMessage(
     try {
       await sendChannelText({
         channelId: inbound.channelId,
+        clientId: channel.client_id,
         externalThreadId: inbound.externalThreadId,
         text: appendCsatLink(result.responseText, result.csatUrl),
       });
@@ -288,6 +289,7 @@ async function sendEscalationHoldingReply(input: {
 
   await sendChannelText({
     channelId: input.inbound.channelId,
+    clientId: input.channel.client_id,
     externalThreadId: input.inbound.externalThreadId,
     text,
   });

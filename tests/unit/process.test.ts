@@ -82,6 +82,7 @@ describe("inbound channel processing", () => {
     );
     expect(mocks.sendChannelText).toHaveBeenCalledWith({
       channelId: "whatsapp-channel-1",
+      clientId: "client-1",
       externalThreadId: "6590000000",
       text: "Team Pronto will take over from here.",
     });
@@ -96,6 +97,7 @@ describe("inbound channel processing", () => {
 
     expect(mocks.sendChannelText).toHaveBeenCalledWith({
       channelId: "whatsapp-channel-1",
+      clientId: "client-1",
       externalThreadId: "6590000000",
       text: DEFAULT_ESCALATION_HOLDING_REPLY,
     });

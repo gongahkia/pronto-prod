@@ -90,6 +90,7 @@ export async function notifyOwnerOfEscalation(
   try {
     await sendChannelText({
       channelId: channel.id,
+      clientId: escalation.client_id,
       externalThreadId: destination,
       text,
     });

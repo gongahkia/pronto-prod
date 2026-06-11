@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 
   const escalation = await loadEscalation(
     escalationId,
-    user.role === "client" ? user.clientId : undefined,
+    user.role === "client" ? user.clientId ?? undefined : undefined,
   );
   if (!escalation) {
     return NextResponse.json({ error: "Escalation not found." }, { status: 404 });
