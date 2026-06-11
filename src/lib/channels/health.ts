@@ -63,6 +63,14 @@ export async function runChannelHealthCheck(
     return checkWhatsAppHealth(channel);
   }
 
+  if (channel.kind === "messenger" || channel.kind === "instagram") {
+    return checkMetaPlatformHealth(channel);
+  }
+
+  if (channel.kind === "email") {
+    return checkEmailHealth(channel);
+  }
+
   return { status: "unconfigured", detail: "Unsupported channel kind.", checkedLive: false };
 }
 
@@ -107,6 +115,59 @@ export function validateChannelHealthConfig(channel: Channel): string | null {
     if (!appSecret) {
       return "WhatsApp app secret is missing.";
     }
+    return null;
+  }
+
+  if (channel.kind === "messenger") {
+    const token =
+      (channel.credentials.pageAccessToken as string | undefined) ??
+      process.env.MESSENGER_PAGE_ACCESS_TOKEN;
+    const appSecret =
+      (channel.credentials.appSecret as string | undefined) ??
+      process.env.MESSENGER_APP_SECRET;
+    const verifyToken =
+      (channel.settings.verifyToken as string | undefined) ??
+      process.env.MESSENGER_VERIFY_TOKEN;
+    if (!token) return "Messenger page access token is missing.";
+    if (!appSecret) return "Messenger app secret is missing.";
+    if (!verifyToken) return "Messenger webhook verify token is missing.";
+    return null;
+  }
+
+  if (channel.kind === "instagram") {
+    const token =
+      (channel.credentials.pageAccessToken as string | undefined) ??
+      process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
+    const appSecret =
+      (channel.credentials.appSecret as string | undefined) ??
+      process.env.INSTAGRAM_APP_SECRET;
+    const verifyToken =
+      (channel.settings.verifyToken as string | undefined) ??
+      process.env.INSTAGRAM_VERIFY_TOKEN;
+    const igUserId =
+      (channel.credentials.igUserId as string | undefined) ?? channel.external_id;
+    if (!token) return "Instagram page access token is missing.";
+    if (!appSecret) return "Instagram app secret is missing.";
+    if (!verifyToken) return "Instagram webhook verify token is missing.";
+    if (!igUserId) return "Instagram user ID is missing.";
+    return null;
+  }
+
+  if (channel.kind === "email") {
+    const provider =
+      (channel.credentials.provider as string | undefined) ?? "postmark";
+    const apiKey =
+      (channel.credentials.apiKey as string | undefined) ??
+      (provider === "postmark"
+        ? process.env.POSTMARK_API_TOKEN
+        : process.env.RESEND_API_KEY);
+    const fromAddress =
+      (channel.credentials.fromAddress as string | undefined) ??
+      (provider === "postmark"
+        ? process.env.POSTMARK_FROM_ADDRESS
+        : process.env.RESEND_FROM_ADDRESS);
+    if (!apiKey) return `Email ${provider} API key is missing.`;
+    if (!fromAddress) return `Email ${provider} from-address is missing.`;
     return null;
   }
 
@@ -175,6 +236,64 @@ async function checkWhatsAppHealth(channel: Channel): Promise<ChannelHealthResul
   return {
     status: "healthy",
     detail: "WhatsApp phone number credentials are valid.",
+    checkedLive: true,
+  };
+}
+
+async function checkMetaPlatformHealth(channel: Channel): Promise<ChannelHealthResult> {
+  const token =
+    (channel.credentials.pageAccessToken as string | undefined) ??
+    (channel.kind === "messenger"
+      ? process.env.MESSENGER_PAGE_ACCESS_TOKEN
+      : process.env.INSTAGRAM_PAGE_ACCESS_TOKEN);
+  const graphVersion = process.env.META_GRAPH_VERSION ?? "v20.0";
+  const response = await fetch(
+    `https://graph.facebook.com/${graphVersion}/me?fields=id,name`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok) {
+    return {
+      status: "degraded",
+      detail: `${channel.kind} Graph /me failed with HTTP ${response.status}.`,
+      checkedLive: true,
+    };
+  }
+  return {
+    status: "healthy",
+    detail: `${channel.kind} page token is valid.`,
+    checkedLive: true,
+  };
+}
+
+async function checkEmailHealth(channel: Channel): Promise<ChannelHealthResult> {
+  const provider =
+    (channel.credentials.provider as string | undefined) ?? "postmark";
+  const apiKey =
+    (channel.credentials.apiKey as string | undefined) ??
+    (provider === "postmark"
+      ? process.env.POSTMARK_API_TOKEN
+      : process.env.RESEND_API_KEY);
+
+  const url =
+    provider === "postmark"
+      ? "https://api.postmarkapp.com/server"
+      : "https://api.resend.com/domains";
+  const headers: Record<string, string> =
+    provider === "postmark"
+      ? { Accept: "application/json", "X-Postmark-Server-Token": apiKey ?? "" }
+      : { Authorization: `Bearer ${apiKey ?? ""}` };
+
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    return {
+      status: "degraded",
+      detail: `Email ${provider} health check failed with HTTP ${response.status}.`,
+      checkedLive: true,
+    };
+  }
+  return {
+    status: "healthy",
+    detail: `Email ${provider} credentials are valid.`,
     checkedLive: true,
   };
 }

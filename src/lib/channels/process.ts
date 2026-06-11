@@ -171,7 +171,7 @@ export async function processInboundMessage(
   }
 
   if (result.action === "escalated" && result.escalationId) {
-    if (inbound.channelKind === "whatsapp") {
+    if (inbound.channelKind !== "console") {
       try {
         await sendEscalationHoldingReply({
           channel,
