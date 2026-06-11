@@ -169,8 +169,11 @@ export async function retrieveKnowledge(
 }
 
 function vectorDistanceExpression(dimensions: number): string {
-  if (dimensions === 1536 || dimensions === 3072) {
-    return `(embedding::vector(${dimensions}) <=> $2::vector(${dimensions}))`;
+  if (dimensions === 1536) {
+    return "(embedding::vector(1536) <=> $2::vector(1536))";
+  }
+  if (dimensions === 3072) {
+    return "(embedding::halfvec(3072) <=> $2::halfvec(3072))";
   }
   return "(embedding <=> $2::vector)";
 }

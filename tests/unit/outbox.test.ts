@@ -58,7 +58,9 @@ describe("outbound message outbox", () => {
     });
 
     expect(result.id).toBe("outbound-1");
-    expect(db.query.mock.calls[0][0]).toContain("on conflict (idempotency_key)");
+    expect(db.query.mock.calls[0][0]).toContain(
+      "on conflict (client_id, idempotency_key)",
+    );
     expect(db.query.mock.calls[0][1]).toEqual([
       "client-1",
       "conversation-1",

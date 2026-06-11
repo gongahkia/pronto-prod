@@ -78,6 +78,7 @@ export async function POST(request: Request) {
     raw: { source: "pilot_console" },
   }, {
     requestId,
+    clientId: requestedClientId,
   });
 
   return NextResponse.json(result, { headers: requestIdHeaders(requestId) });

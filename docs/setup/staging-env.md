@@ -25,6 +25,7 @@ Use `PRONTO_LLM_PROVIDER=azure` or select Azure OpenAI in the operator Agent tun
 - `AZURE_OPENAI_ENDPOINT`: Optional shorthand endpoint, for example `https://<resource>.openai.azure.com`; Pronto appends `/openai/v1/`.
 - `AZURE_OPENAI_RESPONSE_MODEL`: Azure response deployment name.
 - `AZURE_OPENAI_EMBEDDING_MODEL`: Azure embedding deployment name.
+- `PRONTO_ENFORCE_TENANT_SQL`: Set to `1` in staging to fail client-session SQL touching tenant tables without `client_id`. Production enables this unless `PRONTO_DISABLE_TENANT_SQL_GATE=1`.
 - `AZURE_OPENAI_DEPLOYMENT`: Backward-compatible alias for `AZURE_OPENAI_RESPONSE_MODEL`.
 - `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`: Backward-compatible alias for `AZURE_OPENAI_EMBEDDING_MODEL`.
 

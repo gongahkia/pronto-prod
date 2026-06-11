@@ -81,6 +81,5 @@ create index if not exists knowledge_chunks_embedding_1536_hnsw_idx
   where embedding_dimensions = 1536;
 
 create index if not exists knowledge_chunks_embedding_3072_hnsw_idx
-  on knowledge_chunks using hnsw ((embedding::vector(3072)) vector_cosine_ops)
+  on knowledge_chunks using hnsw ((embedding::halfvec(3072)) halfvec_cosine_ops)
   where embedding_dimensions = 3072;
-

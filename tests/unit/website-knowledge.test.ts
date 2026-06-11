@@ -58,6 +58,15 @@ describe("website knowledge crawler", () => {
       crawlWebsiteKnowledge({ url: "file:///tmp/menu.html" }),
     ).rejects.toThrow("http:// or https://");
   });
+
+  it("rejects localhost and private IP targets", async () => {
+    await expect(
+      crawlWebsiteKnowledge({ url: "http://127.0.0.1:5432/" }),
+    ).rejects.toThrow("public IP address");
+    await expect(
+      crawlWebsiteKnowledge({ url: "http://localhost:3000/" }),
+    ).rejects.toThrow("localhost");
+  });
 });
 
 function textResponse(body: string, contentType = "text/html"): Response {

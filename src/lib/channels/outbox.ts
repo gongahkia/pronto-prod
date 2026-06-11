@@ -1,11 +1,8 @@
-import type { Pool } from "pg";
 import { sendChannelText } from "@/lib/channels/dispatch";
 import { policyFromOutboundMetadata } from "@/lib/channels/policy";
-import { query } from "@/lib/db";
+import { query, type Queryable } from "@/lib/db";
 import { recordErrorEvent } from "@/lib/error-tracking";
 import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
-
-type Queryable = Pick<Pool, "query">;
 
 export type OutboundMessage = {
   id: string;

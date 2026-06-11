@@ -12,9 +12,11 @@ create table if not exists integration_credentials (
   created_by_user_id uuid references users(id) on delete set null,
   updated_by_user_id uuid references users(id) on delete set null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (client_id, provider, coalesce(label, ''))
+  updated_at timestamptz not null default now()
 );
 
 create index if not exists integration_credentials_client_idx
   on integration_credentials (client_id, provider);
+
+create unique index if not exists integration_credentials_client_provider_label_idx
+  on integration_credentials (client_id, provider, coalesce(label, ''));

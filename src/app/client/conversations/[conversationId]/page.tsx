@@ -30,7 +30,7 @@ export default async function ClientConversationPage({
   }
   const [activeEscalation, messages] = await Promise.all([
     getConversationActionableEscalation({ clientId: user.clientId, conversationId }),
-    getConversationMessages(conversation.id),
+    getConversationMessages(conversation.id, user.clientId),
   ]);
 
   const returnTo = `/client/conversations/${conversation.id}`;

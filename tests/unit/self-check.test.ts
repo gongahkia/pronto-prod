@@ -59,6 +59,20 @@ describe("post-generation self-check", () => {
       reasonCode: "post_check_forbidden_mutation",
     });
   });
+
+  it("passes a cited Mandarin answer with source overlap", () => {
+    const result = evaluatePostGenerationSelfCheck({
+      decision: answerDecision({
+        answer: "周六和周日营业时间是上午10点到晚上10点。",
+        citedChunkIds: ["chunk-1"],
+      }),
+      retrievedChunks: [
+        chunk("chunk-1", "Mandarin opening-hours phrasing: 周六和周日营业时间是上午10点到晚上10点."),
+      ],
+    });
+
+    expect(result.passed).toBe(true);
+  });
 });
 
 function answerDecision(

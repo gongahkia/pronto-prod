@@ -88,5 +88,11 @@ export function failoverModelChoices(originProvider: string | null | undefined):
 }
 
 export function failoverModelChoice(originProvider?: string | null): ModelChoice {
+  if (originProvider === undefined) {
+    return {
+      ...modelCatalog.openai.fallback,
+      model: process.env.OPENAI_RESPONSE_MODEL?.trim() || modelCatalog.openai.fallback.model,
+    };
+  }
   return failoverModelChoices(originProvider)[0];
 }

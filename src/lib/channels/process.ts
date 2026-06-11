@@ -21,7 +21,7 @@ export type ProcessedInboundMessage = {
 
 export async function processInboundMessage(
   inbound: NormalizedInboundMessage,
-  options: { requestId?: string } = {},
+  options: { requestId?: string; clientId?: string } = {},
 ): Promise<ProcessedInboundMessage> {
   logInfo("inbound_message.received", {
     requestId: options.requestId,
@@ -32,8 +32,10 @@ export async function processInboundMessage(
   });
 
   const channelResult = await query<Channel>(
-    "select * from channels where id = $1",
-    [inbound.channelId],
+    options.clientId
+      ? "select * from channels where id = $1 and client_id = $2"
+      : "select * from channels where id = $1",
+    options.clientId ? [inbound.channelId, options.clientId] : [inbound.channelId],
   );
   const channel = channelResult.rows[0];
   if (!channel) {
@@ -41,8 +43,8 @@ export async function processInboundMessage(
   }
 
   const existing = await query<Message>(
-    "select * from messages where channel_id = $1 and external_message_id = $2",
-    [inbound.channelId, inbound.externalMessageId],
+    "select * from messages where channel_id = $1 and external_message_id = $2 and client_id = $3",
+    [inbound.channelId, inbound.externalMessageId, channel.client_id],
   );
   if (existing.rowCount) {
     logInfo("inbound_message.duplicate", {
@@ -94,8 +96,8 @@ export async function processInboundMessage(
     const insertedMessage = message.rows[0];
     if (!insertedMessage) {
       const duplicate = await client.query<Message>(
-        "select * from messages where channel_id = $1 and external_message_id = $2",
-        [inbound.channelId, inbound.externalMessageId],
+        "select * from messages where channel_id = $1 and external_message_id = $2 and client_id = $3",
+        [inbound.channelId, inbound.externalMessageId, channel.client_id],
       );
       const duplicateMessage = duplicate.rows[0];
       if (!duplicateMessage) {

@@ -89,10 +89,11 @@ export async function runAgentForMessage(input: {
       `
         select * from messages
         where conversation_id = $1
+          and client_id = $2
         order by created_at desc
         limit 8
       `,
-      [input.conversationId],
+      [input.conversationId, input.clientId],
     ),
     getPromptBrandVoiceProfile(input.clientId),
   ]);
@@ -692,8 +693,8 @@ export async function createEscalation(input: {
 }): Promise<AgentRunResult> {
   return transaction(async (client) => {
     await client.query(
-      "update conversations set status = 'escalated', last_message_at = now() where id = $1",
-      [input.conversationId],
+      "update conversations set status = 'escalated', last_message_at = now() where id = $1 and client_id = $2",
+      [input.conversationId, input.clientId],
     );
 
     const escalation = await client.query<{ id: string }>(
@@ -783,8 +784,8 @@ async function recordDirectAgentAnswer(
   );
 
   await query(
-    "update conversations set status = 'active', last_message_at = now() where id = $1",
-    [input.conversationId],
+    "update conversations set status = 'active', last_message_at = now() where id = $1 and client_id = $2",
+    [input.conversationId, input.clientId],
   );
   await query(
     "insert into metric_events (client_id, event_type, value, metadata) values ($1, 'agent_answered', $2, $3)",

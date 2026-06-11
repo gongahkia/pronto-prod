@@ -42,7 +42,13 @@ describe("retrieveKnowledge", () => {
     expect(String(mockedQuery.mock.calls[0][0])).not.toContain(
       "websearch_to_tsquery",
     );
-    expect(mockedQuery.mock.calls[0][1]).toEqual(["client-1", "[0.10,0.20]", 3]);
+    expect(mockedQuery.mock.calls[0][1]).toEqual([
+      "client-1",
+      "[0.10,0.20]",
+      20,
+      2,
+      null,
+    ]);
     expect(chunks[0].score).toBeCloseTo(0.8);
   });
 
@@ -78,8 +84,20 @@ describe("retrieveKnowledge", () => {
       "[0.10,0.20]",
       "opening OR hours OR sunday",
       20,
-      3,
+      20,
+      2,
+      null,
     ]);
     expect(chunks[0].score).toBeCloseTo(1);
+  });
+
+  it("uses halfvec distance for 3072-dimensional embeddings", async () => {
+    mockedQuery.mockResolvedValueOnce({ rows: [] } as never);
+
+    await retrieveKnowledge("client-1", Array.from({ length: 3072 }, () => 0.01), 3);
+
+    expect(String(mockedQuery.mock.calls[0][0])).toContain(
+      "embedding::halfvec(3072) <=> $2::halfvec(3072)",
+    );
   });
 });

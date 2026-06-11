@@ -398,7 +398,7 @@ async function addFocusedConversationContext(input: {
         clientId: input.client.id,
         conversationId: input.conversationId,
       }),
-      getConversationMessages(input.conversationId),
+      getConversationMessages(input.conversationId, input.client.id),
       query(
         `
           select *

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { recordAuditLog } from "@/lib/audit";
 import { query } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
+import { enterTenantContext } from "@/lib/tenant-context";
 import type { User, UserRole } from "@/lib/types";
 
 const COOKIE_NAME = "pronto_session";
@@ -88,6 +89,7 @@ export async function requireUser(role?: UserRole): Promise<SessionUser> {
   if (!user || (role && user.role !== role)) {
     redirect("/login");
   }
+  enterTenantContext(user);
   return user;
 }
 

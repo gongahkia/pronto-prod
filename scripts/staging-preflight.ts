@@ -114,6 +114,15 @@ function checkCoreEnv() {
     status: databaseUrl() ? "pass" : "fail",
     detail: "Database URL is configured.",
   });
+
+  checks.push({
+    name: "PRONTO_ENFORCE_TENANT_SQL",
+    status: process.env.PRONTO_ENFORCE_TENANT_SQL === "1" ? "pass" : "warn",
+    detail:
+      process.env.PRONTO_ENFORCE_TENANT_SQL === "1"
+        ? "Client-session tenant SQL gate is enabled."
+        : "Set PRONTO_ENFORCE_TENANT_SQL=1 in staging to catch unscoped client queries.",
+  });
 }
 
 async function checkProviderCredentials() {

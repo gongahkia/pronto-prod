@@ -95,6 +95,21 @@ describe("agent guardrails", () => {
     expect(result.reasonCode).toBe("urgent_or_negative_sentiment");
   });
 
+  it("escalates Mandarin refund and handoff requests", () => {
+    const refund = evaluatePreGenerationGuardrails("我要退款，订单送迟了");
+    const handoff = evaluatePreGenerationGuardrails("我要找人工客服");
+
+    expect(refund.reasonCode).toBe("complaint_or_refund");
+    expect(handoff.reasonCode).toBe("human_handoff_requested");
+  });
+
+  it("escalates Malay transactional requests", () => {
+    const result = evaluatePreGenerationGuardrails("Tolong batalkan tempahan saya");
+
+    expect(result.shouldEscalate).toBe(true);
+    expect(result.reasonCode).toBe("transactional_action");
+  });
+
   it("extends guardrails with configured sentiment triggers", () => {
     const result = evaluatePreGenerationGuardrails("I am properly annoyed.", {
       sentimentTriggers: ["annoyed"],

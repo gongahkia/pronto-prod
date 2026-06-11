@@ -295,10 +295,13 @@ export async function getConversationTriageDetail(input: {
 
 export async function getConversationMessages(
   conversationId: string,
+  clientId?: string,
 ): Promise<Message[]> {
   const result = await query<Message>(
-    "select * from messages where conversation_id = $1 order by created_at asc",
-    [conversationId],
+    clientId
+      ? "select * from messages where conversation_id = $1 and client_id = $2 order by created_at asc"
+      : "select * from messages where conversation_id = $1 order by created_at asc",
+    clientId ? [conversationId, clientId] : [conversationId],
   );
   return result.rows;
 }

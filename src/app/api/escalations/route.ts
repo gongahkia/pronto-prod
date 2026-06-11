@@ -44,6 +44,9 @@ export async function POST(request: Request) {
     String(form.get("returnTo") ?? ""),
     user.role === "operator" ? "/operator" : "/client",
   );
+  if (user.role === "client" && !user.clientId) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
 
   if (action === "bulk_claim" || action === "bulk_resolve" || action === "bulk_assign") {
     const clientId = String(form.get("clientId") ?? "");
@@ -76,7 +79,10 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   }
 
-  const escalation = await loadEscalation(escalationId);
+  const escalation = await loadEscalation(
+    escalationId,
+    user.role === "client" ? user.clientId : undefined,
+  );
   if (!escalation) {
     return NextResponse.json({ error: "Escalation not found." }, { status: 404 });
   }
@@ -113,18 +119,23 @@ export async function POST(request: Request) {
   }
 
   if (action === "claim") {
-    await query(
-      "update escalations set status = 'claimed' where id = $1 and status = 'open'",
-      [escalation.id],
-    );
-    await recordAuditLog({
-      clientId: escalation.client_id,
-      actorUserId: user.userId,
-      action: "escalation.claimed",
-      targetType: "escalation",
-      targetId: escalation.id,
-      metadata: { previousStatus: escalation.status },
-    });
+    await transaction(async (client) => {
+      await client.query(
+        "update escalations set status = 'claimed' where id = $1 and client_id = $2 and status = 'open'",
+        [escalation.id, escalation.client_id],
+      );
+      await recordAuditLog(
+        {
+          clientId: escalation.client_id,
+          actorUserId: user.userId,
+          action: "escalation.claimed",
+          targetType: "escalation",
+          targetId: escalation.id,
+          metadata: { previousStatus: escalation.status },
+        },
+        client,
+      );
+    }, { isolationLevel: "serializable", retries: 2 });
 
     return NextResponse.redirect(new URL(returnTo, request.url), 303);
   }
@@ -139,10 +150,10 @@ export async function POST(request: Request) {
           update escalations
           set status = 'resolved',
               resolved_at = coalesce(resolved_at, now())
-          where id = $1 and status <> 'resolved'
+          where id = $1 and client_id = $2 and status <> 'resolved'
           returning id
         `,
-        [escalation.id],
+        [escalation.id, escalation.client_id],
       );
       if (!resolved.rowCount) {
         return;
@@ -188,8 +199,8 @@ export async function POST(request: Request) {
       }
 
       await client.query(
-        "update conversations set status = 'closed', last_message_at = now() where id = $1",
-        [escalation.conversation_id],
+        "update conversations set status = 'closed', last_message_at = now() where id = $1 and client_id = $2",
+        [escalation.conversation_id, escalation.client_id],
       );
       await client.query(
         "insert into metric_events (client_id, event_type, value, metadata) values ($1, 'escalation_resolved', 1, $2)",
@@ -227,6 +238,7 @@ export async function POST(request: Request) {
 
 async function loadEscalation(
   escalationId: string,
+  clientId?: string,
 ): Promise<EscalationActionRecord | null> {
   const result = await query<EscalationActionRecord>(
     `
@@ -242,8 +254,9 @@ async function loadEscalation(
       join conversations c on c.id = e.conversation_id
       join channels ch on ch.id = c.channel_id
       where e.id = $1
+        ${clientId ? "and e.client_id = $2" : ""}
     `,
-    [escalationId],
+    clientId ? [escalationId, clientId] : [escalationId],
   );
   return result.rows[0] ?? null;
 }
