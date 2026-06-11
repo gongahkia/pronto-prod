@@ -176,6 +176,7 @@ export function validateChannelHealthConfig(channel: Channel): string | null {
 
 export async function recordOutboundHealth(
   channelId: string,
+  clientId: string,
   error?: unknown,
 ): Promise<void> {
   await query(
@@ -184,9 +185,9 @@ export async function recordOutboundHealth(
       set last_outbound_at = now(),
           last_outbound_error = $2,
           updated_at = now()
-      where id = $1
+      where id = $1 and client_id = $3
     `,
-    [channelId, error ? errorToMessage(error) : null],
+    [channelId, error ? errorToMessage(error) : null, clientId],
   );
 }
 

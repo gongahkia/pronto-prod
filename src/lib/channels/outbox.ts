@@ -40,6 +40,7 @@ export type OutboundFlushResult =
 
 export type OutboundFlushOptions = {
   requestId?: string;
+  clientId?: string;
   staleSendingMinutes?: number;
   maxAttempts?: number;
 };
@@ -115,6 +116,7 @@ export async function flushOutboundMessage(
           attempt_count = attempt_count + 1,
           updated_at = now()
       where id = $1
+        and ($4::uuid is null or client_id = $4::uuid)
         and attempt_count < $3
         and (
           status in ('pending', 'failed')
@@ -125,7 +127,7 @@ export async function flushOutboundMessage(
         )
       returning *
     `,
-    [outboundMessageId, staleSendingMinutes, maxAttempts],
+    [outboundMessageId, staleSendingMinutes, maxAttempts, options.clientId ?? null],
   );
   const outbound = claimed.rows[0];
   if (!outbound) {
@@ -155,6 +157,7 @@ export async function flushOutboundMessage(
     const policy = policyFromOutboundMetadata(outbound.metadata);
     await sendChannelText({
       channelId: outbound.channel_id,
+      clientId: outbound.client_id,
       externalThreadId: outbound.external_thread_id,
       text: outbound.body,
       ...(policy ? { policy } : {}),
@@ -166,9 +169,9 @@ export async function flushOutboundMessage(
             sent_at = now(),
             last_error = null,
             updated_at = now()
-        where id = $1
+        where id = $1 and client_id = $2
       `,
-      [outbound.id],
+      [outbound.id, outbound.client_id],
     );
     logInfo("outbox.flush_sent", {
       requestId: options.requestId,
@@ -188,9 +191,9 @@ export async function flushOutboundMessage(
         set status = 'failed',
             last_error = $2,
             updated_at = now()
-        where id = $1
+        where id = $1 and client_id = $3
       `,
-      [outbound.id, message],
+      [outbound.id, message, outbound.client_id],
     );
     logWarn("outbox.flush_failed", {
       requestId: options.requestId,

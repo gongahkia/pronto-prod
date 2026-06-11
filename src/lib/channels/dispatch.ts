@@ -13,13 +13,17 @@ import type { Channel } from "@/lib/types";
 
 export async function sendChannelText(input: {
   channelId: string;
+  clientId?: string;
   externalThreadId: string;
   text: string;
   policy?: ChannelSendPolicy;
 }): Promise<void> {
-  const channelResult = await query<Channel>("select * from channels where id = $1", [
-    input.channelId,
-  ]);
+  const channelResult = await query<Channel>(
+    input.clientId
+      ? "select * from channels where id = $1 and client_id = $2"
+      : "select * from channels where id = $1",
+    input.clientId ? [input.channelId, input.clientId] : [input.channelId],
+  );
   const channel = channelResult.rows[0];
   if (!channel) {
     throw new Error(`Channel not found: ${input.channelId}`);
@@ -30,25 +34,25 @@ export async function sendChannelText(input: {
   try {
     if (channel.kind === "whatsapp") {
       await sendWhatsAppText({ channel, externalThreadId: input.externalThreadId, text: input.text });
-      await recordOutboundHealth(input.channelId);
+      await recordOutboundHealth(input.channelId, channel.client_id);
       return;
     }
 
     if (channel.kind === "telegram") {
       await sendTelegramText({ channel, externalThreadId: input.externalThreadId, text: input.text });
-      await recordOutboundHealth(input.channelId);
+      await recordOutboundHealth(input.channelId, channel.client_id);
       return;
     }
 
     if (channel.kind === "messenger") {
       await sendMessengerText({ channel, externalThreadId: input.externalThreadId, text: input.text });
-      await recordOutboundHealth(input.channelId);
+      await recordOutboundHealth(input.channelId, channel.client_id);
       return;
     }
 
     if (channel.kind === "instagram") {
       await sendInstagramText({ channel, externalThreadId: input.externalThreadId, text: input.text });
-      await recordOutboundHealth(input.channelId);
+      await recordOutboundHealth(input.channelId, channel.client_id);
       return;
     }
 
@@ -71,25 +75,26 @@ export async function sendChannelText(input: {
       await query(
         `
           update messages
-          set metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{outgoingMessageId}', to_jsonb($3::text), true)
+          set metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{outgoingMessageId}', to_jsonb($4::text), true)
           where id = (
             select m.id
             from messages m
             join conversations c on c.id = m.conversation_id
             where c.channel_id = $1
               and c.external_thread_id = $2
+              and m.client_id = $3
               and m.sender_role in ('agent', 'operator')
             order by m.created_at desc
             limit 1
           )
         `,
-        [channel.id, input.externalThreadId, messageId],
+        [channel.id, input.externalThreadId, channel.client_id, messageId],
       );
-      await recordOutboundHealth(input.channelId);
+      await recordOutboundHealth(input.channelId, channel.client_id);
       return;
     }
   } catch (error) {
-    await recordOutboundHealth(input.channelId, error);
+    await recordOutboundHealth(input.channelId, channel.client_id, error);
     throw error;
   }
 }

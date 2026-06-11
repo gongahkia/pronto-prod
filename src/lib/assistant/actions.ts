@@ -253,7 +253,9 @@ async function resolveEscalation(user: SessionUser, payload: Record<string, unkn
     );
   });
   if (outboundMessageId) {
-    await flushOutboundMessage(outboundMessageId);
+    await flushOutboundMessage(outboundMessageId, {
+      clientId: escalation.client_id,
+    });
   }
   return {
     message: "Escalation resolved.",
@@ -304,7 +306,9 @@ async function retryOutbound(user: SessionUser, payload: Record<string, unknown>
   if (!outbound.rows[0]) {
     throw new Error("Outbound message not found.");
   }
-  const result = await flushOutboundMessage(outbound.rows[0].id);
+  const result = await flushOutboundMessage(outbound.rows[0].id, {
+    clientId: escalation.client_id,
+  });
   await recordAuditLog({
     clientId: escalation.client_id,
     actorUserId: user.userId,

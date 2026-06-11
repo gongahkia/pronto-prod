@@ -101,7 +101,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Outbound reply not found." }, { status: 404 });
     }
 
-    const flushResult = await flushOutboundMessage(outbound.id);
+    const flushResult = await flushOutboundMessage(outbound.id, {
+      clientId: escalation.client_id,
+    });
     await recordAuditLog({
       clientId: escalation.client_id,
       actorUserId: user.userId,
@@ -227,7 +229,9 @@ export async function POST(request: Request) {
     }, { isolationLevel: "serializable", retries: 2 });
 
     if (outboundMessageId) {
-      await flushOutboundMessage(outboundMessageId);
+      await flushOutboundMessage(outboundMessageId, {
+        clientId: escalation.client_id,
+      });
     }
 
     return NextResponse.redirect(new URL(returnTo, request.url), 303);
