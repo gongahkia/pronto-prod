@@ -5,6 +5,7 @@ import {
   deleteKnowledgeSourceForClient,
   updateKnowledgeSourceForClient,
 } from "@/lib/knowledge/manage";
+import { canAccessClient } from "@/lib/rbac";
 
 type Context = {
   params: Promise<{ sourceId: string }>;
@@ -22,6 +23,9 @@ export async function POST(request: Request, context: Context) {
 
   if (!clientId) {
     return NextResponse.json({ error: "clientId is required." }, { status: 400 });
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
   if (action === "delete") {

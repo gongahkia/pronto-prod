@@ -2,6 +2,7 @@ import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { updateClientLaunchAndCommercial } from "@/lib/pilot-metrics";
+import { canAccessClient } from "@/lib/rbac";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
@@ -17,6 +18,9 @@ export async function POST(request: Request) {
 
   if (!clientId) {
     return NextResponse.json({ error: "clientId is required." }, { status: 400 });
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
   await updateClientLaunchAndCommercial({

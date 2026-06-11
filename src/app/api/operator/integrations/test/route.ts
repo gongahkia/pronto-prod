@@ -18,13 +18,14 @@ import {
   requestIdFromRequest,
   requestIdHeaders,
 } from "@/lib/logger";
+import { canAccessClient } from "@/lib/rbac";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
   if (csrf) return csrf;
 
   const requestId = requestIdFromRequest(request);
-  await requireUser("operator");
+  const user = await requireUser("operator");
 
   const payload = (await request.json()) as {
     clientId?: string;
@@ -39,6 +40,12 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "clientId is required." },
       { status: 400, headers: requestIdHeaders(requestId) },
+    );
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json(
+      { error: "Forbidden." },
+      { status: 403, headers: requestIdHeaders(requestId) },
     );
   }
 

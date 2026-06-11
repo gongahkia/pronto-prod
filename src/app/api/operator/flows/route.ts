@@ -6,6 +6,7 @@ import {
   saveTriageFlowForClient,
 } from "@/lib/triage-flow-store";
 import { TriageFlowValidationError } from "@/lib/triage-flow";
+import { canAccessClient } from "@/lib/rbac";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
@@ -20,6 +21,9 @@ export async function POST(request: Request) {
   const clientId = typeof body.clientId === "string" ? body.clientId.trim() : "";
   if (!clientId) {
     return NextResponse.json({ error: "clientId is required." }, { status: 400 });
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
   try {

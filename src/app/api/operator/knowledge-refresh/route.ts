@@ -5,6 +5,7 @@ import {
   createKnowledgeRefreshRequest,
   resolveKnowledgeRefreshRequest,
 } from "@/lib/knowledge/refresh";
+import { canAccessClient } from "@/lib/rbac";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
@@ -17,6 +18,9 @@ export async function POST(request: Request) {
 
   if (!clientId) {
     return NextResponse.json({ error: "Client ID is required." }, { status: 400 });
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
   if (action === "create") {

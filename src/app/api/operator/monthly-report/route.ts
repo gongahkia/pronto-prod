@@ -5,10 +5,11 @@ import {
   generateMonthlyCheckInReport,
 } from "@/lib/monthly-report";
 import { requestIdFromRequest, requestIdHeaders } from "@/lib/logger";
+import { canAccessClient } from "@/lib/rbac";
 
 export async function GET(request: Request) {
   const requestId = requestIdFromRequest(request);
-  await requireUser("operator");
+  const user = await requireUser("operator");
 
   const url = new URL(request.url);
   const clientId = url.searchParams.get("clientId");
@@ -17,6 +18,12 @@ export async function GET(request: Request) {
     return NextResponse.json(
       { error: "clientId is required" },
       { status: 400, headers: requestIdHeaders(requestId) },
+    );
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json(
+      { error: "Forbidden." },
+      { status: 403, headers: requestIdHeaders(requestId) },
     );
   }
 

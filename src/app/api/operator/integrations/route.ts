@@ -13,6 +13,7 @@ import {
 } from "@/lib/integrations";
 import type { IntegrationProvider } from "@/lib/integrations/types";
 import { requestIdFromRequest, requestIdHeaders } from "@/lib/logger";
+import { canAccessClient } from "@/lib/rbac";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
@@ -43,6 +44,12 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Invalid client or provider." },
       { status: 400, headers: requestIdHeaders(requestId) },
+    );
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json(
+      { error: "Forbidden." },
+      { status: 403, headers: requestIdHeaders(requestId) },
     );
   }
   if (!apiKey.trim()) {
@@ -93,6 +100,12 @@ export async function DELETE(request: Request) {
     return NextResponse.json(
       { error: "Invalid client or provider." },
       { status: 400, headers: requestIdHeaders(requestId) },
+    );
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json(
+      { error: "Forbidden." },
+      { status: 403, headers: requestIdHeaders(requestId) },
     );
   }
 
