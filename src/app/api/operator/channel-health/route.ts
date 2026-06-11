@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { checkChannelHealth } from "@/lib/channels/health";
 import { query } from "@/lib/db";
+import { canAccessClient } from "@/lib/rbac";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
@@ -19,6 +20,9 @@ export async function POST(request: Request) {
 
   if (!channelId || !clientId) {
     return NextResponse.json({ error: "channelId and clientId are required." }, { status: 400 });
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
   const health = await checkChannelHealth(channelId);

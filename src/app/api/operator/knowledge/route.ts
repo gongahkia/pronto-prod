@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { ingestKnowledgeSource } from "@/lib/knowledge/ingest";
 import { parseKnowledgeUpload } from "@/lib/knowledge/parse-upload";
 import { crawlWebsiteKnowledge } from "@/lib/knowledge/website";
+import { canAccessClient } from "@/lib/rbac";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
@@ -26,6 +27,9 @@ export async function POST(request: Request) {
       { error: "clientId is required." },
       { status: 400 },
     );
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
   let parsedUpload: Awaited<ReturnType<typeof parseKnowledgeUpload>> | null = null;

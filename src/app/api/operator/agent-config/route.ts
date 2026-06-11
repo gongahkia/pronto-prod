@@ -8,6 +8,7 @@ import {
 } from "@/lib/llm/credentials";
 import { selectableFreeProviders } from "@/lib/llm/free-providers";
 import { logWarn } from "@/lib/logger";
+import { canAccessClient } from "@/lib/rbac";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
@@ -31,6 +32,9 @@ export async function POST(request: Request) {
 
   if (!clientId) {
     return NextResponse.json({ error: "clientId is required." }, { status: 400 });
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
   if (!isAllowedResponseProvider(responseProvider)) {

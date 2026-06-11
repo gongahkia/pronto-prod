@@ -102,7 +102,7 @@ export async function listProviderCredentialStatuses(): Promise<ProviderCredenti
 }
 
 export function credentialEncryptionConfigured(): boolean {
-  return Boolean(process.env.PRONTO_SECRETS_KEY);
+  return Buffer.byteLength(process.env.PRONTO_SECRETS_KEY ?? "", "utf8") >= 32;
 }
 
 export function envApiKeyForProvider(provider: string | null | undefined): string | null {

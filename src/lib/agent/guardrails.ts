@@ -24,6 +24,9 @@ const refundComplaintPatterns = [
   /\blate delivery\b/i,
   /\bwrong order\b/i,
   /\bcompensation\b/i,
+  /退款|退钱|投诉|少了|送迟|订单错/,
+  /\b(bayaran balik|aduan|komplain|barang hilang|lambat hantar|pesanan salah|pampasan)\b/i,
+  /பணம் திரும்ப|புகார்|தவறான ஆர்டர்|தாமதமான டெலிவரி/,
 ];
 
 const transactionalPatterns = [
@@ -34,6 +37,9 @@ const transactionalPatterns = [
   /\bmodify (my )?(booking|reservation|order)\b/i,
   /\b(can you|please|help me) (book|reserve) (a )?(table|reservation)\b/i,
   /\b(make|create) (a )?(booking|reservation)\b/i,
+  /付款|支付|取消(预订|订单)|更改(预订|订单)|修改(预订|订单)|帮我订/,
+  /\b(bayar|pembayaran|batalkan|ubah|tukar|tempahan|pesanan)\b/i,
+  /கட்டணம்|பணம் செலுத்த|ரத்து|மாற்ற|முன்பதிவு/,
 ];
 
 const humanHandoffPatterns = [
@@ -42,6 +48,9 @@ const humanHandoffPatterns = [
   /\b(connect|put|pass|transfer) me (to|with) (a )?(human|person|staff|team|manager|owner|representative|agent)\b/i,
   /\b(call me|phone me|ring me)\b/i,
   /\b(human|person|staff|team|manager|owner|representative) please\b/i,
+  /人工|真人|客服|员工|经理|老板|负责人/,
+  /\b(manusia|orang|staf|pengurus|pemilik|wakil)\b/i,
+  /மனிதர்|ஊழியர்|மேலாளர்|உரிமையாளர்/,
 ];
 
 const medicalLegalPatterns = [
@@ -52,6 +61,9 @@ const medicalLegalPatterns = [
   /\bsue\b/i,
   /\bsevere allerg/i,
   /\banaphylaxis\b/i,
+  /医生|医疗|法律|责任|起诉|严重过敏|过敏反应/,
+  /\b(doktor|perubatan|undang-undang|liabiliti|saman|alahan teruk)\b/i,
+  /மருத்துவ|சட்ட|பொறுப்பு|வழக்கு|கடுமையான அலர்ஜி/,
 ];
 
 const sentimentPatterns = [
@@ -63,6 +75,9 @@ const sentimentPatterns = [
   /\bupset\b/i,
   /\bterrible\b/i,
   /\bawful\b/i,
+  /紧急|马上|现在|生气|不满|糟糕|很差/,
+  /\b(segera|cepat|sekarang|marah|kecewa|teruk)\b/i,
+  /அவசரம்|இப்போது|கோபம்|ஏமாற்றம்|மோசம்/,
 ];
 
 const outOfScopePatterns = [
@@ -73,6 +88,9 @@ const outOfScopePatterns = [
   /\bnews\b/i,
   /\bcode\b/i,
   /\bkaraoke\b/i,
+  /作业|投资建议|天气|新闻|代码|卡拉OK/,
+  /\b(kerja rumah|nasihat pelaburan|cuaca|berita|kod|karaoke)\b/i,
+  /வீட்டுப்பாடம்|முதலீட்டு ஆலோசனை|வானிலை|செய்தி|குறியீடு/,
 ];
 
 const aiDisclosurePatterns = [
@@ -80,6 +98,8 @@ const aiDisclosurePatterns = [
   /\bam i (talking|speaking) to (a )?(bot|robot|ai|human|person)\b/i,
   /\bis this (a )?(bot|robot|ai|human|person)\b/i,
   /\bhuman or (ai|bot|robot)\b/i,
+  /你是(机器人|AI|人工智能|真人|人类)|这是(机器人|AI|人工智能|真人)/i,
+  /\b(adakah|awak|kamu).*\b(bot|robot|ai|manusia)\b/i,
 ];
 
 const greetingOnlyPattern =
@@ -155,11 +175,11 @@ const defaultGuardrailChecks: GuardrailCheck[] = [
 
 const escalationTopicPatterns: Record<string, Pick<GuardrailCheck, "patterns" | "result">> = {
   refund_dispute: {
-    patterns: [/\brefund\b/i, /\bchargeback\b/i, /\bcompensation\b/i],
+    patterns: [/\brefund\b/i, /\bchargeback\b/i, /\bcompensation\b/i, /退款|退钱/, /\b(bayaran balik|pampasan)\b/i],
     result: defaultGuardrailChecks[0].result,
   },
   complaint: {
-    patterns: [/\bcomplain/i, /\bwrong order\b/i, /\bmissing item\b/i, /\blate delivery\b/i],
+    patterns: [/\bcomplain/i, /\bwrong order\b/i, /\bmissing item\b/i, /\blate delivery\b/i, /投诉|订单错|少了|送迟/, /\b(aduan|komplain|pesanan salah)\b/i],
     result: defaultGuardrailChecks[0].result,
   },
   booking_mutation: {
@@ -179,7 +199,7 @@ const escalationTopicPatterns: Record<string, Pick<GuardrailCheck, "patterns" | 
     result: defaultGuardrailChecks[3].result,
   },
   severe_allergy: {
-    patterns: [/\bsevere allerg/i, /\banaphylaxis\b/i, /\ballergic reaction\b/i],
+    patterns: [/\bsevere allerg/i, /\banaphylaxis\b/i, /\ballergic reaction\b/i, /严重过敏|过敏反应/, /\b(alahan teruk|reaksi alergi)\b/i],
     result: defaultGuardrailChecks[3].result,
   },
   out_of_scope: {
@@ -316,6 +336,9 @@ function stringArray(value: unknown): string[] {
 }
 
 function literalWordPattern(term: string): RegExp {
+  if (/[^\p{Script=Latin}\p{N}_ -]/u.test(term)) {
+    return new RegExp(escapeRegExp(term), "iu");
+  }
   return new RegExp(`\\b${escapeRegExp(term)}\\b`, "i");
 }
 

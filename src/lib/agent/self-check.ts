@@ -12,6 +12,8 @@ const forbiddenMutationPatterns = [
   /\b(i('|’)ve|i have|we('|’)ve|we have) (booked|reserved|cancelled|canceled|changed|modified|refunded|processed)\b/i,
   /\b(refund|payment|booking|reservation|order) (has been|is now) (processed|confirmed|cancelled|canceled|changed|modified)\b/i,
   /\bguarantee(d)?\b/i,
+  /已经(预订|取消|更改|退款|处理)|保证/,
+  /\b(saya|kami) telah (tempah|batalkan|ubah|bayar balik|proses)\b/i,
 ];
 
 const stopwords = new Set([
@@ -30,7 +32,18 @@ const stopwords = new Set([
   "with",
   "you",
   "your",
+  "anda",
+  "awak",
+  "dan",
+  "dari",
+  "ini",
+  "itu",
+  "kami",
+  "the",
+  "untuk",
 ]);
+
+const cjkStopCharacters = new Set("的是了在和有吗我你他她它们这那");
 
 export function evaluatePostGenerationSelfCheck(input: {
   decision: GroundedAnswerDecision;
@@ -105,9 +118,26 @@ function sourceOverlapScore(answer: string, chunks: KnowledgeChunk[]): number {
 }
 
 function meaningfulTokens(text: string): string[] {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ")
-    .split(/\s+/)
-    .filter((token) => token.length > 2 && !stopwords.has(token));
+  const tokens: string[] = [];
+  for (const match of text.toLowerCase().matchAll(/[\p{L}\p{N}]+/gu)) {
+    const token = match[0];
+    if (/^[\u4e00-\u9fff]+$/u.test(token)) {
+      tokens.push(...cjkBigrams(token));
+      continue;
+    }
+    if (token.length > 2 && !stopwords.has(token)) {
+      tokens.push(token);
+    }
+  }
+  return tokens;
+}
+
+function cjkBigrams(value: string): string[] {
+  const chars = Array.from(value).filter((char) => !cjkStopCharacters.has(char));
+  if (chars.length <= 1) return chars;
+  const tokens: string[] = [];
+  for (let index = 0; index < chars.length - 1; index += 1) {
+    tokens.push(`${chars[index]}${chars[index + 1]}`);
+  }
+  return tokens;
 }

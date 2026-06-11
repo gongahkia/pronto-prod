@@ -330,8 +330,8 @@ export async function runAgentForMessage(input: {
       status: "escalated",
       reasonCode: "context_budget_exceeded",
       confidence: 1,
-      responseProvider: responseModel.provider,
-      responseModel: responseModel.model,
+      responseProvider: generationProvider,
+      responseModel: generationModel,
       embeddingProvider: config.embedding_provider,
       embeddingModel: config.embedding_model,
       retrievalTopScore: chunks[0]?.score ?? null,
@@ -452,6 +452,12 @@ export async function runAgentForMessage(input: {
     }
   }
   if (!decision) {
+    const errorMessage =
+      providerError instanceof Error
+        ? providerError.message
+        : providerError
+          ? String(providerError)
+          : "No LLM provider was available.";
     await trace.finalize({
       status: "escalated",
       reasonCode: "provider_error",
@@ -463,31 +469,38 @@ export async function runAgentForMessage(input: {
       retrievalTopScore: chunks[0]?.score ?? null,
       retrievalThreshold,
       retrievalChunks: chunks,
-      errorMessage:
-        providerError instanceof Error ? providerError.message : String(providerError),
+      errorMessage,
     });
-    throw providerError ?? new Error("No LLM provider was available.");
+    throw providerError ?? new Error(errorMessage);
   }
 
   const citedChunks = chunks.filter((chunk) =>
     decision.citedChunkIds.includes(chunk.id),
   );
+  const promptText = `${buildGroundedAnswerInstructions(generationInput)}\n\n${buildGroundedAnswerUserInput(generationInput)}`;
   await safeRecordUsage({
     clientId: input.clientId,
     conversationId: input.conversationId,
     channelId: input.channelId,
-    provider: responseModel.provider,
-    model: responseModel.model,
+    provider: generationProvider,
+    model: generationModel,
     operation: "generation",
-    estimate: estimateGenerationCost({
-      inputText: `${buildGroundedAnswerInstructions(generationInput)}\n\n${buildGroundedAnswerUserInput(generationInput)}`,
-      outputText: JSON.stringify(decision),
-      costLabel: responseModel.costLabel,
-    }),
+    estimate: decision.usage
+      ? estimateGenerationCostFromTokens({
+          inputTokens: decision.usage.inputTokens,
+          outputTokens: decision.usage.outputTokens,
+          costLabel: generationCostLabel,
+        })
+      : estimateGenerationCost({
+          inputText: promptText,
+          outputText: JSON.stringify(decision),
+          costLabel: generationCostLabel,
+        }),
     metadata: {
       requestId: input.requestId,
       customerMessageId: input.customerMessageId,
       reasonCode: decision.reasonCode,
+      usageSource: decision.usage ? "provider" : "estimate",
     },
   });
 
@@ -527,7 +540,7 @@ export async function runAgentForMessage(input: {
       retrievalThreshold,
       retrievalChunks: chunks,
       citedChunkIds: decision.citedChunkIds,
-      promptText: `${buildGroundedAnswerInstructions(generationInput)}\n\n${buildGroundedAnswerUserInput(generationInput)}`,
+      promptText,
       usedFailover,
       failoverProvider,
       failoverModel,
@@ -566,15 +579,15 @@ export async function runAgentForMessage(input: {
       status: "escalated",
       reasonCode: decision.reasonCode,
       confidence: decision.confidence,
-      responseProvider: responseModel.provider,
-      responseModel: responseModel.model,
+      responseProvider: generationProvider,
+      responseModel: generationModel,
       embeddingProvider: config.embedding_provider,
       embeddingModel: config.embedding_model,
       retrievalTopScore: chunks[0]?.score ?? null,
       retrievalThreshold,
       retrievalChunks: chunks,
       citedChunkIds: decision.citedChunkIds,
-      promptText: `${buildGroundedAnswerInstructions(generationInput)}\n\n${buildGroundedAnswerUserInput(generationInput)}`,
+      promptText,
       usedFailover,
       failoverProvider,
       failoverModel,
@@ -638,15 +651,15 @@ export async function runAgentForMessage(input: {
     status: "answered",
     reasonCode: decision.reasonCode,
     confidence: decision.confidence,
-    responseProvider: responseModel.provider,
-    responseModel: responseModel.model,
+    responseProvider: generationProvider,
+    responseModel: generationModel,
     embeddingProvider: config.embedding_provider,
     embeddingModel: config.embedding_model,
     retrievalTopScore: chunks[0]?.score ?? null,
     retrievalThreshold,
     retrievalChunks: chunks,
     citedChunkIds: decision.citedChunkIds,
-    promptText: `${buildGroundedAnswerInstructions(generationInput)}\n\n${buildGroundedAnswerUserInput(generationInput)}`,
+    promptText,
     usedFailover,
     failoverProvider,
     failoverModel,

@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { mergeEscalationHoldingReply } from "@/lib/channels/escalation-handoff";
 import { query } from "@/lib/db";
 import { assertSameOrigin } from "@/lib/http/csrf";
+import { canAccessClient } from "@/lib/rbac";
 import type { ChannelKind, ChannelStatus } from "@/lib/types";
 
 const channelStatuses: ChannelStatus[] = ["draft", "active", "disabled"];
@@ -33,6 +34,9 @@ export async function POST(request: Request) {
   );
   if (!channelStatuses.includes(status as ChannelStatus)) {
     return NextResponse.json({ error: "Invalid channel status." }, { status: 400 });
+  }
+  if (!canAccessClient(user, clientId)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
   const channelResult = await query<{
