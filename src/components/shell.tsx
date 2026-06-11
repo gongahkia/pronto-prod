@@ -6,6 +6,7 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
+  Menu,
   MessageSquareText,
   Settings,
   ShieldCheck,
@@ -110,6 +111,11 @@ export function AppShell({
                 <p className="truncate text-xs text-muted">{user.email}</p>
               </div>
               <div className="flex items-center gap-2">
+                <MobileMenu
+                  isClient={isClient}
+                  clientActive={clientActive}
+                  operatorActive={operatorActive}
+                />
                 <Link
                   href={primaryHref}
                   aria-current={active === user.role ? "page" : undefined}
@@ -141,6 +147,49 @@ export function AppShell({
         </div>
       </div>
     </>
+  );
+}
+
+function MobileMenu({
+  isClient,
+  clientActive,
+  operatorActive,
+}: {
+  isClient: boolean;
+  clientActive: ClientSection;
+  operatorActive: OperatorSection;
+}) {
+  const items = isClient ? clientSidebarItems : operatorWorkspaceItems;
+  return (
+    <details className="relative">
+      <summary
+        className="inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md border border-line bg-panel text-muted hover:bg-surface-hover hover:text-link"
+        aria-label="Open navigation menu"
+      >
+        <Menu size={15} aria-hidden="true" />
+      </summary>
+      <div className="absolute right-0 top-10 z-40 w-56 rounded-lg border border-line bg-panel p-2 shadow-xl">
+        <nav className="space-y-1" aria-label="Mobile navigation">
+          {items.map((item) => {
+            const active =
+              isClient
+                ? item.section === clientActive
+                : item.section === operatorActive;
+            return (
+              <Link
+                key={item.section}
+                href={item.href}
+                className={`block rounded-md px-3 py-2 text-sm font-medium ${
+                  active ? "bg-surface text-link" : "text-muted hover:bg-surface-hover hover:text-link"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+    </details>
   );
 }
 

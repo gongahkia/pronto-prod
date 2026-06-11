@@ -1,3 +1,4 @@
+import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import {
   getMessengerChannel,
@@ -34,6 +35,9 @@ export async function GET(request: Request, context: Context) {
 }
 
 export async function POST(request: Request, context: Context) {
+  const csrf = assertSameOrigin(request);
+  if (csrf) return csrf;
+
   const requestId = requestIdFromRequest(request);
   const { channelId } = await context.params;
   const channel = await getMessengerChannel(channelId);

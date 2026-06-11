@@ -162,7 +162,7 @@ export function BulkEscalationList(props: BulkEscalationListProps) {
           />
           <button
             type="button"
-            className="ui-button px-3 py-1"
+            className="ui-danger-button px-3 py-1"
             disabled={!selected.size || isPending || state.kind === "running"}
             onClick={() => runBulk("bulk_resolve")}
           >
