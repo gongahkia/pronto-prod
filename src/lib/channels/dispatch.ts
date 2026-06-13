@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { decryptChannelCredentials } from "@/lib/channels/credentials";
 import { recordOutboundHealth } from "@/lib/channels/health";
 import {
   assertChannelSendAllowed,
@@ -24,7 +25,9 @@ export async function sendChannelText(input: {
       : "select * from channels where id = $1",
     input.clientId ? [input.channelId, input.clientId] : [input.channelId],
   );
-  const channel = channelResult.rows[0];
+  const channel = channelResult.rows[0]
+    ? decryptChannelCredentials(channelResult.rows[0])
+    : undefined;
   if (!channel) {
     throw new Error(`Channel not found: ${input.channelId}`);
   }

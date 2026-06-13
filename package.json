@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3000",
     "build": "next build",
@@ -17,6 +20,8 @@
     "eval": "tsx scripts/eval.ts",
     "assistant:eval": "tsx scripts/assistant-eval.ts",
     "staging:preflight": "tsx scripts/staging-preflight.ts",
+    "preflight:ci": "PRONTO_PREFLIGHT_PROFILE=ci tsx scripts/staging-preflight.ts",
+    "worker": "tsx scripts/worker.ts",
     "outbox:retry": "tsx scripts/retry-outbox.ts",
     "risk:monitor:pricing": "tsx scripts/risk-monitor-pricing.ts",
     "risk:monitor:policy": "tsx scripts/risk-monitor-policy.ts",
@@ -27,7 +32,7 @@
     "@xyflow/react": "^12.11.0",
     "lucide-react": "^1.16.0",
     "mammoth": "^1.12.0",
-    "next": "16.2.7",
+    "next": "16.2.9",
     "openai": "^6.38.0",
     "pdf-parse": "^2.4.5",
     "pg": "^8.20.0",
@@ -47,11 +52,16 @@
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "4.1.6",
     "eslint": "^9",
-    "eslint-config-next": "16.2.7",
+    "eslint-config-next": "16.2.9",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
-    "tsx": "^4.22.0",
+    "tsx": "^4.22.4",
     "typescript": "^5",
     "vitest": "^4.1.6"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "8.5.15"
+    }
   }
 }

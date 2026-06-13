@@ -570,13 +570,9 @@ export function TriageFlowEditor({
                 <MiniMap
                   pannable
                   zoomable
+                  className="pronto-workflow-minimap"
                   nodeColor={(node) => miniMapNodeColor(node.data as TriageFlowNodeData)}
                   maskColor="var(--flow-minimap-mask)"
-                  style={{
-                    background: "var(--flow-control)",
-                    border: "1px solid var(--flow-line)",
-                    borderRadius: 8,
-                  }}
                 />
                 <Controls showInteractive={false} />
               </ReactFlow>

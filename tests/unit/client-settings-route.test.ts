@@ -35,6 +35,10 @@ describe("client settings route", () => {
     const response = await POST(
       new Request("http://localhost/api/client/settings", {
         method: "POST",
+        headers: {
+          host: "localhost",
+          origin: "http://localhost",
+        },
         body: form,
       }),
     );

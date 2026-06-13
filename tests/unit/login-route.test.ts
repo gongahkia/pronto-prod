@@ -54,7 +54,11 @@ describe("login route", () => {
     const response = await POST(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
-        headers: { "x-forwarded-for": "203.0.113.25, 10.0.0.1" },
+        headers: {
+          "x-forwarded-for": "203.0.113.25, 10.0.0.1",
+          host: "localhost",
+          origin: "http://localhost",
+        },
         body: form,
       }),
     );
@@ -90,6 +94,10 @@ describe("login route", () => {
     const response = await POST(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
+        headers: {
+          host: "localhost",
+          origin: "http://localhost",
+        },
         body: form,
       }),
     );
@@ -120,6 +128,10 @@ describe("login route", () => {
     const response = await POST(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
+        headers: {
+          host: "localhost",
+          origin: "http://localhost",
+        },
         body: form,
       }),
     );

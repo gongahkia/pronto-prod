@@ -7,6 +7,7 @@ import {
   resolveProviderApiKey,
 } from "../src/lib/llm/credentials";
 import { azureOpenAiBaseUrl } from "../src/lib/llm/azure";
+import { decryptChannelCredentials } from "../src/lib/channels/credentials";
 import { validateChannelHealthConfig } from "../src/lib/channels/health";
 import type { Channel } from "../src/lib/types";
 
@@ -26,6 +27,7 @@ loadDotEnv(".env");
 loadDotEnv(".env.local");
 
 const checks: Check[] = [];
+const profile = process.env.PRONTO_PREFLIGHT_PROFILE === "ci" ? "ci" : "staging";
 
 async function main() {
   checkCoreEnv();
@@ -76,9 +78,11 @@ async function main() {
 function checkCoreEnv() {
   checks.push({
     name: "PRONTO_USE_MOCK_AI",
-    status: shouldUseMockAi() ? "fail" : "pass",
+    status: shouldUseMockAi() ? (profile === "ci" ? "warn" : "fail") : "pass",
     detail: shouldUseMockAi()
-      ? "Set PRONTO_USE_MOCK_AI=0 for live provider staging."
+      ? profile === "ci"
+        ? "CI may use deterministic mock AI; staging must set PRONTO_USE_MOCK_AI=0."
+        : "Set PRONTO_USE_MOCK_AI=0 for live provider staging."
       : "Live provider mode is enabled.",
   });
 
@@ -103,10 +107,12 @@ function checkCoreEnv() {
   const baseUrl = appBaseUrl();
   checks.push({
     name: "APP_BASE_URL",
-    status: baseUrl.startsWith("https://") ? "pass" : "fail",
+    status: baseUrl.startsWith("https://") || profile === "ci" ? "pass" : "fail",
     detail: baseUrl.startsWith("https://")
       ? "Public HTTPS base URL is configured."
-      : "Set APP_BASE_URL to the public HTTPS tunnel URL before live webhook testing.",
+      : profile === "ci"
+        ? "CI profile allows a local HTTP base URL."
+        : "Set APP_BASE_URL to the public HTTPS tunnel URL before live webhook testing.",
   });
 
   checks.push({
@@ -130,14 +136,18 @@ async function checkProviderCredentials() {
   const generationKey = await resolveKey(provider);
   checks.push({
     name: `Generation provider (${provider})`,
-    status: generationKey && providerRuntimeConfigured(provider) ? "pass" : "fail",
+    status: generationKey && providerRuntimeConfigured(provider)
+      ? "pass"
+      : profile === "ci"
+        ? "warn"
+        : "fail",
     detail: providerCredentialDetail(provider, generationKey),
   });
 
   const openAiKey = await resolveKey("openai");
   checks.push({
     name: "OpenAI embeddings",
-    status: openAiKey ? "pass" : "fail",
+    status: openAiKey ? "pass" : profile === "ci" ? "warn" : "fail",
     detail: openAiKey
       ? "OpenAI credential is available for embeddings and default generation."
       : "Set OPENAI_API_KEY or save an encrypted OpenAI credential.",
@@ -206,18 +216,20 @@ async function checkSeededClientAndChannels() {
   );
 
   const liveChannels = channels.rows.filter(
-    (channel) => channel.kind === "telegram" || channel.kind === "whatsapp",
+    (channel) => channel.kind !== "console" && channel.status === "active",
   );
   checks.push({
     name: "Live channels",
-    status: liveChannels.length ? "pass" : "fail",
+    status: liveChannels.length ? "pass" : profile === "ci" ? "warn" : "fail",
     detail: liveChannels.length
-      ? `${liveChannels.length} Telegram/WhatsApp channel record(s) found.`
-      : "No Telegram or WhatsApp channel records found.",
+      ? `${liveChannels.length} active non-console channel record(s) found.`
+      : profile === "ci"
+        ? "CI seed may not activate live channels."
+        : "No active non-console channel records found.",
   });
 
   for (const channel of liveChannels) {
-    const configIssue = validateChannelHealthConfig(channel);
+    const configIssue = validateChannelHealthConfig(decryptChannelCredentials(channel));
     checks.push({
       name: `${channel.client_name} ${channel.kind} channel`,
       status: configIssue ? "fail" : "pass",

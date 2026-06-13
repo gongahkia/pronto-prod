@@ -1,5 +1,7 @@
 import { query } from "@/lib/db";
+import { decryptChannelCredentials } from "@/lib/channels/credentials";
 import { whatsAppGraphVersion } from "@/lib/env";
+import { fetchWithTimeout } from "@/lib/http/fetch";
 import type { Channel } from "@/lib/types";
 
 export type ChannelHealthStatus = "healthy" | "degraded" | "unconfigured";
@@ -14,7 +16,9 @@ export async function checkChannelHealth(channelId: string): Promise<ChannelHeal
   const result = await query<Channel>("select * from channels where id = $1", [
     channelId,
   ]);
-  const channel = result.rows[0];
+  const channel = result.rows[0]
+    ? decryptChannelCredentials(result.rows[0])
+    : undefined;
   if (!channel) {
     throw new Error(`Channel not found: ${channelId}`);
   }
@@ -195,7 +199,11 @@ async function checkTelegramHealth(channel: Channel): Promise<ChannelHealthResul
   const token =
     (channel.credentials.botToken as string | undefined) ??
     process.env.TELEGRAM_BOT_TOKEN;
-  const response = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+  const response = await fetchWithTimeout(
+    `https://api.telegram.org/bot${token}/getMe`,
+    {},
+    channelHealthTimeoutMs(),
+  );
   if (!response.ok) {
     return {
       status: "degraded",
@@ -222,9 +230,10 @@ async function checkWhatsAppHealth(channel: Channel): Promise<ChannelHealthResul
     process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId =
     (channel.credentials.phoneNumberId as string | undefined) ?? channel.external_id;
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://graph.facebook.com/${whatsAppGraphVersion()}/${phoneNumberId}?fields=id,display_phone_number,verified_name`,
     { headers: { Authorization: `Bearer ${token}` } },
+    channelHealthTimeoutMs(),
   );
   if (!response.ok) {
     return {
@@ -248,9 +257,10 @@ async function checkMetaPlatformHealth(channel: Channel): Promise<ChannelHealthR
       ? process.env.MESSENGER_PAGE_ACCESS_TOKEN
       : process.env.INSTAGRAM_PAGE_ACCESS_TOKEN);
   const graphVersion = process.env.META_GRAPH_VERSION ?? "v20.0";
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://graph.facebook.com/${graphVersion}/me?fields=id,name`,
     { headers: { Authorization: `Bearer ${token}` } },
+    channelHealthTimeoutMs(),
   );
   if (!response.ok) {
     return {
@@ -284,7 +294,7 @@ async function checkEmailHealth(channel: Channel): Promise<ChannelHealthResult> 
       ? { Accept: "application/json", "X-Postmark-Server-Token": apiKey ?? "" }
       : { Authorization: `Bearer ${apiKey ?? ""}` };
 
-  const response = await fetch(url, { headers });
+  const response = await fetchWithTimeout(url, { headers }, channelHealthTimeoutMs());
   if (!response.ok) {
     return {
       status: "degraded",
@@ -297,6 +307,10 @@ async function checkEmailHealth(channel: Channel): Promise<ChannelHealthResult> 
     detail: `Email ${provider} credentials are valid.`,
     checkedLive: true,
   };
+}
+
+function channelHealthTimeoutMs(): number {
+  return Number(process.env.PRONTO_CHANNEL_HEALTH_TIMEOUT_MS ?? 8_000);
 }
 
 function errorToMessage(error: unknown): string {

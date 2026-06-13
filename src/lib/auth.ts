@@ -21,6 +21,7 @@ export type SessionUser = {
 
 type SessionPayload = SessionUser & {
   exp: number;
+  sv: number;
 };
 
 function authSecret(): string {
@@ -75,12 +76,21 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     return null;
   }
 
+  const result = await query<User>(
+    "select * from users where id = $1 and session_version = $2",
+    [payload.userId, payload.sv],
+  );
+  const currentUser = result.rows[0];
+  if (!currentUser) {
+    return null;
+  }
+
   return {
-    userId: payload.userId,
-    email: payload.email,
-    name: payload.name,
-    role: payload.role,
-    clientId: payload.clientId,
+    userId: currentUser.id,
+    email: currentUser.email,
+    name: currentUser.name,
+    role: currentUser.role,
+    clientId: currentUser.client_id,
   };
 }
 
@@ -137,6 +147,7 @@ export async function login(email: string, password: string): Promise<SessionUse
     encodeSession({
       ...sessionUser,
       exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
+      sv: user.session_version,
     }),
     {
       httpOnly: true,

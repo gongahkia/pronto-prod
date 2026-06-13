@@ -1,4 +1,5 @@
 import { query, transaction } from "@/lib/db";
+import { decryptChannelCredentials } from "@/lib/channels/credentials";
 import type { Channel, Client, Conversation, Escalation, Message } from "@/lib/types";
 
 const SECRET_KEY_PATTERN = /(secret|token|password|key|credential)/i;
@@ -153,8 +154,13 @@ export function redactSecrets(value: unknown): unknown {
 function redactChannel(
   channel: Channel,
 ): Omit<Channel, "credentials"> & { credentials: Record<string, unknown> } {
+  const decrypted = decryptChannelCredentials(channel);
+  const safeChannel = { ...decrypted };
+  delete safeChannel.encrypted_credentials;
+  delete safeChannel.credentials_encryption_nonce;
+  delete safeChannel.credentials_encryption_tag;
   return {
-    ...channel,
-    credentials: redactSecrets(channel.credentials) as Record<string, unknown>,
+    ...safeChannel,
+    credentials: redactSecrets(decrypted.credentials) as Record<string, unknown>,
   };
 }

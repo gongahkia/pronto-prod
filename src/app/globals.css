@@ -394,6 +394,12 @@ a:focus-visible {
   fill: currentColor;
 }
 
+.pronto-workflow .pronto-workflow-minimap {
+  border: 1px solid var(--flow-line);
+  border-radius: 8px;
+  background: var(--flow-control);
+}
+
 .pronto-workflow .react-flow__handle {
   box-shadow: 0 0 0 3px var(--flow-handle-ring);
 }

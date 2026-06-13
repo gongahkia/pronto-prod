@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { logInfo, logWarn } from "@/lib/logger";
+import { resolveProviderApiKey } from "@/lib/llm/credentials";
+import { LlmConfigurationError } from "@/lib/llm/errors";
 import { mockGroundedAnswer } from "@/lib/llm/mock";
 import {
   buildGroundedAnswerInstructions,
@@ -30,19 +32,24 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
   async generateGroundedAnswer(
     input: GenerateAnswerInput,
   ): Promise<GroundedAnswerDecision> {
-    if (process.env.PRONTO_USE_MOCK_AI === "1" || !process.env.ANTHROPIC_API_KEY) {
+    if (process.env.PRONTO_USE_MOCK_AI === "1") {
       logInfo("llm.generation.mocked", {
         requestId: input.requestId,
         clientId: input.clientId,
         conversationId: input.conversationId,
         provider: "anthropic",
         model: input.responseModel,
-        reason:
-          process.env.PRONTO_USE_MOCK_AI === "1"
-            ? "mock_enabled"
-            : "missing_api_key",
+        reason: "mock_enabled",
       });
       return mockGroundedAnswer(input);
+    }
+
+    const apiKey = await resolveProviderApiKey("anthropic");
+    if (!apiKey) {
+      throw new LlmConfigurationError(
+        "anthropic",
+        "ANTHROPIC_API_KEY or a saved encrypted Anthropic credential is required.",
+      );
     }
 
     let response: Response;
@@ -55,7 +62,7 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": process.env.ANTHROPIC_API_KEY,
+            "x-api-key": apiKey,
             "anthropic-version": "2023-06-01",
           },
           signal: abort.signal,

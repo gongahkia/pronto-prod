@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { decryptChannelList } from "@/lib/channels/credentials";
 import type { Channel, Client, Conversation, Escalation, Message } from "@/lib/types";
 
 export type OutboundDeliveryStatus = "pending" | "sending" | "sent" | "failed";
@@ -121,7 +122,7 @@ export async function getChannels(clientId: string): Promise<Channel[]> {
     "select * from channels where client_id = $1 order by kind",
     [clientId],
   );
-  return result.rows;
+  return decryptChannelList(result.rows);
 }
 
 export async function getRecentConversations(

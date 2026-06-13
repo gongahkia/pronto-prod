@@ -78,6 +78,10 @@ describe("escalation route", () => {
     const response = await POST(
       new Request("http://localhost/api/escalations", {
         method: "POST",
+        headers: {
+          host: "localhost",
+          origin: "http://localhost",
+        },
         body: form,
       }),
     );
@@ -135,6 +139,10 @@ describe("escalation route", () => {
     const response = await POST(
       new Request("http://localhost/api/escalations", {
         method: "POST",
+        headers: {
+          host: "localhost",
+          origin: "http://localhost",
+        },
         body: form,
       }),
     );

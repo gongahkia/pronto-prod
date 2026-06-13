@@ -40,7 +40,7 @@ import {
   buildGroundedAnswerInstructions,
   buildGroundedAnswerUserInput,
 } from "@/lib/llm/prompt";
-import { logInfo, logWarn } from "@/lib/logger";
+import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
 import type { GroundedAnswerDecision } from "@/lib/llm/types";
 import type { AgentConfig, Client, KnowledgeChunk, Message } from "@/lib/types";
 
@@ -241,16 +241,53 @@ export async function runAgentForMessage(input: {
   });
 
   const normalizedKnowledgeQuery = normalizeKnowledgeQuery(input.customerMessage);
-  const [embedding] = await getEmbeddingProvider(config.embedding_provider).embed(
-    [normalizedKnowledgeQuery.embeddingText],
-    config.embedding_model,
-    {
+  let embedding: number[];
+  try {
+    [embedding] = await getEmbeddingProvider(config.embedding_provider).embed(
+      [normalizedKnowledgeQuery.embeddingText],
+      config.embedding_model,
+      {
+        requestId: input.requestId,
+        clientId: input.clientId,
+        conversationId: input.conversationId,
+        operation: "embedding",
+      },
+    );
+  } catch (error) {
+    const errorMessage = providerErrorMessage(error);
+    logWarn("agent.embedding_provider_failed", {
       requestId: input.requestId,
       clientId: input.clientId,
+      channelId: input.channelId,
       conversationId: input.conversationId,
-      operation: "embedding",
-    },
-  );
+      embeddingProvider: config.embedding_provider,
+      embeddingModel: config.embedding_model,
+      error: errorMessage,
+    });
+    trace.addStep("embedding_provider_failed", {
+      embeddingProvider: config.embedding_provider,
+      embeddingModel: config.embedding_model,
+      errorMessage,
+    });
+    const escalation = await createEscalation({
+      ...input,
+      reasonCode: "provider_error",
+      reasonDetail: `Embedding provider failed before retrieval: ${errorMessage}`,
+      confidence: 0,
+    });
+    await trace.finalize({
+      status: "escalated",
+      reasonCode: "provider_error",
+      confidence: 0,
+      responseProvider: responseModel.provider,
+      responseModel: responseModel.model,
+      embeddingProvider: config.embedding_provider,
+      embeddingModel: config.embedding_model,
+      escalationId: escalation.escalationId,
+      errorMessage,
+    });
+    return escalation;
+  }
   await safeRecordUsage({
     clientId: input.clientId,
     conversationId: input.conversationId,
@@ -455,10 +492,16 @@ export async function runAgentForMessage(input: {
   if (!decision) {
     const errorMessage =
       providerError instanceof Error
-        ? providerError.message
+        ? providerErrorMessage(providerError)
         : providerError
-          ? String(providerError)
+          ? redactErrorMessage(providerError)
           : "No LLM provider was available.";
+    const escalation = await createEscalation({
+      ...input,
+      reasonCode: "provider_error",
+      reasonDetail: `Generation provider failed after failover attempts: ${errorMessage}`,
+      confidence: 0,
+    });
     await trace.finalize({
       status: "escalated",
       reasonCode: "provider_error",
@@ -470,9 +513,10 @@ export async function runAgentForMessage(input: {
       retrievalTopScore: chunks[0]?.score ?? null,
       retrievalThreshold,
       retrievalChunks: chunks,
+      escalationId: escalation.escalationId,
       errorMessage,
     });
-    throw providerError ?? new Error(errorMessage);
+    return escalation;
   }
 
   const citedChunks = chunks.filter((chunk) =>
@@ -836,4 +880,8 @@ async function safeRecordUsage(
 
 function buildCsatUrl(conversationId: string): string {
   return `${appBaseUrl().replace(/\/$/, "")}/csat/${conversationId}`;
+}
+
+function providerErrorMessage(error: unknown): string {
+  return redactErrorMessage(error);
 }

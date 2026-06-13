@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { query, transaction } from "@/lib/db";
 import { createEscalation, runAgentForMessage } from "@/lib/agent/engine";
-import { sendChannelText } from "@/lib/channels/dispatch";
+import { decryptChannelCredentials } from "@/lib/channels/credentials";
 import { getEscalationHoldingReply } from "@/lib/channels/escalation-handoff";
+import {
+  enqueueOutboundMessage,
+  flushOutboundMessage,
+  type OutboundFlushResult,
+} from "@/lib/channels/outbox";
 import { notifyOwnerOfEscalation } from "@/lib/escalations";
 import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
@@ -37,7 +42,9 @@ export async function processInboundMessage(
       : "select * from channels where id = $1",
     options.clientId ? [inbound.channelId, options.clientId] : [inbound.channelId],
   );
-  const channel = channelResult.rows[0];
+  const channel = channelResult.rows[0]
+    ? decryptChannelCredentials(channelResult.rows[0])
+    : undefined;
   if (!channel) {
     throw new Error(`Channel not found: ${inbound.channelId}`);
   }
@@ -154,21 +161,41 @@ export async function processInboundMessage(
 
   let outboundError: string | undefined;
   if (result.action === "answered" && result.responseText && inbound.channelKind !== "console") {
-    try {
-      await sendChannelText({
-        channelId: inbound.channelId,
-        clientId: channel.client_id,
-        externalThreadId: inbound.externalThreadId,
-        text: appendCsatLink(result.responseText, result.csatUrl),
-      });
-    } catch (error) {
-      outboundError = errorToMessage(error);
+    const outbound = await enqueueAndFlushCustomerReply({
+      clientId: channel.client_id,
+      channelId: inbound.channelId,
+      conversationId: created.conversation.id,
+      externalThreadId: inbound.externalThreadId,
+      body: appendCsatLink(result.responseText, result.csatUrl),
+      idempotencyKey: `agent-answer:${result.agentMessageId ?? created.message.id}`,
+      requestId: options.requestId,
+      metadata: {
+        purpose: "agent_answer",
+        requestId: options.requestId,
+        customerMessageId: created.message.id,
+        agentMessageId: result.agentMessageId,
+        reasonCode: result.reasonCode,
+      },
+    });
+    if (outbound.status === "failed") {
+      outboundError = outbound.error;
       logWarn("agent_answer_send_failed", {
         requestId: options.requestId,
         channelId: inbound.channelId,
         conversationId: created.conversation.id,
         externalMessageId: inbound.externalMessageId,
-        error,
+        outboundMessageId: outbound.outboundMessageId,
+        error: outbound.error,
+      });
+    } else if (outbound.status === "skipped") {
+      outboundError = outbound.reason;
+      logWarn("agent_answer_send_failed", {
+        requestId: options.requestId,
+        channelId: inbound.channelId,
+        conversationId: created.conversation.id,
+        externalMessageId: inbound.externalMessageId,
+        outboundMessageId: outbound.outboundMessageId,
+        error: outbound.reason,
       });
     }
   }
@@ -286,32 +313,100 @@ async function sendEscalationHoldingReply(input: {
   requestId?: string;
 }): Promise<void> {
   const text = getEscalationHoldingReply(input.channel.settings);
-
-  await sendChannelText({
-    channelId: input.inbound.channelId,
-    clientId: input.channel.client_id,
-    externalThreadId: input.inbound.externalThreadId,
-    text,
-  });
-
-  await query(
-    `
-      insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
-      values ($1, $2, $3, $4, 'agent', $5, $6)
-    `,
-    [
-      input.conversationId,
-      input.channel.client_id,
-      input.inbound.channelId,
-      `agent-handoff-${randomUUID()}`,
-      text,
-      {
+  const agentExternalMessageId = `agent-handoff-${randomUUID()}`;
+  await transaction(async (client) => {
+    await client.query(
+      `
+        insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
+        values ($1, $2, $3, $4, 'agent', $5, $6)
+      `,
+      [
+        input.conversationId,
+        input.channel.client_id,
+        input.inbound.channelId,
+        agentExternalMessageId,
+        text,
+        {
+          requestId: input.requestId,
+          escalationId: input.escalationId,
+          reasonCode: input.reasonCode,
+          policy: "escalation_holding_reply",
+          sentToCustomer: true,
+        },
+      ],
+    );
+    await enqueueOutboundMessage(client, {
+      clientId: input.channel.client_id,
+      conversationId: input.conversationId,
+      escalationId: input.escalationId,
+      channelId: input.inbound.channelId,
+      externalThreadId: input.inbound.externalThreadId,
+      body: text,
+      idempotencyKey: `escalation-holding:${input.escalationId}`,
+      metadata: {
+        purpose: "escalation_holding_reply",
         requestId: input.requestId,
-        escalationId: input.escalationId,
         reasonCode: input.reasonCode,
-        policy: "escalation_holding_reply",
-        sentToCustomer: true,
+        agentExternalMessageId,
       },
-    ],
+    });
+  }, { isolationLevel: "serializable", retries: 2 });
+
+  const outbound = await flushOutboundMessageByKey({
+    clientId: input.channel.client_id,
+    idempotencyKey: `escalation-holding:${input.escalationId}`,
+    requestId: input.requestId,
+  });
+  if (outbound.status === "failed") {
+    throw new Error(outbound.error);
+  }
+  if (outbound.status === "skipped") {
+    throw new Error(outbound.reason);
+  }
+}
+
+async function enqueueAndFlushCustomerReply(input: {
+  clientId: string;
+  conversationId: string;
+  escalationId?: string | null;
+  channelId: string;
+  externalThreadId: string;
+  body: string;
+  idempotencyKey: string;
+  requestId?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<OutboundFlushResult> {
+  const outbound = await enqueueOutboundMessage({ query }, input);
+  return flushOutboundMessage(outbound.id, {
+    clientId: input.clientId,
+    requestId: input.requestId,
+  });
+}
+
+async function flushOutboundMessageByKey(input: {
+  clientId: string;
+  idempotencyKey: string;
+  requestId?: string;
+}): Promise<OutboundFlushResult> {
+  const result = await query<{ id: string }>(
+    `
+      select id
+      from outbound_messages
+      where client_id = $1 and idempotency_key = $2
+      limit 1
+    `,
+    [input.clientId, input.idempotencyKey],
   );
+  const outbound = result.rows[0];
+  if (!outbound) {
+    return {
+      status: "failed",
+      outboundMessageId: input.idempotencyKey,
+      error: "Outbound message was not enqueued.",
+    };
+  }
+  return flushOutboundMessage(outbound.id, {
+    clientId: input.clientId,
+    requestId: input.requestId,
+  });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { recordCsatResponse } from "@/lib/csat";
 import { assertSameOrigin } from "@/lib/http/csrf";
+import { checkRateLimit } from "@/lib/http-limits";
 import { logWarn } from "@/lib/logger";
 
 export async function POST(request: Request) {
@@ -24,6 +25,21 @@ export async function POST(request: Request) {
     );
   }
 
+  const rateLimit = await checkRateLimit(
+    `csat:${conversationId}:${clientIpKey(request)}`,
+    10,
+    60 * 60 * 1000,
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many CSAT submissions. Try again later." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      },
+    );
+  }
+
   const recorded = await recordCsatResponse({
     conversationId,
     messageId: messageId || null,
@@ -42,4 +58,9 @@ export async function POST(request: Request) {
     new URL(`/csat/${conversationId}?submitted=1`, request.url),
     303,
   );
+}
+
+function clientIpKey(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwarded || request.headers.get("x-real-ip") || "unknown";
 }

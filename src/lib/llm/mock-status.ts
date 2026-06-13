@@ -11,10 +11,6 @@ export type MockAiStatus = {
 };
 
 export function getMockAiStatus(): MockAiStatus {
-  if (process.env.NODE_ENV === "production") {
-    return { active: false, reason: null, details: [] };
-  }
-
   if (shouldUseMockAi()) {
     return {
       active: true,
@@ -38,35 +34,35 @@ export function getMockAiStatus(): MockAiStatus {
     details.push("Assistant dock provider is set to mock.");
   }
   if (responseProvider === "openai" && !envApiKeyForProvider("openai")) {
-    details.push("OPENAI_API_KEY is not set, so customer-agent OpenAI calls fall back to mock output.");
+    details.push("OPENAI_API_KEY is not set; customer-agent OpenAI calls will fail outside explicit mock mode unless a saved credential exists.");
   }
   if (responseProvider === "azure") {
     if (!envApiKeyForProvider("azure")) {
-      details.push("AZURE_OPENAI_API_KEY is not set, so customer-agent Azure OpenAI calls fall back to mock output.");
+      details.push("AZURE_OPENAI_API_KEY is not set; customer-agent Azure OpenAI calls will fail outside explicit mock mode unless a saved credential exists.");
     }
     if (!azureOpenAiBaseUrl()) {
-      details.push("AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT is not set, so customer-agent Azure OpenAI calls fall back to mock output.");
+      details.push("AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT is not set, so customer-agent Azure OpenAI calls will fail outside explicit mock mode.");
     }
   }
   if (responseProvider === "anthropic" && !process.env.ANTHROPIC_API_KEY?.trim()) {
-    details.push("ANTHROPIC_API_KEY is not set, so customer-agent Anthropic calls fall back to mock output.");
+    details.push("ANTHROPIC_API_KEY is not set; customer-agent Anthropic calls will fail outside explicit mock mode unless a saved credential exists.");
   }
   if (assistantProvider === "openai" && !envApiKeyForProvider("openai")) {
-    details.push("OPENAI_API_KEY is not set, so the assistant dock uses its local mock fallback.");
+    details.push("OPENAI_API_KEY is not set; the assistant dock will fail outside explicit mock mode unless a saved credential exists.");
   }
   if (assistantProvider === "azure") {
     if (!envApiKeyForProvider("azure")) {
-      details.push("AZURE_OPENAI_API_KEY is not set, so the assistant dock uses its local mock fallback.");
+      details.push("AZURE_OPENAI_API_KEY is not set; the assistant dock will fail outside explicit mock mode unless a saved credential exists.");
     }
     if (!azureOpenAiBaseUrl()) {
-      details.push("AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT is not set, so the assistant dock uses its local mock fallback.");
+      details.push("AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT is not set, so the assistant dock will fail outside explicit mock mode.");
     }
   }
   if (assistantProvider === "anthropic" && !process.env.ANTHROPIC_API_KEY?.trim()) {
-    details.push("ANTHROPIC_API_KEY is not set, so the assistant dock uses its local mock fallback.");
+    details.push("ANTHROPIC_API_KEY is not set; the assistant dock will fail outside explicit mock mode unless a saved credential exists.");
   }
   if (!envApiKeyForProvider("openai")) {
-    details.push("OPENAI_API_KEY is not set, so clients configured for OpenAI embeddings use deterministic mock vectors.");
+    details.push("OPENAI_API_KEY is not set; clients configured for OpenAI embeddings will fail outside explicit mock mode unless a saved credential exists.");
   }
   for (const provider of [responseProvider, assistantProvider]) {
     if (!isFreeLlmProviderId(provider)) {

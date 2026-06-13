@@ -51,6 +51,10 @@ describe("operator client users route", () => {
     const response = await postCreateUser(
       new Request("http://localhost/api/operator/clients/client-1/users", {
         method: "POST",
+        headers: {
+          host: "localhost",
+          origin: "http://localhost",
+        },
         body: form,
       }),
       { params: Promise.resolve({ clientId: "client-1" }) },
@@ -84,6 +88,10 @@ describe("operator client users route", () => {
     const response = await postCreateUser(
       new Request("http://localhost/api/operator/clients/client-1/users", {
         method: "POST",
+        headers: {
+          host: "localhost",
+          origin: "http://localhost",
+        },
         body: form,
       }),
       { params: Promise.resolve({ clientId: "client-1" }) },
@@ -98,7 +106,13 @@ describe("operator client users route", () => {
     const response = await postDeleteUser(
       new Request(
         "http://localhost/api/operator/clients/client-1/users/actor-1/delete",
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: {
+            host: "localhost",
+            origin: "http://localhost",
+          },
+        },
       ),
       {
         params: Promise.resolve({ clientId: "client-1", userId: "actor-1" }),
@@ -122,7 +136,13 @@ describe("operator client users route", () => {
     const response = await postDeleteUser(
       new Request(
         "http://localhost/api/operator/clients/client-1/users/user-9/delete",
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: {
+            host: "localhost",
+            origin: "http://localhost",
+          },
+        },
       ),
       {
         params: Promise.resolve({ clientId: "client-1", userId: "user-9" }),

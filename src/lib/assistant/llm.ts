@@ -5,6 +5,7 @@ import { normalizeProviderName } from "@/lib/llm";
 import { getAzureOpenAiClient } from "@/lib/llm/azure";
 import { selectModel } from "@/lib/llm/catalog";
 import { resolveProviderApiKey } from "@/lib/llm/credentials";
+import { LlmConfigurationError } from "@/lib/llm/errors";
 import { freeProviderById, isFreeLlmProviderId } from "@/lib/llm/free-providers";
 import { parseJsonObject } from "@/lib/llm/prompt";
 import {
@@ -54,7 +55,7 @@ export async function generateAssistantTurn(input: {
   if (isFreeLlmProviderId(provider)) {
     return generateWithOpenAiCompatible({ ...input, provider, model });
   }
-  return mockAssistantTurn(input.context, input.message);
+  throw new LlmConfigurationError(provider, "Unsupported assistant provider.");
 }
 
 function buildAssistantInstructions(context: AssistantContext): string {
@@ -132,7 +133,10 @@ async function generateWithOpenAi(input: {
 }): Promise<AssistantGeneratedTurn> {
   const apiKey = await resolveProviderApiKey("openai");
   if (!apiKey) {
-    return mockAssistantTurn(input.context, input.message);
+    throw new LlmConfigurationError(
+      "openai",
+      "OPENAI_API_KEY or a saved encrypted OpenAI credential is required.",
+    );
   }
   const client = new OpenAI({
     apiKey,
@@ -168,7 +172,10 @@ async function generateWithAzure(input: {
 }): Promise<AssistantGeneratedTurn> {
   const client = await getAzureOpenAiClient();
   if (!client) {
-    return mockAssistantTurn(input.context, input.message);
+    throw new LlmConfigurationError(
+      "azure",
+      "AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT and an Azure credential are required.",
+    );
   }
   const response = await client.responses.create({
     model: input.model,
@@ -199,7 +206,10 @@ async function generateWithAnthropic(input: {
 }): Promise<AssistantGeneratedTurn> {
   const apiKey = await resolveProviderApiKey("anthropic");
   if (!apiKey) {
-    return mockAssistantTurn(input.context, input.message);
+    throw new LlmConfigurationError(
+      "anthropic",
+      "ANTHROPIC_API_KEY or a saved encrypted Anthropic credential is required.",
+    );
   }
   const response = await fetch(
     `${process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com"}/v1/messages`,
@@ -242,15 +252,18 @@ async function generateWithOpenAiCompatible(input: {
   model: string;
 }): Promise<AssistantGeneratedTurn> {
   if (!isFreeLlmProviderId(input.provider)) {
-    return mockAssistantTurn(input.context, input.message);
+    throw new LlmConfigurationError(input.provider, "Unsupported compatible provider.");
   }
   const provider = freeProviderById(input.provider);
   if (!provider) {
-    return mockAssistantTurn(input.context, input.message);
+    throw new LlmConfigurationError(input.provider, "Compatible provider metadata is missing.");
   }
   const apiKey = await resolveProviderApiKey(provider.id);
   if (provider.requiresApiKey && !apiKey) {
-    return mockAssistantTurn(input.context, input.message);
+    throw new LlmConfigurationError(
+      provider.id,
+      `${provider.name} requires an environment key or saved encrypted credential.`,
+    );
   }
   const response = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",

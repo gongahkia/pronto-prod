@@ -1,5 +1,6 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
+import { decryptChannelCredentials } from "@/lib/channels/credentials";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
 
@@ -596,7 +597,7 @@ export async function getEmailChannel(channelId: string): Promise<Channel | null
     "select * from channels where id = $1 and kind = 'email'",
     [channelId],
   );
-  return result.rows[0] ?? null;
+  return result.rows[0] ? decryptChannelCredentials(result.rows[0]) : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

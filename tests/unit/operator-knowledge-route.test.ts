@@ -56,6 +56,10 @@ describe("operator knowledge route", () => {
     const response = await POST(
       new Request("http://localhost/api/operator/knowledge", {
         method: "POST",
+        headers: {
+          host: "localhost",
+          origin: "http://localhost",
+        },
         body: form,
       }),
     );
@@ -85,6 +89,10 @@ describe("operator knowledge route", () => {
     const response = await POST(
       new Request("http://localhost/api/operator/knowledge", {
         method: "POST",
+        headers: {
+          host: "localhost",
+          origin: "http://localhost",
+        },
         body: new FormData(),
       }),
     );

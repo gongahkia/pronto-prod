@@ -1,5 +1,6 @@
 import { AnthropicProvider } from "@/lib/llm/anthropic";
 import { AzureOpenAiProvider } from "@/lib/llm/azure";
+import { LlmConfigurationError } from "@/lib/llm/errors";
 import { isFreeLlmProviderId, type FreeLlmProviderId } from "@/lib/llm/free-providers";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import { OpenAiProvider } from "@/lib/llm/openai";
@@ -29,6 +30,24 @@ const mockProvider = new MockProvider();
 const openAiProvider = new OpenAiProvider();
 const azureOpenAiProvider = new AzureOpenAiProvider();
 const anthropicProvider = new AnthropicProvider();
+
+class UnsupportedEmbeddingProvider implements LlmProvider {
+  constructor(private readonly provider: string) {}
+
+  async generateGroundedAnswer(): Promise<GroundedAnswerDecision> {
+    throw new LlmConfigurationError(
+      this.provider,
+      "This provider is not configured for grounded answer generation.",
+    );
+  }
+
+  async embed(): Promise<number[][]> {
+    throw new LlmConfigurationError(
+      this.provider,
+      "This provider does not support embeddings in Pronto. Configure openai, azure, or mock embeddings.",
+    );
+  }
+}
 
 export function normalizeProviderName(value: string | null | undefined): LlmProviderName {
   if (value === "anthropic" || value === "azure" || value === "openai" || value === "mock") {
@@ -67,7 +86,7 @@ export function getEmbeddingProvider(provider: string | null | undefined): LlmPr
     return mockProvider;
   }
   if (isFreeLlmProviderId(normalized)) {
-    return mockProvider;
+    return new UnsupportedEmbeddingProvider(normalized);
   }
   if (normalized === "azure") {
     return azureOpenAiProvider;

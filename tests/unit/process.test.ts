@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
   runAgentForMessage: vi.fn(),
   createEscalation: vi.fn(),
-  sendChannelText: vi.fn(),
+  enqueueOutboundMessage: vi.fn(),
+  flushOutboundMessage: vi.fn(),
   notifyOwnerOfEscalation: vi.fn(),
   logInfo: vi.fn(),
   logWarn: vi.fn(),
@@ -23,8 +24,9 @@ vi.mock("@/lib/agent/engine", () => ({
   createEscalation: mocks.createEscalation,
 }));
 
-vi.mock("@/lib/channels/dispatch", () => ({
-  sendChannelText: mocks.sendChannelText,
+vi.mock("@/lib/channels/outbox", () => ({
+  enqueueOutboundMessage: mocks.enqueueOutboundMessage,
+  flushOutboundMessage: mocks.flushOutboundMessage,
 }));
 
 vi.mock("@/lib/escalations", () => ({
@@ -45,13 +47,23 @@ describe("inbound channel processing", () => {
     vi.resetAllMocks();
     mocks.transaction.mockImplementation(async (callback) => {
       const client = {
-        query: vi
-          .fn()
-          .mockResolvedValueOnce({ rows: [{ id: "conversation-1" }] })
-          .mockResolvedValueOnce({ rows: [{ id: "customer-message-1" }] }),
+        query: vi.fn(async (sql: string) => {
+          if (sql.includes("insert into conversations")) {
+            return { rows: [{ id: "conversation-1" }] };
+          }
+          if (sql.includes("insert into messages")) {
+            return { rows: [{ id: "customer-message-1" }] };
+          }
+          return { rows: [] };
+        }),
       };
 
       return callback(client);
+    });
+    mocks.enqueueOutboundMessage.mockResolvedValue({ id: "outbound-1" });
+    mocks.flushOutboundMessage.mockResolvedValue({
+      status: "sent",
+      outboundMessageId: "outbound-1",
     });
     mocks.runAgentForMessage.mockResolvedValue({
       action: "escalated",
@@ -80,13 +92,16 @@ describe("inbound channel processing", () => {
         requestId: "req_12345678",
       }),
     );
-    expect(mocks.sendChannelText).toHaveBeenCalledWith({
-      channelId: "whatsapp-channel-1",
-      clientId: "client-1",
-      externalThreadId: "6590000000",
-      text: "Team Pronto will take over from here.",
-    });
-    expectHoldingReplyInsert("Team Pronto will take over from here.");
+    expect(mocks.enqueueOutboundMessage).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        clientId: "client-1",
+        channelId: "whatsapp-channel-1",
+        externalThreadId: "6590000000",
+        body: "Team Pronto will take over from here.",
+        idempotencyKey: "escalation-holding:escalation-1",
+      }),
+    );
     expect(mocks.notifyOwnerOfEscalation).toHaveBeenCalledWith("escalation-1", "client-1");
   });
 
@@ -95,13 +110,13 @@ describe("inbound channel processing", () => {
 
     await processInboundMessage(inboundWhatsAppMessage());
 
-    expect(mocks.sendChannelText).toHaveBeenCalledWith({
-      channelId: "whatsapp-channel-1",
-      clientId: "client-1",
-      externalThreadId: "6590000000",
-      text: DEFAULT_ESCALATION_HOLDING_REPLY,
-    });
-    expectHoldingReplyInsert(DEFAULT_ESCALATION_HOLDING_REPLY);
+    expect(mocks.enqueueOutboundMessage).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        body: DEFAULT_ESCALATION_HOLDING_REPLY,
+        idempotencyKey: "escalation-holding:escalation-1",
+      }),
+    );
   });
 
   it("records holding reply failures and still notifies the owner", async () => {
@@ -110,13 +125,17 @@ describe("inbound channel processing", () => {
         escalationHoldingReply: "Team Pronto will take over from here.",
       },
     });
-    mocks.sendChannelText.mockRejectedValueOnce(new Error("WhatsApp send failed"));
+    mocks.flushOutboundMessage.mockResolvedValueOnce({
+      status: "failed",
+      outboundMessageId: "outbound-1",
+      error: "WhatsApp send failed",
+    });
 
     await processInboundMessage(inboundWhatsAppMessage());
 
     expect(mocks.notifyOwnerOfEscalation).toHaveBeenCalledWith("escalation-1", "client-1");
-    expect(mocks.query.mock.calls[2][0]).toContain("customer_handoff_status");
-    expect(mocks.query.mock.calls[2][1]).toEqual([
+    expect(mocks.query.mock.calls[3][0]).toContain("customer_handoff_status");
+    expect(mocks.query.mock.calls[3][1]).toEqual([
       "escalation-1",
       "failed",
       "WhatsApp send failed",
@@ -134,7 +153,11 @@ describe("inbound channel processing", () => {
       confidence: 0.9,
       citedChunks: [],
     });
-    mocks.sendChannelText.mockRejectedValueOnce(new Error("WhatsApp send failed"));
+    mocks.flushOutboundMessage.mockResolvedValueOnce({
+      status: "failed",
+      outboundMessageId: "outbound-1",
+      error: "WhatsApp send failed",
+    });
 
     const result = await processInboundMessage(inboundWhatsAppMessage());
 
@@ -172,7 +195,8 @@ describe("inbound channel processing", () => {
     });
     expect(mocks.runAgentForMessage).not.toHaveBeenCalled();
     expect(mocks.createEscalation).not.toHaveBeenCalled();
-    expect(mocks.sendChannelText).not.toHaveBeenCalled();
+    expect(mocks.enqueueOutboundMessage).not.toHaveBeenCalled();
+    expect(mocks.flushOutboundMessage).not.toHaveBeenCalled();
   });
 });
 
@@ -197,7 +221,7 @@ function setupChannel(overrides: Partial<Channel> = {}): Channel {
   mocks.query
     .mockResolvedValueOnce({ rows: [channel] })
     .mockResolvedValueOnce({ rows: [], rowCount: 0 })
-    .mockResolvedValueOnce({ rows: [] });
+    .mockResolvedValueOnce({ rows: [{ id: "outbound-1" }] });
 
   return channel;
 }
@@ -213,22 +237,4 @@ function inboundWhatsAppMessage() {
     text: "Can you cancel my booking?",
     raw: { message: "raw" },
   };
-}
-
-function expectHoldingReplyInsert(expectedText: string) {
-  const insertCall = mocks.query.mock.calls[2];
-  expect(insertCall[0]).toContain("insert into messages");
-  expect(insertCall[1]).toEqual([
-    "conversation-1",
-    "client-1",
-    "whatsapp-channel-1",
-    expect.stringMatching(/^agent-handoff-/),
-    expectedText,
-    expect.objectContaining({
-      escalationId: "escalation-1",
-      reasonCode: "transactional_action",
-      policy: "escalation_holding_reply",
-      sentToCustomer: true,
-    }),
-  ]);
 }

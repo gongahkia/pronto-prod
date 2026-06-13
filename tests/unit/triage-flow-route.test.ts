@@ -107,7 +107,11 @@ describe("triage flow routes", () => {
 function jsonRequest(body: unknown): Request {
   return new Request("http://localhost/api/client/flows", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      host: "localhost",
+      origin: "http://localhost",
+    },
     body: JSON.stringify(body),
   });
 }

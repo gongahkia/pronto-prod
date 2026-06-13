@@ -4,6 +4,7 @@ import { canAccessClient } from "@/lib/rbac";
 import { query, transaction } from "@/lib/db";
 import { enqueueOutboundMessage, flushOutboundMessage } from "@/lib/channels/outbox";
 import { checkChannelHealth } from "@/lib/channels/health";
+import { encryptedChannelCredentialValues } from "@/lib/channels/credentials";
 import { createClientAssistantChangeRequest } from "@/lib/client-assistant-requests";
 import {
   createKnowledgeRefreshRequest,
@@ -629,6 +630,7 @@ async function updateChannel(user: SessionUser, payload: Record<string, unknown>
   }).parse(payload);
   requireClientAccess(user, parsed.clientId);
   await assertChannelBelongsToClient(parsed.channelId, parsed.clientId);
+  const encryptedCredentials = encryptedChannelCredentialValues(parsed.credentials);
   await query(
     `
       update channels
@@ -636,6 +638,9 @@ async function updateChannel(user: SessionUser, payload: Record<string, unknown>
           external_id = nullif($3, ''),
           settings = $4,
           credentials = $5,
+          encrypted_credentials = $6,
+          credentials_encryption_nonce = $7,
+          credentials_encryption_tag = $8,
           updated_at = now()
       where id = $1
     `,
@@ -644,7 +649,10 @@ async function updateChannel(user: SessionUser, payload: Record<string, unknown>
       parsed.status satisfies ChannelStatus,
       parsed.externalId,
       parsed.settings,
-      parsed.credentials,
+      encryptedCredentials.credentials,
+      encryptedCredentials.encryptedCredentials,
+      encryptedCredentials.nonce,
+      encryptedCredentials.tag,
     ],
   );
   await recordAuditLog({

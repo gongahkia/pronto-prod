@@ -1,4 +1,6 @@
 import { query } from "@/lib/db";
+import { decryptChannelCredentials } from "@/lib/channels/credentials";
+import { fetchWithTimeout } from "@/lib/http/fetch";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
 
@@ -93,15 +95,19 @@ export async function sendTelegramText(input: {
     throw new Error("Telegram bot token missing; outbound send skipped.");
   }
 
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: input.externalThreadId,
-      text: input.text,
-      disable_web_page_preview: true,
-    }),
-  });
+  const response = await fetchWithTimeout(
+    `https://api.telegram.org/bot${token}/sendMessage`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: input.externalThreadId,
+        text: input.text,
+        disable_web_page_preview: true,
+      }),
+    },
+    channelFetchTimeoutMs(),
+  );
 
   if (!response.ok) {
     const body = await response.text();
@@ -109,10 +115,14 @@ export async function sendTelegramText(input: {
   }
 }
 
+function channelFetchTimeoutMs(): number {
+  return Number(process.env.PRONTO_CHANNEL_FETCH_TIMEOUT_MS ?? 10_000);
+}
+
 export async function getTelegramChannel(channelId: string): Promise<Channel | null> {
   const result = await query<Channel>(
     "select * from channels where id = $1 and kind = 'telegram'",
     [channelId],
   );
-  return result.rows[0] ?? null;
+  return result.rows[0] ? decryptChannelCredentials(result.rows[0]) : null;
 }

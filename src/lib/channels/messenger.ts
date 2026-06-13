@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
+import { decryptChannelCredentials } from "@/lib/channels/credentials";
+import { fetchWithTimeout } from "@/lib/http/fetch";
 import { redactErrorMessage } from "@/lib/logger";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
@@ -83,7 +85,7 @@ export async function sendMessengerText(input: {
     throw new Error("Messenger page access token missing; outbound send skipped.");
   }
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://graph.facebook.com/${GRAPH_VERSION}/me/messages?access_token=${encodeURIComponent(token)}`,
     {
       method: "POST",
@@ -94,6 +96,7 @@ export async function sendMessengerText(input: {
         messaging_type: "RESPONSE",
       }),
     },
+    channelFetchTimeoutMs(),
   );
 
   if (!response.ok) {
@@ -102,12 +105,16 @@ export async function sendMessengerText(input: {
   }
 }
 
+function channelFetchTimeoutMs(): number {
+  return Number(process.env.PRONTO_CHANNEL_FETCH_TIMEOUT_MS ?? 10_000);
+}
+
 export async function getMessengerChannel(channelId: string): Promise<Channel | null> {
   const result = await query<Channel>(
     "select * from channels where id = $1 and kind = 'messenger'",
     [channelId],
   );
-  return result.rows[0] ?? null;
+  return result.rows[0] ? decryptChannelCredentials(result.rows[0]) : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

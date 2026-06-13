@@ -158,7 +158,11 @@ describe("assistant action confirmation route", () => {
 function jsonRequest(body: Record<string, unknown>): Request {
   return new Request("http://localhost/api/assistant/actions/confirm", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      host: "localhost",
+      origin: "http://localhost",
+    },
     body: JSON.stringify(body),
   });
 }

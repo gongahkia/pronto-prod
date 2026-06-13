@@ -9,6 +9,27 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: pronto
+          POSTGRES_USER: pronto
+          POSTGRES_PASSWORD: pronto
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pronto -d pronto"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      APP_BASE_URL: http://localhost:3000
+      AUTH_SECRET: ci-auth-secret-with-more-than-32-characters
+      DATABASE_URL: postgres://pronto:pronto@localhost:5432/pronto
+      PRONTO_ENFORCE_TENANT_SQL: "1"
+      PRONTO_SECRETS_KEY: ci-secrets-key-with-more-than-32-characters
+      PRONTO_USE_MOCK_AI: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -19,6 +40,10 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level moderate
+      - run: pnpm migrate
+      - run: pnpm seed
+      - run: pnpm preflight:ci
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test:coverage

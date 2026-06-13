@@ -125,6 +125,10 @@ describe("client knowledge route", () => {
 function formRequest(form: FormData): Request {
   return new Request("http://localhost/api/client/knowledge", {
     method: "POST",
+    headers: {
+      host: "localhost",
+      origin: "http://localhost",
+    },
     body: form,
   });
 }

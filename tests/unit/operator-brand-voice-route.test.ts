@@ -138,6 +138,10 @@ function baseForm(action: string): FormData {
 function formRequest(form: FormData): Request {
   return new Request("http://localhost/api/operator/brand-voice", {
     method: "POST",
+    headers: {
+      host: "localhost",
+      origin: "http://localhost",
+    },
     body: form,
   });
 }

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   recordCsatResponse: vi.fn(),
+  checkRateLimit: vi.fn(),
   logWarn: vi.fn(),
 }));
 
@@ -13,12 +14,21 @@ vi.mock("@/lib/logger", () => ({
   logWarn: mocks.logWarn,
 }));
 
+vi.mock("@/lib/http-limits", () => ({
+  checkRateLimit: mocks.checkRateLimit,
+}));
+
 import { POST } from "@/app/api/csat/route";
 
 describe("CSAT route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.recordCsatResponse.mockResolvedValue(true);
+    mocks.checkRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 9,
+      retryAfterSeconds: 0,
+    });
   });
 
   it("records a score and redirects to the thank-you state", async () => {
@@ -61,6 +71,10 @@ describe("CSAT route", () => {
 function formRequest(form: FormData): Request {
   return new Request("http://localhost/api/csat", {
     method: "POST",
+    headers: {
+      host: "localhost",
+      origin: "http://localhost",
+    },
     body: form,
   });
 }

@@ -1,7 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { deterministicEmbedding, mockGroundedAnswer } from "@/lib/llm/mock";
+import { getMockAiStatus } from "@/lib/llm/mock-status";
 
 describe("mock provider", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("creates stable normalized embeddings", () => {
     const first = deterministicEmbedding("opening hours");
     const second = deterministicEmbedding("opening hours");
@@ -35,5 +40,14 @@ describe("mock provider", () => {
     expect(decision.action).toBe("answer");
     expect(decision.citedChunkIds).toEqual(["chunk-1"]);
   });
-});
 
+  it("does not hide explicit mock mode in production status", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PRONTO_USE_MOCK_AI", "1");
+
+    expect(getMockAiStatus()).toMatchObject({
+      active: true,
+      reason: "PRONTO_USE_MOCK_AI=1",
+    });
+  });
+});

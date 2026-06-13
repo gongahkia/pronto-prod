@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
+import { decryptChannelCredentials } from "@/lib/channels/credentials";
+import { fetchWithTimeout } from "@/lib/http/fetch";
 import { redactErrorMessage } from "@/lib/logger";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
@@ -87,7 +89,7 @@ export async function sendInstagramText(input: {
     throw new Error("Instagram page access token or IG user ID missing; outbound send skipped.");
   }
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://graph.facebook.com/${GRAPH_VERSION}/${igUserId}/messages`,
     {
       method: "POST",
@@ -100,6 +102,7 @@ export async function sendInstagramText(input: {
         message: { text: input.text },
       }),
     },
+    channelFetchTimeoutMs(),
   );
 
   if (!response.ok) {
@@ -108,12 +111,16 @@ export async function sendInstagramText(input: {
   }
 }
 
+function channelFetchTimeoutMs(): number {
+  return Number(process.env.PRONTO_CHANNEL_FETCH_TIMEOUT_MS ?? 10_000);
+}
+
 export async function getInstagramChannel(channelId: string): Promise<Channel | null> {
   const result = await query<Channel>(
     "select * from channels where id = $1 and kind = 'instagram'",
     [channelId],
   );
-  return result.rows[0] ?? null;
+  return result.rows[0] ? decryptChannelCredentials(result.rows[0]) : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

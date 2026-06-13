@@ -1,0 +1,62 @@
+import { flushRetryableOutboundMessages } from "../src/lib/channels/outbox";
+import { getPool } from "../src/lib/db";
+
+const intervalMs = positiveNumber("PRONTO_WORKER_OUTBOX_INTERVAL_MS", 15_000);
+const batchLimit = positiveNumber("PRONTO_WORKER_OUTBOX_LIMIT", 25);
+let shuttingDown = false;
+
+async function main() {
+  console.log(
+    JSON.stringify({
+      event: "worker.started",
+      outboxIntervalMs: intervalMs,
+      outboxLimit: batchLimit,
+    }),
+  );
+
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
+
+  while (!shuttingDown) {
+    const startedAt = Date.now();
+    try {
+      const result = await flushRetryableOutboundMessages({
+        requestId: `worker-${startedAt}`,
+        limit: batchLimit,
+      });
+      if (result.attempted > 0) {
+        console.log(JSON.stringify({ event: "worker.outbox_flushed", ...result }));
+      }
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "worker.outbox_failed",
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+    await sleep(Math.max(1_000, intervalMs - (Date.now() - startedAt)));
+  }
+
+  await getPool().end();
+  console.log(JSON.stringify({ event: "worker.stopped" }));
+}
+
+function shutdown() {
+  shuttingDown = true;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function positiveNumber(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+main().catch(async (error) => {
+  console.error(error);
+  await getPool().end();
+  process.exit(1);
+});

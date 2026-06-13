@@ -29,7 +29,15 @@ describe("logout route", () => {
       role: "client",
     });
 
-    const response = await POST(new Request("http://localhost/api/auth/logout"));
+    const response = await POST(
+      new Request("http://localhost/api/auth/logout", {
+        method: "POST",
+        headers: {
+          host: "localhost",
+          origin: "http://localhost",
+        },
+      }),
+    );
 
     expect(mocks.recordAuditLog).toHaveBeenCalledWith({
       clientId: "client-1",

@@ -80,6 +80,7 @@ function userRecord() {
     name: "Owner",
     role: "client",
     password_hash: "hash",
+    session_version: 1,
     created_at: new Date(),
   };
 }

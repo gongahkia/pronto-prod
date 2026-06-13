@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
+import {
+  decryptChannelCredentials,
+  encryptedChannelCredentialValues,
+} from "@/lib/channels/credentials";
 import { mergeEscalationHoldingReply } from "@/lib/channels/escalation-handoff";
 import { query } from "@/lib/db";
 import { assertSameOrigin } from "@/lib/http/csrf";
@@ -44,11 +48,16 @@ export async function POST(request: Request) {
     kind: ChannelKind;
     settings: Record<string, unknown>;
     credentials: Record<string, unknown>;
+    encrypted_credentials?: string | null;
+    credentials_encryption_nonce?: string | null;
+    credentials_encryption_tag?: string | null;
   }>(
-    "select client_id, kind, settings, credentials from channels where id = $1",
+    "select client_id, kind, settings, credentials, encrypted_credentials, credentials_encryption_nonce, credentials_encryption_tag from channels where id = $1",
     [channelId],
   );
-  const channel = channelResult.rows[0];
+  const channel = channelResult.rows[0]
+    ? decryptChannelCredentials(channelResult.rows[0])
+    : undefined;
   if (!channel) {
     return NextResponse.json({ error: "Channel not found." }, { status: 404 });
   }
@@ -87,6 +96,7 @@ export async function POST(request: Request) {
     form,
     scope: "credentials",
   });
+  const encryptedCredentials = encryptedChannelCredentialValues(credentialValue);
 
   await query(
     `
@@ -95,10 +105,22 @@ export async function POST(request: Request) {
           external_id = nullif($3, ''),
           settings = $4,
           credentials = $5,
+          encrypted_credentials = $6,
+          credentials_encryption_nonce = $7,
+          credentials_encryption_tag = $8,
           updated_at = now()
       where id = $1
     `,
-    [channelId, status, externalId, settings, credentialValue],
+    [
+      channelId,
+      status,
+      externalId,
+      settings,
+      encryptedCredentials.credentials,
+      encryptedCredentials.encryptedCredentials,
+      encryptedCredentials.nonce,
+      encryptedCredentials.tag,
+    ],
   );
   await query(
     "insert into audit_logs (client_id, actor_user_id, action, target_type, target_id, metadata) values ($1, $2, 'channel.updated', 'channel', $3, $4)",

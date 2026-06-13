@@ -50,6 +50,10 @@ describe("operator offboarding route", () => {
     const response = await POST(
       new Request("http://localhost/api/operator/offboarding", {
         method: "POST",
+        headers: {
+          host: "localhost",
+          origin: "http://localhost",
+        },
         body: form,
       }),
     );

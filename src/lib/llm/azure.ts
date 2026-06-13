@@ -3,6 +3,7 @@ import { z } from "zod";
 import { shouldUseMockAi } from "@/lib/env";
 import { logInfo, logWarn } from "@/lib/logger";
 import { resolveProviderApiKey } from "@/lib/llm/credentials";
+import { LlmConfigurationError } from "@/lib/llm/errors";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import {
   buildGroundedAnswerInstructions,
@@ -85,14 +86,7 @@ export class AzureOpenAiProvider implements LlmProvider {
 
     const client = await getAzureOpenAiClient();
     if (!client) {
-      logInfo("llm.embedding.mocked", {
-        ...context,
-        provider: "azure",
-        model,
-        inputCount: texts.length,
-        reason: azureOpenAiBaseUrl() ? "missing_api_key" : "missing_base_url",
-      });
-      return mockEmbed(texts);
+      throw new LlmConfigurationError("azure", azureConfigurationDetail());
     }
 
     try {
@@ -138,15 +132,7 @@ export class AzureOpenAiProvider implements LlmProvider {
 
     const client = await getAzureOpenAiClient();
     if (!client) {
-      logInfo("llm.generation.mocked", {
-        requestId: input.requestId,
-        clientId: input.clientId,
-        conversationId: input.conversationId,
-        provider: "azure",
-        model: input.responseModel,
-        reason: azureOpenAiBaseUrl() ? "missing_api_key" : "missing_base_url",
-      });
-      return mockGroundedAnswer(input);
+      throw new LlmConfigurationError("azure", azureConfigurationDetail());
     }
 
     let response: {
@@ -248,6 +234,13 @@ export class AzureOpenAiProvider implements LlmProvider {
 
 function ensureTrailingSlash(value: string): string {
   return `${value.replace(/\/+$/, "")}/`;
+}
+
+function azureConfigurationDetail(): string {
+  if (!azureOpenAiBaseUrl()) {
+    return "AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT is required.";
+  }
+  return "AZURE_OPENAI_API_KEY or a saved encrypted Azure OpenAI credential is required.";
 }
 
 function tokenUsage(

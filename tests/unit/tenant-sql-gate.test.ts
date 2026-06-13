@@ -57,4 +57,16 @@ describe("tenant SQL gate", () => {
     ).rejects.toThrow("client_id");
     expect(mocks.poolQuery).not.toHaveBeenCalled();
   });
+
+  it("rejects client-session queries that only mention client_id without a bound predicate", async () => {
+    vi.stubEnv("PRONTO_ENFORCE_TENANT_SQL", "1");
+    enterTenantContext({ role: "client", clientId: "client-1" });
+
+    await expect(
+      query("select client_id, body from messages where conversation_id = $1", [
+        "conversation-1",
+      ]),
+    ).rejects.toThrow("client_id");
+    expect(mocks.poolQuery).not.toHaveBeenCalled();
+  });
 });

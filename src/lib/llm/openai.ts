@@ -3,6 +3,7 @@ import { z } from "zod";
 import { shouldUseMockAi } from "@/lib/env";
 import { logInfo, logWarn } from "@/lib/logger";
 import { resolveProviderApiKey } from "@/lib/llm/credentials";
+import { LlmConfigurationError } from "@/lib/llm/errors";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import {
   buildGroundedAnswerInstructions,
@@ -55,14 +56,10 @@ export class OpenAiProvider implements LlmProvider {
 
     const client = await getOpenAiClient();
     if (!client) {
-      logInfo("llm.embedding.mocked", {
-        ...context,
-        provider: "openai",
-        model,
-        inputCount: texts.length,
-        reason: "missing_api_key",
-      });
-      return mockEmbed(texts);
+      throw new LlmConfigurationError(
+        "openai",
+        "OPENAI_API_KEY or a saved encrypted OpenAI credential is required.",
+      );
     }
 
     try {
@@ -108,15 +105,10 @@ export class OpenAiProvider implements LlmProvider {
 
     const client = await getOpenAiClient();
     if (!client) {
-      logInfo("llm.generation.mocked", {
-        requestId: input.requestId,
-        clientId: input.clientId,
-        conversationId: input.conversationId,
-        provider: "openai",
-        model: input.responseModel,
-        reason: "missing_api_key",
-      });
-      return mockGroundedAnswer(input);
+      throw new LlmConfigurationError(
+        "openai",
+        "OPENAI_API_KEY or a saved encrypted OpenAI credential is required.",
+      );
     }
 
     let response: {

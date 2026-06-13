@@ -1,6 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
+import { decryptChannelCredentials } from "@/lib/channels/credentials";
 import { whatsAppGraphVersion } from "@/lib/env";
+import { fetchWithTimeout } from "@/lib/http/fetch";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
 
@@ -112,7 +114,7 @@ export async function sendWhatsAppText(input: {
     throw new Error("WhatsApp credentials missing; outbound send skipped.");
   }
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://graph.facebook.com/${whatsAppGraphVersion()}/${phoneNumberId}/messages`,
     {
       method: "POST",
@@ -130,6 +132,7 @@ export async function sendWhatsAppText(input: {
         },
       }),
     },
+    channelFetchTimeoutMs(),
   );
 
   if (!response.ok) {
@@ -138,10 +141,14 @@ export async function sendWhatsAppText(input: {
   }
 }
 
+function channelFetchTimeoutMs(): number {
+  return Number(process.env.PRONTO_CHANNEL_FETCH_TIMEOUT_MS ?? 10_000);
+}
+
 export async function getWhatsAppChannel(channelId: string): Promise<Channel | null> {
   const result = await query<Channel>(
     "select * from channels where id = $1 and kind = 'whatsapp'",
     [channelId],
   );
-  return result.rows[0] ?? null;
+  return result.rows[0] ? decryptChannelCredentials(result.rows[0]) : null;
 }

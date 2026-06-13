@@ -44,6 +44,7 @@ export type User = {
   name: string;
   role: UserRole;
   password_hash: string;
+  session_version: number;
   created_at: Date;
 };
 
@@ -55,6 +56,9 @@ export type Channel = {
   status: ChannelStatus;
   external_id: string | null;
   credentials: Record<string, unknown>;
+  encrypted_credentials?: string | null;
+  credentials_encryption_nonce?: string | null;
+  credentials_encryption_tag?: string | null;
   settings: Record<string, unknown>;
   last_health_check_at: Date | null;
   last_health_status: string | null;

@@ -128,7 +128,13 @@ function assertTenantScopedQuery(text: string, values: unknown[]): void {
   if (context?.role !== "client") return;
   const normalized = text.toLowerCase().replace(/\s+/g, " ");
   if (!mentionsClientScopedTable(normalized)) return;
-  if (/\bclient_id\b/.test(normalized) && context.clientId && values.includes(context.clientId)) {
+  if (!context.clientId) {
+    throw new Error("Client-scoped query must include client_id.");
+  }
+  if (isTenantInsert(normalized) && values.includes(context.clientId)) {
+    return;
+  }
+  if (hasBoundClientIdPredicate(normalized, values, context.clientId)) {
     return;
   }
   throw new Error("Client-scoped query must include client_id.");
@@ -141,4 +147,30 @@ function tenantSqlGateEnabled(): boolean {
 
 function mentionsClientScopedTable(sql: string): boolean {
   return /\b(from|join|update|into|delete from)\s+(messages|conversations|escalations|reviews|channels|knowledge_sources|knowledge_chunks|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests|client_assistant_change_requests)\b/.test(sql);
+}
+
+function isTenantInsert(sql: string): boolean {
+  return /\binsert\s+into\s+(messages|conversations|escalations|reviews|channels|knowledge_sources|knowledge_chunks|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests|client_assistant_change_requests)\b/.test(sql);
+}
+
+function hasBoundClientIdPredicate(
+  sql: string,
+  values: unknown[],
+  clientId: string,
+): boolean {
+  const patterns = [
+    /\bclient_id\b\s*=\s*\$(\d+)(?:::?[a-z_][a-z0-9_]*)?/g,
+    /\$(\d+)(?:::?[a-z_][a-z0-9_]*)?\s*=\s*\bclient_id\b/g,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of sql.matchAll(pattern)) {
+      const parameterIndex = Number(match[1]) - 1;
+      if (values[parameterIndex] === clientId) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }

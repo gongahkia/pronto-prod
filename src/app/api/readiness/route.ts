@@ -1,0 +1,93 @@
+import { NextResponse } from "next/server";
+import { appBaseUrl, shouldUseMockAi } from "@/lib/env";
+import { getPool } from "@/lib/db";
+
+type ReadinessCheck = {
+  name: string;
+  status: "pass" | "fail";
+  detail: string;
+};
+
+export async function GET() {
+  const checks: ReadinessCheck[] = [];
+
+  checks.push(secretCheck("AUTH_SECRET"));
+  checks.push(secretCheck("PRONTO_SECRETS_KEY"));
+  checks.push({
+    name: "APP_BASE_URL",
+    status:
+      process.env.NODE_ENV === "production" && !appBaseUrl().startsWith("https://")
+        ? "fail"
+        : "pass",
+    detail: appBaseUrl().startsWith("https://")
+      ? "Public HTTPS base URL is configured."
+      : "Non-HTTPS base URL is allowed outside production only.",
+  });
+  checks.push({
+    name: "PRONTO_USE_MOCK_AI",
+    status:
+      process.env.NODE_ENV === "production" && shouldUseMockAi() ? "fail" : "pass",
+    detail: shouldUseMockAi()
+      ? "Mock AI is enabled."
+      : "Mock AI override is disabled.",
+  });
+  checks.push({
+    name: "Tenant SQL gate",
+    status:
+      process.env.NODE_ENV === "production" &&
+      process.env.PRONTO_DISABLE_TENANT_SQL_GATE === "1"
+        ? "fail"
+        : "pass",
+    detail:
+      process.env.PRONTO_DISABLE_TENANT_SQL_GATE === "1"
+        ? "Tenant SQL gate is disabled."
+        : "Tenant SQL gate is enabled or environment-enforced.",
+  });
+
+  try {
+    await getPool().query("select 1");
+    checks.push({
+      name: "Database",
+      status: "pass",
+      detail: "Database is reachable.",
+    });
+  } catch (error) {
+    checks.push({
+      name: "Database",
+      status: "fail",
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  const ready = checks.every((check) => check.status === "pass");
+  return NextResponse.json(
+    {
+      status: ready ? "ready" : "not_ready",
+      checks,
+      timestamp: new Date().toISOString(),
+    },
+    {
+      status: ready ? 200 : 503,
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
+  );
+}
+
+function secretCheck(name: "AUTH_SECRET" | "PRONTO_SECRETS_KEY"): ReadinessCheck {
+  const value = process.env[name] ?? "";
+  const strong = isStrongSecret(value);
+  return {
+    name,
+    status: strong ? "pass" : "fail",
+    detail: strong
+      ? "Strong non-placeholder secret is configured."
+      : `${name} must be at least 32 characters and non-placeholder.`,
+  };
+}
+
+function isStrongSecret(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.length >= 32 && !trimmed.startsWith("replace-with");
+}
