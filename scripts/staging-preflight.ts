@@ -229,6 +229,15 @@ async function checkSeededClientAndChannels() {
   });
 
   for (const channel of liveChannels) {
+    if (hasPlaintextCredentials(channel)) {
+      checks.push({
+        name: `${channel.client_name} ${channel.kind} credential storage`,
+        status: "fail",
+        detail:
+          "Active channel still has plaintext credentials. Run pnpm channels:encrypt-credentials before deployment.",
+      });
+      continue;
+    }
     const configIssue = validateChannelHealthConfig(decryptChannelCredentials(channel));
     checks.push({
       name: `${channel.client_name} ${channel.kind} channel`,
@@ -236,6 +245,13 @@ async function checkSeededClientAndChannels() {
       detail: configIssue ?? "Required channel credentials/settings are present.",
     });
   }
+}
+
+function hasPlaintextCredentials(channel: ChannelRow): boolean {
+  return (
+    Object.keys(channel.credentials ?? {}).length > 0 &&
+    !channel.encrypted_credentials
+  );
 }
 
 function isStrongSecret(value: string): boolean {

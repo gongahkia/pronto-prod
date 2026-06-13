@@ -21,6 +21,7 @@
     "assistant:eval": "tsx scripts/assistant-eval.ts",
     "staging:preflight": "tsx scripts/staging-preflight.ts",
     "preflight:ci": "PRONTO_PREFLIGHT_PROFILE=ci tsx scripts/staging-preflight.ts",
+    "channels:encrypt-credentials": "tsx scripts/encrypt-channel-credentials.ts",
     "worker": "tsx scripts/worker.ts",
     "outbox:retry": "tsx scripts/retry-outbox.ts",
     "risk:monitor:pricing": "tsx scripts/risk-monitor-pricing.ts",
@@ -42,6 +43,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
