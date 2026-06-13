@@ -13,8 +13,12 @@ Minimal map of the repo for a coding agent. Pair with `docs/architecture.md` for
 - `pnpm migrate` → runs `db/migrations/*.sql` in order, tracked in `schema_migrations`.
 - `pnpm seed` → seeds operator + one F&B pilot client.
 - `pnpm test` → Vitest. `pnpm typecheck` → `tsc --noEmit`. `pnpm lint` → ESLint.
+- `pnpm test:e2e` → Playwright Chromium smoke against `pnpm start`; requires `pnpm build` plus migrated/seeded DB.
 - One-shot workers: `pnpm outbox:retry`, `pnpm risk:monitor:pricing`, `pnpm risk:monitor:policy`, `pnpm monthly:report --client <id>`.
+- Long-running worker: `pnpm worker` flushes retryable outbound messages on an interval.
 - Preflight: `pnpm staging:preflight` checks env + DB + provider creds before live channel testing.
+- Channel credential backfill: `pnpm channels:encrypt-credentials`.
+- Docker gates: `docker build --target runner .` and `docker build --target worker .`.
 
 ## Directory Layout
 
@@ -102,12 +106,16 @@ Numeric prefix is run order. Highlights:
 - `021` **escalations.assigned_to_user_id**.
 - `022` **agent_traces** (per-run trace: retrieval scores, prompt hash, latency, failover, steps).
 - `023` **email_suppressions** (per-client bounce/complaint blocklist for the email channel).
+- `024` audit hardening, `025` channel credential encryption, `026` user session version.
+- `027` outbound idempotency scoped by `(client_id, idempotency_key)`.
 
 ### `scripts/`
 - `migrate.ts`, `seed.ts` — schema + fixtures.
 - `eval.ts`, `assistant-eval.ts` — golden-set evals.
 - `staging-preflight.ts` — env/DB/credential readiness gate.
+- `encrypt-channel-credentials.ts` — backfills plaintext channel credentials into encrypted channel columns.
 - `retry-outbox.ts` — flush stale outbound queue.
+- `worker.ts` — long-running outbox retry loop.
 - `monthly-report.ts` — 30-day client check-in summary.
 - `risk-monitor-pricing.ts`, `risk-monitor-policy.ts` — scheduler hooks.
 
@@ -118,6 +126,8 @@ Vitest suites + golden eval inputs/outputs.
 - Server components by default. Route handlers in `app/api/*/route.ts`.
 - DB access via `query`/`transaction` from `lib/db.ts`. Always parameterize.
 - All client-scoped queries must filter by `client_id`. `rbac.canAccessClient` enforces operator vs client.
+- Client-session SQL touching tenant tables is also checked at runtime in `lib/db.ts`; inserts must include an explicit `client_id` column bound to the session client id.
+- DB-enforced RLS is deferred for this prerelease role model. Adding it requires a non-owner app DB role plus per-request session GUCs; otherwise owners/bypass behavior can create false confidence.
 - Audit-loggable mutations call `recordAuditLog`.
 - Logging via `logInfo/logWarn/logError` (auto-redacts secrets, phones, message bodies). Include `requestId`.
 - Outbound channel sends MUST go through `sendChannelText` so policy + health checks fire.

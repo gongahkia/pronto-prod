@@ -131,8 +131,11 @@ function assertTenantScopedQuery(text: string, values: unknown[]): void {
   if (!context.clientId) {
     throw new Error("Client-scoped query must include client_id.");
   }
-  if (isTenantInsert(normalized) && values.includes(context.clientId)) {
-    return;
+  if (isTenantInsert(normalized)) {
+    if (hasBoundClientIdInsertValue(normalized, values, context.clientId)) {
+      return;
+    }
+    throw new Error("Client-scoped query must include client_id.");
   }
   if (hasBoundClientIdPredicate(normalized, values, context.clientId)) {
     return;
@@ -151,6 +154,120 @@ function mentionsClientScopedTable(sql: string): boolean {
 
 function isTenantInsert(sql: string): boolean {
   return /\binsert\s+into\s+(messages|conversations|escalations|reviews|channels|knowledge_sources|knowledge_chunks|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests|client_assistant_change_requests)\b/.test(sql);
+}
+
+function hasBoundClientIdInsertValue(
+  sql: string,
+  values: unknown[],
+  clientId: string,
+): boolean {
+  const match = sql.match(
+    /\binsert\s+into\s+(messages|conversations|escalations|reviews|channels|knowledge_sources|knowledge_chunks|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests|client_assistant_change_requests)\s*\(([^)]*)\)\s*values\s*/,
+  );
+  if (!match) {
+    return false;
+  }
+  const valueList = readParenthesizedList(sql, (match.index ?? 0) + match[0].length);
+  if (!valueList) {
+    return false;
+  }
+
+  const columns = splitTopLevelComma(match[2]).map((column) =>
+    column.trim().replace(/^"|"$/g, ""),
+  );
+  const clientIdColumnIndex = columns.indexOf("client_id");
+  if (clientIdColumnIndex < 0) {
+    return false;
+  }
+
+  const insertValues = splitTopLevelComma(valueList);
+  const clientIdValue = insertValues[clientIdColumnIndex]?.trim();
+  const parameter = clientIdValue?.match(/^\$(\d+)(?:::?[a-z_][a-z0-9_]*)?$/);
+  if (!parameter) {
+    return false;
+  }
+
+  return values[Number(parameter[1]) - 1] === clientId;
+}
+
+function readParenthesizedList(value: string, startIndex: number): string | null {
+  if (value[startIndex] !== "(") {
+    return null;
+  }
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let content = "";
+
+  for (let index = startIndex; index < value.length; index += 1) {
+    const character = value[index];
+    const previous = value[index - 1];
+
+    if (character === "'" && !inDoubleQuote && previous !== "\\") {
+      inSingleQuote = !inSingleQuote;
+    } else if (character === "\"" && !inSingleQuote && previous !== "\\") {
+      inDoubleQuote = !inDoubleQuote;
+    }
+
+    if (!inSingleQuote && !inDoubleQuote) {
+      if (character === "(") {
+        if (depth > 0) {
+          content += character;
+        }
+        depth += 1;
+        continue;
+      }
+      if (character === ")") {
+        depth -= 1;
+        if (depth === 0) {
+          return content;
+        }
+      }
+    }
+
+    if (depth > 0) {
+      content += character;
+    }
+  }
+
+  return null;
+}
+
+function splitTopLevelComma(value: string): string[] {
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    const previous = value[index - 1];
+
+    if (character === "'" && !inDoubleQuote && previous !== "\\") {
+      inSingleQuote = !inSingleQuote;
+    } else if (character === "\"" && !inSingleQuote && previous !== "\\") {
+      inDoubleQuote = !inDoubleQuote;
+    } else if (!inSingleQuote && !inDoubleQuote) {
+      if (character === "(") {
+        depth += 1;
+      } else if (character === ")") {
+        depth = Math.max(0, depth - 1);
+      } else if (character === "," && depth === 0) {
+        parts.push(current);
+        current = "";
+        continue;
+      }
+    }
+
+    current += character;
+  }
+
+  if (current) {
+    parts.push(current);
+  }
+
+  return parts;
 }
 
 function hasBoundClientIdPredicate(

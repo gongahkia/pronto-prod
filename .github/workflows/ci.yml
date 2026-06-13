@@ -28,6 +28,7 @@ jobs:
       AUTH_SECRET: ci-auth-secret-with-more-than-32-characters
       DATABASE_URL: postgres://pronto:pronto@localhost:5432/pronto
       PRONTO_ENFORCE_TENANT_SQL: "1"
+      PRONTO_RUN_DB_TESTS: "1"
       PRONTO_SECRETS_KEY: ci-secrets-key-with-more-than-32-characters
       PRONTO_USE_MOCK_AI: "1"
     steps:
@@ -48,3 +49,43 @@ jobs:
       - run: pnpm lint
       - run: pnpm test:coverage
       - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - run: docker build --target runner -t pronto-runner:ci .
+      - name: Smoke runner image
+        run: |
+          docker rm -f pronto-runner-ci >/dev/null 2>&1 || true
+          docker run -d --name pronto-runner-ci -p 3000:3000 \
+            -e APP_BASE_URL=http://localhost:3000 \
+            -e AUTH_SECRET="$AUTH_SECRET" \
+            -e DATABASE_URL="$DATABASE_URL" \
+            -e PRONTO_ENFORCE_TENANT_SQL="$PRONTO_ENFORCE_TENANT_SQL" \
+            -e PRONTO_SECRETS_KEY="$PRONTO_SECRETS_KEY" \
+            -e PRONTO_USE_MOCK_AI="$PRONTO_USE_MOCK_AI" \
+            pronto-runner:ci
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/api/health; then
+              docker stop pronto-runner-ci
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs pronto-runner-ci
+          docker stop pronto-runner-ci
+          exit 1
+      - run: docker build --target worker -t pronto-worker:ci .
+      - name: Smoke worker image
+        run: |
+          docker rm -f pronto-worker-ci >/dev/null 2>&1 || true
+          docker run -d --name pronto-worker-ci \
+            --add-host=host.docker.internal:host-gateway \
+            -e AUTH_SECRET="$AUTH_SECRET" \
+            -e DATABASE_URL=postgres://pronto:pronto@host.docker.internal:5432/pronto \
+            -e PRONTO_ENFORCE_TENANT_SQL="$PRONTO_ENFORCE_TENANT_SQL" \
+            -e PRONTO_SECRETS_KEY="$PRONTO_SECRETS_KEY" \
+            -e PRONTO_USE_MOCK_AI="$PRONTO_USE_MOCK_AI" \
+            -e PRONTO_WORKER_OUTBOX_INTERVAL_MS=1000 \
+            pronto-worker:ci
+          sleep 3
+          docker logs pronto-worker-ci | grep '"event":"worker.started"'
+          docker stop pronto-worker-ci

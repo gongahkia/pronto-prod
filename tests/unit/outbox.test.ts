@@ -61,6 +61,7 @@ describe("outbound message outbox", () => {
     expect(db.query.mock.calls[0][0]).toContain(
       "on conflict (client_id, idempotency_key)",
     );
+    expect(db.query.mock.calls[0][0]).toContain("returning *");
     expect(db.query.mock.calls[0][1]).toEqual([
       "client-1",
       "conversation-1",
@@ -71,6 +72,34 @@ describe("outbound message outbox", () => {
       "escalation-resolution:escalation-1",
       { purpose: "test" },
     ]);
+  });
+
+  it("scopes duplicate idempotency keys to each client", async () => {
+    const db = {
+      query: vi.fn().mockResolvedValueOnce({
+        rows: [
+          outboundMessage({
+            client_id: "client-2",
+            idempotency_key: "agent-answer:message-1",
+          }),
+        ],
+      }),
+    };
+
+    const result = await enqueueOutboundMessage(db, {
+      clientId: "client-2",
+      conversationId: "conversation-2",
+      escalationId: null,
+      channelId: "channel-2",
+      externalThreadId: "thread-2",
+      body: "Reply",
+      idempotencyKey: "agent-answer:message-1",
+    });
+
+    expect(result.client_id).toBe("client-2");
+    expect(db.query.mock.calls[0][0]).toContain(
+      "on conflict (client_id, idempotency_key)",
+    );
   });
 
   it("marks a pending outbound message sent after channel delivery succeeds", async () => {
@@ -109,6 +138,7 @@ describe("outbound message outbox", () => {
       outboundMessageId: "outbound-1",
       error: "WhatsApp send failed",
     });
+    expect(mocks.query.mock.calls[0][0]).toContain("status in ('pending', 'failed')");
     expect(mocks.logWarn).toHaveBeenCalledWith(
       "outbox.flush_failed",
       expect.objectContaining({

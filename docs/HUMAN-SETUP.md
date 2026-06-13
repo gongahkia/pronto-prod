@@ -282,14 +282,40 @@ After env/channel setup:
 docker compose up -d
 pnpm migrate
 pnpm seed
+pnpm channels:encrypt-credentials
 pnpm staging:preflight
 pnpm typecheck
 pnpm lint
 pnpm test
 pnpm build
+pnpm test:e2e
+docker build --target runner -t pronto-runner:local .
+docker build --target worker -t pronto-worker:local .
 ```
 
 Seeded local logins:
 
 - Operator: `operator@pronto.sg` / `pronto-operator`
 - Client: `owner@northbridgenasi.sg` / `pronto-client`
+
+## Worker
+
+Run one retry pass:
+
+```bash
+pnpm outbox:retry
+```
+
+Run the continuous worker:
+
+```bash
+PRONTO_WORKER_OUTBOX_INTERVAL_MS=15000 pnpm worker
+```
+
+Safe restart: send SIGTERM, wait for `{"event":"worker.stopped"}`, then start the new process. Watch `outbound_messages.status`, `attempt_count`, and `error_events` for repeated send failures.
+
+## Readiness
+
+- `/api/health` is the liveness probe and does not require DB.
+- `/api/readiness` is the deploy gate: strong secrets, HTTPS `APP_BASE_URL` in production, live AI outside explicit mock mode, tenant SQL gate, DB reachability, and `Cache-Control: no-store`.
+- CI runs audit, migrations, seed, preflight, typecheck, lint, coverage, build, Playwright, runner Docker smoke, and worker Docker smoke.

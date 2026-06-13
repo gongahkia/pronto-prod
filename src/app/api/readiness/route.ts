@@ -89,5 +89,12 @@ function secretCheck(name: "AUTH_SECRET" | "PRONTO_SECRETS_KEY"): ReadinessCheck
 
 function isStrongSecret(value: string): boolean {
   const trimmed = value.trim();
-  return trimmed.length >= 32 && !trimmed.startsWith("replace-with");
+  const lowered = trimmed.toLowerCase();
+  return (
+    trimmed.length >= 32 &&
+    new Set(trimmed).size >= 12 &&
+    !lowered.startsWith("replace-with") &&
+    !lowered.includes("change-me") &&
+    !lowered.includes("placeholder")
+  );
 }

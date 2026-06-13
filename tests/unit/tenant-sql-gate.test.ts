@@ -69,4 +69,72 @@ describe("tenant SQL gate", () => {
     ).rejects.toThrow("client_id");
     expect(mocks.poolQuery).not.toHaveBeenCalled();
   });
+
+  it("rejects tenant inserts when client_id is omitted but appears in unrelated metadata", async () => {
+    vi.stubEnv("PRONTO_ENFORCE_TENANT_SQL", "1");
+    enterTenantContext({ role: "client", clientId: "client-1" });
+
+    await expect(
+      query(
+        `
+          insert into messages (conversation_id, channel_id, external_message_id, sender_role, body, metadata)
+          values ($1, $2, $3, 'customer', $4, $5)
+        `,
+        [
+          "conversation-1",
+          "channel-1",
+          "message-1",
+          "Hello",
+          { echoedClientId: "client-1" },
+        ],
+      ),
+    ).rejects.toThrow("client_id");
+    expect(mocks.poolQuery).not.toHaveBeenCalled();
+  });
+
+  it("rejects tenant inserts when client_id is bound to another client", async () => {
+    vi.stubEnv("PRONTO_ENFORCE_TENANT_SQL", "1");
+    enterTenantContext({ role: "client", clientId: "client-1" });
+
+    await expect(
+      query(
+        `
+          insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
+          values ($1, $2, $3, $4, 'customer', $5, $6)
+        `,
+        [
+          "conversation-1",
+          "client-2",
+          "channel-1",
+          "message-1",
+          "Hello",
+          { echoedClientId: "client-1" },
+        ],
+      ),
+    ).rejects.toThrow("client_id");
+    expect(mocks.poolQuery).not.toHaveBeenCalled();
+  });
+
+  it("allows tenant inserts when client_id is explicitly bound to the session client", async () => {
+    vi.stubEnv("PRONTO_ENFORCE_TENANT_SQL", "1");
+    enterTenantContext({ role: "client", clientId: "client-1" });
+    mocks.poolQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+    await expect(
+      query(
+        `
+          insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
+          values ($1, $2, $3, $4, 'customer', $5, $6)
+        `,
+        [
+          "conversation-1",
+          "client-1",
+          "channel-1",
+          "message-1",
+          "Hello",
+          { echoedClientId: "client-2" },
+        ],
+      ),
+    ).resolves.toEqual({ rows: [], rowCount: 1 });
+  });
 });

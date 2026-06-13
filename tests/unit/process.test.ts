@@ -152,6 +152,8 @@ describe("inbound channel processing", () => {
       reasonDetail: "Answered from source.",
       confidence: 0.9,
       citedChunks: [],
+      agentMessageId: "agent-message-1",
+      csatUrl: "https://pronto.test/csat/conversation-1?messageId=agent-message-1",
     });
     mocks.flushOutboundMessage.mockResolvedValueOnce({
       status: "failed",
@@ -165,6 +167,52 @@ describe("inbound channel processing", () => {
       duplicate: false,
       action: "answered",
       outboundError: "WhatsApp send failed",
+    });
+    expect(mocks.enqueueOutboundMessage).toHaveBeenCalledWith(
+      { query: mocks.query },
+      expect.objectContaining({
+        clientId: "client-1",
+        conversationId: "conversation-1",
+        channelId: "whatsapp-channel-1",
+        externalThreadId: "6590000000",
+        body: "We open this Sunday.\n\nRate this reply: https://pronto.test/csat/conversation-1?messageId=agent-message-1",
+        idempotencyKey: "agent-answer:agent-message-1",
+        metadata: expect.objectContaining({
+          purpose: "agent_answer",
+          customerMessageId: "customer-message-1",
+          agentMessageId: "agent-message-1",
+          reasonCode: "grounded_answer",
+        }),
+      }),
+    );
+    expect(mocks.notifyOwnerOfEscalation).not.toHaveBeenCalled();
+  });
+
+  it("reports skipped answered sends without losing processed message state", async () => {
+    setupChannel();
+    mocks.runAgentForMessage.mockResolvedValueOnce({
+      action: "answered",
+      responseText: "We open this Sunday.",
+      reasonCode: "grounded_answer",
+      reasonDetail: "Answered from source.",
+      confidence: 0.9,
+      citedChunks: [],
+      agentMessageId: "agent-message-1",
+    });
+    mocks.flushOutboundMessage.mockResolvedValueOnce({
+      status: "skipped",
+      outboundMessageId: "outbound-1",
+      reason: "Outbound message is not retryable.",
+    });
+
+    const result = await processInboundMessage(inboundWhatsAppMessage());
+
+    expect(result).toMatchObject({
+      duplicate: false,
+      conversationId: "conversation-1",
+      messageId: "customer-message-1",
+      action: "answered",
+      outboundError: "Outbound message is not retryable.",
     });
     expect(mocks.notifyOwnerOfEscalation).not.toHaveBeenCalled();
   });

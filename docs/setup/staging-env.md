@@ -114,10 +114,22 @@ Per-channel credentials/settings should be preferred for real clients:
 
 ## Required Checks
 
-- Run `pnpm staging:preflight` after setting env vars and before live channel testing. It verifies live AI mode, secret placeholders, database reachability, provider credential availability, and Telegram/WhatsApp channel config without printing secret values.
-- Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and `pnpm build`.
-- Run `docker compose up -d`, `pnpm migrate`, and `pnpm seed`.
+- Exact staging sequence:
+  1. `pnpm migrate`
+  2. `pnpm seed` or create the pilot client/operator users manually.
+  3. Save live provider/channel credentials.
+  4. `pnpm channels:encrypt-credentials`
+  5. `pnpm staging:preflight`
+  6. `pnpm build`
+  7. `pnpm test:e2e`
+  8. `docker build --target runner .`
+  9. `docker build --target worker .`
+  10. Deploy runner + worker.
+- Run `pnpm staging:preflight` after setting env vars and before live channel testing. It fails on mock AI in staging, HTTP `APP_BASE_URL`, weak secrets, unreachable DB, missing live provider credentials, inactive live channels, and active channels with plaintext credentials.
+- Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:coverage`, and `pnpm build`.
+- Run `docker compose up -d`, `pnpm migrate`, and `pnpm seed` for local staging only.
 - Set `PRONTO_USE_MOCK_AI=0`, configure a live provider key, and run one console message from the Test assistant before attaching live channels.
+- Hit `/api/readiness` before traffic shift; expect HTTP 200 and `Cache-Control: no-store`.
 - Confirm the operator Agent tuning panel shows live AI readiness for the selected provider and model.
 - Confirm WhatsApp webhook verification succeeds.
 - Confirm Telegram webhook sends a 200 response with the configured secret header.
@@ -125,3 +137,15 @@ Per-channel credentials/settings should be preferred for real clients:
 - Confirm email inbound and email event webhooks return 200 if email is enabled.
 - Confirm an ordinary known F&B question answers from sources.
 - Confirm refund, complaint, and booking mutation requests escalate.
+
+## Worker Runbook
+
+- Start one worker process per environment with the same `DATABASE_URL`, `PRONTO_SECRETS_KEY`, channel/provider env, and `PRONTO_ENFORCE_TENANT_SQL=1` as the web runner.
+- Safe restart: SIGTERM, wait for `worker.stopped`, then start the replacement.
+- Alert on repeated `outbox.flush_failed`, rising `outbound_messages.attempt_count`, or nonzero `error_events` from `source='outbound'`.
+- Manual retry: run `pnpm outbox:retry` after fixing credentials or provider outage.
+- Do not delete failed outbox rows during incident response; they preserve idempotency and retry state.
+
+## Tenant Isolation
+
+Prerelease deployment uses app-level RBAC plus the runtime tenant SQL gate. DB-enforced RLS is not enabled yet because the app and migrations currently share the owning DB role; adding RLS needs a dedicated non-owner runtime role and per-request `app.current_client_id`/role session context before policies provide real isolation.

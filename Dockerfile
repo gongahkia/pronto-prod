@@ -17,6 +17,14 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
 
+FROM node:20-bookworm-slim AS prod-deps
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+WORKDIR /app
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --prod --frozen-lockfile
+
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -34,8 +42,14 @@ USER nextjs
 EXPOSE 3000
 CMD ["node", "server.js"]
 
-FROM deps AS worker
+FROM node:20-bookworm-slim AS worker
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
 ENV NODE_ENV=production
 WORKDIR /app
-COPY . .
+RUN corepack enable
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
+COPY scripts ./scripts
+COPY src ./src
 CMD ["pnpm", "worker"]
