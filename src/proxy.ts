@@ -87,7 +87,10 @@ function buildContentSecurityPolicy(nonce: string): string {
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
-    "upgrade-insecure-requests",
+    // `upgrade-insecure-requests` forces form POSTs to https, which breaks the
+    // plain-HTTP local dev server (every form submission is blocked). Only emit
+    // it in production, where the app is served over HTTPS.
+    ...(isDevelopment ? [] : ["upgrade-insecure-requests"]),
   ];
 
   return directives.join("; ");
