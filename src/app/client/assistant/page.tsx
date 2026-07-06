@@ -6,7 +6,6 @@ import { getTriageFlowForClient } from "@/lib/triage-flow-store";
 import type { TriageFlowNode } from "@/lib/triage-flow";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
-import { PilotConsole } from "@/components/pilot-console";
 import { StatCard } from "@/components/stat-card";
 
 export default async function ClientAssistantPage() {
@@ -118,9 +117,7 @@ export default async function ClientAssistantPage() {
         </section>
       </section>
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-[1fr_0.8fr]">
-        <PilotConsole clientId={client.id} />
-
+      <section className="mt-6">
         <section className="ui-panel">
           <div className="ui-panel-header">
             <div>

@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { getOpenEscalations } from "@/lib/dashboard";
-import { listClientStaff } from "@/lib/escalations-bulk";
 import { AppShell } from "@/components/shell";
 import { BulkEscalationList } from "@/components/bulk-escalation-list";
 import {
@@ -21,10 +20,11 @@ export default async function ClientEscalationsPage({
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const page = pageFromSearchParams(resolvedSearchParams);
   const limit = 20;
-  const [escalations, staff] = await Promise.all([
-    getOpenEscalations({ clientId: user.clientId, limit: limit + 1, offset: (page - 1) * limit }),
-    listClientStaff(user.clientId),
-  ]);
+  const escalations = await getOpenEscalations({
+    clientId: user.clientId,
+    limit: limit + 1,
+    offset: (page - 1) * limit,
+  });
   const hasNext = escalations.length > limit;
   const visibleEscalations = escalations.slice(0, limit);
 
@@ -33,8 +33,7 @@ export default async function ClientEscalationsPage({
       <div className="mb-5">
         <h1 className="text-xl font-semibold">Escalations</h1>
         <p className="text-sm text-muted">
-          Open items that need a human reply. Multi-select to claim, assign, or
-          resolve.
+          Open items that need a human reply.
         </p>
       </div>
 
@@ -46,8 +45,7 @@ export default async function ClientEscalationsPage({
           <BulkEscalationList
             clientId={user.clientId}
             escalations={visibleEscalations}
-            staff={staff}
-            allowAssign={staff.length > 1}
+            simple
             hrefForConversation={(_, conversationId) =>
               `/client/conversations/${conversationId}`
             }

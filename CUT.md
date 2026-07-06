@@ -76,7 +76,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 ## Execution Order Overview
 
 1. Prep branch (done above)
-6. Delete cut components
 7. Delete cut scripts + related package.json entries
 8. Remove xyflow dep + remove cut env vars from `.env.example`
 9. Add `db/migrations/028_drop_deprecated.sql`
@@ -86,99 +85,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 13. Full verification pass
 
 Commit after each numbered step so partial progress is preserved. Suggested commit prefixes: `chore(cut): step-<n> <short desc>`.
-
----
-## STEP 5 — Delete Cut Components
-
-Delete files:
-```
-src/components/assistant-dock.tsx
-src/components/assistant-dock-loader.tsx
-src/components/assistant-dock-parts.tsx
-src/components/pilot-console.tsx
-src/components/provider-test-console.tsx
-src/components/triage-flow-editor.tsx
-src/components/triage-flow-editor-loader.tsx
-```
-
-Edit `src/components/agent-config-panels.tsx`:
-- Remove any UI controls related to provider failover, secondary provider selection, or free-provider toggles.
-- Keep model/prompt/threshold fields.
-
-Edit `src/components/integrations-panel.tsx`:
-- If it references LLM providers, remove those. Keep it scoped to non-LLM integrations (Shopify/GCal/Calendly/WooCommerce/Delivery/Inventory).
-
-Edit `src/components/local-release-panels.tsx`:
-- Remove the "Commercial" panel (relies on `client_commercial_assumptions`).
-- Remove the "Pilot Readiness" panel (relies on `client_launch_milestones`).
-- Keep Brand Voice + Readiness gates panels only if they don't depend on cut tables.
-
-Edit `src/components/shell.tsx`:
-- Remove any dynamic import of `AssistantDockLoader` / `AssistantDock`.
-- Remove any conditional rendering for the assistant dock.
-
-Edit `src/components/bulk-escalation-list.tsx`:
-- Retain multi-select for operators (used at `/operator`).
-- If used on the client side (`src/app/client/escalations/`), swap to a simpler single-action list. Or duplicate into a lightweight client-side component. Recommendation: keep the component but pass a `simple` prop that disables bulk actions when rendered from `/client/escalations`.
-
-### 5a. Replace flow editor with a plain textarea
-
-Create a lightweight edit UI (both operator and client) that submits raw JSON to the existing API routes.
-
-Add file `src/components/triage-flow-json-editor.tsx`:
-```tsx
-"use client";
-
-import { useState, useTransition } from "react";
-
-type Props = {
-  initialValue: string;                       // JSON string of {nodes, edges}
-  saveAction: (value: string) => Promise<void>;
-  readOnly?: boolean;
-};
-
-export function TriageFlowJsonEditor({ initialValue, saveAction, readOnly }: Props) {
-  const [value, setValue] = useState(initialValue);
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  async function onSave() {
-    try {
-      JSON.parse(value);                      // validate before submit
-    } catch (e) {
-      setError("Invalid JSON");
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      await saveAction(value);
-    });
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <textarea
-        className="ui-input font-mono text-sm min-h-[400px]"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        readOnly={readOnly}
-      />
-      {error ? <p className="text-red-600 text-sm">{error}</p> : null}
-      {!readOnly ? (
-        <button className="ui-primary-button self-start" onClick={onSave} disabled={pending}>
-          {pending ? "Saving..." : "Save"}
-        </button>
-      ) : null}
-    </div>
-  );
-}
-```
-
-Use this component in whatever new page you create for operators to edit flows (see Step 6c).
-
-Commit: `chore(cut): step-5 remove deprecated components + add json flow editor`
-
----
 
 ## STEP 6 — Replace Removed Pages With Minimal Fallbacks (where needed)
 

@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AssistantDockLoader } from "@/components/assistant-dock-loader";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { MockAiBanner } from "@/components/mock-ai-banner";
 import { OperatorSidebarActions } from "@/components/operator-sidebar-actions";
@@ -137,7 +136,6 @@ export function AppShell({
           <main id="main-content" className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
             {children}
           </main>
-          <AssistantDockLoader />
         </div>
       </div>
     </>

@@ -9,9 +9,10 @@ import { RelativeTime } from "@/components/relative-time";
 export type BulkEscalationListProps = {
   clientId: string;
   escalations: EscalationWithContext[];
-  staff: { id: string; name: string; email: string }[];
+  staff?: { id: string; name: string; email: string }[];
   hrefForConversation: (escalationId: string, conversationId: string) => string;
-  allowAssign: boolean;
+  allowAssign?: boolean;
+  simple?: boolean;
 };
 
 type ActionState =
@@ -22,18 +23,20 @@ type ActionState =
 
 export function BulkEscalationList(props: BulkEscalationListProps) {
   const router = useRouter();
+  const staff = props.staff ?? [];
+  const simple = props.simple ?? false;
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [assigneeUserId, setAssigneeUserId] = useState<string>(props.staff[0]?.id ?? "");
+  const [assigneeUserId, setAssigneeUserId] = useState<string>(staff[0]?.id ?? "");
   const [resolutionNote, setResolutionNote] = useState<string>("");
   const [state, setState] = useState<ActionState>({ kind: "idle" });
   const [isPending, startTransition] = useTransition();
 
   const allIds = useMemo(
-    () => props.escalations.map((escalation) => escalation.id),
-    [props.escalations],
+    () => simple ? [] : props.escalations.map((escalation) => escalation.id),
+    [props.escalations, simple],
   );
 
-  const allSelected = allIds.length > 0 && selected.size === allIds.length;
+  const allSelected = !simple && allIds.length > 0 && selected.size === allIds.length;
 
   function toggle(id: string) {
     setSelected((current) => {
@@ -102,84 +105,86 @@ export function BulkEscalationList(props: BulkEscalationListProps) {
 
   return (
     <div className="space-y-4">
-      <fieldset className="flex flex-wrap items-center gap-3 rounded border border-line bg-surface p-3 text-sm">
-        <legend className="px-1 text-xs font-semibold text-muted">
-          Bulk escalation selection
-        </legend>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            onChange={toggleAll}
-            aria-label="Select all"
-          />
-          <span>{selected.size} selected of {allIds.length}</span>
-        </label>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="ui-button px-3 py-1"
-            disabled={!selected.size || isPending || state.kind === "running"}
-            onClick={() => runBulk("bulk_claim")}
-          >
-            Claim
-          </button>
-          {props.allowAssign && (
-            <>
-              <select
-                className="ui-input px-2 py-1"
-                value={assigneeUserId}
-                onChange={(event) => setAssigneeUserId(event.target.value)}
-                disabled={!props.staff.length || isPending}
-              >
-                {props.staff.length === 0 && <option value="">No staff users</option>}
-                {props.staff.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name} ({user.email})
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="ui-button px-3 py-1"
-                disabled={
-                  !selected.size ||
-                  isPending ||
-                  !assigneeUserId ||
-                  state.kind === "running"
-                }
-                onClick={() => runBulk("bulk_assign")}
-              >
-                Assign
-              </button>
-            </>
+      {!simple ? (
+        <fieldset className="flex flex-wrap items-center gap-3 rounded border border-line bg-surface p-3 text-sm">
+          <legend className="px-1 text-xs font-semibold text-muted">
+            Bulk escalation selection
+          </legend>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAll}
+              aria-label="Select all"
+            />
+            <span>{selected.size} selected of {allIds.length}</span>
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="ui-button px-3 py-1"
+              disabled={!selected.size || isPending || state.kind === "running"}
+              onClick={() => runBulk("bulk_claim")}
+            >
+              Claim
+            </button>
+            {props.allowAssign && (
+              <>
+                <select
+                  className="ui-input px-2 py-1"
+                  value={assigneeUserId}
+                  onChange={(event) => setAssigneeUserId(event.target.value)}
+                  disabled={!staff.length || isPending}
+                >
+                  {staff.length === 0 && <option value="">No staff users</option>}
+                  {staff.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} ({user.email})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="ui-button px-3 py-1"
+                  disabled={
+                    !selected.size ||
+                    isPending ||
+                    !assigneeUserId ||
+                    state.kind === "running"
+                  }
+                  onClick={() => runBulk("bulk_assign")}
+                >
+                  Assign
+                </button>
+              </>
+            )}
+            <input
+              type="text"
+              className="ui-input px-2 py-1"
+              placeholder="Optional resolution note"
+              value={resolutionNote}
+              onChange={(event) => setResolutionNote(event.target.value)}
+            />
+            <button
+              type="button"
+              className="ui-danger-button px-3 py-1"
+              disabled={!selected.size || isPending || state.kind === "running"}
+              onClick={() => runBulk("bulk_resolve")}
+            >
+              Resolve
+            </button>
+          </div>
+          {state.kind === "success" && (
+            <p className="text-xs text-success">{state.message}</p>
           )}
-          <input
-            type="text"
-            className="ui-input px-2 py-1"
-            placeholder="Optional resolution note"
-            value={resolutionNote}
-            onChange={(event) => setResolutionNote(event.target.value)}
-          />
-          <button
-            type="button"
-            className="ui-danger-button px-3 py-1"
-            disabled={!selected.size || isPending || state.kind === "running"}
-            onClick={() => runBulk("bulk_resolve")}
-          >
-            Resolve
-          </button>
-        </div>
-        {state.kind === "success" && (
-          <p className="text-xs text-success">{state.message}</p>
-        )}
-        {state.kind === "error" && (
-          <p className="text-xs text-danger">{state.message}</p>
-        )}
-        {state.kind === "running" && (
-          <p className="text-xs text-muted">Running {state.action}…</p>
-        )}
-      </fieldset>
+          {state.kind === "error" && (
+            <p className="text-xs text-danger">{state.message}</p>
+          )}
+          {state.kind === "running" && (
+            <p className="text-xs text-muted">Running {state.action}...</p>
+          )}
+        </fieldset>
+      ) : null}
 
       <ul className="divide-y divide-line rounded border border-line">
         {props.escalations.length === 0 && (
@@ -189,13 +194,15 @@ export function BulkEscalationList(props: BulkEscalationListProps) {
         )}
         {props.escalations.map((escalation) => (
           <li key={escalation.id} className="flex items-start gap-3 px-4 py-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={selected.has(escalation.id)}
-              onChange={() => toggle(escalation.id)}
-              aria-label={`Select escalation ${escalation.id}`}
-            />
+            {!simple ? (
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={selected.has(escalation.id)}
+                onChange={() => toggle(escalation.id)}
+                aria-label={`Select escalation ${escalation.id}`}
+              />
+            ) : null}
             <div className="flex-1">
               <div className="flex flex-wrap items-baseline gap-3">
                 <Link
