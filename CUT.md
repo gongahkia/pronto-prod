@@ -81,34 +81,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 
 Commit after each numbered step so partial progress is preserved. Suggested commit prefixes: `chore(cut): step-<n> <short desc>`.
 
-## STEP 12 — Simplify `src/lib/dashboard.ts` and `src/lib/reporting.ts`
-
-These files aggregate metrics for the operator and client dashboards. After the cuts they will reference dropped tables/features.
-
-Grep for references to dropped tables and features and remove them:
-
-```bash
-grep -n "reviews\|risk_monitor\|assistant_threads\|assistant_messages\|assistant_action_proposals\|client_launch_milestones\|client_commercial_assumptions\|rate_limit_buckets\|webhook_replay_events\|llm_provider_credentials\|answer_label\|hallucination\|quality_blocker" src/lib/dashboard.ts src/lib/reporting.ts src/lib/pilot-metrics.ts
-```
-
-For each hit:
-- If it's a SELECT/JOIN against a dropped table → remove the column, join, and any UI consumer.
-- If it's a synthetic metric relying on removed data → drop the metric.
-
-Downstream: pages that display those metrics (e.g. `src/app/operator/page.tsx`, `src/app/client/page.tsx`, `src/app/operator/clients/[clientId]/page.tsx`) must have the corresponding stat cards removed.
-
-Grep the client and operator page.tsx files:
-
-```bash
-grep -n "hallucination\|quality\|failed_sends\|sla_breach\|reviews" src/app/operator/**/*.tsx src/app/client/**/*.tsx
-```
-
-For each hit, remove the stat card / list / filter.
-
-Commit: `chore(cut): step-12 remove references to dropped metrics`
-
----
-
 ## STEP 13 — Update `docker-compose.yml` and `Dockerfile`
 
 No changes required. Keep both files as-is. The worker still runs `pnpm worker` (outbox), and the runner still serves Next.js standalone.
