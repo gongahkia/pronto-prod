@@ -1,18 +1,20 @@
 import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { appBaseUrl } from "@/lib/env";
-import { channelDefinition } from "@/lib/channels/catalog";
+import { channelDefinition, channelDefinitions } from "@/lib/channels/catalog";
 import {
   getEscalationHoldingReply,
   settingsWithoutEscalationHoldingReply,
 } from "@/lib/channels/escalation-handoff";
 import type {
-  ConversationWithLastMessage,
+  ClientConversationTriage,
   EscalationWithContext,
   KnowledgeSourceSummary,
 } from "@/lib/dashboard";
 import type { Channel, ChannelKind, Client, Message } from "@/lib/types";
 import { Badge } from "@/components/badge";
+import { ChannelConversationThread } from "@/components/channel-conversation-thread";
 import { DeliveryStatusBadge } from "@/components/delivery-status";
 import { EscalationOutboundStatus } from "@/components/escalation-outbound-status";
 import { KnowledgeFileInput } from "@/components/knowledge-file-input";
@@ -114,31 +116,86 @@ export function OperatorEscalationList({
 export function OperatorChannelSetup({
   clientId,
   channels,
+  activeChannelKind,
 }: {
   clientId: string;
   channels: Channel[];
+  activeChannelKind?: ChannelKind;
 }) {
+  const channelByKind = new Map(channels.map((channel) => [channel.kind, channel]));
+  const activeKind =
+    activeChannelKind ??
+    channelDefinitions.find((definition) => channelByKind.has(definition.kind))?.kind ??
+    channelDefinitions[0].kind;
+  const activeDefinition = channelDefinition(activeKind);
+  const activeChannels = channels.filter((channel) => channel.kind === activeKind);
+
   return (
     <div className="ui-panel">
       <div className="ui-panel-header">
         <h2 className="text-base font-semibold">Channel setup</h2>
       </div>
-      <div className="divide-y divide-line">
+      <div className="border-b border-line p-3">
+        <nav aria-label="Channel setup" className="flex gap-2 overflow-x-auto">
+          {channelDefinitions.map((definition) => {
+            const channel = channelByKind.get(definition.kind);
+            const isActive = definition.kind === activeKind;
+            return (
+              <Link
+                key={definition.kind}
+                href={`/operator/clients/${clientId}/channels?channel=${definition.kind}`}
+                aria-current={isActive ? "page" : undefined}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium ${
+                  isActive
+                    ? "border-accent bg-accent-soft text-foreground"
+                    : "border-line bg-panel text-muted hover:bg-surface-hover hover:text-foreground"
+                }`}
+              >
+                <Image
+                  src={definition.iconPath}
+                  alt=""
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 shrink-0"
+                />
+                <span>{definition.label}</span>
+                <Badge tone={channel?.status === "active" ? "green" : "amber"}>
+                  {channel?.status ?? "missing"}
+                </Badge>
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+      <div>
         {channels.length === 0 ? (
           <p className="p-4 text-sm text-muted">No channels have been created for this client.</p>
+        ) : activeChannels.length === 0 ? (
+          <p className="p-4 text-sm text-muted">
+            No {activeDefinition.label} channel has been created for this client.
+          </p>
         ) : (
-          channels.map((channel) => (
+          activeChannels.map((channel) => (
             <form key={channel.id} action="/api/operator/channels" method="post" className="space-y-3 p-4">
               <input type="hidden" name="clientId" value={clientId} />
               <input type="hidden" name="channelId" value={channel.id} />
-              <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}/channels`} />
+              <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}/channels?channel=${channel.kind}`} />
               <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="font-medium">{channel.name}</p>
-                  <p className="text-sm text-muted">
-                    {channel.kind}
-                    {channel.last_health_status ? ` · health ${channel.last_health_status}` : ""}
-                  </p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <Image
+                    src={channelDefinition(channel.kind).iconPath}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <p className="font-medium">{channel.name}</p>
+                    <p className="text-sm text-muted">
+                      {channel.kind}
+                      {channel.last_health_status ? ` · health ${channel.last_health_status}` : ""}
+                    </p>
+                  </div>
                 </div>
                 <Badge tone={channel.status === "active" ? "green" : "amber"}>{channel.status}</Badge>
               </div>
@@ -206,7 +263,7 @@ export function OperatorChannelSetup({
           <form key={`health-${channel.id}`} id={`health-${channel.id}`} action="/api/operator/channel-health" method="post">
             <input type="hidden" name="clientId" value={clientId} />
             <input type="hidden" name="channelId" value={channel.id} />
-            <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}/channels`} />
+            <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}/channels?channel=${channel.kind}`} />
           </form>
         ))}
       </div>
@@ -492,7 +549,7 @@ export function OperatorConversationReview({
   conversation,
   messages,
 }: {
-  conversation: ConversationWithLastMessage | null;
+  conversation: ClientConversationTriage | null;
   messages: Message[];
 }) {
   if (!conversation) {
@@ -512,18 +569,7 @@ export function OperatorConversationReview({
         <h2 className="text-base font-semibold">Conversation review</h2>
       </div>
       <div className="p-4">
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <p className="font-medium">{conversation.customer_name ?? conversation.customer_handle}</p>
-          <Badge tone={conversation.status === "escalated" ? "red" : "green"}>{conversation.status}</Badge>
-        </div>
-        <div className="space-y-3">
-          {messages.map((message) => (
-            <div key={message.id} className="rounded-md bg-surface p-3 text-sm">
-              <p className="mb-1 font-medium">{message.sender_role}</p>
-              <p className="text-muted">{message.body}</p>
-            </div>
-          ))}
-        </div>
+        <ChannelConversationThread conversation={conversation} messages={messages} />
       </div>
     </div>
   );

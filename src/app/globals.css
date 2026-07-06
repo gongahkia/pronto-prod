@@ -197,6 +197,10 @@ body {
   line-height: 20px;
 }
 
+body[data-operator-modal-open="true"] #main-content {
+  visibility: hidden;
+}
+
 button,
 input,
 textarea,

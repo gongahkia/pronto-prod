@@ -30,6 +30,14 @@ export function OperatorSidebarActions() {
   }, []);
 
   useEffect(() => {
+    if (!mode) return;
+    document.body.dataset.operatorModalOpen = "true";
+    return () => {
+      delete document.body.dataset.operatorModalOpen;
+    };
+  }, [mode]);
+
+  useEffect(() => {
     if (mode === "search") {
       searchInputRef.current?.focus();
     }
@@ -78,12 +86,12 @@ export function OperatorSidebarActions() {
 
       {mode ? (
         <div
-          className="fixed inset-0 z-40 bg-black/20"
+          className="fixed inset-0 z-[100] bg-black/30 backdrop-blur-[1px]"
           role="presentation"
           onMouseDown={() => setMode(null)}
         >
           <section
-            className="absolute left-4 top-16 w-[min(31rem,calc(100vw-2rem))] rounded-lg border border-line bg-panel text-foreground lg:left-[19.25rem]"
+            className="absolute left-4 top-16 z-[101] isolate w-[min(31rem,calc(100vw-2rem))] rounded-lg border border-line bg-panel text-foreground shadow-xl lg:left-[19.25rem]"
             role="dialog"
             aria-modal="true"
             aria-label={mode === "search" ? "Search operator workspace" : "Create client"}
@@ -104,7 +112,7 @@ export function OperatorSidebarActions() {
             </div>
 
             {mode === "search" ? (
-              <form onSubmit={submitSearch} className="space-y-3 p-4">
+              <form onSubmit={submitSearch} className="space-y-3 p-4" autoComplete="off">
                 <div className="flex gap-2">
                   <input
                     ref={searchInputRef}
@@ -135,7 +143,7 @@ export function OperatorSidebarActions() {
                 </div>
               </form>
             ) : (
-              <form action="/api/operator/clients" method="post" className="space-y-4 p-4">
+              <form action="/api/operator/clients" method="post" className="space-y-4 p-4" autoComplete="off">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1 text-sm sm:col-span-2">
                     <span className="font-medium">Client name</span>
@@ -203,7 +211,7 @@ export function OperatorSidebarActions() {
                   <span className="font-medium">Brand voice</span>
                   <textarea
                     name="brandVoice"
-                    className="min-h-24 rounded-md border border-line bg-input px-3 py-2 outline-none focus:border-accent"
+                    className="relative z-10 min-h-24 rounded-md border border-line bg-input px-3 py-2 outline-none focus:border-accent"
                     placeholder="Clear, practical, professional, and source-grounded."
                   />
                 </label>
