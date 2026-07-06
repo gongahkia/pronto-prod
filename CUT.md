@@ -76,7 +76,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 ## Execution Order Overview
 
 1. Prep branch (done above)
-7. Delete cut scripts + related package.json entries
 8. Remove xyflow dep + remove cut env vars from `.env.example`
 9. Add `db/migrations/028_drop_deprecated.sql`
 10. Update `scripts/seed.ts` (no console channel, no cut tables)
@@ -85,82 +84,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 13. Full verification pass
 
 Commit after each numbered step so partial progress is preserved. Suggested commit prefixes: `chore(cut): step-<n> <short desc>`.
-
-## STEP 7 — Delete Cut Scripts + Update package.json
-
-Delete files:
-```
-scripts/assistant-eval.ts
-scripts/monthly-report.ts
-scripts/retention-prune.ts
-scripts/risk-monitor-pricing.ts
-scripts/risk-monitor-policy.ts
-```
-
-Edit `scripts/staging-preflight.ts`:
-- Remove any preflight assertions for cut env vars (AZURE_*, PRONTO_GROQ_API_KEY, etc.).
-- Remove any table-existence checks for dropped tables (`risk_monitor_*`, `reviews`, `assistant_*`, `rate_limit_buckets`, `webhook_replay_events`, `llm_provider_credentials`, `client_launch_milestones`, `client_commercial_assumptions`).
-
-Edit `package.json`:
-
-Remove scripts:
-- `assistant:eval`
-- `risk:monitor:pricing`
-- `risk:monitor:policy`
-- `monthly:report`
-- `retention:prune`
-
-Remove dependency:
-- `@xyflow/react`
-
-Diff (target `package.json`):
-```json
-{
-  "scripts": {
-    "dev": "next dev --hostname 127.0.0.1 --port 3000",
-    "build": "next build",
-    "start": "next start --hostname 127.0.0.1 --port 3000",
-    "lint": "eslint",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "migrate": "tsx scripts/migrate.ts",
-    "seed": "tsx scripts/seed.ts",
-    "eval": "tsx scripts/eval.ts",
-    "staging:preflight": "tsx scripts/staging-preflight.ts",
-    "preflight:ci": "PRONTO_PREFLIGHT_PROFILE=ci tsx scripts/staging-preflight.ts",
-    "channels:encrypt-credentials": "tsx scripts/encrypt-channel-credentials.ts",
-    "worker": "tsx scripts/worker.ts",
-    "outbox:retry": "tsx scripts/retry-outbox.ts"
-  },
-  "dependencies": {
-    "lucide-react": "^1.16.0",
-    "mammoth": "^1.12.0",
-    "next": "16.2.9",
-    "openai": "^6.38.0",
-    "pdf-parse": "^2.4.5",
-    "pg": "^8.20.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "server-only": "^0.0.1",
-    "tsx": "^4.22.4",
-    "zod": "^4.4.3"
-  }
-}
-```
-
-(Leave `devDependencies` untouched.)
-
-Then run:
-```bash
-pnpm install
-```
-
-Commit: `chore(cut): step-7 remove deprecated scripts + xyflow dep`
-
----
 
 ## STEP 8 — Clean .env.example
 
