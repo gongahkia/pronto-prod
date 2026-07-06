@@ -3,10 +3,7 @@ import {
   getProviderReadiness,
   type ReadinessTone,
 } from "@/lib/agent/readiness";
-import { credentialEncryptionConfigured } from "@/lib/llm/credentials";
-import { FREE_LLM_PROVIDERS, selectableFreeProviders } from "@/lib/llm/free-providers";
 import { Badge } from "@/components/badge";
-import { ProviderTestConsole } from "@/components/provider-test-console";
 
 export function OperatorAgentConfigPanel({
   clientId,
@@ -53,14 +50,7 @@ export function OperatorAgentConfigPanel({
             >
               <option value="mock">Mock local</option>
               <option value="openai">OpenAI</option>
-              <option value="azure">Azure OpenAI</option>
               <option value="anthropic">Anthropic</option>
-              {selectableFreeProviders().map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.priority === "no-key" ? "No-key: " : "Free: "}
-                  {provider.name}
-                </option>
-              ))}
             </select>
           </label>
           <label className="block space-y-2 text-sm font-medium">
@@ -81,7 +71,6 @@ export function OperatorAgentConfigPanel({
             >
               <option value="mock">Mock local</option>
               <option value="openai">OpenAI</option>
-              <option value="azure">Azure OpenAI</option>
             </select>
           </label>
           <label className="block space-y-2 text-sm font-medium">
@@ -96,35 +85,8 @@ export function OperatorAgentConfigPanel({
         <datalist id="response-model-options">
           <option value="mock" />
           <option value="gpt-5.5" />
-          {process.env.AZURE_OPENAI_RESPONSE_MODEL ? (
-            <option value={process.env.AZURE_OPENAI_RESPONSE_MODEL}>Azure response deployment</option>
-          ) : null}
           <option value="claude-sonnet-4-5" />
-          {FREE_LLM_PROVIDERS.flatMap((provider) =>
-            provider.models.map((model) => (
-              <option key={`${provider.id}-${model}`} value={model}>
-                {provider.name}
-              </option>
-            )),
-          )}
         </datalist>
-        <label className="block space-y-2 text-sm font-medium">
-          <span>Provider API key</span>
-          <input
-            name="providerApiKey"
-            type="password"
-            autoComplete="off"
-            className="w-full rounded-md border border-line px-3 py-2 text-sm font-normal"
-            placeholder={
-              credentialEncryptionConfigured()
-                ? "Optional: paste a new key for the selected response provider"
-                : "Set PRONTO_SECRETS_KEY before saving DB credentials"
-            }
-          />
-          <span className="block text-xs font-normal text-muted">
-            {credentialStatusLabel(detail)}
-          </span>
-        </label>
         <label className="block space-y-2 text-sm font-medium">
           <span>Retrieval threshold</span>
           <input
@@ -169,11 +131,6 @@ export function OperatorAgentConfigPanel({
         </button>
       </form>
       <ProviderReadinessPanel detail={detail} />
-      <ProviderTestConsole
-        initialProvider={detail.config.response_provider}
-        initialModel={detail.config.response_model}
-      />
-      <ProviderCatalog />
       <PromptPreview detail={detail} />
       <AgentConfigChangeHistory detail={detail} />
     </section>
@@ -242,85 +199,6 @@ export function ClientAgentConfigPreview({
       <PromptPreview detail={detail} />
     </section>
   );
-}
-
-function ProviderCatalog() {
-  return (
-    <div className="border-t border-line p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold">Free provider catalog</h3>
-          <p className="text-xs text-muted">
-            Sourced from mnfst/awesome-free-llm-apis. OpenAI-compatible providers are selectable now.
-          </p>
-        </div>
-        <Badge tone="green">
-          {selectableFreeProviders().length}/{FREE_LLM_PROVIDERS.length} wired
-        </Badge>
-      </div>
-      <div className="max-h-72 overflow-auto rounded-md border border-line">
-        <table className="w-full min-w-[42rem] text-left text-xs">
-          <thead className="bg-surface text-muted">
-            <tr>
-              <th className="px-3 py-2 font-medium">Provider</th>
-              <th className="px-3 py-2 font-medium">Default model</th>
-              <th className="px-3 py-2 font-medium">Access</th>
-              <th className="px-3 py-2 font-medium">Runtime</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {FREE_LLM_PROVIDERS.map((provider) => (
-              <tr key={provider.id}>
-                <td className="px-3 py-2">
-                  <a
-                    className="font-medium text-foreground hover:underline"
-                    href={provider.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {provider.name}
-                  </a>
-                  <p className="mt-1 text-muted">{provider.description}</p>
-                </td>
-                <td className="px-3 py-2 font-mono text-[11px] text-muted">
-                  {provider.defaultModel}
-                </td>
-                <td className="px-3 py-2">
-                  {provider.requiresApiKey ? (
-                    <Badge tone="amber">API key</Badge>
-                  ) : (
-                    <Badge tone="green">No key</Badge>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  {provider.openAiCompatible ? (
-                    <Badge tone="green">selectable</Badge>
-                  ) : (
-                    <Badge>catalog only</Badge>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function credentialStatusLabel(detail: AgentConfigDetail): string {
-  const responseProvider = detail.config.response_provider;
-  const status = detail.providerCredentialStatuses.find(
-    (credential) => credential.provider === responseProvider,
-  );
-  if (status) {
-    return `Saved credential for ${responseProvider} will be reused. Entering a key replaces it.`;
-  }
-  const provider = FREE_LLM_PROVIDERS.find((candidate) => candidate.id === responseProvider);
-  if (provider && !provider.requiresApiKey) {
-    return `${provider.name} can be tested without a saved key.`;
-  }
-  return "Leave blank to reuse env vars or existing saved credentials.";
 }
 
 function badgeTone(tone: ReadinessTone): "green" | "amber" | "red" {

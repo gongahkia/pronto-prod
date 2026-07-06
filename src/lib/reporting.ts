@@ -8,7 +8,6 @@ export type ConversationFilterInput = {
   channelKind?: string;
   status?: string;
   reasonCode?: string;
-  reviewLabel?: string;
   from?: string;
   to?: string;
   limit?: number;
@@ -30,7 +29,6 @@ export type FilteredConversation = {
   active_escalation_id: string | null;
   active_escalation_status: EscalationStatus | null;
   active_escalation_reason_code: string | null;
-  latest_review_label: string | null;
 };
 
 export type ClientDashboardAnalytics = {
@@ -54,7 +52,6 @@ export type KnowledgeGapRow = {
   last_message_at: Date;
   gap_source: string;
   reason_code: string | null;
-  review_label: string | null;
   last_message: string | null;
 };
 
@@ -78,7 +75,7 @@ export type OperationalAlert = {
 export type OperatorActionQueueItem = {
   id: string;
   severity: "critical" | "warning";
-  kind: "sla" | "outbound" | "channel" | "knowledge" | "quality" | "assistant";
+  kind: "sla" | "outbound" | "channel" | "knowledge" | "assistant";
   title: string;
   detail: string;
   clientId: string;
@@ -109,7 +106,6 @@ export type OperatorCommandCenter = {
   failedSends: number;
   degradedClients: number;
   launchBlockers: number;
-  qualityBlockers: number;
   actionQueue: OperatorActionQueueItem[];
   clientHealth: OperatorClientHealth[];
 };
@@ -151,8 +147,7 @@ export async function getFilteredConversations(
         lm.sender_role as last_sender_role,
         ae.id as active_escalation_id,
         ae.status as active_escalation_status,
-        ae.reason_code as active_escalation_reason_code,
-        lr.answer_label as latest_review_label
+        ae.reason_code as active_escalation_reason_code
       from conversations c
       join clients cl on cl.id = c.client_id
       join channels ch on ch.id = c.channel_id
@@ -179,13 +174,6 @@ export async function getFilteredConversations(
         order by e.created_at desc
         limit 1
       ) ae on true
-      left join lateral (
-        select answer_label
-        from reviews
-        where conversation_id = c.id
-        order by created_at desc
-        limit 1
-      ) lr on true
       ${filters.where.length ? `where ${filters.where.join(" and ")}` : ""}
       order by c.last_message_at desc
       limit $${filters.values.length + 1}
@@ -297,31 +285,17 @@ export async function getKnowledgeGapReport(input: {
           c.customer_handle,
           ch.kind as channel_kind,
           c.last_message_at,
-          case
-            when r.knowledge_update_needed = true
-              or r.answer_label = 'needs_knowledge_update'
-              then 'review'
-            when e.reason_code in ('low_retrieval_confidence', 'out_of_scope')
-              then 'escalation'
-            else 'unknown'
-          end as gap_source,
+          'escalation' as gap_source,
           e.reason_code,
-          r.answer_label as review_label,
           lm.body as last_message
         from conversations c
         join clients cl on cl.id = c.client_id
         join channels ch on ch.id = c.channel_id
-        left join lateral (
-          select answer_label, knowledge_update_needed
-          from reviews
-          where conversation_id = c.id
-          order by created_at desc
-          limit 1
-        ) r on true
-        left join lateral (
+        join lateral (
           select reason_code
           from escalations
           where conversation_id = c.id
+            and reason_code in ('low_retrieval_confidence', 'out_of_scope')
           order by created_at desc
           limit 1
         ) e on true
@@ -332,11 +306,7 @@ export async function getKnowledgeGapReport(input: {
           order by created_at desc
           limit 1
         ) lm on true
-        where (
-          r.knowledge_update_needed = true
-          or r.answer_label = 'needs_knowledge_update'
-          or e.reason_code in ('low_retrieval_confidence', 'out_of_scope')
-        )
+        where true
         ${clientFilter}
       )
       select *
@@ -407,15 +377,11 @@ export async function getSlaSummary(clientId?: string): Promise<SlaSummary> {
   };
 }
 
-const USD_TO_SGD = 1.35;
-const COST_ALERT_WARNING_MARGIN_FRACTION = 0.3;
-const CLIENT_CONCENTRATION_WARNING_THRESHOLD = 0.3;
-
 export async function getOperationalAlerts(input: {
   clientId?: string;
   limit?: number;
 } = {}): Promise<OperationalAlert[]> {
-  const [failedOutbound, unhealthyChannels, staleRefreshes, blockers, costRows] =
+  const [failedOutbound, unhealthyChannels, staleRefreshes] =
     await Promise.all([
       query<{
         id: string;
@@ -485,63 +451,6 @@ export async function getOperationalAlerts(input: {
         `,
         input.clientId ? [input.clientId] : [],
       ),
-      query<{
-        id: string;
-        client_id: string;
-        client_name: string;
-        conversation_id: string;
-        answer_label: string | null;
-      }>(
-        `
-          select
-            r.id,
-            r.client_id,
-            cl.name as client_name,
-            r.conversation_id,
-            r.answer_label
-          from reviews r
-          join clients cl on cl.id = r.client_id
-          where (r.hallucination = true or r.pilot_blocker = true)
-            ${input.clientId ? "and r.client_id = $1" : ""}
-          order by r.created_at desc
-          limit 10
-        `,
-        input.clientId ? [input.clientId] : [],
-      ),
-      query<{
-        client_id: string;
-        client_name: string;
-        monthly_retainer_sgd: string;
-        setup_fee_sgd: string;
-        amortized_setup_months: number;
-        hosting_cost_sgd: string;
-        integration_cost_sgd: string;
-        llm_cost_buffer_multiplier: string;
-        monthly_llm_cost_usd: string;
-      }>(
-        `
-          select
-            cl.id as client_id,
-            cl.name as client_name,
-            cca.monthly_retainer_sgd::text,
-            cca.setup_fee_sgd::text,
-            cca.amortized_setup_months,
-            cca.hosting_cost_sgd::text,
-            cca.integration_cost_sgd::text,
-            cca.llm_cost_buffer_multiplier::text,
-            coalesce((
-              select sum(estimated_cost_usd)::text
-              from agent_usage_events
-              where client_id = cl.id
-                and created_at >= now() - interval '30 days'
-            ), '0') as monthly_llm_cost_usd
-          from clients cl
-          join client_commercial_assumptions cca on cca.client_id = cl.id
-          where cl.status <> 'paused'
-            ${input.clientId ? "and cl.id = $1" : ""}
-        `,
-        input.clientId ? [input.clientId] : [],
-      ),
     ]);
 
   const alerts: OperationalAlert[] = [
@@ -568,95 +477,9 @@ export async function getOperationalAlerts(input: {
       detail: `${row.client_name}: ${row.notes ?? "review client source material"}`,
       href: `/operator/clients/${row.client_id}/knowledge`,
     })),
-    ...blockers.rows.map((row) => ({
-      id: `review:${row.id}`,
-      severity: "critical" as const,
-      title: "Quality blocker logged",
-      detail: `${row.client_name}: ${row.answer_label ?? "hallucination or pilot blocker"}`,
-      href: conversationHref(row.client_id, row.conversation_id),
-    })),
-    ...costRows.rows
-      .map((row) => evaluateCostAlert(row))
-      .filter((alert): alert is OperationalAlert => alert !== null),
-    ...evaluateConcentrationAlerts(
-      input.clientId ? [] : costRows.rows,
-    ),
   ];
 
   return alerts.slice(0, normalizeLimit(input.limit, 12));
-}
-
-type CostAlertRow = {
-  client_id: string;
-  client_name: string;
-  monthly_retainer_sgd: string;
-  setup_fee_sgd: string;
-  amortized_setup_months: number;
-  hosting_cost_sgd: string;
-  integration_cost_sgd: string;
-  llm_cost_buffer_multiplier: string;
-  monthly_llm_cost_usd: string;
-};
-
-function evaluateConcentrationAlerts(
-  rows: CostAlertRow[],
-): OperationalAlert[] {
-  const retainers = rows.map((row) => ({
-    clientId: row.client_id,
-    clientName: row.client_name,
-    retainer: Number(row.monthly_retainer_sgd),
-  }));
-  const totalMrr = retainers.reduce(
-    (sum, row) => sum + (Number.isFinite(row.retainer) ? row.retainer : 0),
-    0,
-  );
-  if (totalMrr <= 0 || retainers.length < 2) return [];
-  return retainers
-    .filter(
-      (row) => row.retainer / totalMrr >= CLIENT_CONCENTRATION_WARNING_THRESHOLD,
-    )
-    .map((row) => {
-      const share = Math.round((row.retainer / totalMrr) * 100);
-      return {
-        id: `concentration:${row.clientId}`,
-        severity: share >= 50 ? ("critical" as const) : ("warning" as const),
-        title: "Client concentration risk",
-        detail: `${row.clientName} is ${share}% of MRR (threshold ${Math.round(CLIENT_CONCENTRATION_WARNING_THRESHOLD * 100)}%).`,
-        href: `/operator/clients/${row.clientId}?section=commercial`,
-      };
-    });
-}
-
-function evaluateCostAlert(row: CostAlertRow): OperationalAlert | null {
-  const retainer = Number(row.monthly_retainer_sgd);
-  if (!Number.isFinite(retainer) || retainer <= 0) return null;
-  const amortizedSetup =
-    Number(row.setup_fee_sgd) / Math.max(1, Number(row.amortized_setup_months));
-  const monthlyLlmCostSgd =
-    Number(row.monthly_llm_cost_usd) *
-    USD_TO_SGD *
-    Number(row.llm_cost_buffer_multiplier);
-  const margin =
-    retainer +
-    amortizedSetup -
-    Number(row.hosting_cost_sgd) -
-    Number(row.integration_cost_sgd) -
-    monthlyLlmCostSgd;
-
-  if (margin >= retainer * COST_ALERT_WARNING_MARGIN_FRACTION) return null;
-  const severity = margin < 0 ? ("critical" as const) : ("warning" as const);
-  const formattedMargin = `SGD ${Math.round(margin).toLocaleString("en-SG")}`;
-  const formattedLlm = `SGD ${Math.round(monthlyLlmCostSgd).toLocaleString("en-SG")}`;
-  return {
-    id: `cost:${row.client_id}`,
-    severity,
-    title:
-      severity === "critical"
-        ? "Per-client gross margin negative"
-        : "Per-client gross margin below floor",
-    detail: `${row.client_name}: estimated 30-day buffered LLM cost ${formattedLlm} pushes margin to ${formattedMargin}.`,
-    href: `/operator/clients/${row.client_id}?section=commercial`,
-  };
 }
 
 export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter> {
@@ -665,7 +488,6 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
     escalations,
     unhealthyChannels,
     overdueRefreshes,
-    qualityBlockers,
     assistantRequests,
     clientHealth,
     actionCounts,
@@ -786,29 +608,6 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
         id: string;
         client_id: string;
         client_name: string;
-        conversation_id: string;
-        answer_label: string | null;
-        created_at: Date;
-      }>(
-        `
-          select
-            r.id,
-            r.client_id,
-            cl.name as client_name,
-            r.conversation_id,
-            r.answer_label,
-            r.created_at
-          from reviews r
-          join clients cl on cl.id = r.client_id
-          where r.hallucination = true or r.pilot_blocker = true
-          order by r.created_at desc
-          limit 20
-        `,
-      ),
-      query<{
-        id: string;
-        client_id: string;
-        client_name: string;
         kind: string;
         body: string;
         created_at: Date;
@@ -897,7 +696,6 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
         actionable_escalations: string;
         unhealthy_channels: string;
         overdue_refreshes: string;
-        quality_blockers: string;
         assistant_requests: string;
       }>(
         `
@@ -927,11 +725,6 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
               where status = 'open'
                 and due_at < now()
             )::text as overdue_refreshes,
-            (
-              select count(*)
-              from reviews
-              where hallucination = true or pilot_blocker = true
-            )::text as quality_blockers,
             (
               select count(*)
               from client_assistant_change_requests
@@ -990,17 +783,6 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
       clientName: row.client_name,
       href: `/operator/clients/${row.client_id}/knowledge`,
       occurredAt: row.due_at,
-    })),
-    ...qualityBlockers.rows.map((row) => ({
-      id: `quality:${row.id}`,
-      severity: "critical" as const,
-      kind: "quality" as const,
-      title: "Quality blocker",
-      detail: row.answer_label ?? "Hallucination or pilot blocker",
-      clientId: row.client_id,
-      clientName: row.client_name,
-      href: conversationHref(row.client_id, row.conversation_id),
-      occurredAt: row.created_at,
     })),
     ...assistantRequests.rows.map((row) => ({
       id: `assistant:${row.id}`,
@@ -1063,7 +845,6 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
   const launchBlockerCount = health.filter(
     (row) => row.status !== "live" || row.activeChannels === 0 || row.knowledgeSources === 0,
   ).length;
-  const qualityBlockerCount = Number(counts.quality_blockers);
 
   return {
     needsActionNow:
@@ -1071,13 +852,11 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
       actionableEscalationCount +
       unhealthyChannelCount +
       overdueRefreshCount +
-      assistantRequestCount +
-      qualityBlockerCount,
+      assistantRequestCount,
     slaBreaches: slaBreachCount,
     failedSends: failedSendCount,
     degradedClients: degradedClientCount,
     launchBlockers: launchBlockerCount,
-    qualityBlockers: qualityBlockerCount,
     actionQueue,
     clientHealth: health,
   };
@@ -1107,9 +886,6 @@ function buildConversationFilters(input: ConversationFilterInput): SqlFilter {
   }
   if (input.reasonCode?.trim()) {
     where.push(`ae.reason_code = $${pushParam(values, input.reasonCode.trim())}`);
-  }
-  if (input.reviewLabel?.trim()) {
-    where.push(`lr.answer_label = $${pushParam(values, input.reviewLabel.trim())}`);
   }
   if (isDateInput(input.from)) {
     where.push(`c.last_message_at >= $${pushParam(values, input.from)}::timestamptz`);

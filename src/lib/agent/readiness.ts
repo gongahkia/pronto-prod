@@ -4,8 +4,6 @@ import {
   credentialEncryptionConfigured,
   envApiKeyForProvider,
 } from "@/lib/llm/credentials";
-import { azureOpenAiBaseUrl } from "@/lib/llm/azure";
-import { FREE_LLM_PROVIDERS } from "@/lib/llm/free-providers";
 
 export type ReadinessTone = "ready" | "warning" | "blocked";
 
@@ -32,14 +30,12 @@ export function getProviderReadiness(
   const provider = detail.config.response_provider;
   const model = detail.config.response_model;
   const mockMode = shouldUseMockAi();
-  const freeProvider = FREE_LLM_PROVIDERS.find((candidate) => candidate.id === provider);
-  const noCredentialRequired = provider === "mock" || freeProvider?.requiresApiKey === false;
+  const noCredentialRequired = provider === "mock";
   const hasEnvCredential = Boolean(envApiKeyForProvider(provider));
   const hasDatabaseCredential = detail.providerCredentialStatuses.some(
-    (credential) => credential.provider === provider,
+    (credential) => credential.provider === provider && credential.hasCredential,
   );
   const hasCredential = noCredentialRequired || hasEnvCredential || hasDatabaseCredential;
-  const providerRuntimeConfigured = provider !== "azure" || Boolean(azureOpenAiBaseUrl());
   const credentialSource = noCredentialRequired
     ? "not-required"
     : hasEnvCredential
@@ -47,7 +43,7 @@ export function getProviderReadiness(
       : hasDatabaseCredential
         ? "database"
         : "missing";
-  const readyForLive = !mockMode && provider !== "mock" && hasCredential && providerRuntimeConfigured;
+  const readyForLive = !mockMode && provider !== "mock" && hasCredential;
 
   return {
     provider,
@@ -77,22 +73,6 @@ export function getProviderReadiness(
         label: "Credential",
         tone: hasCredential ? "ready" : "blocked",
         detail: credentialDetail(credentialSource),
-      },
-      ...(provider === "azure"
-        ? [
-            {
-              label: "Azure endpoint",
-              tone: providerRuntimeConfigured ? "ready" as const : "blocked" as const,
-              detail: providerRuntimeConfigured
-                ? "AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT is configured."
-                : "Set AZURE_OPENAI_BASE_URL to the Azure /openai/v1 endpoint, or set AZURE_OPENAI_ENDPOINT.",
-            },
-          ]
-        : []),
-      {
-        label: "Provider test",
-        tone: "warning",
-        detail: "Run the synthetic provider test after changing provider, model, or key.",
       },
     ],
   };

@@ -5,8 +5,7 @@ import {
   type EmailProviderKind,
 } from "@/lib/channels/email";
 import { processEmailEvent } from "@/lib/channels/email-events";
-import { claimWebhookEvent, replayHeaders } from "@/lib/channels/webhook-replay";
-import { checkRateLimit, isBodyWithinLimit } from "@/lib/http-limits";
+import { isBodyWithinLimit } from "@/lib/http-limits";
 import { requestIdFromRequest, requestIdHeaders } from "@/lib/logger";
 
 type Context = {
@@ -29,16 +28,6 @@ export async function POST(request: Request, context: Context) {
     return new NextResponse("Payload too large", {
       status: 413,
       headers: requestIdHeaders(requestId),
-    });
-  }
-
-  const rateLimit = await checkRateLimit(`webhook:email-events:${channelId}`);
-  if (!rateLimit.allowed) {
-    return new NextResponse("Rate limit exceeded", {
-      status: 429,
-      headers: requestIdHeaders(requestId, {
-        "Retry-After": String(rateLimit.retryAfterSeconds),
-      }),
     });
   }
 
@@ -69,25 +58,6 @@ export async function POST(request: Request, context: Context) {
       status: 401,
       headers: requestIdHeaders(requestId),
     });
-  }
-  const replay = await claimWebhookEvent({
-    provider: `email-events:${provider}`,
-    channelId,
-    rawBody,
-    ...replayHeaders(request),
-    metadata: { requestId },
-  });
-  if (!replay.ok) {
-    return new NextResponse(replay.reason, {
-      status: 401,
-      headers: requestIdHeaders(requestId),
-    });
-  }
-  if (replay.duplicate) {
-    return NextResponse.json(
-      { ok: true, duplicate: true },
-      { headers: requestIdHeaders(requestId) },
-    );
   }
 
   let payload: Record<string, unknown>;

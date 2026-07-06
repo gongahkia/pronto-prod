@@ -30,12 +30,7 @@ import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
 import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
 import { appBaseUrl } from "@/lib/env";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
-import { failoverModelChoices, selectModel } from "@/lib/llm/catalog";
-import {
-  canCallProvider,
-  recordProviderFailure,
-  recordProviderSuccess,
-} from "@/lib/llm/circuit-breaker";
+import { selectModel } from "@/lib/llm/catalog";
 import {
   buildGroundedAnswerInstructions,
   buildGroundedAnswerUserInput,
@@ -429,65 +424,17 @@ export async function runAgentForMessage(input: {
   };
 
   let decision: GroundedAnswerDecision | undefined;
-  let usedFailover = false;
-  let failoverProvider: string | undefined;
-  let failoverModel: string | undefined;
-  let failoverReason: string | undefined;
   let generationProvider = responseModel.provider;
   let generationModel = responseModel.model;
   let generationCostLabel = responseModel.costLabel;
   let providerError: unknown;
-  const choices =
-    process.env.PRONTO_ENABLE_PROVIDER_FAILOVER === "0"
-      ? [responseModel]
-      : [responseModel, ...failoverModelChoices(responseModel.provider)];
-  for (const choice of choices) {
-    if (!canCallProvider(choice.provider)) {
-      trace.addStep("provider_circuit_open", {
-        provider: choice.provider,
-        model: choice.model,
-      });
-      continue;
-    }
-    try {
-      decision = await getGenerationProvider(choice.provider).generateGroundedAnswer({
-        ...generationInput,
-        responseModel: choice.model,
-      });
-      recordProviderSuccess(choice.provider);
-      generationProvider = choice.provider;
-      generationModel = choice.model;
-      generationCostLabel = choice.costLabel;
-      if (choice.provider !== responseModel.provider) {
-        usedFailover = true;
-        failoverProvider = choice.provider;
-        failoverModel = choice.model;
-        trace.addStep("provider_failover", {
-          failedProvider: responseModel.provider,
-          failedModel: responseModel.model,
-          fallbackProvider: choice.provider,
-          fallbackModel: choice.model,
-        });
-      }
-      break;
-    } catch (error) {
-      providerError = error;
-      recordProviderFailure(choice.provider);
-      if (choice.provider !== responseModel.provider) {
-        logWarn("agent.provider_failover_failed", {
-          requestId: input.requestId,
-          clientId: input.clientId,
-          channelId: input.channelId,
-          conversationId: input.conversationId,
-          provider: choice.provider,
-          model: choice.model,
-          error,
-        });
-      }
-      if (!failoverReason) {
-        failoverReason = error instanceof Error ? error.message : String(error);
-      }
-    }
+  try {
+    decision = await getGenerationProvider(responseModel.provider).generateGroundedAnswer({
+      ...generationInput,
+      responseModel: responseModel.model,
+    });
+  } catch (error) {
+    providerError = error;
   }
   if (!decision) {
     const errorMessage =
@@ -499,7 +446,7 @@ export async function runAgentForMessage(input: {
     const escalation = await createEscalation({
       ...input,
       reasonCode: "provider_error",
-      reasonDetail: `Generation provider failed after failover attempts: ${errorMessage}`,
+      reasonDetail: `Generation provider failed: ${errorMessage}`,
       confidence: 0,
     });
     await trace.finalize({
@@ -586,10 +533,6 @@ export async function runAgentForMessage(input: {
       retrievalChunks: chunks,
       citedChunkIds: decision.citedChunkIds,
       promptText,
-      usedFailover,
-      failoverProvider,
-      failoverModel,
-      failoverReason,
       escalationId: escalation.escalationId,
     });
     return escalation;
@@ -633,10 +576,6 @@ export async function runAgentForMessage(input: {
       retrievalChunks: chunks,
       citedChunkIds: decision.citedChunkIds,
       promptText,
-      usedFailover,
-      failoverProvider,
-      failoverModel,
-      failoverReason,
       escalationId: escalation.escalationId,
     });
     return escalation;
@@ -705,10 +644,6 @@ export async function runAgentForMessage(input: {
     retrievalChunks: chunks,
     citedChunkIds: decision.citedChunkIds,
     promptText,
-    usedFailover,
-    failoverProvider,
-    failoverModel,
-    failoverReason,
     agentMessageId: agentMessage.rows[0].id,
   });
 

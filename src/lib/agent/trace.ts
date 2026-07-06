@@ -26,10 +26,6 @@ export type TraceFinalize = {
   responseTokenEstimate?: number;
   agentMessageId?: string;
   escalationId?: string;
-  usedFailover?: boolean;
-  failoverProvider?: string;
-  failoverModel?: string;
-  failoverReason?: string;
   errorMessage?: string;
 };
 
@@ -97,17 +93,13 @@ export class AgentTraceBuilder {
             prompt_hash,
             prompt_token_estimate,
             response_token_estimate,
-            used_failover,
-            failover_provider,
-            failover_model,
-            failover_reason,
             latency_ms,
             error_message,
             steps
           ) values (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
             $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-            $21, $22, $23, $24, $25, $26, $27, $28
+            $21, $22, $23, $24
           )
         `,
         [
@@ -132,10 +124,6 @@ export class AgentTraceBuilder {
           promptHash,
           input.promptTokenEstimate ?? null,
           input.responseTokenEstimate ?? null,
-          input.usedFailover ?? false,
-          input.failoverProvider ?? null,
-          input.failoverModel ?? null,
-          input.failoverReason ?? null,
           latencyMs,
           input.errorMessage ?? null,
           JSON.stringify(this.steps),

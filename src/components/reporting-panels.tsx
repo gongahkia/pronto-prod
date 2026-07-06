@@ -43,14 +43,12 @@ export function ClientAnalyticsCards({
 export function ConversationFilterForm({
   action,
   filters,
-  includeReview = true,
 }: {
   action: string;
   filters: ConversationFilterInput;
-  includeReview?: boolean;
 }) {
   return (
-    <form action={action} className="grid gap-3 p-4 md:grid-cols-4 xl:grid-cols-9">
+    <form action={action} className="grid gap-3 p-4 md:grid-cols-4 xl:grid-cols-7">
       <input
         name="q"
         defaultValue={filters.query ?? ""}
@@ -85,20 +83,6 @@ export function ConversationFilterForm({
         className="rounded-md border border-line px-3 py-2 text-sm"
         placeholder="Escalation reason"
       />
-      {includeReview ? (
-        <select
-          name="review"
-          defaultValue={filters.reviewLabel ?? ""}
-          className="rounded-md border border-line px-3 py-2 text-sm"
-        >
-          <option value="">Any review</option>
-          <option value="answered_correctly">Answered correctly</option>
-          <option value="should_have_escalated">Should have escalated</option>
-          <option value="over_escalated">Over-escalated</option>
-          <option value="hallucinated">Hallucinated</option>
-          <option value="needs_knowledge_update">Needs knowledge update</option>
-        </select>
-      ) : null}
       <input
         name="from"
         type="date"
@@ -159,9 +143,6 @@ export function ConversationList({
                 </Badge>
                 {conversation.active_escalation_reason_code ? (
                   <Badge tone="red">{conversation.active_escalation_reason_code}</Badge>
-                ) : null}
-                {conversation.latest_review_label ? (
-                  <Badge tone="amber">{conversation.latest_review_label}</Badge>
                 ) : null}
               </div>
               <p className="mt-1 line-clamp-2 text-sm text-muted">
@@ -226,7 +207,7 @@ export function KnowledgeGapPanel({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">Knowledge gaps</h2>
-            <p className="text-sm text-muted">Escalations and QA reviews that point to missing or stale sources.</p>
+            <p className="text-sm text-muted">Escalations that point to missing or stale sources.</p>
           </div>
           <Badge tone={gaps.length ? "amber" : "green"}>{gaps.length} open</Badge>
         </div>
@@ -337,7 +318,6 @@ export function filtersFromSearchParams(
     channelKind: firstParam(searchParams.channel),
     status: firstParam(searchParams.status),
     reasonCode: firstParam(searchParams.reason),
-    reviewLabel: firstParam(searchParams.review),
     from: firstParam(searchParams.from),
     to: firstParam(searchParams.to),
   };

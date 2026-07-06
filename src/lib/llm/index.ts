@@ -1,10 +1,7 @@
 import { AnthropicProvider } from "@/lib/llm/anthropic";
-import { AzureOpenAiProvider } from "@/lib/llm/azure";
 import { LlmConfigurationError } from "@/lib/llm/errors";
-import { isFreeLlmProviderId, type FreeLlmProviderId } from "@/lib/llm/free-providers";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import { OpenAiProvider } from "@/lib/llm/openai";
-import { OpenAiCompatibleProvider } from "@/lib/llm/openai-compatible";
 import type {
   GenerateAnswerInput,
   GroundedAnswerDecision,
@@ -12,7 +9,7 @@ import type {
   LlmProvider,
 } from "@/lib/llm/types";
 
-export type LlmProviderName = "mock" | "openai" | "azure" | "anthropic" | FreeLlmProviderId;
+export type LlmProviderName = "mock" | "openai" | "anthropic";
 
 class MockProvider implements LlmProvider {
   async generateGroundedAnswer(
@@ -28,7 +25,6 @@ class MockProvider implements LlmProvider {
 
 const mockProvider = new MockProvider();
 const openAiProvider = new OpenAiProvider();
-const azureOpenAiProvider = new AzureOpenAiProvider();
 const anthropicProvider = new AnthropicProvider();
 
 class UnsupportedEmbeddingProvider implements LlmProvider {
@@ -44,16 +40,13 @@ class UnsupportedEmbeddingProvider implements LlmProvider {
   async embed(): Promise<number[][]> {
     throw new LlmConfigurationError(
       this.provider,
-      "This provider does not support embeddings in Pronto. Configure openai, azure, or mock embeddings.",
+      "This provider does not support embeddings in Pronto. Configure openai or mock embeddings.",
     );
   }
 }
 
 export function normalizeProviderName(value: string | null | undefined): LlmProviderName {
-  if (value === "anthropic" || value === "azure" || value === "openai" || value === "mock") {
-    return value;
-  }
-  if (isFreeLlmProviderId(value)) {
+  if (value === "anthropic" || value === "openai" || value === "mock") {
     return value;
   }
   return "openai";
@@ -71,12 +64,6 @@ export function getGenerationProvider(provider: string | null | undefined): LlmP
         openAiProvider.embed(texts, model, context),
     };
   }
-  if (normalized === "azure") {
-    return azureOpenAiProvider;
-  }
-  if (isFreeLlmProviderId(normalized)) {
-    return new OpenAiCompatibleProvider(normalized);
-  }
   return openAiProvider;
 }
 
@@ -85,11 +72,8 @@ export function getEmbeddingProvider(provider: string | null | undefined): LlmPr
   if (process.env.PRONTO_USE_MOCK_AI === "1" || normalized === "mock") {
     return mockProvider;
   }
-  if (isFreeLlmProviderId(normalized)) {
+  if (normalized === "anthropic") {
     return new UnsupportedEmbeddingProvider(normalized);
-  }
-  if (normalized === "azure") {
-    return azureOpenAiProvider;
   }
   return openAiProvider;
 }

@@ -105,11 +105,10 @@ export default async function ClientOperatorPage({
       <OperatorClientHeader client={client} />
       <OperatorClientNav clientId={client.id} active="overview" />
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-3">
         <StatCard label="Conversations" value={metrics.conversations} />
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
         <StatCard label="Actionable triage" value={metrics.openEscalations} />
-        <StatCard label="Hallucinations" value={metrics.hallucinationIncidents} />
       </section>
 
       <OperatorOverviewTabs

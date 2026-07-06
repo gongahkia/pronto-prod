@@ -58,7 +58,7 @@ export class OpenAiProvider implements LlmProvider {
     if (!client) {
       throw new LlmConfigurationError(
         "openai",
-        "OPENAI_API_KEY or a saved encrypted OpenAI credential is required.",
+        "OPENAI_API_KEY is required.",
       );
     }
 
@@ -107,7 +107,7 @@ export class OpenAiProvider implements LlmProvider {
     if (!client) {
       throw new LlmConfigurationError(
         "openai",
-        "OPENAI_API_KEY or a saved encrypted OpenAI credential is required.",
+        "OPENAI_API_KEY is required.",
       );
     }
 

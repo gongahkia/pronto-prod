@@ -42,10 +42,6 @@ export async function checkChannelHealth(channelId: string): Promise<ChannelHeal
 export async function runChannelHealthCheck(
   channel: Channel,
 ): Promise<ChannelHealthResult> {
-  if (channel.kind === "console") {
-    return { status: "healthy", detail: "Console channel is local-only.", checkedLive: false };
-  }
-
   const configIssue = validateChannelHealthConfig(channel);
   if (configIssue) {
     return { status: "unconfigured", detail: configIssue, checkedLive: false };

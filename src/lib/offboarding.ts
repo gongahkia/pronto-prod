@@ -11,13 +11,10 @@ export type OffboardingExport = {
   knowledgeSources: unknown[];
   conversations: Array<Conversation & { messages: Message[] }>;
   escalations: Escalation[];
-  reviews: unknown[];
   agentConfig: unknown | null;
   brandVoiceDocument: unknown | null;
   brandVoiceExamples: unknown[];
   csatResponses: unknown[];
-  launchMilestones: unknown | null;
-  commercialAssumptions: unknown | null;
   agentUsageEvents: unknown[];
 };
 
@@ -30,13 +27,10 @@ export async function buildClientOffboardingExport(
     sourceResult,
     conversationResult,
     escalationResult,
-    reviewResult,
     configResult,
     brandVoiceDocumentResult,
     brandVoiceExampleResult,
     csatResult,
-    launchResult,
-    commercialResult,
     usageResult,
   ] = await Promise.all([
     query<Client>("select * from clients where id = $1", [clientId]),
@@ -53,13 +47,10 @@ export async function buildClientOffboardingExport(
     query<Escalation>("select * from escalations where client_id = $1 order by created_at", [
       clientId,
     ]),
-    query("select * from reviews where client_id = $1 order by created_at", [clientId]),
     query("select * from agent_configs where client_id = $1", [clientId]),
     query("select * from brand_voice_documents where client_id = $1", [clientId]),
     query("select * from brand_voice_examples where client_id = $1 order by created_at", [clientId]),
     query("select * from csat_responses where client_id = $1 order by created_at", [clientId]),
-    query("select * from client_launch_milestones where client_id = $1", [clientId]),
-    query("select * from client_commercial_assumptions where client_id = $1", [clientId]),
     query("select * from agent_usage_events where client_id = $1 order by created_at", [clientId]),
   ]);
 
@@ -85,13 +76,10 @@ export async function buildClientOffboardingExport(
     knowledgeSources: sourceResult.rows,
     conversations,
     escalations: escalationResult.rows,
-    reviews: reviewResult.rows,
     agentConfig: configResult.rows[0] ?? null,
     brandVoiceDocument: brandVoiceDocumentResult.rows[0] ?? null,
     brandVoiceExamples: brandVoiceExampleResult.rows,
     csatResponses: csatResult.rows,
-    launchMilestones: launchResult.rows[0] ?? null,
-    commercialAssumptions: commercialResult.rows[0] ?? null,
     agentUsageEvents: usageResult.rows,
   };
 }

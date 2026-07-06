@@ -34,8 +34,6 @@ export default async function OperatorClientConversationDetailPage({
     getConversationMessages(conversation.id),
   ]);
 
-  const returnTo = `/operator/clients/${client.id}/conversations/${conversation.id}`;
-
   return (
     <AppShell user={user} active="operator">
       <OperatorClientHeader
@@ -56,10 +54,8 @@ export default async function OperatorClientConversationDetailPage({
       <div className="space-y-6">
         <ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo} />
         <OperatorConversationReview
-          clientId={client.id}
           conversation={conversation}
           messages={messages}
-          returnTo={returnTo}
         />
       </div>
     </AppShell>

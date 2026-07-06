@@ -48,7 +48,7 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
     if (!apiKey) {
       throw new LlmConfigurationError(
         "anthropic",
-        "ANTHROPIC_API_KEY or a saved encrypted Anthropic credential is required.",
+        "ANTHROPIC_API_KEY is required.",
       );
     }
 

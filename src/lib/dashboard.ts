@@ -9,7 +9,6 @@ export type ClientMetricSummary = {
   conversations: number;
   escalations: number;
   openEscalations: number;
-  hallucinationIncidents: number;
   escalationRate: number;
   avgFirstResponseSeconds: number | null;
 };
@@ -62,7 +61,7 @@ export async function getMetrics(clientId?: string): Promise<ClientMetricSummary
   const clientFilter = clientId ? "where id = $1" : "";
   const relationFilter = clientId ? "where client_id = $1" : "";
 
-  const [clients, conversations, escalations, openEscalations, hallucinations] =
+  const [clients, conversations, escalations, openEscalations] =
     await Promise.all([
       query<{ count: string }>(`select count(*) from clients ${clientFilter}`, params),
       query<{ count: string }>(
@@ -87,10 +86,6 @@ export async function getMetrics(clientId?: string): Promise<ClientMetricSummary
         `,
         params,
       ),
-      query<{ count: string }>(
-        `select count(*) from reviews ${clientId ? "where client_id = $1 and" : "where"} hallucination = true`,
-        params,
-      ),
     ]);
 
   const conversationCount = Number(conversations.rows[0].count);
@@ -101,7 +96,6 @@ export async function getMetrics(clientId?: string): Promise<ClientMetricSummary
     conversations: conversationCount,
     escalations: escalationCount,
     openEscalations: Number(openEscalations.rows[0].count),
-    hallucinationIncidents: Number(hallucinations.rows[0].count),
     escalationRate: conversationCount ? escalationCount / conversationCount : 0,
     avgFirstResponseSeconds: null,
   };
