@@ -76,92 +76,10 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 ## Execution Order Overview
 
 1. Prep branch (done above)
-11. Update `scripts/staging-preflight.ts` (drop cut env checks)
 12. Update docs
 13. Full verification pass
 
 Commit after each numbered step so partial progress is preserved. Suggested commit prefixes: `chore(cut): step-<n> <short desc>`.
-
-## STEP 11 — Update Docs
-
-### 11a. Delete files
-
-```
-docs/compliance/data-retention.md
-docs/business/pricing-assumptions.md
-```
-
-(Pricing in the PDF supersedes the older draft.)
-
-### 11b. Edit `README.md`
-
-Replace the "Useful Commands" and "Environment Notes" sections. New content:
-
-```
-## Useful Commands
-
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm build
-pnpm outbox:retry
-
-Use pnpm outbox:retry after testing failed WhatsApp/Telegram/Instagram/Email owner replies or stale `sending` rows.
-
-## Environment Notes
-
-The app defaults to mock AI with PRONTO_USE_MOCK_AI=1, so local testing works without paid model keys. To test live providers, set PRONTO_USE_MOCK_AI=0 and configure OPENAI_API_KEY (or ANTHROPIC_API_KEY as a manual fallback).
-
-Live WhatsApp, Instagram, Messenger, Telegram, and Email testing requires real channel credentials plus a public HTTPS tunnel set as APP_BASE_URL. See docs/channels/webhook-setup.md and docs/setup/staging-env.md.
-
-## Local Release Checks
-
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm build
-
-If a migration was added, run pnpm migrate before starting the app again.
-```
-
-### 11c. Edit `docs/AGENT_CONTEXT.md`
-
-- Remove references to: assistant subsystem, risk monitoring, monthly reports, retention pruning, rate limiting, webhook replay, provider failover, Azure OpenAI, free providers, xyflow triage editor, console channel.
-- Update the migration list (add 028_drop_deprecated).
-- Update the "Where to start" section to reflect the reduced surface.
-
-### 11d. Edit `docs/HUMAN-SETUP.md`
-
-- Remove sections on Azure OpenAI and free providers.
-- Remove Console channel testing instructions.
-- Remove any risk-monitor cron scheduling notes.
-
-### 11e. Edit `docs/setup/staging-env.md`
-
-- Sync the required env vars section to match the new `.env.example`.
-- Remove per-provider staging requirements for cut LLM providers.
-- Remove risk-monitor / retention-prune scheduled-job notes.
-
-### 11f. Edit `docs/architecture.md`
-
-- Remove the "Provider portability with failover" paragraph, if present.
-- Remove any assistant / copilot architecture diagram or paragraph.
-- Remove risk monitoring section.
-
-### 11g. Edit `docs/setup/onboarding.md`
-
-- Remove references to cut modules.
-- Update the "Module Map" table to match the pared-down set.
-- Update the 2-week onboarding targets to remove references to assistant eval or risk monitor tasks.
-
-### 11h. Edit `docs/compliance/ai-policy.md`
-
-- Remove the paragraph about `risk:monitor:policy` cron and `risk_monitor_findings`.
-- Keep the AI disclosure + WhatsApp policy content.
-
-Commit: `chore(cut): step-11 update docs`
-
----
 
 ## STEP 12 — Simplify `src/lib/dashboard.ts` and `src/lib/reporting.ts`
 

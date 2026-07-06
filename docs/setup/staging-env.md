@@ -8,7 +8,7 @@ Set these before running a realistic pilot staging environment.
 - `AUTH_SECRET`: Long random secret for signed HTTP-only auth cookies.
 - `APP_BASE_URL`: Public base URL used in owner takeover links and webhook setup copy.
 - `PRONTO_USE_MOCK_AI`: `0` for live OpenAI calls, `1` for deterministic local mock AI.
-- `PRONTO_SECRETS_KEY`: 32+ character secret used to encrypt saved provider and integration credentials.
+- `PRONTO_SECRETS_KEY`: 32+ character secret used to encrypt saved channel and integration credentials.
 - `PRONTO_ENFORCE_TENANT_SQL`: Set to `1` in staging to fail client-session SQL touching tenant tables without `client_id`. Production enables this unless `PRONTO_DISABLE_TENANT_SQL_GATE=1`.
 
 ## OpenAI
@@ -18,19 +18,11 @@ Set these before running a realistic pilot staging environment.
 - `OPENAI_RESPONSE_MODEL`: Default response model. Current MVP default is `gpt-5.5`.
 - `OPENAI_EMBEDDING_MODEL`: Default embedding model. Current MVP default is `text-embedding-3-small`.
 
-## Azure OpenAI
+## Anthropic
 
-Use `PRONTO_LLM_PROVIDER=azure` or select Azure OpenAI in the operator Agent tuning panel.
-
-- `AZURE_OPENAI_API_KEY`: Azure OpenAI key for live Azure calls.
-- `AZURE_OPENAI_BASE_URL`: Azure v1 base URL, for example `https://<resource>.openai.azure.com/openai/v1/`.
-- `AZURE_OPENAI_ENDPOINT`: Optional shorthand endpoint, for example `https://<resource>.openai.azure.com`; Pronto appends `/openai/v1/`.
-- `AZURE_OPENAI_RESPONSE_MODEL`: Azure response deployment name.
-- `AZURE_OPENAI_EMBEDDING_MODEL`: Azure embedding deployment name.
-- `AZURE_OPENAI_DEPLOYMENT`: Backward-compatible alias for `AZURE_OPENAI_RESPONSE_MODEL`.
-- `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`: Backward-compatible alias for `AZURE_OPENAI_EMBEDDING_MODEL`.
-
-The first-class Azure path targets Azure OpenAI's v1 OpenAI-compatible API. Older Azure `api-version` deployment URLs are not used by this app path.
+- `ANTHROPIC_API_KEY`: Optional response-generation key for manual fallback.
+- `ANTHROPIC_BASE_URL`: Optional. Set only for regional or proxy endpoints.
+- `ANTHROPIC_RESPONSE_MODEL`: Optional response model override. Current local default is `claude-sonnet-4-5`.
 
 ## WhatsApp Cloud API
 
@@ -110,14 +102,13 @@ Per-channel credentials/settings should be preferred for real clients:
 ## Optional Ops Alerts
 
 - `PRONTO_ERROR_ALERT_WEBHOOK_URL`: External error-alert webhook.
-- `PRONTO_RISK_ALERT_WEBHOOK_URL`: External pricing/policy risk-monitor webhook.
 
 ## Required Checks
 
 - Exact staging sequence:
   1. `pnpm migrate`
   2. `pnpm seed` or create the pilot client/operator users manually.
-  3. Save live provider/channel credentials.
+  3. Configure live provider env and save channel credentials.
   4. `pnpm channels:encrypt-credentials`
   5. `pnpm staging:preflight`
   6. `pnpm build`
@@ -125,10 +116,10 @@ Per-channel credentials/settings should be preferred for real clients:
   8. `docker build --target runner .`
   9. `docker build --target worker .`
   10. Deploy runner + worker.
-- Run `pnpm staging:preflight` after setting env vars and before live channel testing. It fails on mock AI in staging, HTTP `APP_BASE_URL`, weak secrets, unreachable DB, missing live provider credentials, inactive live channels, and active channels with plaintext credentials.
+- Run `pnpm staging:preflight` after setting env vars and before live channel testing. It fails on mock AI in staging, HTTP `APP_BASE_URL`, weak secrets, unreachable DB, missing live provider env credentials, inactive live channels, and active channels with plaintext credentials.
 - Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:coverage`, and `pnpm build`.
 - Run `docker compose up -d`, `pnpm migrate`, and `pnpm seed` for local staging only.
-- Set `PRONTO_USE_MOCK_AI=0`, configure a live provider key, and run one console message from the Test assistant before attaching live channels.
+- Set `PRONTO_USE_MOCK_AI=0`, configure a live provider key, and run one known F&B message through a draft channel before attaching live traffic.
 - Hit `/api/readiness` before traffic shift; expect HTTP 200 and `Cache-Control: no-store`.
 - Confirm the operator Agent tuning panel shows live AI readiness for the selected provider and model.
 - Confirm WhatsApp webhook verification succeeds.

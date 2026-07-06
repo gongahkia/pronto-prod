@@ -4,27 +4,22 @@
 
 Use the repo-root `.env` for local secrets. It is ignored by git.
 
-For Azure OpenAI local testing:
+For live OpenAI local testing:
 
 ```env
 PRONTO_USE_MOCK_AI=0
-PRONTO_LLM_PROVIDER=azure
-AZURE_OPENAI_API_KEY=...
-AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
-AZURE_OPENAI_DEPLOYMENT=<chat-deployment>
-AZURE_OPENAI_EMBEDDING_DEPLOYMENT=<embedding-deployment>
+PRONTO_LLM_PROVIDER=openai
+OPENAI_API_KEY=...
 ```
 
-Also set the client Agent tuning panel to:
+For Anthropic as a manual response fallback:
 
-- Response provider: `azure`
-- Embedding provider: `azure`
-- Response model: Azure chat deployment name
-- Embedding model: Azure embedding deployment name
+```env
+ANTHROPIC_API_KEY=...
+ANTHROPIC_RESPONSE_MODEL=claude-sonnet-4-5
+```
 
-Seeded clients default to OpenAI for embeddings, so Azure must be selected there too if you do not want to provide `OPENAI_API_KEY`.
-
-For deployment, store provider keys in deployment/platform secrets, not in committed files. The app already has provider wiring for Azure OpenAI, OpenAI, Anthropic, Groq, OpenRouter, GitHub Models, Hugging Face, Cerebras, and other OpenAI-compatible providers.
+For deployment, store provider and channel keys in deployment/platform secrets or encrypted per-channel records, not in committed files. The app supports mock AI, OpenAI, and Anthropic.
 
 Deployment core env:
 
@@ -49,7 +44,6 @@ Needed for:
 
 Not needed for:
 
-- Local console testing inside the app
 - Unit tests
 - Mock AI flow testing
 
