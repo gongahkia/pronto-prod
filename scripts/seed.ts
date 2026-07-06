@@ -10,9 +10,11 @@ import {
 const CLIENT_ID = "00000000-0000-4000-8000-000000000001";
 const OPERATOR_ID = "00000000-0000-4000-8000-000000000101";
 const CLIENT_USER_ID = "00000000-0000-4000-8000-000000000102";
-const CONSOLE_CHANNEL_ID = "00000000-0000-4000-8000-000000000201";
 const WHATSAPP_CHANNEL_ID = "00000000-0000-4000-8000-000000000202";
 const TELEGRAM_CHANNEL_ID = "00000000-0000-4000-8000-000000000203";
+const EMAIL_CHANNEL_ID = "00000000-0000-4000-8000-000000000204";
+const INSTAGRAM_CHANNEL_ID = "00000000-0000-4000-8000-000000000205";
+const MESSENGER_CHANNEL_ID = "00000000-0000-4000-8000-000000000206";
 const SOURCE_ID = "00000000-0000-4000-8000-000000000301";
 const MENU_SOURCE_ID = "00000000-0000-4000-8000-000000000302";
 const RESERVATION_SOURCE_ID = "00000000-0000-4000-8000-000000000303";
@@ -264,50 +266,13 @@ async function main() {
 
   await pool.query(
     `
-      insert into client_launch_milestones (client_id, signed_contract_at, target_live_at, production_live_at, notes)
-      values ($1, now() - interval '3 days', now() + interval '4 days', null, 'Seed local pilot timeline.')
-      on conflict (client_id) do update set
-        signed_contract_at = excluded.signed_contract_at,
-        target_live_at = excluded.target_live_at,
-        notes = excluded.notes,
-        updated_at = now()
-    `,
-    [CLIENT_ID],
-  );
-
-  await pool.query(
-    `
-      insert into client_commercial_assumptions (
-        client_id,
-        monthly_retainer_sgd,
-        setup_fee_sgd,
-        amortized_setup_months,
-        hosting_cost_sgd,
-        integration_cost_sgd,
-        included_conversations,
-        llm_cost_buffer_multiplier
-      )
-      values ($1, 1200, 2500, 6, 80, 150, 500, 2)
-      on conflict (client_id) do update set
-        monthly_retainer_sgd = excluded.monthly_retainer_sgd,
-        setup_fee_sgd = excluded.setup_fee_sgd,
-        amortized_setup_months = excluded.amortized_setup_months,
-        hosting_cost_sgd = excluded.hosting_cost_sgd,
-        integration_cost_sgd = excluded.integration_cost_sgd,
-        included_conversations = excluded.included_conversations,
-        llm_cost_buffer_multiplier = excluded.llm_cost_buffer_multiplier,
-        updated_at = now()
-    `,
-    [CLIENT_ID],
-  );
-
-  await pool.query(
-    `
       insert into channels (id, client_id, kind, name, status, external_id, credentials, settings)
       values
-        ($1, $2, 'console', 'Pilot console', 'active', 'local-console', '{}'::jsonb, '{}'::jsonb),
-        ($3, $2, 'whatsapp', 'WhatsApp Cloud API', 'draft', 'demo-phone-number-id', '{"phoneNumberId":"demo-phone-number-id"}'::jsonb, '{"verifyToken":"local-pronto-verify-token"}'::jsonb),
-        ($4, $2, 'telegram', 'Telegram bot', 'draft', 'demo-telegram-bot', '{}'::jsonb, '{"webhookSecret":"local-pronto-telegram-secret"}'::jsonb)
+        ($1, $2, 'whatsapp', 'WhatsApp Cloud API', 'draft', 'demo-phone-number-id', '{"phoneNumberId":"demo-phone-number-id"}'::jsonb, '{"verifyToken":"local-pronto-verify-token"}'::jsonb),
+        ($3, $2, 'telegram', 'Telegram bot', 'draft', 'demo-telegram-bot', '{}'::jsonb, '{"webhookSecret":"local-pronto-telegram-secret"}'::jsonb),
+        ($4, $2, 'email', 'Email inbox', 'draft', 'demo-email-inbox', '{}'::jsonb, '{"provider":"postmark"}'::jsonb),
+        ($5, $2, 'instagram', 'Instagram DMs', 'draft', 'demo-instagram', '{"igUserId":"demo-instagram"}'::jsonb, '{"verifyToken":"local-pronto-instagram-token"}'::jsonb),
+        ($6, $2, 'messenger', 'Messenger', 'draft', 'demo-messenger-page', '{"pageId":"demo-messenger-page"}'::jsonb, '{"verifyToken":"local-pronto-messenger-token"}'::jsonb)
       on conflict (id) do update set
         status = excluded.status,
         external_id = excluded.external_id,
@@ -315,7 +280,14 @@ async function main() {
         settings = excluded.settings,
         updated_at = now()
     `,
-    [CONSOLE_CHANNEL_ID, CLIENT_ID, WHATSAPP_CHANNEL_ID, TELEGRAM_CHANNEL_ID],
+    [
+      WHATSAPP_CHANNEL_ID,
+      CLIENT_ID,
+      TELEGRAM_CHANNEL_ID,
+      EMAIL_CHANNEL_ID,
+      INSTAGRAM_CHANNEL_ID,
+      MESSENGER_CHANNEL_ID,
+    ],
   );
 
   await pool.query(
@@ -433,10 +405,10 @@ async function main() {
   await pool.query(
     `
       insert into conversations (id, client_id, channel_id, external_thread_id, customer_name, customer_handle, status)
-      values ($1, $2, $3, 'seed-console-thread', 'Alicia', '+6590000000', 'active')
+      values ($1, $2, $3, 'seed-whatsapp-thread', 'Alicia', '+6590000000', 'active')
       on conflict (id) do nothing
     `,
-    [CONVERSATION_ID, CLIENT_ID, CONSOLE_CHANNEL_ID],
+    [CONVERSATION_ID, CLIENT_ID, WHATSAPP_CHANNEL_ID],
   );
 
   await pool.query(
@@ -447,7 +419,7 @@ async function main() {
         ($1, $2, $3, 'seed-2', 'agent', 'Yes. We open Saturday and Sunday from 10:00 AM to 10:00 PM, with last orders 30 minutes before closing.', '{"source":"seed"}'::jsonb)
       on conflict (channel_id, external_message_id) do nothing
     `,
-    [CONVERSATION_ID, CLIENT_ID, CONSOLE_CHANNEL_ID],
+    [CONVERSATION_ID, CLIENT_ID, WHATSAPP_CHANNEL_ID],
   );
 
   console.log("Seeded Pronto demo client.");

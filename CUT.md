@@ -76,41 +76,11 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 ## Execution Order Overview
 
 1. Prep branch (done above)
-10. Update `scripts/seed.ts` (no console channel, no cut tables)
 11. Update `scripts/staging-preflight.ts` (drop cut env checks)
 12. Update docs
 13. Full verification pass
 
 Commit after each numbered step so partial progress is preserved. Suggested commit prefixes: `chore(cut): step-<n> <short desc>`.
-
-## STEP 10 — Update `scripts/seed.ts`
-
-Edit `scripts/seed.ts`:
-
-Remove all seeding logic for:
-- `assistant_threads`, `assistant_messages`, `assistant_action_proposals`
-- `reviews`
-- `risk_monitor_sources`, `risk_monitor_snapshots`, `risk_monitor_findings`
-- `client_launch_milestones`, `client_commercial_assumptions`
-- `llm_provider_credentials`
-- `rate_limit_buckets`
-- `webhook_replay_events`
-
-Also remove:
-- Any creation of a `console` channel row.
-
-Keep seeded:
-- Operator + client user
-- Pilot F&B client (North Bridge Nasi)
-- 5 seeded channels (Email, WhatsApp, Instagram, Telegram, Messenger)
-- Knowledge sources + chunks
-- Sample brand voice document + examples
-- Sample triage flow (unchanged structure — JSON in `triage_flows` table)
-- Agent config
-
-Commit: `chore(cut): step-10 update seed`
-
----
 
 ## STEP 11 — Update Docs
 
