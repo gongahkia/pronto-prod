@@ -76,16 +76,9 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 ## Execution Order Overview
 
 1. Prep branch (done above)
-12. Update docs
 13. Full verification pass
 
 Commit after each numbered step so partial progress is preserved. Suggested commit prefixes: `chore(cut): step-<n> <short desc>`.
-
-## STEP 13 — Update `docker-compose.yml` and `Dockerfile`
-
-No changes required. Keep both files as-is. The worker still runs `pnpm worker` (outbox), and the runner still serves Next.js standalone.
-
----
 
 ## STEP 14 — CI Workflow Update
 
