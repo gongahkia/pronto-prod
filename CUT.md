@@ -76,7 +76,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 ## Execution Order Overview
 
 1. Prep branch (done above)
-8. Remove xyflow dep + remove cut env vars from `.env.example`
 9. Add `db/migrations/028_drop_deprecated.sql`
 10. Update `scripts/seed.ts` (no console channel, no cut tables)
 11. Update `scripts/staging-preflight.ts` (drop cut env checks)
@@ -84,99 +83,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 13. Full verification pass
 
 Commit after each numbered step so partial progress is preserved. Suggested commit prefixes: `chore(cut): step-<n> <short desc>`.
-
-## STEP 8 — Clean .env.example
-
-Edit `.env.example`. The final file should be exactly:
-
-```
-DATABASE_URL=postgres://pronto:pronto@localhost:55432/pronto
-AUTH_SECRET=replace-with-a-long-random-secret
-APP_BASE_URL=http://localhost:3000
-PRONTO_ENFORCE_TENANT_SQL=0
-PRONTO_DISABLE_TENANT_SQL_GATE=0
-PRONTO_LOCALE=en-SG
-PRONTO_TIME_ZONE=UTC
-
-# LLM providers. OpenAI is primary; Anthropic is optional manual fallback.
-PRONTO_USE_MOCK_AI=1
-PRONTO_LLM_PROVIDER=openai
-PRONTO_SECRETS_KEY=replace-with-a-long-local-secret-for-encrypted-provider-keys
-
-OPENAI_API_KEY=
-OPENAI_BASE_URL=
-OPENAI_RESPONSE_MODEL=gpt-5.5
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-
-# Optional Anthropic fallback (manual, not automatic failover).
-ANTHROPIC_API_KEY=
-ANTHROPIC_BASE_URL=
-ANTHROPIC_RESPONSE_MODEL=claude-sonnet-4-5
-
-# Meta WhatsApp Cloud API.
-WHATSAPP_GRAPH_VERSION=v20.0
-WHATSAPP_APP_SECRET=
-WHATSAPP_ACCESS_TOKEN=
-WHATSAPP_VERIFY_TOKEN=local-pronto-verify-token
-
-# Telegram Bot API.
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_WEBHOOK_SECRET=local-pronto-telegram-secret
-
-# Meta Messenger / Instagram.
-META_GRAPH_VERSION=v20.0
-MESSENGER_PAGE_ACCESS_TOKEN=
-MESSENGER_APP_SECRET=
-MESSENGER_VERIFY_TOKEN=
-INSTAGRAM_PAGE_ACCESS_TOKEN=
-INSTAGRAM_APP_SECRET=
-INSTAGRAM_VERIFY_TOKEN=
-
-# Email channels.
-POSTMARK_API_TOKEN=
-POSTMARK_FROM_ADDRESS=
-POSTMARK_WEBHOOK_SECRET=
-RESEND_API_KEY=
-RESEND_FROM_ADDRESS=
-RESEND_WEBHOOK_SECRET=
-
-# Optional error webhook (Slack/Discord/etc.).
-PRONTO_ERROR_ALERT_WEBHOOK_URL=
-
-# Optional local/runtime controls.
-PRONTO_SKIP_LIVE_HEALTH=0
-PRONTO_DISABLE_CSAT_HOOK=0
-PRONTO_OUTBOX_RETRY_LIMIT=25
-PRONTO_OUTBOX_STALE_SENDING_MINUTES=10
-PRONTO_OUTBOX_MAX_ATTEMPTS=5
-
-# Optional eval script controls.
-EVAL_FILE=evals/pronto-fnb-golden.json
-EVAL_CLIENT_SLUG=north-bridge-nasi
-```
-
-Removed (relative to previous):
-- `PRONTO_ASSISTANT_LLM_PROVIDER`, `PRONTO_ASSISTANT_MODEL`
-- `PRONTO_ENABLE_PROVIDER_FAILOVER`
-- All `AZURE_OPENAI_*`
-- `PRONTO_GROQ_API_KEY`, `PRONTO_OPENROUTER_API_KEY`, `PRONTO_GITHUB_MODELS_API_KEY`, `PRONTO_HUGGINGFACE_API_KEY`, `PRONTO_CEREBRAS_API_KEY`
-- `PRONTO_RISK_ALERT_WEBHOOK_URL`
-- `PRONTO_RATE_LIMIT_BACKEND`
-- `ASSISTANT_EVAL_FILE`, `ASSISTANT_EVAL_CLIENT_SLUG`, `ASSISTANT_EVAL_LIVE`
-
-Search the codebase and remove references to the removed env vars:
-
-```bash
-grep -rn "AZURE_OPENAI\|PRONTO_GROQ\|PRONTO_OPENROUTER\|PRONTO_GITHUB_MODELS\|PRONTO_HUGGINGFACE\|PRONTO_CEREBRAS\|PRONTO_RISK_ALERT_WEBHOOK_URL\|PRONTO_RATE_LIMIT_BACKEND\|PRONTO_ASSISTANT_LLM_PROVIDER\|PRONTO_ASSISTANT_MODEL\|PRONTO_ENABLE_PROVIDER_FAILOVER\|ASSISTANT_EVAL_" src/ scripts/ 2>/dev/null
-```
-
-For each hit outside `.env.example` and this `CUT.md`, delete the reference in code.
-
-Also edit `src/lib/env.ts` (if it declares typed env schemas) to remove entries for the cut vars.
-
-Commit: `chore(cut): step-8 prune env vars`
-
----
 
 ## STEP 9 — Add Consolidation Migration `028_drop_deprecated.sql`
 
