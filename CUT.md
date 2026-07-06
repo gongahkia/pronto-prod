@@ -80,17 +80,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 
 Commit after each numbered step so partial progress is preserved. Suggested commit prefixes: `chore(cut): step-<n> <short desc>`.
 
-## STEP 14 — CI Workflow Update
-
-Edit `.github/workflows/ci.yml`:
-
-- If the workflow references `pnpm assistant:eval`, `pnpm monthly:report`, `pnpm risk:monitor:pricing`, `pnpm risk:monitor:policy`, or `pnpm retention:prune` — remove those steps.
-- The workflow should still run: preflight:ci, typecheck, lint, test:coverage, build, playwright, docker builds.
-
-Commit: `chore(cut): step-14 update CI workflow`
-
----
-
 ## STEP 15 — Verification
 
 Run the verification pass and confirm each check succeeds. If any step fails, stop and diagnose — do not proceed until green.
