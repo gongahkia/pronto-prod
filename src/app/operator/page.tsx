@@ -24,9 +24,6 @@ export default async function OperatorPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link className="ui-button px-3 py-2 text-accent" href="/operator/alerts">
-            Open action inbox
-          </Link>
           <Link
             className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accent-dark"
             href="/operator/clients/new"

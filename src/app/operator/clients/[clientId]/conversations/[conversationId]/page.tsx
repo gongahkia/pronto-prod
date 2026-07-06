@@ -51,12 +51,6 @@ export default async function OperatorClientConversationDetailPage({
         >
           Back to conversation queue
         </Link>
-        <Link
-          href={`/operator/clients/${client.id}/conversations/${conversation.id}/trace`}
-          className="text-accent hover:text-accent-dark"
-        >
-          View trace
-        </Link>
       </div>
 
       <div className="space-y-6">

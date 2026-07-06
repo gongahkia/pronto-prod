@@ -76,7 +76,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 ## Execution Order Overview
 
 1. Prep branch (done above)
-3. Delete cut UI pages + client-only routes
 4. Delete cut API routes
 5. Delete cut lib modules; fix imports on the fly
 6. Delete cut components
@@ -89,52 +88,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 13. Full verification pass
 
 Commit after each numbered step so partial progress is preserved. Suggested commit prefixes: `chore(cut): step-<n> <short desc>`.
-
----
-
-## STEP 2 — Delete Cut UI Pages
-
-### 2a. Client stubs
-
-Delete directories:
-```
-src/app/client/test/
-src/app/client/flows/
-```
-
-### 2b. Operator pages
-
-Delete directories:
-```
-src/app/operator/alerts/
-src/app/operator/quality/
-src/app/operator/clients/[clientId]/monthly-report/
-src/app/operator/clients/[clientId]/flows/
-src/app/operator/clients/[clientId]/test/
-src/app/operator/clients/[clientId]/conversations/[conversationId]/trace/
-```
-
-Notes:
-- The trace subpage per-conversation is removed; `agent_traces` table stays so debug via SQL is still possible.
-- Client conversation detail (`src/app/client/conversations/[conversationId]/`) stays.
-
-### 2c. Update the main operator client overview page
-
-Edit `src/app/operator/clients/[clientId]/page.tsx`:
-- Remove tabs "Pilot Readiness" and "Commercial" (they depend on `client_launch_milestones` and `client_commercial_assumptions`, both dropped).
-- Remove any links to `/monthly-report`, `/flows`, `/test`, `/alerts`, `/quality`.
-- Keep tabs: Workspace, Conversations, Brand Voice, Agent Tuning.
-
-### 2d. Update global shell / navigation
-
-Edit `src/components/shell.tsx`:
-- Remove nav entries for `/operator/alerts`, `/operator/quality`.
-- Remove nav entries for `/client/flows`, `/client/test`.
-
-Edit `src/components/operator-sidebar-actions.tsx`:
-- Remove any quick action targeting `/monthly-report`, `/quality`, `/alerts`, `/flows`, `/test`, or the assistant dock.
-
-Commit: `chore(cut): step-2 remove deprecated pages`
 
 ---
 

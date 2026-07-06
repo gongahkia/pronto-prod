@@ -1,5 +1,4 @@
 import {
-  AlertTriangle,
   Bot,
   ChevronDown,
   Database,
@@ -9,7 +8,6 @@ import {
   Menu,
   MessageSquareText,
   Settings,
-  ShieldCheck,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -24,9 +22,7 @@ import { getMockAiStatus } from "@/lib/llm/mock-status";
 type ClientSection = "overview" | "inbox" | "knowledge" | "assistant" | "settings";
 type OperatorSection =
   | "clients"
-  | "conversations"
-  | "quality"
-  | "alerts";
+  | "conversations";
 
 type ClientSidebarItem = {
   href: string;
@@ -53,8 +49,6 @@ const clientSidebarItems: ClientSidebarItem[] = [
 const operatorWorkspaceItems: OperatorSidebarItem[] = [
   { href: "/operator", label: "Clients", section: "clients", icon: UserRound },
   { href: "/operator/conversations", label: "Conversations", section: "conversations", icon: MessageSquareText },
-  { href: "/operator/quality", label: "Quality", section: "quality", icon: ShieldCheck },
-  { href: "/operator/alerts", label: "Alerts", section: "alerts", icon: AlertTriangle },
 ];
 
 export function AppShell({
