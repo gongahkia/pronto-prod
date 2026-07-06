@@ -1,5 +1,4 @@
 import {
-  AlertTriangle,
   Bot,
   ChevronDown,
   Database,
@@ -9,12 +8,10 @@ import {
   Menu,
   MessageSquareText,
   Settings,
-  ShieldCheck,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AssistantDockLoader } from "@/components/assistant-dock-loader";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { MockAiBanner } from "@/components/mock-ai-banner";
 import { OperatorSidebarActions } from "@/components/operator-sidebar-actions";
@@ -24,9 +21,7 @@ import { getMockAiStatus } from "@/lib/llm/mock-status";
 type ClientSection = "overview" | "inbox" | "knowledge" | "assistant" | "settings";
 type OperatorSection =
   | "clients"
-  | "conversations"
-  | "quality"
-  | "alerts";
+  | "conversations";
 
 type ClientSidebarItem = {
   href: string;
@@ -53,8 +48,6 @@ const clientSidebarItems: ClientSidebarItem[] = [
 const operatorWorkspaceItems: OperatorSidebarItem[] = [
   { href: "/operator", label: "Clients", section: "clients", icon: UserRound },
   { href: "/operator/conversations", label: "Conversations", section: "conversations", icon: MessageSquareText },
-  { href: "/operator/quality", label: "Quality", section: "quality", icon: ShieldCheck },
-  { href: "/operator/alerts", label: "Alerts", section: "alerts", icon: AlertTriangle },
 ];
 
 export function AppShell({
@@ -143,7 +136,6 @@ export function AppShell({
           <main id="main-content" className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
             {children}
           </main>
-          <AssistantDockLoader />
         </div>
       </div>
     </>

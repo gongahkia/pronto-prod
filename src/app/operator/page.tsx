@@ -20,13 +20,10 @@ export default async function OperatorPage() {
         <div>
           <h1 className="text-xl font-semibold">Clients</h1>
           <p className="text-sm text-muted">
-            Portfolio health, launch state, and operational risk across every client.
+            Portfolio health, setup state, and open triage across every client.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link className="ui-button px-3 py-2 text-accent" href="/operator/alerts">
-            Open action inbox
-          </Link>
           <Link
             className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accent-dark"
             href="/operator/clients/new"
@@ -36,12 +33,11 @@ export default async function OperatorPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-5">
+      <section className="grid gap-4 md:grid-cols-4">
         <StatCard label="Clients" value={commandCenter.clientHealth.length} />
         <StatCard label="Needs action" value={commandCenter.needsActionNow} />
-        <StatCard label="SLA breaches" value={commandCenter.slaBreaches} />
-        <StatCard label="Failed sends" value={commandCenter.failedSends} />
-        <StatCard label="Launch blockers" value={commandCenter.launchBlockers} />
+        <StatCard label="Channel issues" value={commandCenter.channelIssues} />
+        <StatCard label="Setup needs" value={commandCenter.setupNeeds} />
       </section>
 
       <section className="mt-6 ui-panel">
@@ -90,7 +86,7 @@ function ClientPortfolioRow({ client }: { client: OperatorClientHealth }) {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs text-muted md:grid-cols-3 xl:w-[38rem] xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2 text-xs text-muted md:grid-cols-3 xl:w-[32rem] xl:grid-cols-5">
           <PortfolioMetric
             label="Channels"
             value={`${client.activeChannels}/${client.degradedChannels}`}
@@ -102,14 +98,9 @@ function ClientPortfolioRow({ client }: { client: OperatorClientHealth }) {
             danger={client.openTriage > 0}
           />
           <PortfolioMetric
-            label="SLA"
-            value={client.slaBreaches}
-            danger={client.slaBreaches > 0}
-          />
-          <PortfolioMetric
-            label="Failed sends"
-            value={client.failedSends}
-            danger={client.failedSends > 0}
+            label="Requests"
+            value={client.assistantRequests}
+            danger={client.assistantRequests > 0}
           />
           <PortfolioMetric
             label="Sources"

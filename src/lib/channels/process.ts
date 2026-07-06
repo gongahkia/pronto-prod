@@ -24,6 +24,41 @@ export type ProcessedInboundMessage = {
   outboundError?: string;
 };
 
+export type ProcessedInboundBatch = {
+  ok: boolean;
+  requestId?: string;
+  processed: number;
+  failed: number;
+  results: Array<{
+    ok: true;
+    externalMessageId: string;
+    result: ProcessedInboundMessage;
+  }>;
+};
+
+export async function processInboundMessages(
+  messages: NormalizedInboundMessage[],
+  context: { requestId?: string } = {},
+): Promise<ProcessedInboundBatch> {
+  const results: ProcessedInboundBatch["results"] = [];
+  for (const message of messages) {
+    results.push({
+      ok: true,
+      externalMessageId: message.externalMessageId,
+      result: await processInboundMessage(message, {
+        requestId: context.requestId,
+      }),
+    });
+  }
+  return {
+    ok: true,
+    ...(context.requestId ? { requestId: context.requestId } : {}),
+    processed: results.length,
+    failed: 0,
+    results,
+  };
+}
+
 export async function processInboundMessage(
   inbound: NormalizedInboundMessage,
   options: { requestId?: string; clientId?: string } = {},
@@ -160,7 +195,7 @@ export async function processInboundMessage(
       });
 
   let outboundError: string | undefined;
-  if (result.action === "answered" && result.responseText && inbound.channelKind !== "console") {
+  if (result.action === "answered" && result.responseText) {
     const outbound = await enqueueAndFlushCustomerReply({
       clientId: channel.client_id,
       channelId: inbound.channelId,
@@ -201,38 +236,29 @@ export async function processInboundMessage(
   }
 
   if (result.action === "escalated" && result.escalationId) {
-    if (inbound.channelKind !== "console") {
-      try {
-        await sendEscalationHoldingReply({
-          channel,
-          inbound,
-          conversationId: created.conversation.id,
-          escalationId: result.escalationId,
-          reasonCode: result.reasonCode,
-          requestId: options.requestId,
-        });
-        await recordCustomerHandoffStatus(result.escalationId, channel.client_id, "sent", null);
-      } catch (error) {
-        logWarn("escalation_holding_reply_failed", {
-          requestId: options.requestId,
-          channelId: inbound.channelId,
-          escalationId: result.escalationId,
-          externalMessageId: inbound.externalMessageId,
-          error,
-        });
-        await recordCustomerHandoffStatus(
-          result.escalationId,
-          channel.client_id,
-          "failed",
-          errorToMessage(error),
-        );
-      }
-    } else {
+    try {
+      await sendEscalationHoldingReply({
+        channel,
+        inbound,
+        conversationId: created.conversation.id,
+        escalationId: result.escalationId,
+        reasonCode: result.reasonCode,
+        requestId: options.requestId,
+      });
+      await recordCustomerHandoffStatus(result.escalationId, channel.client_id, "sent", null);
+    } catch (error) {
+      logWarn("escalation_holding_reply_failed", {
+        requestId: options.requestId,
+        channelId: inbound.channelId,
+        escalationId: result.escalationId,
+        externalMessageId: inbound.externalMessageId,
+        error,
+      });
       await recordCustomerHandoffStatus(
         result.escalationId,
         channel.client_id,
-        "skipped",
-        `No customer holding reply is configured for ${inbound.channelKind}.`,
+        "failed",
+        errorToMessage(error),
       );
     }
 

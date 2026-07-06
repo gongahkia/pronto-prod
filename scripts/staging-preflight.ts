@@ -1,12 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { getPool } from "../src/lib/db";
 import { appBaseUrl, databaseUrl, shouldUseMockAi } from "../src/lib/env";
-import {
-  credentialEncryptionConfigured,
-  envApiKeyForProvider,
-  resolveProviderApiKey,
-} from "../src/lib/llm/credentials";
-import { azureOpenAiBaseUrl } from "../src/lib/llm/azure";
+import { envApiKeyForProvider } from "../src/lib/llm/credentials";
 import { decryptChannelCredentials } from "../src/lib/channels/credentials";
 import { validateChannelHealthConfig } from "../src/lib/channels/health";
 import type { Channel } from "../src/lib/types";
@@ -100,7 +95,7 @@ function checkCoreEnv() {
     name: "PRONTO_SECRETS_KEY",
     status: isStrongSecret(secretsKey) ? "pass" : "fail",
     detail: isStrongSecret(secretsKey)
-      ? "Encrypted provider credential storage is available."
+      ? "Encrypted channel credential storage is available."
       : "Set PRONTO_SECRETS_KEY to a non-placeholder value with at least 32 characters.",
   });
 
@@ -133,64 +128,36 @@ function checkCoreEnv() {
 
 async function checkProviderCredentials() {
   const provider = process.env.PRONTO_LLM_PROVIDER ?? "openai";
-  const generationKey = await resolveKey(provider);
+  const generationKey = envApiKeyForProvider(provider);
+  const supportedProvider = provider === "openai" || provider === "anthropic";
   checks.push({
     name: `Generation provider (${provider})`,
-    status: generationKey && providerRuntimeConfigured(provider)
+    status: generationKey && supportedProvider
       ? "pass"
       : profile === "ci"
         ? "warn"
         : "fail",
-    detail: providerCredentialDetail(provider, generationKey),
+    detail: providerCredentialDetail(provider, generationKey, supportedProvider),
   });
 
-  const openAiKey = await resolveKey("openai");
+  const openAiKey = envApiKeyForProvider("openai");
   checks.push({
     name: "OpenAI embeddings",
     status: openAiKey ? "pass" : profile === "ci" ? "warn" : "fail",
     detail: openAiKey
       ? "OpenAI credential is available for embeddings and default generation."
-      : "Set OPENAI_API_KEY or save an encrypted OpenAI credential.",
-  });
-
-  checks.push({
-    name: "Credential encryption",
-    status: credentialEncryptionConfigured() ? "pass" : "fail",
-    detail: credentialEncryptionConfigured()
-      ? "PRONTO_SECRETS_KEY is present for saved provider credentials."
-      : "PRONTO_SECRETS_KEY is required before using DB-backed provider credentials.",
+      : "Set OPENAI_API_KEY for embeddings.",
   });
 }
 
-function providerRuntimeConfigured(provider: string): boolean {
-  return provider !== "azure" || Boolean(azureOpenAiBaseUrl());
-}
-
-function providerCredentialDetail(provider: string, key: string | null): string {
+function providerCredentialDetail(provider: string, key: string | null, supportedProvider: boolean): string {
+  if (!supportedProvider) {
+    return "Set PRONTO_LLM_PROVIDER to openai or anthropic.";
+  }
   if (!key) {
-    return `Set an environment key or saved encrypted credential for ${provider}.`;
+    return `Set ${provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY"}.`;
   }
-  if (!providerRuntimeConfigured(provider)) {
-    return "Credential is available, but AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT is missing.";
-  }
-  return "Generation provider credential is available.";
-}
-
-async function resolveKey(provider: string): Promise<string | null> {
-  const envValue = envApiKeyForProvider(provider);
-  if (envValue) {
-    return envValue;
-  }
-  try {
-    return await resolveProviderApiKey(provider);
-  } catch (error) {
-    checks.push({
-      name: `Saved credential lookup (${provider})`,
-      status: "warn",
-      detail: errorMessage(error),
-    });
-    return null;
-  }
+  return "Generation provider environment credential is available.";
 }
 
 async function checkSeededClientAndChannels() {
@@ -215,17 +182,15 @@ async function checkSeededClientAndChannels() {
     `,
   );
 
-  const liveChannels = channels.rows.filter(
-    (channel) => channel.kind !== "console" && channel.status === "active",
-  );
+  const liveChannels = channels.rows.filter((channel) => channel.status === "active");
   checks.push({
     name: "Live channels",
     status: liveChannels.length ? "pass" : profile === "ci" ? "warn" : "fail",
     detail: liveChannels.length
-      ? `${liveChannels.length} active non-console channel record(s) found.`
+      ? `${liveChannels.length} active channel record(s) found.`
       : profile === "ci"
         ? "CI seed may not activate live channels."
-        : "No active non-console channel records found.",
+        : "No active channel records found.",
   });
 
   for (const channel of liveChannels) {

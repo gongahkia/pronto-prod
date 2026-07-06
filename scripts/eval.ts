@@ -43,14 +43,14 @@ async function main() {
   const channel = await pool.query<{ id: string }>(
     `
       select id from channels
-      where client_id = $1 and kind = 'console'
+      where client_id = $1 and kind = 'email'
       order by created_at asc
       limit 1
     `,
     [client.rows[0].id],
   );
   if (!channel.rows[0]) {
-    throw new Error(`No console channel found for ${clientSlug}.`);
+    throw new Error(`No email channel found for ${clientSlug}.`);
   }
 
   const run = await pool.query<{ id: string }>(
@@ -74,7 +74,7 @@ async function main() {
   for (const [index, testCase] of cases.entries()) {
     const processed = await processInboundMessage({
       channelId: channel.rows[0].id,
-      channelKind: "console",
+      channelKind: "email",
       externalMessageId: `eval-${runToken}-${index}`,
       externalThreadId: `eval-${runToken}-${testCase.name}`,
       customerHandle: "eval-runner",

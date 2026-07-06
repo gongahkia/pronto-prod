@@ -137,7 +137,7 @@ const defaultNodes: TriageFlowNode[] = [
   {
     id: "channel-whatsapp",
     type: "triage",
-    position: { x: -620, y: -190 },
+    position: { x: -620, y: -380 },
     data: {
       kind: "channel",
       label: "WhatsApp",
@@ -148,7 +148,7 @@ const defaultNodes: TriageFlowNode[] = [
   {
     id: "channel-telegram",
     type: "triage",
-    position: { x: -620, y: 0 },
+    position: { x: -620, y: -190 },
     data: {
       kind: "channel",
       label: "Telegram",
@@ -157,13 +157,35 @@ const defaultNodes: TriageFlowNode[] = [
     },
   },
   {
-    id: "channel-console",
+    id: "channel-instagram",
+    type: "triage",
+    position: { x: -620, y: 0 },
+    data: {
+      kind: "channel",
+      label: "Instagram",
+      description: "Customer messages from Instagram DMs.",
+      badge: "channel",
+    },
+  },
+  {
+    id: "channel-messenger",
     type: "triage",
     position: { x: -620, y: 190 },
     data: {
       kind: "channel",
-      label: "Pilot console",
-      description: "Local QA messages before live channel traffic.",
+      label: "Messenger",
+      description: "Customer messages from Messenger.",
+      badge: "channel",
+    },
+  },
+  {
+    id: "channel-email",
+    type: "triage",
+    position: { x: -620, y: 380 },
+    data: {
+      kind: "channel",
+      label: "Email",
+      description: "Customer messages from connected email inboxes.",
       badge: "channel",
     },
   },
@@ -223,7 +245,9 @@ const defaultNodes: TriageFlowNode[] = [
 const defaultEdges: TriageFlowEdge[] = [
   { id: "edge-whatsapp-complaint", source: "channel-whatsapp", target: "decision-complaint-refund", type: "smoothstep" },
   { id: "edge-telegram-complaint", source: "channel-telegram", target: "decision-complaint-refund", type: "smoothstep" },
-  { id: "edge-console-complaint", source: "channel-console", target: "decision-complaint-refund", type: "smoothstep" },
+  { id: "edge-instagram-complaint", source: "channel-instagram", target: "decision-complaint-refund", type: "smoothstep" },
+  { id: "edge-messenger-complaint", source: "channel-messenger", target: "decision-complaint-refund", type: "smoothstep" },
+  { id: "edge-email-complaint", source: "channel-email", target: "decision-complaint-refund", type: "smoothstep" },
   { id: "edge-complaint-booking", source: "decision-complaint-refund", target: "decision-booking-payment", type: "smoothstep", label: "else" },
   { id: "edge-booking-human", source: "decision-booking-payment", target: "decision-human-handoff", type: "smoothstep", label: "else" },
   { id: "edge-human-medical", source: "decision-human-handoff", target: "decision-medical-legal", type: "smoothstep", label: "else" },

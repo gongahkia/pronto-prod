@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { recordAuditLog } from "@/lib/audit";
 import { query } from "@/lib/db";
+import { appBaseUrl } from "@/lib/env";
 import { verifyPassword } from "@/lib/password";
 import { enterTenantContext } from "@/lib/tenant-context";
 import type { User, UserRole } from "@/lib/types";
@@ -152,7 +153,7 @@ export async function login(email: string, password: string): Promise<SessionUse
     {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production" && appBaseUrl().startsWith("https://"),
       maxAge: SESSION_TTL_SECONDS,
       path: "/",
     },

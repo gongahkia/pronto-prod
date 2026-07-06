@@ -230,7 +230,6 @@ type ChannelField = {
 };
 
 const channelFields: Record<ChannelKind, ChannelField[]> = {
-  console: [],
   whatsapp: [
     { scope: "credentials", name: "accessToken", label: "Access token", secret: true },
     { scope: "credentials", name: "phoneNumberId", label: "Phone number ID" },
@@ -271,7 +270,7 @@ const channelFields: Record<ChannelKind, ChannelField[]> = {
 };
 
 function ChannelStructuredFields({ channel }: { channel: Channel }) {
-  const fields = channelFields[channel.kind];
+  const fields = (channelFields as Partial<Record<string, ChannelField[]>>)[channel.kind] ?? [];
   if (!fields.length) {
     return <p className="rounded-md bg-surface p-3 text-xs text-muted">No channel credentials required.</p>;
   }
@@ -406,14 +405,6 @@ function channelReadinessChecks(channel: Channel): ChannelReadinessCheck[] {
     );
   }
 
-  if (channel.kind === "console") {
-    checks.push({
-      label: "Live channel",
-      tone: "amber",
-      detail: "Console is local QA only and does not receive external customer traffic.",
-    });
-  }
-
   return checks;
 }
 
@@ -441,37 +432,8 @@ export function OperatorKnowledgeIngestion({ clientId }: { clientId: string }) {
         <input
           name="title"
           className="w-full rounded-md border border-line px-3 py-2 text-sm"
-          placeholder="Source title, optional for uploads and websites"
+          placeholder="Source title, optional for uploads"
         />
-        <input
-          name="url"
-          type="url"
-          className="w-full rounded-md border border-line px-3 py-2 text-sm"
-          placeholder="Website URL"
-        />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <input
-            name="crawlDepth"
-            type="number"
-            min="0"
-            max="2"
-            defaultValue="1"
-            className="w-full rounded-md border border-line px-3 py-2 text-sm"
-            placeholder="Crawl depth"
-          />
-          <input
-            name="maxPages"
-            type="number"
-            min="1"
-            max="10"
-            defaultValue="5"
-            className="w-full rounded-md border border-line px-3 py-2 text-sm"
-            placeholder="Max pages"
-          />
-        </div>
-        <p className="text-xs text-muted">
-          Website ingestion fetches static same-origin HTML only.
-        </p>
         <textarea
           name="content"
           rows={8}
@@ -527,15 +489,11 @@ export function OperatorKnowledgeSources({
 }
 
 export function OperatorConversationReview({
-  clientId,
   conversation,
   messages,
-  returnTo,
 }: {
-  clientId: string;
   conversation: ConversationWithLastMessage | null;
   messages: Message[];
-  returnTo: string;
 }) {
   if (!conversation) {
     return (
@@ -566,65 +524,6 @@ export function OperatorConversationReview({
             </div>
           ))}
         </div>
-        <form action="/api/operator/reviews" method="post" className="mt-4 grid gap-3 sm:grid-cols-2">
-          <input type="hidden" name="clientId" value={clientId} />
-          <input type="hidden" name="conversationId" value={conversation.id} />
-          <input type="hidden" name="returnTo" value={returnTo} />
-          <select name="answerLabel" className="rounded-md border border-line px-3 py-2 text-sm">
-            <option value="">Review label</option>
-            <option value="answered_correctly">Answered correctly</option>
-            <option value="should_have_escalated">Should have escalated</option>
-            <option value="over_escalated">Over-escalated</option>
-            <option value="hallucinated">Hallucinated</option>
-            <option value="needs_knowledge_update">Needs knowledge update</option>
-          </select>
-          <select name="failureSeverity" className="rounded-md border border-line px-3 py-2 text-sm">
-            <option value="">Severity</option>
-            <option value="p0">P0 launch blocker</option>
-            <option value="p1">P1 high risk</option>
-            <option value="p2">P2 normal fix</option>
-            <option value="p3">P3 polish</option>
-          </select>
-          <select name="rootCause" className="rounded-md border border-line px-3 py-2 text-sm">
-            <option value="">Root cause</option>
-            <option value="missing_source">Missing source</option>
-            <option value="bad_retrieval">Bad retrieval</option>
-            <option value="guardrail_gap">Guardrail gap</option>
-            <option value="prompt_gap">Prompt gap</option>
-            <option value="integration_gap">Integration gap</option>
-            <option value="channel_issue">Channel issue</option>
-            <option value="human_process">Human process</option>
-          </select>
-          <select name="fixOwner" className="rounded-md border border-line px-3 py-2 text-sm">
-            <option value="">Fix owner</option>
-            <option value="gabriel">Gabriel</option>
-            <option value="keith">Keith</option>
-            <option value="astin">Astin</option>
-            <option value="client">Client</option>
-          </select>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="hallucination" />
-            Hallucination incident
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="knowledgeUpdateNeeded" />
-            Knowledge update needed
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="pilotBlocker" />
-            Pilot blocker
-          </label>
-          <select name="escalationWasNeeded" className="rounded-md border border-line px-3 py-2 text-sm">
-            <option value="">Escalation accuracy</option>
-            <option value="true">Escalation was needed</option>
-            <option value="false">Escalation was not needed</option>
-          </select>
-          <input name="csat" type="number" min="1" max="5" className="rounded-md border border-line px-3 py-2 text-sm" placeholder="CSAT 1-5" />
-          <input name="notes" className="rounded-md border border-line px-3 py-2 text-sm" placeholder="Review notes" />
-          <button className="ui-primary-button px-4 py-2 sm:col-span-2">
-            Save review
-          </button>
-        </form>
       </div>
     </div>
   );
@@ -641,7 +540,7 @@ export function OperatorOffboardingPanel({ client }: { client: Client }) {
           <input type="hidden" name="action" value="export" />
           <input type="hidden" name="clientId" value={client.id} />
           <p className="text-sm text-muted">
-            Export conversations, knowledge sources, brand voice, configuration, reviews, and redacted channel setup.
+            Export conversations, knowledge sources, brand voice, configuration, and redacted channel setup.
           </p>
           <button className="ui-button px-3 py-2">
             Export client data

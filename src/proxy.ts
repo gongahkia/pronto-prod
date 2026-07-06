@@ -7,9 +7,7 @@ const PROTECTED_PREFIXES = [
   "/client",
   "/api/operator",
   "/api/client",
-  "/api/assistant",
   "/api/escalations",
-  "/api/console",
 ];
 
 export function proxy(request: NextRequest) {

@@ -9,12 +9,6 @@ export type ChannelDefinition = {
 
 export const channelDefinitions = [
   {
-    kind: "console",
-    label: "Console",
-    webhookLabel: null,
-    webhookHint: null,
-  },
-  {
     kind: "whatsapp",
     label: "WhatsApp",
     webhookLabel: "Meta webhook URL",

@@ -30,12 +30,11 @@ Target: a second engineer is productive on the templated core in under two weeks
 | Templated core prompt | `src/lib/agent/engine.ts`, `src/lib/brand-voice.ts` |
 | RAG | `src/lib/knowledge/*` |
 | Guardrails | `src/lib/agent/guardrails.ts`, `src/lib/agent/self-check.ts` |
-| Channels | `src/lib/channels/whatsapp.ts`, `telegram.ts`, `process.ts`, `dispatch.ts`, `outbox.ts` |
+| Channels | `src/lib/channels/whatsapp.ts`, `telegram.ts`, `messenger.ts`, `instagram.ts`, `email.ts`, `process.ts`, `dispatch.ts`, `outbox.ts` |
 | Escalations | `src/lib/escalations.ts`, `src/app/api/escalations/*` |
 | Triage flows | `src/lib/triage-flow.ts`, `triage-flow-store.ts` |
 | Dashboard | `src/lib/reporting.ts`, `src/app/operator/*`, `src/app/client/*` |
-| Provider portability | `src/lib/llm/*` |
-| Risk monitors | `src/lib/risk-monitor.ts`, `scripts/risk-monitor-*.ts` |
+| LLM providers | `src/lib/llm/openai.ts`, `anthropic.ts`, `mock.ts`, `index.ts` |
 | Error tracking | `src/lib/error-tracking.ts` |
 
 ## Conventions
@@ -64,7 +63,7 @@ If you added a migration, also run `pnpm migrate` against the local Postgres bef
 
 - **Webhook idempotency.** Meta and Telegram retry on 5xx. `processWebhookBatch` deduplicates by `(channel_id, external_message_id)` so handlers must be safe to replay.
 - **Outbound retries.** `flushOutboundMessage` claims a row with a stale-sending window. Tests must not assert exact query counts without accounting for the claim + update pair.
-- **Provider portability.** New providers implement the `LlmProvider` interface. Don't import provider SDKs outside `src/lib/llm/*`.
+- **LLM provider boundary.** Provider adapters implement the `LlmProvider` interface. Don't import provider SDKs outside `src/lib/llm/*`.
 - **Guardrails.** Pre-generation guardrails read from `agent_configs.escalation_rules`. New topics must be added to both the rules and the topic enum in `src/lib/agent/guardrails.ts`.
 - **PDPA-sensitive logs.** `src/lib/logger.ts` redacts phone numbers, bearer tokens, and `body|content|message|payload|raw|text` keys. Avoid logging full customer messages.
 
@@ -73,7 +72,7 @@ If you added a migration, also run `pnpm migrate` against the local Postgres bef
 - Week 1: ship a documentation PR (typo fix, comment improvement, or doc clarification) end-to-end.
 - Week 1 end: complete one full request trace from webhook to outbound on paper, with file:line references.
 - Week 2 mid: own a small bug fix that touches the agent pipeline plus a test.
-- Week 2 end: ship a new escalation guardrail or a new dashboard panel under review.
+- Week 2 end: ship a new escalation guardrail or a small dashboard improvement under review.
 
 ## Escalation Paths
 

@@ -103,14 +103,6 @@ export async function POST(request: Request) {
 
     await client.query(
       `
-        insert into channels (client_id, kind, name, status, settings, credentials)
-        values ($1, 'console', 'Test console', 'active', '{}'::jsonb, '{}'::jsonb)
-      `,
-      [createdClientId],
-    );
-
-    await client.query(
-      `
         insert into triage_flows (
           client_id,
           nodes,
@@ -144,19 +136,6 @@ export async function POST(request: Request) {
           bannedPhrases: ["as an AI language model", "I guarantee"],
         }),
       ],
-    );
-
-    await client.query(
-      `
-        insert into client_launch_milestones (client_id, signed_contract_at, target_live_at)
-        values ($1, now(), now() + interval '7 days')
-      `,
-      [createdClientId],
-    );
-
-    await client.query(
-      "insert into client_commercial_assumptions (client_id) values ($1)",
-      [createdClientId],
     );
 
     await client.query(

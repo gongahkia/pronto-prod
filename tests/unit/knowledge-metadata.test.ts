@@ -2,28 +2,14 @@ import { describe, expect, it } from "vitest";
 import { normalizeKnowledgeSourceMetadata } from "@/lib/knowledge/metadata";
 
 describe("knowledge source metadata", () => {
-  it("normalizes website crawl warnings and diagnostics", () => {
+  it("normalizes manual entry warnings and diagnostics", () => {
     const result = normalizeKnowledgeSourceMetadata({
-      entryMode: "website",
-      url: "https://north.example",
-      crawledPages: ["https://north.example", "https://north.example/menu"],
-      crawlDepth: 1,
-      maxPages: 5,
-      warnings: ["robots.txt may disallow /menu."],
+      entryMode: "manual",
+      warnings: ["Check seasonal hours."],
     });
 
-    expect(result.warnings).toEqual(["robots.txt may disallow /menu."]);
-    expect(result.diagnostics).toEqual(
-      expect.arrayContaining([
-        { label: "Entry mode", value: "website" },
-        { label: "Website URL", value: "https://north.example" },
-        { label: "Crawl depth", value: "1" },
-        {
-          label: "Crawled pages",
-          value: "2: https://north.example, https://north.example/menu",
-        },
-      ]),
-    );
+    expect(result.warnings).toEqual(["Check seasonal hours."]);
+    expect(result.diagnostics).toEqual([{ label: "Entry mode", value: "manual" }]);
   });
 
   it("normalizes upload parser metadata", () => {

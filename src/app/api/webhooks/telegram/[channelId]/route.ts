@@ -4,9 +4,8 @@ import {
   normalizeTelegramPayload,
   verifyTelegramSecret,
 } from "@/lib/channels/telegram";
-import { processWebhookBatch } from "@/lib/channels/webhook-batch";
-import { claimWebhookEvent, replayHeaders } from "@/lib/channels/webhook-replay";
-import { checkRateLimit, isBodyWithinLimit } from "@/lib/http-limits";
+import { processInboundMessages } from "@/lib/channels/process";
+import { isBodyWithinLimit } from "@/lib/http-limits";
 import { requestIdFromRequest, requestIdHeaders } from "@/lib/logger";
 
 type Context = {
@@ -47,35 +46,6 @@ export async function POST(request: Request, context: Context) {
     });
   }
 
-  const rateLimit = await checkRateLimit(`webhook:telegram:${channelId}`);
-  if (!rateLimit.allowed) {
-    return new NextResponse("Rate limit exceeded", {
-      status: 429,
-      headers: requestIdHeaders(requestId, {
-        "Retry-After": String(rateLimit.retryAfterSeconds),
-      }),
-    });
-  }
-  const replay = await claimWebhookEvent({
-    provider: "telegram",
-    channelId,
-    rawBody,
-    ...replayHeaders(request),
-    metadata: { requestId },
-  });
-  if (!replay.ok) {
-    return new NextResponse(replay.reason, {
-      status: 401,
-      headers: requestIdHeaders(requestId),
-    });
-  }
-  if (replay.duplicate) {
-    return NextResponse.json(
-      { ok: true, duplicate: true },
-      { headers: requestIdHeaders(requestId) },
-    );
-  }
-
   let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(rawBody);
@@ -86,7 +56,7 @@ export async function POST(request: Request, context: Context) {
     });
   }
   const messages = normalizeTelegramPayload(channelId, payload);
-  return NextResponse.json(await processWebhookBatch(messages, { requestId }), {
+  return NextResponse.json(await processInboundMessages(messages, { requestId }), {
     headers: requestIdHeaders(requestId),
   });
 }

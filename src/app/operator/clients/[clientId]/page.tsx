@@ -12,15 +12,10 @@ import {
   getOpenEscalations,
   getRecentConversations,
 } from "@/lib/dashboard";
-import { getPilotReadinessSummary } from "@/lib/pilot-metrics";
 import { AppShell } from "@/components/shell";
 import { OperatorAgentConfigPanel } from "@/components/agent-config-panels";
 import { Badge } from "@/components/badge";
-import {
-  OperatorBrandVoicePanel,
-  OperatorCommercialPanel,
-  PilotReadinessPanel,
-} from "@/components/local-release-panels";
+import { OperatorBrandVoicePanel } from "@/components/local-release-panels";
 import {
   OperatorClientHeader,
   OperatorClientNav,
@@ -30,16 +25,12 @@ import { StatCard } from "@/components/stat-card";
 type OverviewSection =
   | "workspace"
   | "conversations"
-  | "pilot"
-  | "commercial"
   | "voice"
   | "tuning";
 
 const overviewTabs: { id: OverviewSection; label: string; detail: string }[] = [
   { id: "workspace", label: "Workspace", detail: "Launch and links" },
   { id: "conversations", label: "Conversations", detail: "Recent activity" },
-  { id: "pilot", label: "Pilot", detail: "Quality gates" },
-  { id: "commercial", label: "Commercial", detail: "Pricing inputs" },
   { id: "voice", label: "Brand voice", detail: "Style guide" },
   { id: "tuning", label: "Agent tuning", detail: "Model and prompt" },
 ];
@@ -75,16 +66,12 @@ export default async function ClientOperatorPage({
   ]);
   const [
     conversations,
-    pilotSummary,
     brandVoice,
     agentConfig,
   ] = await Promise.all([
     activeSection === "conversations"
       ? getRecentConversations(client.id, 5)
       : Promise.resolve([]),
-    activeSection === "pilot" || activeSection === "commercial"
-      ? getPilotReadinessSummary(client.id)
-      : Promise.resolve(null),
     activeSection === "voice"
       ? getBrandVoiceProfile(client.id)
       : Promise.resolve(null),
@@ -107,19 +94,9 @@ export default async function ClientOperatorPage({
       detail: `${knowledge.length} sources`,
     },
     {
-      href: `/operator/clients/${client.id}/flows`,
-      label: "Flows",
-      detail: "Runtime guardrails",
-    },
-    {
       href: `/operator/clients/${client.id}/conversations`,
       label: "Conversations",
       detail: `${escalations.length} need triage`,
-    },
-    {
-      href: `/operator/clients/${client.id}/test`,
-      label: "Test assistant",
-      detail: "QA console",
     },
   ];
 
@@ -128,11 +105,10 @@ export default async function ClientOperatorPage({
       <OperatorClientHeader client={client} />
       <OperatorClientNav clientId={client.id} active="overview" />
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-3">
         <StatCard label="Conversations" value={metrics.conversations} />
         <StatCard label="Escalation rate" value={`${Math.round(metrics.escalationRate * 100)}%`} />
         <StatCard label="Actionable triage" value={metrics.openEscalations} />
-        <StatCard label="Hallucinations" value={metrics.hallucinationIncidents} />
       </section>
 
       <OperatorOverviewTabs
@@ -157,18 +133,6 @@ export default async function ClientOperatorPage({
           <RecentConversationsSection
             clientId={client.id}
             conversations={conversations}
-          />
-        ) : null}
-
-        {activeSection === "pilot" && pilotSummary ? (
-          <PilotReadinessPanel summary={pilotSummary} />
-        ) : null}
-
-        {activeSection === "commercial" && pilotSummary ? (
-          <OperatorCommercialPanel
-            client={client}
-            summary={pilotSummary}
-            returnTo={activeReturnTo}
           />
         ) : null}
 
@@ -200,7 +164,7 @@ function OperatorOverviewTabs({
   activeSection: OverviewSection;
 }) {
   return (
-    <nav className="mt-5 grid gap-2 rounded-lg border border-line bg-panel p-1 md:grid-cols-3 xl:grid-cols-6">
+    <nav className="mt-5 grid gap-2 rounded-lg border border-line bg-panel p-1 md:grid-cols-4">
       {overviewTabs.map((tab) => {
         const isActive = activeSection === tab.id;
         return (

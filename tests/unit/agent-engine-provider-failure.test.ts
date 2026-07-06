@@ -7,10 +7,6 @@ const mocks = vi.hoisted(() => ({
   getGenerationProvider: vi.fn(),
   embed: vi.fn(),
   generateGroundedAnswer: vi.fn(),
-  failoverModelChoices: vi.fn(),
-  canCallProvider: vi.fn(),
-  recordProviderFailure: vi.fn(),
-  recordProviderSuccess: vi.fn(),
   retrieveKnowledge: vi.fn(),
   recordAgentUsageEvent: vi.fn(),
   traceFinalize: vi.fn(),
@@ -108,18 +104,11 @@ vi.mock("@/lib/llm", () => ({
 }));
 
 vi.mock("@/lib/llm/catalog", () => ({
-  failoverModelChoices: mocks.failoverModelChoices,
   selectModel: () => ({
     provider: "openai",
     model: "gpt-5.5",
     costLabel: "standard",
   }),
-}));
-
-vi.mock("@/lib/llm/circuit-breaker", () => ({
-  canCallProvider: mocks.canCallProvider,
-  recordProviderFailure: mocks.recordProviderFailure,
-  recordProviderSuccess: mocks.recordProviderSuccess,
 }));
 
 vi.mock("@/lib/llm/prompt", () => ({
@@ -178,10 +167,6 @@ describe("agent engine provider failures", () => {
     mocks.getGenerationProvider.mockReturnValue({
       generateGroundedAnswer: mocks.generateGroundedAnswer,
     });
-    mocks.canCallProvider.mockReturnValue(true);
-    mocks.failoverModelChoices.mockReturnValue([
-      { provider: "anthropic", model: "claude-haiku-4-5", costLabel: "low" },
-    ]);
     mocks.retrieveKnowledge.mockResolvedValue([
       {
         id: "chunk-1",
@@ -216,7 +201,7 @@ describe("agent engine provider failures", () => {
     );
   });
 
-  it("creates an escalation when generation failover is exhausted", async () => {
+  it("creates an escalation when generation fails", async () => {
     mocks.embed.mockResolvedValueOnce([[0.1]]);
     mocks.generateGroundedAnswer.mockRejectedValue(new Error("generation unavailable"));
 
@@ -227,9 +212,6 @@ describe("agent engine provider failures", () => {
       reasonCode: "provider_error",
       escalationId: "escalation-1",
     });
-    expect(mocks.recordProviderFailure).toHaveBeenCalledWith("openai");
-    expect(mocks.recordProviderFailure).toHaveBeenCalledWith("anthropic");
-    expect(mocks.recordProviderSuccess).not.toHaveBeenCalled();
     expect(mocks.traceFinalize).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "escalated",

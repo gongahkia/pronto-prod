@@ -53,22 +53,22 @@ describe("operator agent config route", () => {
     });
   });
 
-  it("accepts Azure OpenAI as a response and embedding provider", async () => {
+  it("accepts Anthropic response generation with OpenAI embeddings", async () => {
     const form = validForm();
-    form.set("responseProvider", "azure");
-    form.set("responseModel", "northbridge-chat");
-    form.set("embeddingProvider", "azure");
-    form.set("embeddingModel", "northbridge-embedding");
+    form.set("responseProvider", "anthropic");
+    form.set("responseModel", "claude-sonnet-4-5");
+    form.set("embeddingProvider", "openai");
+    form.set("embeddingModel", "text-embedding-3-small");
 
     const response = await POST(formRequest(form));
 
     expect(response.status).toBe(303);
     expect(mocks.updateAgentConfigForClient).toHaveBeenCalledWith(
       expect.objectContaining({
-        responseProvider: "azure",
-        responseModel: "northbridge-chat",
-        embeddingProvider: "azure",
-        embeddingModel: "northbridge-embedding",
+        responseProvider: "anthropic",
+        responseModel: "claude-sonnet-4-5",
+        embeddingProvider: "openai",
+        embeddingModel: "text-embedding-3-small",
       }),
     );
   });

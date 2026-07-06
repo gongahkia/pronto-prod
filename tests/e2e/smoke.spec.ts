@@ -36,7 +36,7 @@ test("seeded operator can render the client portfolio", async ({ page }) => {
   await expect(page).toHaveURL(/\/operator$/);
   await expect(page.getByRole("heading", { name: "Clients" })).toBeVisible();
   await expect(page.getByText("Client portfolio")).toBeVisible();
-  await expect(page.getByRole("link", { name: "North Bridge Nasi" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "North Bridge Nasi", exact: true })).toBeVisible();
 });
 
 test("seeded client can render the overview dashboard", async ({ page }) => {
@@ -45,7 +45,7 @@ test("seeded client can render the overview dashboard", async ({ page }) => {
   await expect(page).toHaveURL(/\/client$/);
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await expect(page.getByText("Needs your attention")).toBeVisible();
-  await expect(page.getByText("Recent conversations")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recent conversations" })).toBeVisible();
 });
 
 test("login and dashboards avoid obvious mobile horizontal overflow", async ({ page }) => {

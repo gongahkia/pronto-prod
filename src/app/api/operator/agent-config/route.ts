@@ -2,11 +2,6 @@ import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { updateAgentConfigForClient } from "@/lib/agent/config";
-import {
-  credentialEncryptionConfigured,
-  upsertProviderApiKey,
-} from "@/lib/llm/credentials";
-import { selectableFreeProviders } from "@/lib/llm/free-providers";
 import { logWarn } from "@/lib/logger";
 import { canAccessClient } from "@/lib/rbac";
 
@@ -24,7 +19,6 @@ export async function POST(request: Request) {
   const responseModel = String(form.get("responseModel") ?? "").trim();
   const embeddingProvider = String(form.get("embeddingProvider") ?? "openai").trim();
   const embeddingModel = String(form.get("embeddingModel") ?? "").trim();
-  const providerApiKey = String(form.get("providerApiKey") ?? "").trim();
   const returnTo = safeOperatorReturnPath(
     String(form.get("returnTo") ?? ""),
     clientId ? `/operator/clients/${clientId}` : "/operator",
@@ -46,25 +40,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Response provider is not supported." }, { status: 400 });
   }
 
-  if (!["mock", "openai", "azure"].includes(embeddingProvider)) {
+  if (!["mock", "openai"].includes(embeddingProvider)) {
     logWarn("agent_config.invalid_embedding_provider", {
       actorUserId: user.userId,
       clientId,
       embeddingProvider,
     });
-    return NextResponse.json({ error: "Embedding provider must be mock, openai, or azure." }, { status: 400 });
+    return NextResponse.json({ error: "Embedding provider must be mock or openai." }, { status: 400 });
   }
 
   if (!isSafeModelName(responseModel) || !isSafeModelName(embeddingModel)) {
     return NextResponse.json(
       { error: "Provider model names are required and must be 160 characters or fewer." },
-      { status: 400 },
-    );
-  }
-
-  if (providerApiKey && !credentialEncryptionConfigured()) {
-    return NextResponse.json(
-      { error: "PRONTO_SECRETS_KEY is required before provider API keys can be saved." },
       { status: 400 },
     );
   }
@@ -104,14 +91,6 @@ export async function POST(request: Request) {
     );
   }
 
-  if (providerApiKey) {
-    await upsertProviderApiKey({
-      provider: responseProvider,
-      apiKey: providerApiKey,
-      actorUserId: user.userId,
-    });
-  }
-
   const updated = await updateAgentConfigForClient({
     clientId,
     responseProvider,
@@ -147,9 +126,7 @@ function isAllowedResponseProvider(value: string): boolean {
   return (
     value === "mock" ||
     value === "openai" ||
-    value === "azure" ||
-    value === "anthropic" ||
-    selectableFreeProviders().some((provider) => provider.id === value)
+    value === "anthropic"
   );
 }
 

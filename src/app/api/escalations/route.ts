@@ -177,13 +177,13 @@ export async function POST(request: Request) {
             {
               escalationId: escalation.id,
               resolvedBy: user.userId,
-              sentToCustomer: escalation.channel_kind !== "console",
+              sentToCustomer: true,
             },
           ],
         );
       }
 
-      if (reply && escalation.channel_kind !== "console") {
+      if (reply) {
         const outbound = await enqueueOutboundMessage(client, {
           clientId: escalation.client_id,
           conversationId: escalation.conversation_id,

@@ -2,7 +2,6 @@ export type UserRole = "operator" | "client";
 export type ChannelKind =
   | "whatsapp"
   | "telegram"
-  | "console"
   | "messenger"
   | "instagram"
   | "email";
@@ -97,29 +96,6 @@ export type BrandVoiceExample = {
   ideal_response: string;
   notes: string | null;
   is_active: boolean;
-  created_at: Date;
-  updated_at: Date;
-};
-
-export type ClientLaunchMilestones = {
-  client_id: string;
-  signed_contract_at: Date | null;
-  target_live_at: Date | null;
-  production_live_at: Date | null;
-  notes: string | null;
-  created_at: Date;
-  updated_at: Date;
-};
-
-export type ClientCommercialAssumptions = {
-  client_id: string;
-  monthly_retainer_sgd: string;
-  setup_fee_sgd: string;
-  amortized_setup_months: number;
-  hosting_cost_sgd: string;
-  integration_cost_sgd: string;
-  included_conversations: number;
-  llm_cost_buffer_multiplier: string;
   created_at: Date;
   updated_at: Date;
 };

@@ -34,13 +34,11 @@ export default async function OperatorClientConversationDetailPage({
     getConversationMessages(conversation.id),
   ]);
 
-  const returnTo = `/operator/clients/${client.id}/conversations/${conversation.id}`;
-
   return (
     <AppShell user={user} active="operator">
       <OperatorClientHeader
         client={client}
-        description="Review one customer conversation, handle its active triage item, and record QA labels."
+        description="Review one customer conversation and handle its active triage item."
       />
       <OperatorClientNav clientId={client.id} active="conversations" />
 
@@ -51,21 +49,16 @@ export default async function OperatorClientConversationDetailPage({
         >
           Back to conversation queue
         </Link>
-        <Link
-          href={`/operator/clients/${client.id}/conversations/${conversation.id}/trace`}
-          className="text-accent hover:text-accent-dark"
-        >
-          View trace
-        </Link>
       </div>
 
       <div className="space-y-6">
-        <ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo} />
+        <ConversationTriagePanel
+          escalation={activeEscalation}
+          returnTo={`/operator/clients/${client.id}/conversations/${conversation.id}`}
+        />
         <OperatorConversationReview
-          clientId={client.id}
           conversation={conversation}
           messages={messages}
-          returnTo={returnTo}
         />
       </div>
     </AppShell>

@@ -81,7 +81,6 @@ export default async function ClientInboxPage({
         <ConversationFilterForm
           action="/client/inbox"
           filters={filters}
-          includeReview={false}
         />
         <ConversationList
           conversations={visibleConversations}

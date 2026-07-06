@@ -17,7 +17,7 @@ Capture decisions in the client's setup notes plus the contract scope-of-work.
 ## 2. Credential Collection
 
 - Use the lowest-privilege scope the integration supports (read-only API key, restricted OAuth scopes, read-only Shopify Storefront/Admin tokens).
-- Store credentials encrypted in `provider_credentials` (see `db/migrations/011_provider_credentials.sql`) keyed by `client_id` and integration name. Never commit credentials.
+- Store credentials encrypted in `integration_credentials` keyed by `client_id` and integration name. Never commit credentials.
 - Verify `PRONTO_SECRETS_KEY` is set in the target environment before saving — credentials are encrypted on write.
 - Record credential expiry and rotation cadence in `docs/setup/<integration>.md`.
 
@@ -29,7 +29,7 @@ For each integration, document:
 - Realistic concurrent-call ceiling for the client tier (Starter / Growth / Scale).
 - Expected p50 / p95 latency.
 - Retry policy: exponential backoff for 429/5xx, no retry for 4xx auth errors.
-- Circuit-breaker threshold: after N consecutive failures, fall back to escalation for that integration only.
+- Failure threshold: after repeated failures, fall back to escalation for that integration only.
 
 ## 4. Read-Only Tools
 
@@ -60,7 +60,7 @@ Before launch, run a joint demo with the client covering:
 - One "integration down" case where the agent escalates cleanly.
 - Confirmation that no out-of-scope action (refunds, cancellations, marketing) can be triggered.
 
-Capture the signoff in the client's launch milestones (`client_launch_milestones`).
+Capture the signoff in the client's setup notes.
 
 ## 8. Post-Launch
 

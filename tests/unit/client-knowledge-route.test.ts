@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(),
   ingestKnowledgeSource: vi.fn(),
-  crawlWebsiteKnowledge: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -16,10 +15,6 @@ vi.mock("@/lib/knowledge/ingest", () => ({
 
 vi.mock("@/lib/knowledge/parse-upload", () => ({
   parseKnowledgeUpload: vi.fn(),
-}));
-
-vi.mock("@/lib/knowledge/website", () => ({
-  crawlWebsiteKnowledge: mocks.crawlWebsiteKnowledge,
 }));
 
 import { POST } from "@/app/api/client/knowledge/route";
@@ -72,54 +67,6 @@ describe("client knowledge route", () => {
     });
   });
 
-  it("ingests crawled websites into the authenticated client's account", async () => {
-    mocks.requireUser.mockResolvedValueOnce({
-      userId: "user-1",
-      clientId: "client-actual",
-      role: "client",
-    });
-    mocks.crawlWebsiteKnowledge.mockResolvedValueOnce({
-      title: "North Bridge Nasi",
-      content: "Open daily from 10 AM to 10 PM.",
-      metadata: {
-        entryMode: "website",
-        url: "https://north.example/",
-        crawledPages: ["https://north.example/"],
-        crawlDepth: 1,
-        maxPages: 3,
-        warnings: [],
-      },
-    });
-
-    const form = new FormData();
-    form.set("url", "https://north.example/");
-    form.set("crawlDepth", "1");
-    form.set("maxPages", "3");
-
-    const response = await POST(formRequest(form));
-
-    expect(response.status).toBe(303);
-    expect(mocks.crawlWebsiteKnowledge).toHaveBeenCalledWith({
-      url: "https://north.example/",
-      crawlDepth: 1,
-      maxPages: 3,
-    });
-    expect(mocks.ingestKnowledgeSource).toHaveBeenCalledWith({
-      clientId: "client-actual",
-      title: "North Bridge Nasi",
-      sourceType: "website",
-      content: "Open daily from 10 AM to 10 PM.",
-      metadata: {
-        entryMode: "website",
-        url: "https://north.example/",
-        crawledPages: ["https://north.example/"],
-        crawlDepth: 1,
-        maxPages: 3,
-        warnings: [],
-      },
-      actorUserId: "user-1",
-    });
-  });
 });
 
 function formRequest(form: FormData): Request {

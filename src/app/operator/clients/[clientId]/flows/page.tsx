@@ -1,15 +1,18 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { getClient } from "@/lib/dashboard";
-import { getTriageFlowForClient } from "@/lib/triage-flow-store";
+import {
+  getTriageFlowForClient,
+  saveTriageFlowForClient,
+} from "@/lib/triage-flow-store";
 import { AppShell } from "@/components/shell";
 import {
   OperatorClientHeader,
   OperatorClientNav,
 } from "@/components/operator/operator-nav";
-import { TriageFlowEditorLoader } from "@/components/triage-flow-editor-loader";
+import { TriageFlowJsonEditor } from "@/components/triage-flow-json-editor";
 
-export default async function OperatorClientFlowsPage({
+export default async function OperatorFlowsPage({
   params,
 }: {
   params: Promise<{ clientId: string }>;
@@ -23,24 +26,47 @@ export default async function OperatorClientFlowsPage({
   if (!client) {
     notFound();
   }
+  const initialValue = JSON.stringify(
+    { nodes: flow.nodes, edges: flow.edges },
+    null,
+    2,
+  );
+
+  async function save(json: string) {
+    "use server";
+    const parsed = JSON.parse(json) as { nodes?: unknown; edges?: unknown };
+    const saved = await saveTriageFlowForClient({
+      clientId,
+      actorUserId: user.userId,
+      nodes: parsed.nodes,
+      edges: parsed.edges,
+      source: "operator",
+    });
+    if (!saved) {
+      throw new Error("Agent config not found.");
+    }
+  }
 
   return (
     <AppShell user={user} active="operator">
       <OperatorClientHeader
         client={client}
-        description="Configure channel intake and runtime triage guardrails for this client."
+        description="Edit the raw smart-triage JSON that compiles into escalation rules."
       />
       <OperatorClientNav clientId={client.id} active="flows" />
-
-      <TriageFlowEditorLoader
-        initialNodes={flow.nodes}
-        initialEdges={flow.edges}
-        initialCompiledRules={flow.compiledEscalationRules}
-        saveUrl="/api/operator/flows"
-        clientId={client.id}
-        version={flow.version}
-        isDefault={flow.isDefault}
-      />
+      <section className="ui-panel">
+        <div className="ui-panel-header">
+          <div>
+            <h2 className="text-base font-semibold">Triage flow JSON</h2>
+            <p className="text-sm text-muted">
+              Schema: {"{ nodes: [...], edges: [...] }"}.
+            </p>
+          </div>
+        </div>
+        <div className="p-4">
+          <TriageFlowJsonEditor initialValue={initialValue} saveAction={save} />
+        </div>
+      </section>
     </AppShell>
   );
 }

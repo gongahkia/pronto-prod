@@ -13,7 +13,7 @@ Pronto may process personal data to:
 - Receive and store customer messages.
 - Generate grounded AI replies or escalations.
 - Notify client owners of escalations.
-- Maintain audit logs, reviews, CSAT, support records, and offboarding exports.
+- Maintain audit logs, CSAT, support records, and offboarding exports.
 - Secure, debug, and improve the service within the client-agreed scope.
 
 ## Categories Of Data
@@ -21,7 +21,7 @@ Pronto may process personal data to:
 - Customer names, handles, phone numbers, message content, and channel metadata.
 - Client owner contact details and operational settings.
 - Knowledge sources that may contain business or customer information if provided by the client.
-- Review, escalation, audit, and CSAT data.
+- Escalation, audit, and CSAT data.
 
 ## Obligations
 
@@ -58,4 +58,3 @@ Use the incident response plan for triage. Singapore PDPC guidance should be che
 
 - PDPC guide on data protection clauses for processing agreements: https://www.pdpc.gov.sg/-/media/Files/PDPC/PDF-Files/Other-Guides/guide-on-dp-clauses-for-agreements-related-to-processing-of-personal-data-v1-0-%28200716%29.pdf
 - PDPC guide on managing and notifying data breaches: https://www.pdpc.gov.sg/-/media/files/pdpc/pdf-files/other-guides/guide-on-managing-and-notifying-data-breaches-under-the-pdpa-15-mar-2021.pdf
-

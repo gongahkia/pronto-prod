@@ -166,23 +166,13 @@ export async function updateAgentConfigForClient(
       [input.clientId],
     );
 
-    const credentialResult = await client.query<{ provider: string; updated_at: Date }>(
-      `
-        select provider, updated_at
-        from llm_provider_credentials
-        order by provider asc
-      `,
-    );
+    const credentialStatuses = await listProviderCredentialStatuses();
 
     return buildAgentConfigDetail(
       clientRecord,
       updated,
       changesResult.rows,
-      credentialResult.rows.map((row) => ({
-        provider: row.provider,
-        hasCredential: true,
-        updatedAt: row.updated_at,
-      })),
+      credentialStatuses,
     );
   });
 }

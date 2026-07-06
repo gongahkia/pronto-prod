@@ -33,7 +33,6 @@ export default async function OperatorConversationsPage({
   const actionable = visibleConversations.filter((conversation) => conversation.active_escalation_id).length;
   const escalated = visibleConversations.filter((conversation) => conversation.status === "escalated").length;
   const active = visibleConversations.filter((conversation) => conversation.status === "active").length;
-  const reviewed = visibleConversations.filter((conversation) => conversation.latest_review_label).length;
 
   return (
     <AppShell user={user} active="operator" operatorActive="conversations">
@@ -54,11 +53,10 @@ export default async function OperatorConversationsPage({
         </div>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-3">
         <StatCard label="Actionable" value={actionable} />
         <StatCard label="Escalated" value={escalated} />
         <StatCard label="Active" value={active} />
-        <StatCard label="Reviewed" value={reviewed} />
       </section>
 
       <section className="mt-6 ui-panel">
@@ -110,8 +108,5 @@ function conversationPriority(conversation: FilteredConversation): number {
   if (conversation.status === "active") {
     return 2;
   }
-  if (!conversation.latest_review_label) {
-    return 1;
-  }
-  return 0;
+  return 1;
 }

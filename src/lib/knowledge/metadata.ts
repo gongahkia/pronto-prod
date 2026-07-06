@@ -16,25 +16,12 @@ export function normalizeKnowledgeSourceMetadata(
   const diagnostics: KnowledgeSourceDiagnostic[] = [];
 
   addDiagnostic(diagnostics, "Entry mode", stringValue(source.entryMode));
-  addDiagnostic(diagnostics, "Website URL", stringValue(source.url));
   addDiagnostic(diagnostics, "Filename", stringValue(source.filename));
   addDiagnostic(diagnostics, "MIME type", stringValue(source.mimeType));
   addDiagnostic(diagnostics, "Parser", stringValue(source.parser));
   addDiagnostic(diagnostics, "Rows", numberValue(source.rows));
   addDiagnostic(diagnostics, "Pages", numberValue(source.pages));
   addDiagnostic(diagnostics, "Size", byteSizeValue(source.sizeBytes));
-  addDiagnostic(diagnostics, "Crawl depth", numberValue(source.crawlDepth));
-  addDiagnostic(diagnostics, "Max pages", numberValue(source.maxPages));
-
-  const crawledPages = stringArray(source.crawledPages);
-  if (crawledPages.length) {
-    diagnostics.push({
-      label: "Crawled pages",
-      value: `${crawledPages.length}: ${crawledPages.slice(0, 3).join(", ")}${
-        crawledPages.length > 3 ? "..." : ""
-      }`,
-    });
-  }
 
   return { warnings, diagnostics };
 }

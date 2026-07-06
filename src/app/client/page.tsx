@@ -8,13 +8,12 @@ import {
   getClientDashboardAnalytics,
   getFilteredConversations,
   getKnowledgeGapReport,
-  getSlaSummary,
   type FilteredConversation,
   type KnowledgeGapRow,
 } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
-import { ConversationList, KnowledgeGapPanel, SlaPanel } from "@/components/reporting-panels";
+import { ConversationList, KnowledgeGapPanel } from "@/components/reporting-panels";
 import { StatCard } from "@/components/stat-card";
 
 export default async function ClientOverviewPage() {
@@ -27,7 +26,6 @@ export default async function ClientOverviewPage() {
     client,
     analytics,
     gaps,
-    sla,
     attentionConversations,
     recentConversations,
     knowledgeSources,
@@ -37,7 +35,6 @@ export default async function ClientOverviewPage() {
     getClient(user.clientId),
     getClientDashboardAnalytics(user.clientId),
     getKnowledgeGapReport({ clientId: user.clientId, limit: 6 }),
-    getSlaSummary(user.clientId),
     getFilteredConversations({ clientId: user.clientId, status: "escalated", limit: 5 }),
     getFilteredConversations({ clientId: user.clientId, limit: 6 }),
     getKnowledgeSources(user.clientId),
@@ -88,48 +85,44 @@ export default async function ClientOverviewPage() {
         <StatCard label="Knowledge gaps" value={analytics.knowledgeGapCount} />
       </section>
 
-      <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.42fr]">
-        <div className="ui-panel">
-          <div className="ui-panel-header">
-            <div>
-              <h2 className="text-base font-semibold">Needs your attention</h2>
-              <p className="text-sm text-muted">
-                Items that affect current customers or the assistant&apos;s ability to answer well.
-              </p>
-            </div>
-            <Badge tone={attentionTone(analytics.actionableEscalations + openRefreshes.length + openAssistantRequests.length)}>
-              {analytics.actionableEscalations + openRefreshes.length + openAssistantRequests.length} open
-            </Badge>
+      <section className="mt-6 ui-panel">
+        <div className="ui-panel-header">
+          <div>
+            <h2 className="text-base font-semibold">Needs your attention</h2>
+            <p className="text-sm text-muted">
+              Items that affect current customers or the assistant&apos;s ability to answer well.
+            </p>
           </div>
-          <div className="grid gap-3 p-4 md:grid-cols-3">
-            <AttentionCard
-              label="Customer replies"
-              value={analytics.actionableEscalations}
-              detail="Conversations where Pronto needs a human answer."
-              href="/client/inbox?status=escalated"
-            />
-            <AttentionCard
-              label="Knowledge updates"
-              value={openRefreshes.length + gaps.length}
-              detail={`${knowledgeSources.length} sources currently available to Pronto.`}
-              href="/client/knowledge"
-            />
-            <AttentionCard
-              label="Assistant requests"
-              value={openAssistantRequests.length}
-              detail="Requested changes to tone, handoff behavior, or scope."
-              href="/client/assistant"
-            />
-          </div>
-          <ConversationList
-            conversations={attentionConversations}
-            hrefForConversation={(conversation) => `/client/conversations/${conversation.id}`}
-            emptyText="No customer replies need your attention."
-            ctaLabel="Open"
+          <Badge tone={attentionTone(analytics.actionableEscalations + openRefreshes.length + openAssistantRequests.length)}>
+            {analytics.actionableEscalations + openRefreshes.length + openAssistantRequests.length} open
+          </Badge>
+        </div>
+        <div className="grid gap-3 p-4 md:grid-cols-3">
+          <AttentionCard
+            label="Customer replies"
+            value={analytics.actionableEscalations}
+            detail="Conversations where Pronto needs a human answer."
+            href="/client/inbox?status=escalated"
+          />
+          <AttentionCard
+            label="Knowledge updates"
+            value={openRefreshes.length + gaps.length}
+            detail={`${knowledgeSources.length} sources currently available to Pronto.`}
+            href="/client/knowledge"
+          />
+          <AttentionCard
+            label="Assistant requests"
+            value={openAssistantRequests.length}
+            detail="Requested changes to tone, handoff behavior, or scope."
+            href="/client/assistant"
           />
         </div>
-
-        <SlaPanel summary={sla} />
+        <ConversationList
+          conversations={attentionConversations}
+          hrefForConversation={(conversation) => `/client/conversations/${conversation.id}`}
+          emptyText="No customer replies need your attention."
+          ctaLabel="Open"
+        />
       </section>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[0.45fr_1fr]">
@@ -229,7 +222,7 @@ function summarizeThemes(
 ): ThemeSummary[] {
   const counts = new Map<string, number>();
   for (const gap of gaps) {
-    const key = gap.reason_code ?? gap.review_label ?? gap.gap_source;
+    const key = gap.reason_code ?? gap.gap_source;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   for (const conversation of conversations) {

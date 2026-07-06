@@ -117,20 +117,13 @@ export function OperatorSidebarActions() {
                     Search
                   </button>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     className="ui-button px-3 py-2"
                     type="button"
                     onClick={() => openRoute("/operator/conversations?status=escalated")}
                   >
                     Escalated
-                  </button>
-                  <button
-                    className="ui-button px-3 py-2"
-                    type="button"
-                    onClick={() => openRoute("/operator/quality")}
-                  >
-                    Quality
                   </button>
                   <button
                     className="ui-button px-3 py-2"
