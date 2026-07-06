@@ -37,7 +37,7 @@ export default async function ClientAssistantPage() {
         <div>
           <h1 className="text-xl font-semibold">Assistant</h1>
           <p className="text-sm text-muted">
-            See what Pronto answers, when it asks a human, and test customer questions.
+            See what Pronto answers and when it asks a human.
           </p>
         </div>
         <Badge tone={flow.isDefault ? "amber" : "green"}>

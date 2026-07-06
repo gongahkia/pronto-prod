@@ -38,7 +38,7 @@ export default async function OperatorClientConversationDetailPage({
     <AppShell user={user} active="operator">
       <OperatorClientHeader
         client={client}
-        description="Review one customer conversation, handle its active triage item, and record QA labels."
+        description="Review one customer conversation and handle its active triage item."
       />
       <OperatorClientNav clientId={client.id} active="conversations" />
 
@@ -52,7 +52,10 @@ export default async function OperatorClientConversationDetailPage({
       </div>
 
       <div className="space-y-6">
-        <ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo} />
+        <ConversationTriagePanel
+          escalation={activeEscalation}
+          returnTo={`/operator/clients/${client.id}/conversations/${conversation.id}`}
+        />
         <OperatorConversationReview
           conversation={conversation}
           messages={messages}

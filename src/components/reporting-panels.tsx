@@ -5,8 +5,6 @@ import type {
   ConversationFilterInput,
   FilteredConversation,
   KnowledgeGapRow,
-  OperationalAlert,
-  SlaSummary,
 } from "@/lib/reporting";
 import { channelDefinitions } from "@/lib/channels/catalog";
 import { Badge } from "@/components/badge";
@@ -218,7 +216,7 @@ export function KnowledgeGapPanel({
         ) : (
           gaps.map((gap) => (
             <Link
-              key={`${gap.conversation_id}:${gap.gap_source}:${gap.reason_code ?? gap.review_label ?? "gap"}`}
+              key={`${gap.conversation_id}:${gap.gap_source}:${gap.reason_code ?? "gap"}`}
               href={hrefForGap(gap)}
               className="block p-4 hover:bg-surface-hover"
             >
@@ -228,78 +226,10 @@ export function KnowledgeGapPanel({
                 <Badge>{gap.channel_kind}</Badge>
                 <Badge tone="amber">{gap.gap_source}</Badge>
                 {gap.reason_code ? <Badge tone="red">{gap.reason_code}</Badge> : null}
-                {gap.review_label ? <Badge tone="amber">{gap.review_label}</Badge> : null}
               </div>
               <p className="mt-1 line-clamp-2 text-sm text-muted">
                 {gap.last_message ?? "No message available."}
               </p>
-            </Link>
-          ))
-        )}
-      </div>
-    </section>
-  );
-}
-
-export function SlaPanel({ summary }: { summary: SlaSummary }) {
-  const tone = summary.breachedItems ? "red" : summary.soonItems ? "amber" : "green";
-  return (
-    <section className="ui-panel p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold">SLA watch</h2>
-          <p className="mt-1 text-sm text-muted">
-            {summary.targetHours
-              ? `${summary.targetHours}h target for open triage`
-              : "No open triage items"}
-          </p>
-        </div>
-        <Badge tone={tone}>{summary.breachedItems} breached</Badge>
-      </div>
-      <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
-        <div>
-          <dt className="text-muted">Tracked</dt>
-          <dd className="mt-1 font-semibold">{summary.trackedOpenItems}</dd>
-        </div>
-        <div>
-          <dt className="text-muted">Soon</dt>
-          <dd className="mt-1 font-semibold">{summary.soonItems}</dd>
-        </div>
-        <div>
-          <dt className="text-muted">Oldest</dt>
-          <dd className="mt-1 font-semibold">{formatDuration(summary.oldestOpenSeconds)}</dd>
-        </div>
-      </dl>
-    </section>
-  );
-}
-
-export function OperationalAlertsPanel({
-  alerts,
-}: {
-  alerts: OperationalAlert[];
-}) {
-  return (
-    <section className="ui-panel">
-      <div className="ui-panel-header">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">Operational alerts</h2>
-          <Badge tone={alerts.length ? "red" : "green"}>{alerts.length} active</Badge>
-        </div>
-      </div>
-      <div className="divide-y divide-line">
-        {alerts.length === 0 ? (
-          <p className="p-4 text-sm text-muted">No alert conditions detected.</p>
-        ) : (
-          alerts.map((alert) => (
-            <Link key={alert.id} href={alert.href} className="block p-4 hover:bg-surface-hover">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={alert.severity === "critical" ? "red" : "amber"}>
-                  {alert.severity}
-                </Badge>
-                <p className="font-medium">{alert.title}</p>
-              </div>
-              <p className="mt-1 text-sm text-muted">{alert.detail}</p>
             </Link>
           ))
         )}
