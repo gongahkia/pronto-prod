@@ -76,78 +76,12 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 ## Execution Order Overview
 
 1. Prep branch (done above)
-9. Add `db/migrations/028_drop_deprecated.sql`
 10. Update `scripts/seed.ts` (no console channel, no cut tables)
 11. Update `scripts/staging-preflight.ts` (drop cut env checks)
 12. Update docs
 13. Full verification pass
 
 Commit after each numbered step so partial progress is preserved. Suggested commit prefixes: `chore(cut): step-<n> <short desc>`.
-
-## STEP 9 — Add Consolidation Migration `028_drop_deprecated.sql`
-
-Create file `db/migrations/028_drop_deprecated.sql` with the exact SQL below:
-
-```sql
--- Migration 028: Drop deprecated tables after scope cut.
--- Safe drops for tables no longer referenced by application code.
-
-BEGIN;
-
--- Assistant/copilot (migration 014)
-DROP TABLE IF EXISTS assistant_action_proposals CASCADE;
-DROP TABLE IF EXISTS assistant_messages CASCADE;
-DROP TABLE IF EXISTS assistant_threads CASCADE;
-
--- Reviews / QA labels (migration 003)
-DROP TABLE IF EXISTS reviews CASCADE;
-
--- Risk monitoring (migration 017)
-DROP TABLE IF EXISTS risk_monitor_findings CASCADE;
-DROP TABLE IF EXISTS risk_monitor_snapshots CASCADE;
-DROP TABLE IF EXISTS risk_monitor_sources CASCADE;
-
--- Client launch milestones + commercial assumptions (from migration 009 readiness bundle)
-DROP TABLE IF EXISTS client_launch_milestones CASCADE;
-DROP TABLE IF EXISTS client_commercial_assumptions CASCADE;
-
--- LLM provider credentials (migration 011)
-DROP TABLE IF EXISTS llm_provider_credentials CASCADE;
-
--- Rate limit buckets (migration 016)
-DROP TABLE IF EXISTS rate_limit_buckets CASCADE;
-
--- Webhook replay events (from migration 007 or 024, verify column existence first)
-DROP TABLE IF EXISTS webhook_replay_events CASCADE;
-
--- Email suppressions - KEEP: still needed for bounce handling (Postmark/Resend)
--- (this line intentionally left as a comment for reviewer clarity)
-
--- Note: Do NOT drop:
---   clients, users, channels, conversations, messages, escalations,
---   knowledge_sources, knowledge_chunks, knowledge_source_versions,
---   knowledge_refresh_requests, agent_configs, agent_config_changes,
---   agent_traces, brand_voice_documents, brand_voice_examples,
---   csat_responses, integration_credentials, outbound_messages,
---   error_events, audit_logs, metric_events, email_suppressions,
---   client_assistant_change_requests, triage_flows
-
-COMMIT;
-```
-
-Verification query (run after migrate):
-
-```sql
-SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;
-```
-
-None of the dropped tables should appear.
-
-If seeded data referenced any dropped table, the `pnpm seed` script must be updated in Step 10.
-
-Commit: `chore(cut): step-9 add migration 028 drop deprecated tables`
-
----
 
 ## STEP 10 — Update `scripts/seed.ts`
 
