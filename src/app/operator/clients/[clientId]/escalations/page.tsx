@@ -58,9 +58,7 @@ export default async function OperatorClientEscalationsPage({
             escalations={visibleEscalations}
             staff={staff}
             allowAssign
-            hrefForConversation={(_, conversationId) =>
-              `/operator/clients/${client.id}/conversations/${conversationId}`
-            }
+            conversationHrefBase={`/operator/clients/${client.id}/conversations`}
           />
         </div>
         <PaginationControls

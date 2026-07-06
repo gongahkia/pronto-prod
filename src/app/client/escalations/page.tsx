@@ -46,9 +46,7 @@ export default async function ClientEscalationsPage({
             clientId={user.clientId}
             escalations={visibleEscalations}
             simple
-            hrefForConversation={(_, conversationId) =>
-              `/client/conversations/${conversationId}`
-            }
+            conversationHrefBase="/client/conversations"
           />
         </div>
         <PaginationControls

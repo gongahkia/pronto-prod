@@ -424,9 +424,9 @@ export async function runAgentForMessage(input: {
   };
 
   let decision: GroundedAnswerDecision | undefined;
-  let generationProvider = responseModel.provider;
-  let generationModel = responseModel.model;
-  let generationCostLabel = responseModel.costLabel;
+  const generationProvider = responseModel.provider;
+  const generationModel = responseModel.model;
+  const generationCostLabel = responseModel.costLabel;
   let providerError: unknown;
   try {
     decision = await getGenerationProvider(responseModel.provider).generateGroundedAnswer({

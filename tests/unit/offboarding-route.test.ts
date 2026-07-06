@@ -40,7 +40,6 @@ describe("operator offboarding route", () => {
       knowledgeSources: [],
       conversations: [],
       escalations: [],
-      reviews: [],
       agentConfig: null,
     });
     const form = new FormData();

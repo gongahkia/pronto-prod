@@ -10,7 +10,7 @@ export type BulkEscalationListProps = {
   clientId: string;
   escalations: EscalationWithContext[];
   staff?: { id: string; name: string; email: string }[];
-  hrefForConversation: (escalationId: string, conversationId: string) => string;
+  conversationHrefBase: string;
   allowAssign?: boolean;
   simple?: boolean;
 };
@@ -207,7 +207,7 @@ export function BulkEscalationList(props: BulkEscalationListProps) {
               <div className="flex flex-wrap items-baseline gap-3">
                 <Link
                   className="font-medium text-accent"
-                  href={props.hrefForConversation(escalation.id, escalation.conversation_id)}
+                  href={`${props.conversationHrefBase}/${escalation.conversation_id}`}
                 >
                   {escalation.customer_handle ?? "unknown customer"}
                 </Link>

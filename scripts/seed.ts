@@ -265,6 +265,11 @@ async function main() {
   );
 
   await pool.query(
+    "delete from channels where client_id = $1 and kind = 'console'",
+    [CLIENT_ID],
+  );
+
+  await pool.query(
     `
       insert into channels (id, client_id, kind, name, status, external_id, credentials, settings)
       values

@@ -3,6 +3,9 @@
 
 BEGIN;
 
+-- Console channel rows are no longer part of the product scope.
+DELETE FROM channels WHERE kind = 'console';
+
 -- Assistant/copilot (migration 014)
 DROP TABLE IF EXISTS assistant_action_proposals CASCADE;
 DROP TABLE IF EXISTS assistant_messages CASCADE;

@@ -69,8 +69,8 @@ function baseChannel(): Channel {
   return {
     id: "channel-1",
     client_id: "client-1",
-    kind: "console",
-    name: "Console",
+    kind: "email",
+    name: "Email",
     status: "active",
     external_id: null,
     credentials: {},

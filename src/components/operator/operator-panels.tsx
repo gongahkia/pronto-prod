@@ -270,7 +270,7 @@ const channelFields: Record<ChannelKind, ChannelField[]> = {
 };
 
 function ChannelStructuredFields({ channel }: { channel: Channel }) {
-  const fields = channelFields[channel.kind];
+  const fields = (channelFields as Partial<Record<string, ChannelField[]>>)[channel.kind] ?? [];
   if (!fields.length) {
     return <p className="rounded-md bg-surface p-3 text-xs text-muted">No channel credentials required.</p>;
   }
@@ -432,37 +432,8 @@ export function OperatorKnowledgeIngestion({ clientId }: { clientId: string }) {
         <input
           name="title"
           className="w-full rounded-md border border-line px-3 py-2 text-sm"
-          placeholder="Source title, optional for uploads and websites"
+          placeholder="Source title, optional for uploads"
         />
-        <input
-          name="url"
-          type="url"
-          className="w-full rounded-md border border-line px-3 py-2 text-sm"
-          placeholder="Website URL"
-        />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <input
-            name="crawlDepth"
-            type="number"
-            min="0"
-            max="2"
-            defaultValue="1"
-            className="w-full rounded-md border border-line px-3 py-2 text-sm"
-            placeholder="Crawl depth"
-          />
-          <input
-            name="maxPages"
-            type="number"
-            min="1"
-            max="10"
-            defaultValue="5"
-            className="w-full rounded-md border border-line px-3 py-2 text-sm"
-            placeholder="Max pages"
-          />
-        </div>
-        <p className="text-xs text-muted">
-          Website ingestion fetches static same-origin HTML only.
-        </p>
         <textarea
           name="content"
           rows={8}
