@@ -76,7 +76,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 ## Execution Order Overview
 
 1. Prep branch (done above)
-4. Delete cut API routes
 5. Delete cut lib modules; fix imports on the fly
 6. Delete cut components
 7. Delete cut scripts + related package.json entries
@@ -88,24 +87,6 @@ pnpm dev                              # sanity: app boots at http://127.0.0.1:30
 13. Full verification pass
 
 Commit after each numbered step so partial progress is preserved. Suggested commit prefixes: `chore(cut): step-<n> <short desc>`.
-
----
-
-## STEP 3 — Delete Cut API Routes
-
-Delete entire directories:
-```
-src/app/api/assistant/
-src/app/api/console/
-src/app/api/operator/provider-test/
-src/app/api/operator/reviews/
-src/app/api/operator/monthly-report/
-src/app/api/operator/client-commercials/
-```
-
-Note: Keep `src/app/api/operator/flows/` and `src/app/api/client/flows/` — the flow storage API stays; only the visual editor UI is being replaced. The routes will accept JSON payloads instead.
-
-Commit: `chore(cut): step-3 remove deprecated API routes`
 
 ---
 
