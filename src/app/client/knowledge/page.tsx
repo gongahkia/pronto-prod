@@ -97,33 +97,33 @@ export default async function ClientKnowledgePage({
       ) : null}
 
       {activeTab === "add" ? (
-      <section className="ui-panel">
-        <div className="ui-panel-header">
-          <div>
-            <h2 className="text-base font-semibold">Add knowledge</h2>
-            <p className="text-sm text-muted">
-              Add menus, policies, FAQs, or service notes Pronto should rely on.
-            </p>
+        <section className="ui-panel">
+          <div className="ui-panel-header">
+            <div>
+              <h2 className="text-base font-semibold">Add knowledge</h2>
+              <p className="text-sm text-muted">
+                Add menus, policies, FAQs, or service notes Pronto should rely on.
+              </p>
+            </div>
           </div>
-        </div>
-        <form action="/api/client/knowledge" method="post" encType="multipart/form-data" className="space-y-3 p-4">
-          <input
-            name="title"
-            className="w-full rounded-md border border-line px-3 py-2 text-sm"
-            placeholder="Source title, optional for uploads"
-          />
-          <textarea
-            name="content"
-            rows={8}
-            className="w-full rounded-md border border-line px-3 py-2 text-sm"
-            placeholder="Paste menu, policy, opening hours, FAQs, or service notes"
-          />
-          <KnowledgeFileInput />
-          <PendingSubmitButton className="ui-primary-button px-4 py-2" pendingText="Adding...">
-            Add source
-          </PendingSubmitButton>
-        </form>
-      </section>
+          <form action="/api/client/knowledge" method="post" encType="multipart/form-data" className="space-y-3 p-4">
+            <input
+              name="title"
+              className="w-full rounded-md border border-line px-3 py-2 text-sm"
+              placeholder="Source title, optional for uploads"
+            />
+            <textarea
+              name="content"
+              rows={8}
+              className="w-full rounded-md border border-line px-3 py-2 text-sm"
+              placeholder="Paste menu, policy, opening hours, FAQs, or service notes"
+            />
+            <KnowledgeFileInput />
+            <PendingSubmitButton className="ui-primary-button px-4 py-2" pendingText="Adding...">
+              Add source
+            </PendingSubmitButton>
+          </form>
+        </section>
       ) : null}
     </AppShell>
   );
