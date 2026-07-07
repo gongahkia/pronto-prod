@@ -51,7 +51,6 @@ export type OperatorClientHealth = {
   activeChannels: number;
   degradedChannels: number;
   openTriage: number;
-  assistantRequests: number;
   knowledgeSources: number;
   latestActivityAt: Date | null;
 };
@@ -227,7 +226,6 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
     active_channels: string;
     degraded_channels: string;
     open_triage: string;
-    assistant_requests: string;
     knowledge_sources: string;
     latest_activity_at: Date | null;
   }>(
@@ -244,11 +242,6 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
           limit 1
         ) owner_reply on true
         where ${actionableEscalationCondition}
-      ),
-      open_requests as (
-        select id, client_id
-        from client_assistant_change_requests
-        where status in ('open', 'reviewing')
       )
       select
         cl.id as client_id,
@@ -259,13 +252,11 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
         count(distinct ch.id) filter (where ch.status = 'active')::text as active_channels,
         count(distinct ch.id) filter (where ch.last_health_status in ('degraded', 'unconfigured'))::text as degraded_channels,
         count(distinct a.id)::text as open_triage,
-        count(distinct req.id)::text as assistant_requests,
         count(distinct ks.id)::text as knowledge_sources,
         max(c.last_message_at) as latest_activity_at
       from clients cl
       left join channels ch on ch.client_id = cl.id
       left join actionable a on a.client_id = cl.id
-      left join open_requests req on req.client_id = cl.id
       left join knowledge_sources ks on ks.client_id = cl.id
       left join conversations c on c.client_id = cl.id
       group by cl.id, cl.name, cl.vertical, cl.plan_tier, cl.status
@@ -281,7 +272,6 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
     const degradedChannels = Number(row.degraded_channels);
     const activeChannels = Number(row.active_channels);
     const openTriage = Number(row.open_triage);
-    const assistantRequests = Number(row.assistant_requests);
     const knowledgeSources = Number(row.knowledge_sources);
     const healthStatus =
       degradedChannels > 0
@@ -289,8 +279,7 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
         : row.status !== "live" ||
             activeChannels === 0 ||
             knowledgeSources === 0 ||
-            openTriage > 0 ||
-            assistantRequests > 0
+            openTriage > 0
           ? "warning"
           : "healthy";
 
@@ -304,7 +293,6 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
       activeChannels,
       degradedChannels,
       openTriage,
-      assistantRequests,
       knowledgeSources,
       latestActivityAt: row.latest_activity_at,
     };
@@ -312,14 +300,13 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
 
   const openTriageCount = health.reduce((sum, row) => sum + row.openTriage, 0);
   const channelIssueCount = health.reduce((sum, row) => sum + row.degradedChannels, 0);
-  const assistantRequestCount = health.reduce((sum, row) => sum + row.assistantRequests, 0);
   const degradedClientCount = health.filter((row) => row.health === "critical").length;
   const setupNeedCount = health.filter(
     (row) => row.status !== "live" || row.activeChannels === 0 || row.knowledgeSources === 0,
   ).length;
 
   return {
-    needsActionNow: openTriageCount + channelIssueCount + assistantRequestCount,
+    needsActionNow: openTriageCount + channelIssueCount,
     channelIssues: channelIssueCount,
     degradedClients: degradedClientCount,
     setupNeeds: setupNeedCount,

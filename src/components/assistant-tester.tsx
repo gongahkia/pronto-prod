@@ -123,7 +123,7 @@ export function AssistantTester({
         body: JSON.stringify({
           channelId: selectedChannel.id,
           message: customerMessage.body,
-          history: nextMessages
+          history: messages
             .filter((message) => message.senderRole === "customer" || message.senderRole === "agent")
             .map((message) => ({
               senderRole: message.senderRole,

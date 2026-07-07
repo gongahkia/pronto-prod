@@ -86,7 +86,7 @@ function ClientPortfolioRow({ client }: { client: OperatorClientHealth }) {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs text-muted md:grid-cols-3 xl:w-[32rem] xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 text-xs text-muted md:grid-cols-3 xl:w-[26rem] xl:grid-cols-4">
           <PortfolioMetric
             label="Channels"
             value={`${client.activeChannels}/${client.degradedChannels}`}
@@ -96,11 +96,6 @@ function ClientPortfolioRow({ client }: { client: OperatorClientHealth }) {
             label="Triage"
             value={client.openTriage}
             danger={client.openTriage > 0}
-          />
-          <PortfolioMetric
-            label="Requests"
-            value={client.assistantRequests}
-            danger={client.assistantRequests > 0}
           />
           <PortfolioMetric
             label="Sources"
