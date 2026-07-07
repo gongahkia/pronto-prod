@@ -1,8 +1,8 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { getBrandVoiceProfile } from "@/lib/brand-voice";
 import { getClient, getKnowledgeSources } from "@/lib/dashboard";
-import { getClientAssistantChangeRequests } from "@/lib/client-assistant-requests";
 import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
 import {
   getClientDashboardAnalytics,
@@ -11,6 +11,7 @@ import {
 } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
+import { ClientBrandVoicePreview } from "@/components/local-release-panels";
 import { ConversationList } from "@/components/reporting-panels";
 import { StatCard } from "@/components/stat-card";
 
@@ -27,7 +28,7 @@ export default async function ClientOverviewPage() {
     recentConversations,
     knowledgeSources,
     refreshRequests,
-    assistantRequests,
+    brandVoice,
   ] = await Promise.all([
     getClient(user.clientId),
     getClientDashboardAnalytics(user.clientId),
@@ -35,16 +36,13 @@ export default async function ClientOverviewPage() {
     getFilteredConversations({ clientId: user.clientId, limit: 6 }),
     getKnowledgeSources(user.clientId),
     getKnowledgeRefreshRequests(user.clientId),
-    getClientAssistantChangeRequests(user.clientId, 5),
+    getBrandVoiceProfile(user.clientId),
   ]);
   if (!client) {
     throw new Error("Client record not found.");
   }
 
   const openRefreshes = refreshRequests.filter((request) => request.status === "open");
-  const openAssistantRequests = assistantRequests.filter((request) =>
-    request.status === "open" || request.status === "reviewing"
-  );
   const themes = summarizeThemes(attentionConversations);
 
   return (
@@ -88,11 +86,11 @@ export default async function ClientOverviewPage() {
               Items that affect current customers or the assistant&apos;s ability to answer well.
             </p>
           </div>
-          <Badge tone={attentionTone(analytics.actionableEscalations + openRefreshes.length + openAssistantRequests.length)}>
-            {analytics.actionableEscalations + openRefreshes.length + openAssistantRequests.length} open
+          <Badge tone={attentionTone(analytics.actionableEscalations + openRefreshes.length)}>
+            {analytics.actionableEscalations + openRefreshes.length} open
           </Badge>
         </div>
-        <div className="grid gap-3 p-4 md:grid-cols-3">
+        <div className="grid gap-3 p-4 md:grid-cols-2">
           <AttentionCard
             label="Customer replies"
             value={analytics.actionableEscalations}
@@ -105,12 +103,6 @@ export default async function ClientOverviewPage() {
             detail={`${knowledgeSources.length} sources currently available to Pronto.`}
             href="/client/knowledge"
           />
-          <AttentionCard
-            label="Assistant requests"
-            value={openAssistantRequests.length}
-            detail="Requested changes to tone, handoff behavior, or scope."
-            href="/client/assistant"
-          />
         </div>
         <ConversationList
           conversations={attentionConversations}
@@ -119,6 +111,8 @@ export default async function ClientOverviewPage() {
           ctaLabel="Open"
         />
       </section>
+
+      <ClientBrandVoicePreview profile={brandVoice} />
 
       <section className="mt-6 ui-panel">
         <div className="ui-panel-header">
