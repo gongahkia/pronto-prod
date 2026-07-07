@@ -83,7 +83,7 @@ const TRIAGE_CHANNELS: ChannelKind[] = [
   "email",
 ];
 
-const channelCopy: Record<ChannelKind, { label: string; description: string }> = {
+export const TRIAGE_CHANNEL_COPY: Record<ChannelKind, { label: string; description: string }> = {
   whatsapp: {
     label: "Receive WhatsApp message",
     description: "Inbound WhatsApp Cloud API message from a customer phone number.",
@@ -179,8 +179,8 @@ const defaultNodes: TriageFlowNode[] = [
     position: { x: -620, y: -380 },
     data: {
       kind: "channel",
-      label: channelCopy.whatsapp.label,
-      description: channelCopy.whatsapp.description,
+      label: TRIAGE_CHANNEL_COPY.whatsapp.label,
+      description: TRIAGE_CHANNEL_COPY.whatsapp.description,
       badge: "channel",
       channelKind: "whatsapp",
     },
@@ -191,8 +191,8 @@ const defaultNodes: TriageFlowNode[] = [
     position: { x: -620, y: -190 },
     data: {
       kind: "channel",
-      label: channelCopy.telegram.label,
-      description: channelCopy.telegram.description,
+      label: TRIAGE_CHANNEL_COPY.telegram.label,
+      description: TRIAGE_CHANNEL_COPY.telegram.description,
       badge: "channel",
       channelKind: "telegram",
     },
@@ -203,8 +203,8 @@ const defaultNodes: TriageFlowNode[] = [
     position: { x: -620, y: 0 },
     data: {
       kind: "channel",
-      label: channelCopy.instagram.label,
-      description: channelCopy.instagram.description,
+      label: TRIAGE_CHANNEL_COPY.instagram.label,
+      description: TRIAGE_CHANNEL_COPY.instagram.description,
       badge: "channel",
       channelKind: "instagram",
     },
@@ -215,8 +215,8 @@ const defaultNodes: TriageFlowNode[] = [
     position: { x: -620, y: 190 },
     data: {
       kind: "channel",
-      label: channelCopy.messenger.label,
-      description: channelCopy.messenger.description,
+      label: TRIAGE_CHANNEL_COPY.messenger.label,
+      description: TRIAGE_CHANNEL_COPY.messenger.description,
       badge: "channel",
       channelKind: "messenger",
     },
@@ -227,8 +227,8 @@ const defaultNodes: TriageFlowNode[] = [
     position: { x: -620, y: 380 },
     data: {
       kind: "channel",
-      label: channelCopy.email.label,
-      description: channelCopy.email.description,
+      label: TRIAGE_CHANNEL_COPY.email.label,
+      description: TRIAGE_CHANNEL_COPY.email.description,
       badge: "channel",
       channelKind: "email",
     },

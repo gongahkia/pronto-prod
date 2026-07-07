@@ -14,7 +14,7 @@ import type {
 } from "@/lib/dashboard";
 import type { Channel, ChannelKind, Client, Message } from "@/lib/types";
 import { Badge } from "@/components/badge";
-import { ChannelConversationThread } from "@/components/channel-conversation-thread";
+import { ConversationReviewPanel } from "@/components/conversation-review-panel";
 import { DeliveryStatusBadge } from "@/components/delivery-status";
 import { EscalationOutboundStatus } from "@/components/escalation-outbound-status";
 import { KnowledgeFileInput } from "@/components/knowledge-file-input";
@@ -552,27 +552,7 @@ export function OperatorConversationReview({
   conversation: ClientConversationTriage | null;
   messages: Message[];
 }) {
-  if (!conversation) {
-    return (
-      <div className="ui-panel">
-        <div className="ui-panel-header">
-          <h2 className="text-base font-semibold">Conversation review</h2>
-        </div>
-        <p className="p-4 text-sm text-muted">No conversations yet.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div id={`conversation-${conversation.id}`} className="ui-panel">
-      <div className="ui-panel-header">
-        <h2 className="text-base font-semibold">Conversation review</h2>
-      </div>
-      <div className="p-4">
-        <ChannelConversationThread conversation={conversation} messages={messages} />
-      </div>
-    </div>
-  );
+  return <ConversationReviewPanel conversation={conversation} messages={messages} />;
 }
 
 export function OperatorOffboardingPanel({ client }: { client: Client }) {

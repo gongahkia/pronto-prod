@@ -56,6 +56,16 @@ describe("proxy", () => {
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
   });
 
+  it("does not upgrade local development form submissions", () => {
+    vi.stubEnv("NODE_ENV", "development");
+
+    const response = proxy(new NextRequest("http://127.0.0.1:3000/login"));
+    const csp = response.headers.get("Content-Security-Policy") ?? "";
+
+    expect(csp).toContain("form-action 'self' http://localhost:* http://127.0.0.1:*");
+    expect(csp).not.toContain("upgrade-insecure-requests");
+  });
+
   it("keeps static asset exclusions in the matcher", () => {
     expect(config.matcher[0]).toContain("_next/static");
     expect(config.matcher[0]).toContain("_next/image");

@@ -1,12 +1,11 @@
 import { requireUser } from "@/lib/auth";
 import { formatDate as formatDisplayDate } from "@/lib/date-format";
-import { getClient } from "@/lib/dashboard";
+import { getChannels, getClient } from "@/lib/dashboard";
 import { getClientAssistantChangeRequests } from "@/lib/client-assistant-requests";
 import { getTriageFlowForClient } from "@/lib/triage-flow-store";
-import type { TriageFlowNode } from "@/lib/triage-flow";
 import { AppShell } from "@/components/shell";
+import { AssistantTester } from "@/components/assistant-tester";
 import { Badge } from "@/components/badge";
-import { StatCard } from "@/components/stat-card";
 
 export default async function ClientAssistantPage() {
   const user = await requireUser("client");
@@ -14,8 +13,9 @@ export default async function ClientAssistantPage() {
     throw new Error("Client user is missing a client assignment.");
   }
 
-  const [client, flow, assistantRequests] = await Promise.all([
+  const [client, channels, flow, assistantRequests] = await Promise.all([
     getClient(user.clientId),
+    getChannels(user.clientId),
     getTriageFlowForClient(user.clientId),
     getClientAssistantChangeRequests(user.clientId, 8),
   ]);
@@ -23,13 +23,14 @@ export default async function ClientAssistantPage() {
     throw new Error("Client record not found.");
   }
 
-  const handoffRules = flow.nodes.filter(isEnabledDecisionNode);
-  const disabledRules = flow.nodes.filter((node) =>
-    node.data.kind === "decision" && node.data.enabled === false
-  );
-  const openRequests = assistantRequests.filter((request) =>
-    request.status === "open" || request.status === "reviewing"
-  );
+  const testChannels = channels
+    .filter((channel) => channel.status !== "disabled")
+    .map((channel) => ({
+      id: channel.id,
+      kind: channel.kind,
+      name: channel.name,
+      status: channel.status,
+    }));
 
   return (
     <AppShell user={user} active="client" clientActive="assistant" workspaceName={client.name}>
@@ -37,7 +38,7 @@ export default async function ClientAssistantPage() {
         <div>
           <h1 className="text-xl font-semibold">Assistant</h1>
           <p className="text-sm text-muted">
-            See what Pronto answers and when it asks a human.
+            Test how Pronto replies before customers see it.
           </p>
         </div>
         <Badge tone={flow.isDefault ? "amber" : "green"}>
@@ -45,76 +46,35 @@ export default async function ClientAssistantPage() {
         </Badge>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Human handoff rules" value={handoffRules.length} />
-        <StatCard label="Change requests" value={openRequests.length} />
-        <StatCard label="Last published" value={formatDate(flow.publishedAt)} />
-      </section>
-
-      <section className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <section className="grid gap-6 xl:grid-cols-[0.36fr_0.64fr]">
         <section className="ui-panel">
           <div className="ui-panel-header">
             <div>
-              <h2 className="text-base font-semibold">What Pronto will answer</h2>
+              <h2 className="text-base font-semibold">Assistant config</h2>
               <p className="text-sm text-muted">
-                Pronto answers only when the question is in scope and backed by approved knowledge.
+                Current published behavior for this workspace.
               </p>
             </div>
           </div>
-          <div className="space-y-3 p-4 text-sm">
-            <div className="rounded-md border border-line bg-surface p-3">
-              <p className="font-medium">Safe customer-service questions</p>
-              <p className="mt-1 text-muted">
-                Opening hours, menu details, policies, FAQs, and service information that exists in
-                your Knowledge page.
-              </p>
+          <div className="divide-y divide-line text-sm">
+            <div className="flex items-center justify-between gap-4 p-4">
+              <span className="text-muted">Last published</span>
+              <span className="font-medium">{formatDate(flow.publishedAt)}</span>
             </div>
-            <div className="rounded-md border border-line bg-surface p-3">
-              <p className="font-medium">No guessing</p>
-              <p className="mt-1 text-muted">
-                If Pronto does not have enough confidence or source material, it asks for human help
-                instead of improvising.
-              </p>
+            <div className="flex items-center justify-between gap-4 p-4">
+              <span className="text-muted">Configured channels</span>
+              <span className="font-medium">{testChannels.length}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4 p-4">
+              <span className="text-muted">Change requests</span>
+              <span className="font-medium">
+                {assistantRequests.filter((request) => request.status === "open" || request.status === "reviewing").length}
+              </span>
             </div>
           </div>
         </section>
 
-        <section className="ui-panel">
-          <div className="ui-panel-header">
-            <div>
-              <h2 className="text-base font-semibold">When Pronto asks a human</h2>
-              <p className="text-sm text-muted">
-                These are the live handoff rules Pronto uses before replying to customers.
-              </p>
-            </div>
-          </div>
-          <div className="divide-y divide-line">
-            {handoffRules.map((node) => (
-              <div key={node.id} className="space-y-2 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium">{node.data.label}</p>
-                  <Badge tone="amber">handoff</Badge>
-                </div>
-                <p className="text-sm text-muted">{node.data.description}</p>
-                {node.data.triggerTerms?.length ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {node.data.triggerTerms.slice(0, 6).map((term) => (
-                      <Badge key={term}>{term}</Badge>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ))}
-            {handoffRules.length === 0 ? (
-              <p className="p-4 text-sm text-muted">No human handoff rules are enabled.</p>
-            ) : null}
-          </div>
-          {disabledRules.length ? (
-            <div className="border-t border-line p-4 text-sm text-muted">
-              {disabledRules.length} handoff rule{disabledRules.length === 1 ? " is" : "s are"} currently disabled.
-            </div>
-          ) : null}
-        </section>
+        <AssistantTester channels={testChannels} clientName={client.name} />
       </section>
 
       <section className="mt-6">
@@ -171,10 +131,6 @@ export default async function ClientAssistantPage() {
       </section>
     </AppShell>
   );
-}
-
-function isEnabledDecisionNode(node: TriageFlowNode): boolean {
-  return node.data.kind === "decision" && node.data.enabled !== false;
 }
 
 function formatDate(value: Date | null): string {

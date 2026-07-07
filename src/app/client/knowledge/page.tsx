@@ -4,13 +4,11 @@ import { requireUser } from "@/lib/auth";
 import { formatDate as formatDisplayDate } from "@/lib/date-format";
 import { getClient, getKnowledgeSources } from "@/lib/dashboard";
 import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
-import { getKnowledgeGapReport } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
 import { KnowledgeFileInput } from "@/components/knowledge-file-input";
 import { KnowledgeRefreshPanel } from "@/components/knowledge-refresh-panel";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
-import { KnowledgeGapPanel } from "@/components/reporting-panels";
 import { StatCard } from "@/components/stat-card";
 
 export default async function ClientKnowledgePage() {
@@ -19,11 +17,10 @@ export default async function ClientKnowledgePage() {
     throw new Error("Client user is missing a client assignment.");
   }
 
-  const [client, knowledge, refreshRequests, gaps] = await Promise.all([
+  const [client, knowledge, refreshRequests] = await Promise.all([
     getClient(user.clientId),
     getKnowledgeSources(user.clientId),
     getKnowledgeRefreshRequests(user.clientId),
-    getKnowledgeGapReport({ clientId: user.clientId, limit: 8 }),
   ]);
   if (!client) {
     throw new Error("Client record not found.");
@@ -41,14 +38,13 @@ export default async function ClientKnowledgePage() {
         </p>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-3">
         <StatCard label="Sources" value={knowledge.length} />
         <StatCard label="Open refreshes" value={openRefreshes.length} />
-        <StatCard label="Knowledge gaps" value={gaps.length} />
         <StatCard label="Latest source" value={formatKnowledgeDate(latestSource)} />
       </section>
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-[1fr_0.75fr]">
+      <section className="mt-6">
         <section className="ui-panel">
           <div className="ui-panel-header">
             <div>
@@ -84,11 +80,6 @@ export default async function ClientKnowledgePage() {
             )}
           </div>
         </section>
-
-        <KnowledgeGapPanel
-          gaps={gaps}
-          hrefForGap={(gap) => `/client/conversations/${gap.conversation_id}`}
-        />
       </section>
 
       <div className="mt-6">

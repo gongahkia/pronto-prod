@@ -9,7 +9,7 @@ import {
 } from "@/lib/dashboard";
 import { AppShell } from "@/components/shell";
 import { ConversationTriagePanel } from "@/components/conversation-triage-panel";
-import { ConversationTranscript } from "@/components/conversation-transcript";
+import { ConversationReviewPanel } from "@/components/conversation-review-panel";
 
 export default async function ClientConversationPage({
   params,
@@ -50,7 +50,7 @@ export default async function ClientConversationPage({
       </div>
       <div className="space-y-6">
         <ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo} />
-        <ConversationTranscript conversation={conversation} messages={messages} />
+        <ConversationReviewPanel conversation={conversation} messages={messages} />
       </div>
     </AppShell>
   );

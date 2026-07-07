@@ -39,20 +39,6 @@ export type ClientDashboardAnalytics = {
   avgFirstResponseSeconds: number | null;
   csatAverage: number | null;
   csatResponses: number;
-  knowledgeGapCount: number;
-};
-
-export type KnowledgeGapRow = {
-  conversation_id: string;
-  client_id: string;
-  client_name: string;
-  customer_name: string | null;
-  customer_handle: string | null;
-  channel_kind: Channel["kind"];
-  last_message_at: Date;
-  gap_source: string;
-  reason_code: string | null;
-  last_message: string | null;
 };
 
 export type OperatorClientHealth = {
@@ -155,7 +141,7 @@ export async function getFilteredConversations(
 export async function getClientDashboardAnalytics(
   clientId: string,
 ): Promise<ClientDashboardAnalytics> {
-  const [conversationStats, actionable, firstResponse, csat, gaps] =
+  const [conversationStats, actionable, firstResponse, csat] =
     await Promise.all([
       query<{
         conversations: string;
@@ -212,7 +198,6 @@ export async function getClientDashboardAnalytics(
         `,
         [clientId],
       ),
-      getKnowledgeGapReport({ clientId, limit: 50 }),
     ]);
 
   const row = conversationStats.rows[0];
@@ -229,63 +214,7 @@ export async function getClientDashboardAnalytics(
     avgFirstResponseSeconds: parseNullableNumber(firstResponse.rows[0]?.seconds),
     csatAverage: parseNullableNumber(csat.rows[0]?.average),
     csatResponses: Number(csat.rows[0]?.count ?? 0),
-    knowledgeGapCount: gaps.length,
   };
-}
-
-export async function getKnowledgeGapReport(input: {
-  clientId?: string;
-  limit?: number;
-  offset?: number;
-} = {}): Promise<KnowledgeGapRow[]> {
-  const params: unknown[] = [];
-  const clientFilter = input.clientId ? `and c.client_id = $${pushParam(params, input.clientId)}` : "";
-  const limit = normalizeLimit(input.limit, 20);
-  const offset = normalizeOffset(input.offset);
-  const result = await query<KnowledgeGapRow>(
-    `
-      with gap_candidates as (
-        select
-          c.id as conversation_id,
-          c.client_id,
-          cl.name as client_name,
-          c.customer_name,
-          c.customer_handle,
-          ch.kind as channel_kind,
-          c.last_message_at,
-          'escalation' as gap_source,
-          e.reason_code,
-          lm.body as last_message
-        from conversations c
-        join clients cl on cl.id = c.client_id
-        join channels ch on ch.id = c.channel_id
-        join lateral (
-          select reason_code
-          from escalations
-          where conversation_id = c.id
-            and reason_code in ('low_retrieval_confidence', 'out_of_scope')
-          order by created_at desc
-          limit 1
-        ) e on true
-        left join lateral (
-          select body
-          from messages
-          where conversation_id = c.id
-          order by created_at desc
-          limit 1
-        ) lm on true
-        where true
-        ${clientFilter}
-      )
-      select *
-      from gap_candidates
-      order by last_message_at desc
-      limit $${params.length + 1}
-      offset $${params.length + 2}
-    `,
-    [...params, limit, offset],
-  );
-  return result.rows;
 }
 
 export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter> {

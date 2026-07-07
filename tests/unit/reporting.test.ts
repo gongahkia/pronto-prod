@@ -66,8 +66,7 @@ describe("reporting helpers", () => {
       .mockResolvedValueOnce({ rows: [{ conversations: "10", escalated: "3" }] })
       .mockResolvedValueOnce({ rows: [{ count: "2" }] })
       .mockResolvedValueOnce({ rows: [{ seconds: "120" }] })
-      .mockResolvedValueOnce({ rows: [{ average: "4.5", count: "6" }] })
-      .mockResolvedValueOnce({ rows: [knowledgeGapRow(), knowledgeGapRow()] });
+      .mockResolvedValueOnce({ rows: [{ average: "4.5", count: "6" }] });
 
     const result = await getClientDashboardAnalytics("client-1");
 
@@ -79,23 +78,7 @@ describe("reporting helpers", () => {
       avgFirstResponseSeconds: 120,
       csatAverage: 4.5,
       csatResponses: 6,
-      knowledgeGapCount: 2,
     });
   });
 
 });
-
-function knowledgeGapRow() {
-  return {
-    conversation_id: "conversation-1",
-    client_id: "client-1",
-    client_name: "North Bridge Nasi",
-    customer_name: "Alicia",
-    customer_handle: null,
-    channel_kind: "whatsapp",
-    last_message_at: new Date(),
-    gap_source: "escalation",
-    reason_code: "low_retrieval_confidence",
-    last_message: "Do you have a karaoke room?",
-  };
-}

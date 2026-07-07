@@ -83,10 +83,14 @@ function buildContentSecurityPolicy(nonce: string): string {
     "connect-src 'self' https:",
     "frame-ancestors 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    isDevelopment
+      ? "form-action 'self' http://localhost:* http://127.0.0.1:*"
+      : "form-action 'self'",
     "object-src 'none'",
-    "upgrade-insecure-requests",
   ];
+  if (!isDevelopment) {
+    directives.push("upgrade-insecure-requests");
+  }
 
   return directives.join("; ");
 }

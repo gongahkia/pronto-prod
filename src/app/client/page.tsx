@@ -7,13 +7,11 @@ import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
 import {
   getClientDashboardAnalytics,
   getFilteredConversations,
-  getKnowledgeGapReport,
   type FilteredConversation,
-  type KnowledgeGapRow,
 } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
-import { ConversationList, KnowledgeGapPanel } from "@/components/reporting-panels";
+import { ConversationList } from "@/components/reporting-panels";
 import { StatCard } from "@/components/stat-card";
 
 export default async function ClientOverviewPage() {
@@ -25,7 +23,6 @@ export default async function ClientOverviewPage() {
   const [
     client,
     analytics,
-    gaps,
     attentionConversations,
     recentConversations,
     knowledgeSources,
@@ -34,7 +31,6 @@ export default async function ClientOverviewPage() {
   ] = await Promise.all([
     getClient(user.clientId),
     getClientDashboardAnalytics(user.clientId),
-    getKnowledgeGapReport({ clientId: user.clientId, limit: 6 }),
     getFilteredConversations({ clientId: user.clientId, status: "escalated", limit: 5 }),
     getFilteredConversations({ clientId: user.clientId, limit: 6 }),
     getKnowledgeSources(user.clientId),
@@ -49,7 +45,7 @@ export default async function ClientOverviewPage() {
   const openAssistantRequests = assistantRequests.filter((request) =>
     request.status === "open" || request.status === "reviewing"
   );
-  const themes = summarizeThemes(gaps, attentionConversations);
+  const themes = summarizeThemes(attentionConversations);
 
   return (
     <AppShell user={user} active="client" clientActive="overview" workspaceName={client.name}>
@@ -82,7 +78,6 @@ export default async function ClientOverviewPage() {
           value={analytics.csatAverage ? analytics.csatAverage.toFixed(1) : "Pending"}
           hint={`${analytics.csatResponses} responses`}
         />
-        <StatCard label="Knowledge gaps" value={analytics.knowledgeGapCount} />
       </section>
 
       <section className="mt-6 ui-panel">
@@ -106,7 +101,7 @@ export default async function ClientOverviewPage() {
           />
           <AttentionCard
             label="Knowledge updates"
-            value={openRefreshes.length + gaps.length}
+            value={openRefreshes.length}
             detail={`${knowledgeSources.length} sources currently available to Pronto.`}
             href="/client/knowledge"
           />
@@ -125,46 +120,39 @@ export default async function ClientOverviewPage() {
         />
       </section>
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-[0.45fr_1fr]">
-        <section className="ui-panel">
-          <div className="ui-panel-header">
-            <div>
-              <h2 className="text-base font-semibold">Recent customer themes</h2>
-              <p className="text-sm text-muted">
-                Patterns showing up in recent handoffs and knowledge gaps.
-              </p>
-            </div>
+      <section className="mt-6 ui-panel">
+        <div className="ui-panel-header">
+          <div>
+            <h2 className="text-base font-semibold">Recent customer themes</h2>
+            <p className="text-sm text-muted">
+              Patterns showing up in recent handoffs.
+            </p>
           </div>
-          <div className="divide-y divide-line">
-            {themes.length === 0 ? (
-              <p className="p-4 text-sm text-muted">
-                No repeated customer theme is standing out right now.
-              </p>
-            ) : (
-              themes.map((theme) => (
-                <Link
-                  key={theme.key}
-                  href={theme.href}
-                  className="flex items-center justify-between gap-4 p-4 hover:bg-surface-hover"
-                >
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">{theme.label}</p>
-                      <Badge tone="amber">{theme.count}</Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-muted">{theme.detail}</p>
+        </div>
+        <div className="divide-y divide-line">
+          {themes.length === 0 ? (
+            <p className="p-4 text-sm text-muted">
+              No repeated customer theme is standing out right now.
+            </p>
+          ) : (
+            themes.map((theme) => (
+              <Link
+                key={theme.key}
+                href={theme.href}
+                className="flex items-center justify-between gap-4 p-4 hover:bg-surface-hover"
+              >
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{theme.label}</p>
+                    <Badge tone="amber">{theme.count}</Badge>
                   </div>
-                  <ArrowRight size={17} className="shrink-0 text-muted" />
-                </Link>
-              ))
-            )}
-          </div>
-        </section>
-
-        <KnowledgeGapPanel
-          gaps={gaps}
-          hrefForGap={(gap) => `/client/conversations/${gap.conversation_id}`}
-        />
+                  <p className="mt-1 text-sm text-muted">{theme.detail}</p>
+                </div>
+                <ArrowRight size={17} className="shrink-0 text-muted" />
+              </Link>
+            ))
+          )}
+        </div>
       </section>
 
       <section className="mt-6 ui-panel">
@@ -216,15 +204,8 @@ type ThemeSummary = {
   href: string;
 };
 
-function summarizeThemes(
-  gaps: KnowledgeGapRow[],
-  conversations: FilteredConversation[],
-): ThemeSummary[] {
+function summarizeThemes(conversations: FilteredConversation[]): ThemeSummary[] {
   const counts = new Map<string, number>();
-  for (const gap of gaps) {
-    const key = gap.reason_code ?? gap.gap_source;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
   for (const conversation of conversations) {
     if (conversation.active_escalation_reason_code) {
       counts.set(

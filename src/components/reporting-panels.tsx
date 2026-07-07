@@ -4,7 +4,6 @@ import type {
   ClientDashboardAnalytics,
   ConversationFilterInput,
   FilteredConversation,
-  KnowledgeGapRow,
 } from "@/lib/reporting";
 import { channelDefinitions } from "@/lib/channels/catalog";
 import { Badge } from "@/components/badge";
@@ -33,7 +32,6 @@ export function ClientAnalyticsCards({
         value={analytics.csatAverage ? analytics.csatAverage.toFixed(1) : "Pending"}
         hint={`${analytics.csatResponses} responses`}
       />
-      <StatCard label="Knowledge gaps" value={analytics.knowledgeGapCount} />
     </section>
   );
 }
@@ -189,52 +187,6 @@ export function PaginationControls({
         Next
       </Link>
     </nav>
-  );
-}
-
-export function KnowledgeGapPanel({
-  gaps,
-  hrefForGap,
-}: {
-  gaps: KnowledgeGapRow[];
-  hrefForGap: (gap: KnowledgeGapRow) => string;
-}) {
-  return (
-    <section className="ui-panel">
-      <div className="ui-panel-header">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold">Knowledge gaps</h2>
-            <p className="text-sm text-muted">Escalations that point to missing or stale sources.</p>
-          </div>
-          <Badge tone={gaps.length ? "amber" : "green"}>{gaps.length} open</Badge>
-        </div>
-      </div>
-      <div className="divide-y divide-line">
-        {gaps.length === 0 ? (
-          <p className="p-4 text-sm text-muted">No knowledge gaps detected.</p>
-        ) : (
-          gaps.map((gap) => (
-            <Link
-              key={`${gap.conversation_id}:${gap.gap_source}:${gap.reason_code ?? "gap"}`}
-              href={hrefForGap(gap)}
-              className="block p-4 hover:bg-surface-hover"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-medium">{gap.customer_name ?? gap.customer_handle}</p>
-                <Badge>{gap.client_name}</Badge>
-                <Badge>{gap.channel_kind}</Badge>
-                <Badge tone="amber">{gap.gap_source}</Badge>
-                {gap.reason_code ? <Badge tone="red">{gap.reason_code}</Badge> : null}
-              </div>
-              <p className="mt-1 line-clamp-2 text-sm text-muted">
-                {gap.last_message ?? "No message available."}
-              </p>
-            </Link>
-          ))
-        )}
-      </div>
-    </section>
   );
 }
 
