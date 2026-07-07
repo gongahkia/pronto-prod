@@ -42,6 +42,6 @@ DROP TABLE IF EXISTS webhook_replay_events CASCADE;
 --   agent_traces, brand_voice_documents, brand_voice_examples,
 --   csat_responses, integration_credentials, outbound_messages,
 --   error_events, audit_logs, metric_events, email_suppressions,
---   client_assistant_change_requests, triage_flows
+--   triage_flows
 
 COMMIT;

@@ -9,13 +9,20 @@ import { Badge } from "@/components/badge";
 import { KnowledgeFileInput } from "@/components/knowledge-file-input";
 import { KnowledgeRefreshPanel } from "@/components/knowledge-refresh-panel";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
-import { StatCard } from "@/components/stat-card";
 
-export default async function ClientKnowledgePage() {
+type KnowledgeTab = "sources" | "refresh" | "add";
+
+export default async function ClientKnowledgePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser("client");
   if (!user.clientId) {
     throw new Error("Client user is missing a client assignment.");
   }
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const activeTab = knowledgeTabFromSearchParams(resolvedSearchParams);
 
   const [client, knowledge, refreshRequests] = await Promise.all([
     getClient(user.clientId),
@@ -27,24 +34,24 @@ export default async function ClientKnowledgePage() {
   }
 
   const openRefreshes = refreshRequests.filter((request) => request.status === "open");
-  const latestSource = knowledge[0]?.created_at ?? null;
 
   return (
     <AppShell user={user} active="client" clientActive="knowledge" workspaceName={client.name}>
-      <div className="mb-5">
-        <h1 className="text-xl font-semibold">Knowledge</h1>
-        <p className="text-sm text-muted">
-          What Pronto knows about your business, and what needs updating.
-        </p>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">Knowledge</h1>
+          <p className="text-sm text-muted">
+            What Pronto knows about your business, and what needs updating.
+          </p>
+        </div>
+        <nav aria-label="Knowledge sections" className="flex gap-2 overflow-x-auto">
+          <KnowledgeTabLink tab="sources" activeTab={activeTab} label="Sources" count={knowledge.length} />
+          <KnowledgeTabLink tab="refresh" activeTab={activeTab} label="Refresh" count={openRefreshes.length} />
+          <KnowledgeTabLink tab="add" activeTab={activeTab} label="Add source" />
+        </nav>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Sources" value={knowledge.length} />
-        <StatCard label="Open refreshes" value={openRefreshes.length} />
-        <StatCard label="Latest source" value={formatKnowledgeDate(latestSource)} />
-      </section>
-
-      <section className="mt-6">
+      {activeTab === "sources" ? (
         <section className="ui-panel">
           <div className="ui-panel-header">
             <div>
@@ -80,16 +87,17 @@ export default async function ClientKnowledgePage() {
             )}
           </div>
         </section>
-      </section>
+      ) : null}
 
-      <div className="mt-6">
+      {activeTab === "refresh" ? (
         <KnowledgeRefreshPanel
           requests={refreshRequests}
           action="/api/client/knowledge-refresh"
         />
-      </div>
+      ) : null}
 
-      <section className="mt-6 ui-panel">
+      {activeTab === "add" ? (
+      <section className="ui-panel">
         <div className="ui-panel-header">
           <div>
             <h2 className="text-base font-semibold">Add knowledge</h2>
@@ -116,8 +124,51 @@ export default async function ClientKnowledgePage() {
           </PendingSubmitButton>
         </form>
       </section>
+      ) : null}
     </AppShell>
   );
+}
+
+function KnowledgeTabLink({
+  tab,
+  activeTab,
+  label,
+  count,
+}: {
+  tab: KnowledgeTab;
+  activeTab: KnowledgeTab;
+  label: string;
+  count?: number;
+}) {
+  const active = tab === activeTab;
+  return (
+    <Link
+      href={`/client/knowledge?tab=${tab}`}
+      aria-current={active ? "page" : undefined}
+      className={`inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${
+        active
+          ? "bg-accent text-white"
+          : "border border-line bg-surface text-muted hover:bg-surface-hover hover:text-foreground"
+      }`}
+    >
+      {label}
+      {count !== undefined ? (
+        <span className={`rounded-full px-2 py-0.5 text-xs ${active ? "bg-white/20 text-white" : "bg-panel text-muted"}`}>
+          {count}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
+function knowledgeTabFromSearchParams(
+  searchParams: Record<string, string | string[] | undefined>,
+): KnowledgeTab {
+  const value = Array.isArray(searchParams.tab) ? searchParams.tab[0] : searchParams.tab;
+  if (value === "refresh" || value === "add") {
+    return value;
+  }
+  return "sources";
 }
 
 function formatKnowledgeDate(value: Date | null): string {

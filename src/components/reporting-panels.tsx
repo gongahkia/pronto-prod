@@ -1,11 +1,12 @@
 import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import type {
   ClientDashboardAnalytics,
   ConversationFilterInput,
   FilteredConversation,
 } from "@/lib/reporting";
-import { channelDefinitions } from "@/lib/channels/catalog";
+import { channelDefinition, channelDefinitions } from "@/lib/channels/catalog";
 import { Badge } from "@/components/badge";
 import { StatCard } from "@/components/stat-card";
 
@@ -146,6 +147,13 @@ export function ConversationList({
               </p>
             </div>
             <span className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-accent">
+              <Image
+                src={channelDefinition(conversation.channel_kind).iconPath}
+                alt=""
+                width={20}
+                height={20}
+                className="h-5 w-5"
+              />
               {conversation.active_escalation_id ? "Open triage" : ctaLabel}
               <ArrowRight size={16} />
             </span>

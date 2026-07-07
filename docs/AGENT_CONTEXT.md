@@ -24,9 +24,9 @@ Minimal repo map for coding agents. Pair with `docs/architecture.md` for request
 - `src/app/api/webhooks/email/[channelId]/events` -> Postmark/Resend delivery, bounce, and complaint events.
 - `src/app/api/escalations` -> claim, assign, resolve, retry, and bulk escalation actions.
 - `src/app/api/operator/*` -> operator-managed clients, channels, knowledge, integrations, brand voice, and agent config.
-- `src/app/api/client/*` -> client settings, knowledge, refresh requests, assistant change requests, and flow saves.
+- `src/app/api/client/*` -> client settings, knowledge, refresh requests, assistant tests, and flow saves.
 - `src/app/operator/*` -> operator dashboard and per-client admin.
-- `src/app/client/*` -> slim client dashboard: overview, inbox, conversations, knowledge, assistant change requests, escalations, settings.
+- `src/app/client/*` -> slim client dashboard: overview, inbox, conversations, knowledge, assistant testing, escalations, settings.
 - `src/app/csat/*`, `src/app/login/*`.
 
 ## Core Libraries
@@ -56,7 +56,7 @@ Minimal repo map for coding agents. Pair with `docs/architecture.md` for request
 - `010` triage flows.
 - `011` provider-credential legacy table.
 - `012` knowledge refresh requests.
-- `013` client assistant change requests.
+- `013` legacy client assistant change requests, dropped by `029`.
 - `014` assistant legacy tables.
 - `015` knowledge search.
 - `016` deprecated request bucket table.

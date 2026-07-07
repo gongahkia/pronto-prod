@@ -1,8 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { getBrandVoiceProfile } from "@/lib/brand-voice";
-import { getClient } from "@/lib/dashboard";
+import { getChannels, getClient, getKnowledgeSources } from "@/lib/dashboard";
 import { AppShell } from "@/components/shell";
-import { ClientBrandVoicePreview } from "@/components/local-release-panels";
 
 export default async function ClientSettingsPage() {
   const user = await requireUser("client");
@@ -10,9 +9,11 @@ export default async function ClientSettingsPage() {
     throw new Error("Client user is missing a client assignment.");
   }
 
-  const [client, brandVoice] = await Promise.all([
+  const [client, brandVoice, channels, knowledgeSources] = await Promise.all([
     getClient(user.clientId),
     getBrandVoiceProfile(user.clientId),
+    getChannels(user.clientId),
+    getKnowledgeSources(user.clientId),
   ]);
   if (!client) {
     throw new Error("Client record not found.");
@@ -31,11 +32,22 @@ export default async function ClientSettingsPage() {
         </p>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <InfoCard label="Business" value={client.name} detail={location || "No location saved"} />
-        <InfoCard label="Telegram handoff" value={ownerChatId || "Not set"} detail="Owner notification chat" />
-        <InfoCard label="WhatsApp handoff" value={ownerPhone || "Not set"} detail="Owner notification phone" />
-      </section>
+      <details className="ui-panel">
+        <summary className="cursor-pointer list-none ui-panel-header">
+          <div>
+            <h2 className="text-base font-semibold">Onboarding checklist</h2>
+            <p className="text-sm text-muted">Setup items Pronto needs before a full pilot.</p>
+          </div>
+        </summary>
+        <div className="divide-y divide-line">
+          <ChecklistRow label="Business location saved" complete={Boolean(location)} />
+          <ChecklistRow label="Telegram handoff chat set" complete={Boolean(ownerChatId)} />
+          <ChecklistRow label="WhatsApp handoff phone set" complete={Boolean(ownerPhone)} />
+          <ChecklistRow label="At least one active channel" complete={channels.some((channel) => channel.status === "active")} />
+          <ChecklistRow label="Knowledge sources added" complete={knowledgeSources.length > 0} />
+          <ChecklistRow label="Brand voice configured" complete={Boolean(brandVoice.document) || brandVoice.examples.some((example) => example.is_active)} />
+        </div>
+      </details>
 
       <section className="mt-6 ui-panel">
         <div className="ui-panel-header">
@@ -70,26 +82,21 @@ export default async function ClientSettingsPage() {
           </button>
         </form>
       </section>
-
-      <ClientBrandVoicePreview profile={brandVoice} />
     </AppShell>
   );
 }
 
-function InfoCard({
+function ChecklistRow({
   label,
-  value,
-  detail,
+  complete,
 }: {
   label: string;
-  value: string;
-  detail: string;
+  complete: boolean;
 }) {
   return (
-    <div className="ui-panel p-6">
-      <p className="text-sm font-medium leading-[18px] text-muted">{label}</p>
-      <p className="mt-3 truncate text-[20px] font-normal leading-6 text-foreground">{value}</p>
-      <p className="mt-1 text-sm text-muted">{detail}</p>
+    <div className="flex items-center gap-3 p-4 text-sm">
+      <input type="checkbox" checked={complete} readOnly className="h-4 w-4 rounded border-line" />
+      <span className={complete ? "text-foreground" : "text-muted"}>{label}</span>
     </div>
   );
 }
