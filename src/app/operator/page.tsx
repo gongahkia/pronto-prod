@@ -1,4 +1,4 @@
-import { ArrowRight, RadioTower } from "lucide-react";
+import { ArrowRight, ChevronDown, RadioTower } from "lucide-react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { formatDate } from "@/lib/date-format";
@@ -8,7 +8,6 @@ import {
 } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
-import { StatCard } from "@/components/stat-card";
 
 export default async function OperatorPage() {
   const user = await requireUser("operator");
@@ -24,6 +23,27 @@ export default async function OperatorPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <details className="relative">
+            <summary className="ui-button inline-flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-accent">
+              Open client
+              <ChevronDown size={15} aria-hidden="true" />
+            </summary>
+            <div className="absolute right-0 top-11 z-30 w-72 rounded-md border border-line bg-panel p-2 shadow-lg">
+              {commandCenter.clientHealth.length === 0 ? (
+                <p className="px-3 py-2 text-sm text-muted">No clients yet.</p>
+              ) : (
+                commandCenter.clientHealth.map((client) => (
+                  <Link
+                    key={client.clientId}
+                    href={`/operator/clients/${client.clientId}`}
+                    className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-surface-hover"
+                  >
+                    {client.name}
+                  </Link>
+                ))
+              )}
+            </div>
+          </details>
           <Link
             className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accent-dark"
             href="/operator/clients/new"
@@ -33,22 +53,12 @@ export default async function OperatorPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Clients" value={commandCenter.clientHealth.length} />
-        <StatCard label="Needs action" value={commandCenter.needsActionNow} />
-        <StatCard label="Channel issues" value={commandCenter.channelIssues} />
-        <StatCard label="Setup needs" value={commandCenter.setupNeeds} />
-      </section>
-
-      <section className="mt-6 ui-panel">
+      <section className="ui-panel">
         <div className="ui-panel-header">
           <div className="flex items-center gap-2">
             <RadioTower size={17} className="text-accent" />
             <h2 className="text-base font-semibold">Client portfolio</h2>
           </div>
-          <p className="text-sm text-muted">
-            Highest-risk clients are listed first.
-          </p>
         </div>
 
         <div className="divide-y divide-line">

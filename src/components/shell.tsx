@@ -1,6 +1,5 @@
 import {
   Bot,
-  ChevronDown,
   Database,
   Inbox,
   LayoutDashboard,
@@ -212,7 +211,6 @@ function ClientSidebar({
             {initials || "P"}
           </span>
           <span className="truncate">{workspaceName}</span>
-          <ChevronDown size={14} className="shrink-0 text-sidebar-muted" aria-hidden="true" />
         </Link>
       </div>
 
@@ -220,7 +218,6 @@ function ClientSidebar({
         <div>
           <div className="mb-2 flex items-center justify-between px-2 text-sm font-medium text-sidebar-muted">
             <span>Workspace</span>
-            <ChevronDown size={13} aria-hidden="true" />
           </div>
           <div className="space-y-1">
             {clientSidebarItems.map((item) => {
@@ -280,7 +277,6 @@ function OperatorSidebar({
             P
           </span>
           <span className="truncate">Pronto HQ</span>
-          <ChevronDown size={14} className="shrink-0 text-sidebar-muted" aria-hidden="true" />
         </Link>
         <OperatorSidebarActions />
       </div>
@@ -289,7 +285,6 @@ function OperatorSidebar({
         <div>
           <div className="mb-2 flex items-center justify-between px-2 text-sm font-medium text-sidebar-muted">
             <span>Workspace</span>
-            <ChevronDown size={13} aria-hidden="true" />
           </div>
           <div className="space-y-1">
             {operatorWorkspaceItems.map((item) => (

@@ -1,112 +1,77 @@
+import { ArrowRight, MessageSquareText } from "lucide-react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { formatDate } from "@/lib/date-format";
 import {
-  getFilteredConversations,
-  type FilteredConversation,
+  getOperatorCommandCenter,
+  type OperatorClientHealth,
 } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
-import {
-  ConversationFilterForm,
-  ConversationList,
-  PaginationControls,
-  filtersFromSearchParams,
-  pageFromSearchParams,
-} from "@/components/reporting-panels";
-import { StatCard } from "@/components/stat-card";
+import { Badge } from "@/components/badge";
 
-export default async function OperatorConversationsPage({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}) {
+export default async function OperatorConversationsPage() {
   const user = await requireUser("operator");
-  const resolvedSearchParams = searchParams ? await searchParams : {};
-  const filters = filtersFromSearchParams(resolvedSearchParams);
-  const page = pageFromSearchParams(resolvedSearchParams);
-  const limit = 75;
-  const conversations = prioritizeLiveInbox(
-    await getFilteredConversations({ ...filters, limit: limit + 1, offset: (page - 1) * limit }),
-  );
-  const hasNext = conversations.length > limit;
-  const visibleConversations = conversations.slice(0, limit);
-
-  const actionable = visibleConversations.filter((conversation) => conversation.active_escalation_id).length;
-  const escalated = visibleConversations.filter((conversation) => conversation.status === "escalated").length;
-  const active = visibleConversations.filter((conversation) => conversation.status === "active").length;
+  const commandCenter = await getOperatorCommandCenter();
 
   return (
     <AppShell user={user} active="operator" operatorActive="conversations">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Conversations</h1>
-          <p className="text-sm text-muted">
-            Cross-client live inbox for triage, owner follow-up, and debugging.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link className="ui-button px-3 py-2 text-accent" href="/operator/conversations?status=escalated">
-            Escalated
-          </Link>
-          <Link className="ui-button px-3 py-2 text-accent" href="/operator/conversations?status=active">
-            Active
-          </Link>
-        </div>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold">Conversations</h1>
+        <p className="text-sm text-muted">
+          Select a client before opening their conversation inbox.
+        </p>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Actionable" value={actionable} />
-        <StatCard label="Escalated" value={escalated} />
-        <StatCard label="Active" value={active} />
-      </section>
-
-      <section className="mt-6 ui-panel">
+      <section className="ui-panel">
         <div className="ui-panel-header">
-          <div>
-            <h2 className="text-base font-semibold">Live inbox</h2>
-            <p className="text-sm text-muted">
-              Triage items and escalations are shown before ordinary recent activity.
-            </p>
+          <div className="flex items-center gap-2">
+            <MessageSquareText size={17} className="text-accent" />
+            <h2 className="text-base font-semibold">Client inboxes</h2>
           </div>
         </div>
-        <ConversationFilterForm action="/operator/conversations" filters={filters} />
-        <ConversationList
-          conversations={visibleConversations}
-          hrefForConversation={(conversation) =>
-            `/operator/clients/${conversation.client_id}/conversations/${conversation.id}`
-          }
-          showClient
-          ctaLabel="Open"
-        />
-        <PaginationControls
-          action="/operator/conversations"
-          searchParams={resolvedSearchParams}
-          page={page}
-          hasNext={hasNext}
-        />
+        <div className="divide-y divide-line">
+          {commandCenter.clientHealth.length === 0 ? (
+            <p className="p-4 text-sm text-muted">No clients have been created.</p>
+          ) : (
+            commandCenter.clientHealth.map((client) => (
+              <ClientConversationRow key={client.clientId} client={client} />
+            ))
+          )}
+        </div>
       </section>
     </AppShell>
   );
 }
 
-function prioritizeLiveInbox(conversations: FilteredConversation[]): FilteredConversation[] {
-  return [...conversations].sort((left, right) => {
-    const priorityDelta = conversationPriority(right) - conversationPriority(left);
-    if (priorityDelta !== 0) {
-      return priorityDelta;
-    }
-    return right.last_message_at.getTime() - left.last_message_at.getTime();
-  });
+function ClientConversationRow({ client }: { client: OperatorClientHealth }) {
+  return (
+    <Link
+      href={`/operator/clients/${client.clientId}/conversations`}
+      className="flex flex-col gap-4 p-4 hover:bg-surface-hover sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-medium">{client.name}</p>
+          <Badge tone={client.openTriage ? "amber" : "green"}>
+            {client.openTriage} open triage
+          </Badge>
+          <Badge>{client.activeChannels} active channels</Badge>
+        </div>
+        <p className="mt-1 text-sm text-muted">
+          Latest activity {formatWhen(client.latestActivityAt)}
+        </p>
+      </div>
+      <span className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-accent">
+        Open inbox
+        <ArrowRight size={16} />
+      </span>
+    </Link>
+  );
 }
 
-function conversationPriority(conversation: FilteredConversation): number {
-  if (conversation.active_escalation_id) {
-    return 4;
+function formatWhen(value: Date | null): string {
+  if (!value) {
+    return "not seen yet";
   }
-  if (conversation.status === "escalated") {
-    return 3;
-  }
-  if (conversation.status === "active") {
-    return 2;
-  }
-  return 1;
+  return formatDate(value);
 }
