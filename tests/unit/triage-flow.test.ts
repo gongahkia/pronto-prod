@@ -26,6 +26,14 @@ describe("triage flow compiler", () => {
       ]),
       complaintOrRefundTerms: expect.arrayContaining(["refund", "missing item"]),
       sentimentTriggers: expect.arrayContaining(["urgent", "frustrated"]),
+      channelRules: expect.objectContaining({
+        instagram: expect.objectContaining({
+          complaintOrRefundTerms: expect.arrayContaining(["Instagram DM refund"]),
+        }),
+        email: expect.objectContaining({
+          complaintOrRefundTerms: expect.arrayContaining(["email complaint"]),
+        }),
+      }),
     });
   });
 
@@ -57,6 +65,24 @@ describe("triage flow compiler", () => {
 
     expect(rules.disabledReasonCodes).toEqual(["out_of_scope"]);
     expect(result.shouldEscalate).toBe(false);
+  });
+
+  it("can disable one decision for one channel without disabling other channels", () => {
+    const flow = buildDefaultTriageFlow();
+    const sentimentNode = flow.nodes.find(
+      (node) => node.data.decisionKey === "urgent_or_negative_sentiment",
+    );
+    expect(sentimentNode?.data.channelOverrides?.email).toBeTruthy();
+    sentimentNode!.data.channelOverrides!.email!.enabled = false;
+
+    const normalized = validateAndNormalizeTriageFlow(flow);
+    const rules = compileTriageFlowToEscalationRules(normalized.nodes);
+    const emailResult = evaluatePreGenerationGuardrails("This is an urgent email.", rules, "email");
+    const instagramResult = evaluatePreGenerationGuardrails("This is an angry DM.", rules, "instagram");
+
+    expect(emailResult.shouldEscalate).toBe(false);
+    expect(instagramResult.shouldEscalate).toBe(true);
+    expect(instagramResult.reasonDetail).toContain("Instagram DM");
   });
 
   it("merges duplicate approved decision nodes into the same guardrail rule", () => {

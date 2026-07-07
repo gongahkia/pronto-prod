@@ -129,7 +129,8 @@ function checkCoreEnv() {
 async function checkProviderCredentials() {
   const provider = process.env.PRONTO_LLM_PROVIDER ?? "openai";
   const generationKey = envApiKeyForProvider(provider);
-  const supportedProvider = provider === "openai" || provider === "anthropic";
+  const supportedProvider =
+    provider === "openai" || provider === "azure" || provider === "anthropic";
   checks.push({
     name: `Generation provider (${provider})`,
     status: generationKey && supportedProvider
@@ -141,21 +142,28 @@ async function checkProviderCredentials() {
   });
 
   const openAiKey = envApiKeyForProvider("openai");
+  const azureEmbeddingReady =
+    Boolean(envApiKeyForProvider("azure")) &&
+    Boolean(process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT?.trim());
   checks.push({
-    name: "OpenAI embeddings",
-    status: openAiKey ? "pass" : profile === "ci" ? "warn" : "fail",
+    name: "Embeddings",
+    status: openAiKey || azureEmbeddingReady ? "pass" : profile === "ci" ? "warn" : "fail",
     detail: openAiKey
       ? "OpenAI credential is available for embeddings and default generation."
-      : "Set OPENAI_API_KEY for embeddings.",
+      : azureEmbeddingReady
+        ? "Azure OpenAI credential and embedding deployment are available."
+        : "Set OPENAI_API_KEY, or set AZURE_OPENAI_API_KEY plus AZURE_OPENAI_EMBEDDING_DEPLOYMENT.",
   });
 }
 
 function providerCredentialDetail(provider: string, key: string | null, supportedProvider: boolean): string {
   if (!supportedProvider) {
-    return "Set PRONTO_LLM_PROVIDER to openai or anthropic.";
+    return "Set PRONTO_LLM_PROVIDER to openai, azure, or anthropic.";
   }
   if (!key) {
-    return `Set ${provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY"}.`;
+    if (provider === "anthropic") return "Set ANTHROPIC_API_KEY.";
+    if (provider === "azure") return "Set AZURE_OPENAI_API_KEY.";
+    return "Set OPENAI_API_KEY.";
   }
   return "Generation provider environment credential is available.";
 }

@@ -19,6 +19,20 @@ ANTHROPIC_API_KEY=...
 ANTHROPIC_RESPONSE_MODEL=claude-sonnet-4-5
 ```
 
+For Azure OpenAI local testing:
+
+```env
+PRONTO_USE_MOCK_AI=0
+PRONTO_LLM_PROVIDER=azure
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
+AZURE_OPENAI_DEPLOYMENT=<response-deployment>
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=<embedding-deployment>
+PRONTO_EMBEDDING_PROVIDER=azure
+```
+
+The triage flow JSON can tune behavior per channel with decision-node `channelOverrides`. Use platform-specific language such as WhatsApp message, Telegram bot message, Instagram DM, Messenger message, and email.
+
 For deployment, store provider and channel keys in deployment/platform secrets or encrypted per-channel records, not in committed files. The app supports mock AI, OpenAI, and Anthropic.
 
 Deployment core env:

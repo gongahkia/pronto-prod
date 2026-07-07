@@ -14,7 +14,10 @@ export async function ingestKnowledgeSource(input: {
     "select embedding_model, embedding_provider from agent_configs where client_id = $1",
     [input.clientId],
   );
+  const embeddingProvider =
+    process.env.PRONTO_EMBEDDING_PROVIDER ?? config.rows[0]?.embedding_provider;
   const embeddingModel =
+    process.env.PRONTO_EMBEDDING_MODEL ??
     config.rows[0]?.embedding_model ??
     process.env.OPENAI_EMBEDDING_MODEL ??
     "text-embedding-3-small";
@@ -23,9 +26,7 @@ export async function ingestKnowledgeSource(input: {
     maxCharacters: 900,
     overlap: 120,
   });
-  const embeddings = await getEmbeddingProvider(
-    config.rows[0]?.embedding_provider,
-  ).embed(
+  const embeddings = await getEmbeddingProvider(embeddingProvider).embed(
     chunks.map((chunk) => chunk.content),
     embeddingModel,
   );

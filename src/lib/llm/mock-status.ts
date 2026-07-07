@@ -28,11 +28,22 @@ export function getMockAiStatus(): MockAiStatus {
   if (responseProvider === "openai" && !envApiKeyForProvider("openai")) {
     details.push("OPENAI_API_KEY is not set; customer-agent OpenAI calls will fail outside explicit mock mode.");
   }
+  if (responseProvider === "azure" && !envApiKeyForProvider("azure")) {
+    details.push("AZURE_OPENAI_API_KEY is not set; customer-agent Azure OpenAI calls will fail outside explicit mock mode.");
+  }
   if (responseProvider === "anthropic" && !envApiKeyForProvider("anthropic")) {
     details.push("ANTHROPIC_API_KEY is not set; customer-agent Anthropic calls will fail outside explicit mock mode.");
   }
   if (!envApiKeyForProvider("openai")) {
     details.push("OPENAI_API_KEY is not set; clients configured for OpenAI embeddings will fail outside explicit mock mode.");
+  }
+  if (
+    responseProvider === "azure" &&
+    envApiKeyForProvider("azure") &&
+    !process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT?.trim() &&
+    !envApiKeyForProvider("openai")
+  ) {
+    details.push("Set AZURE_OPENAI_EMBEDDING_DEPLOYMENT and select Azure embeddings, or provide OPENAI_API_KEY for existing OpenAI embedding configs.");
   }
 
   return {

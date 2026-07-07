@@ -94,12 +94,13 @@ See `.env.example` and `docs/setup/staging-env.md`.
 
 Required basics: `DATABASE_URL`, `AUTH_SECRET`, `APP_BASE_URL`, `PRONTO_SECRETS_KEY`.
 
-AI: `PRONTO_USE_MOCK_AI`, `PRONTO_LLM_PROVIDER`, `OPENAI_API_KEY`, optional `ANTHROPIC_API_KEY`.
+AI: `PRONTO_USE_MOCK_AI`, `PRONTO_LLM_PROVIDER`, `PRONTO_EMBEDDING_PROVIDER`, `OPENAI_API_KEY`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`, optional `ANTHROPIC_API_KEY`.
 
 Channels: `WHATSAPP_*`, `TELEGRAM_*`, `META_GRAPH_VERSION`, `MESSENGER_*`, `INSTAGRAM_*`, `POSTMARK_*`, `RESEND_*`.
 
 ## Where To Start
 - Request path: webhook route -> `src/lib/channels/process.ts` -> `src/lib/agent/engine.ts` -> `src/lib/channels/dispatch.ts`.
+- Channel-specific triage: `src/lib/triage-flow.ts` compiles decision-node `channelOverrides` into `channelRules`, and `src/lib/agent/guardrails.ts` applies the matching channel policy.
 - Operator UI: `src/app/operator/page.tsx`, `src/app/operator/clients/[clientId]/page.tsx`, and sibling per-client pages.
 - Client UI: `src/app/client/page.tsx`, `src/app/client/inbox/page.tsx`, `src/app/client/knowledge/page.tsx`, `src/app/client/assistant/page.tsx`.
 - Data model: read `db/migrations/001_initial.sql`, then migration deltas relevant to the feature.

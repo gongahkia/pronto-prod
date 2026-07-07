@@ -38,9 +38,11 @@ Use pnpm outbox:retry after testing failed WhatsApp/Telegram/Instagram/Email own
 
 ## Environment Notes
 
-The app defaults to mock AI with PRONTO_USE_MOCK_AI=1, so local testing works without paid model keys. To test live providers, set PRONTO_USE_MOCK_AI=0 and configure OPENAI_API_KEY (or ANTHROPIC_API_KEY as a manual fallback).
+The app defaults to mock AI with PRONTO_USE_MOCK_AI=1, so local testing works without paid model keys. To test live providers, set PRONTO_USE_MOCK_AI=0 and configure OPENAI_API_KEY, AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_DEPLOYMENT, or ANTHROPIC_API_KEY as a manual fallback. Azure embeddings require AZURE_OPENAI_EMBEDDING_DEPLOYMENT and PRONTO_EMBEDDING_PROVIDER=azure.
 
 Live WhatsApp, Instagram, Messenger, Telegram, and Email testing requires real channel credentials plus a public HTTPS tunnel set as APP_BASE_URL. See docs/channels/webhook-setup.md and docs/setup/staging-env.md.
+
+Smart-triage JSON supports per-channel overrides under decision nodes, so clients can tune WhatsApp messages, Telegram bot messages, Instagram DMs, Messenger messages, and email differently.
 
 ## Local Release Checks
 

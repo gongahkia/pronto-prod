@@ -26,51 +26,66 @@ const answerDecisionSchema = z.object({
   citedChunkIds: z.array(z.string()),
 });
 
-async function getOpenAiClient(): Promise<OpenAI | null> {
-  const apiKey = await resolveProviderApiKey("openai");
-  if (!apiKey) {
-    return null;
-  }
-  return new OpenAI({
-    apiKey,
-    baseURL: process.env.OPENAI_BASE_URL || undefined,
-  });
-}
+type OpenAiProviderName = "openai" | "azure";
+type ReasoningEffort = "minimal" | "low" | "medium" | "high";
+
+type OpenAiProviderOptions = {
+  provider?: OpenAiProviderName;
+  baseURL?: () => string | undefined;
+  responseModel?: (model: string) => string;
+  embeddingModel?: (model: string) => string;
+  reasoningEffort?: () => ReasoningEffort | undefined;
+};
 
 export class OpenAiProvider implements LlmProvider {
+  private readonly provider: OpenAiProviderName;
+  private readonly baseURL: () => string | undefined;
+  private readonly responseModel: (model: string) => string;
+  private readonly embeddingModel: (model: string) => string;
+  private readonly reasoningEffort: () => ReasoningEffort | undefined;
+
+  constructor(options: OpenAiProviderOptions = {}) {
+    this.provider = options.provider ?? "openai";
+    this.baseURL = options.baseURL ?? (() => process.env.OPENAI_BASE_URL || undefined);
+    this.responseModel = options.responseModel ?? ((model) => model);
+    this.embeddingModel = options.embeddingModel ?? ((model) => model);
+    this.reasoningEffort = options.reasoningEffort ?? (() => undefined);
+  }
+
   async embed(
     texts: string[],
     model: string,
     context: LlmCallContext = {},
   ): Promise<number[][]> {
+    const resolvedModel = this.embeddingModel(model);
     if (shouldUseMockAi()) {
       logInfo("llm.embedding.mocked", {
         ...context,
-        provider: "openai",
-        model,
+        provider: this.provider,
+        model: resolvedModel,
         inputCount: texts.length,
         reason: "mock_enabled",
       });
       return mockEmbed(texts);
     }
 
-    const client = await getOpenAiClient();
+    const client = await this.client();
     if (!client) {
       throw new LlmConfigurationError(
-        "openai",
-        "OPENAI_API_KEY is required.",
+        this.provider,
+        `${apiKeyEnvName(this.provider)} is required.`,
       );
     }
 
     try {
       const response = await client.embeddings.create({
-        model,
+        model: resolvedModel,
         input: texts,
       });
       logInfo("llm.embedding.completed", {
         ...context,
-        provider: "openai",
-        model,
+        provider: this.provider,
+        model: resolvedModel,
         inputCount: texts.length,
         embeddingCount: response.data.length,
       });
@@ -79,8 +94,8 @@ export class OpenAiProvider implements LlmProvider {
     } catch (error) {
       logWarn("llm.embedding_failed", {
         ...context,
-        provider: "openai",
-        model,
+        provider: this.provider,
+        model: resolvedModel,
         inputCount: texts.length,
         error,
       });
@@ -91,35 +106,38 @@ export class OpenAiProvider implements LlmProvider {
   async generateGroundedAnswer(
     input: GenerateAnswerInput,
   ): Promise<GroundedAnswerDecision> {
+    const model = this.responseModel(input.responseModel);
     if (shouldUseMockAi()) {
       logInfo("llm.generation.mocked", {
         requestId: input.requestId,
         clientId: input.clientId,
         conversationId: input.conversationId,
-        provider: "openai",
-        model: input.responseModel,
+        provider: this.provider,
+        model,
         reason: "mock_enabled",
       });
       return mockGroundedAnswer(input);
     }
 
-    const client = await getOpenAiClient();
+    const client = await this.client();
     if (!client) {
       throw new LlmConfigurationError(
-        "openai",
-        "OPENAI_API_KEY is required.",
+        this.provider,
+        `${apiKeyEnvName(this.provider)} is required.`,
       );
     }
 
     let response: {
-      output_text: string;
+      output_text?: string;
+      output?: unknown[];
       usage?: { input_tokens: number; output_tokens: number };
     };
     const abort = new AbortController();
     const timeout = setTimeout(() => abort.abort(), input.timeoutMs ?? 25_000);
     try {
+      const reasoningEffort = this.reasoningEffort();
       response = await client.responses.create({
-        model: input.responseModel,
+        model,
         max_output_tokens: input.maxOutputTokens,
         instructions: buildGroundedAnswerInstructions(input),
         input: [
@@ -134,6 +152,7 @@ export class OpenAiProvider implements LlmProvider {
           },
         ],
         store: false,
+        ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
         text: {
           format: {
             type: "json_schema",
@@ -167,8 +186,8 @@ export class OpenAiProvider implements LlmProvider {
         requestId: input.requestId,
         clientId: input.clientId,
         conversationId: input.conversationId,
-        provider: "openai",
-        model: input.responseModel,
+        provider: this.provider,
+        model,
         error,
       });
       throw error;
@@ -176,7 +195,7 @@ export class OpenAiProvider implements LlmProvider {
       clearTimeout(timeout);
     }
 
-    const parsedJson = parseJsonObject(response.output_text);
+    const parsedJson = parseJsonObject(responseOutputText(response));
     const parsed = answerDecisionSchema.parse(parsedJson);
 
     if (parsed.action === "answer" && (!parsed.answer || !parsed.citedChunkIds.length)) {
@@ -196,8 +215,8 @@ export class OpenAiProvider implements LlmProvider {
       requestId: input.requestId,
       clientId: input.clientId,
       conversationId: input.conversationId,
-      provider: "openai",
-      model: input.responseModel,
+      provider: this.provider,
+      model,
       action: parsed.action,
       reasonCode: parsed.reasonCode,
       confidence: parsed.confidence,
@@ -205,6 +224,17 @@ export class OpenAiProvider implements LlmProvider {
     });
 
     return { ...parsed, usage: tokenUsage(response.usage) };
+  }
+
+  private async client(): Promise<OpenAI | null> {
+    const apiKey = await resolveProviderApiKey(this.provider);
+    if (!apiKey) {
+      return null;
+    }
+    return new OpenAI({
+      apiKey,
+      baseURL: this.baseURL(),
+    });
   }
 }
 
@@ -216,4 +246,28 @@ function tokenUsage(
     inputTokens: usage.input_tokens,
     outputTokens: usage.output_tokens,
   };
+}
+
+function apiKeyEnvName(provider: OpenAiProviderName): string {
+  return provider === "azure" ? "AZURE_OPENAI_API_KEY" : "OPENAI_API_KEY";
+}
+
+function responseOutputText(response: { output_text?: string; output?: unknown[] }): string {
+  if (typeof response.output_text === "string") {
+    return response.output_text;
+  }
+  const parts: string[] = [];
+  for (const item of response.output ?? []) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const content = (item as { content?: unknown }).content;
+    if (!Array.isArray(content)) continue;
+    for (const entry of content) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const text = (entry as { text?: unknown }).text;
+      if (typeof text === "string") {
+        parts.push(text);
+      }
+    }
+  }
+  return parts.join("");
 }

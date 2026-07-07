@@ -50,6 +50,7 @@ export function OperatorAgentConfigPanel({
             >
               <option value="mock">Mock local</option>
               <option value="openai">OpenAI</option>
+              <option value="azure">Azure OpenAI</option>
               <option value="anthropic">Anthropic</option>
             </select>
           </label>
@@ -71,6 +72,7 @@ export function OperatorAgentConfigPanel({
             >
               <option value="mock">Mock local</option>
               <option value="openai">OpenAI</option>
+              <option value="azure">Azure OpenAI</option>
             </select>
           </label>
           <label className="block space-y-2 text-sm font-medium">
@@ -85,6 +87,8 @@ export function OperatorAgentConfigPanel({
         <datalist id="response-model-options">
           <option value="mock" />
           <option value="gpt-5.5" />
+          <option value="gpt-5" />
+          <option value="gpt-5-deployment" />
           <option value="claude-sonnet-4-5" />
         </datalist>
         <label className="block space-y-2 text-sm font-medium">

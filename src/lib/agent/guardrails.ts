@@ -1,4 +1,5 @@
 import { logWarn } from "@/lib/logger";
+import type { ChannelKind } from "@/lib/types";
 
 export type GuardrailResult = {
   shouldEscalate: boolean;
@@ -253,27 +254,31 @@ export function evaluateSmallTalkGreeting(
 export function evaluatePreGenerationGuardrails(
   customerMessage: string,
   escalationRules?: Record<string, unknown> | null,
+  channelKind?: ChannelKind,
 ): GuardrailResult {
-  const checks = buildGuardrailChecks(escalationRules);
+  const checks = buildGuardrailChecks(escalationRules, channelKind);
 
   for (const check of checks) {
     if (check.patterns.some((pattern) => pattern.test(customerMessage))) {
-      return check.result;
+      return withChannelContext(check.result, channelKind);
     }
   }
 
   return {
     shouldEscalate: false,
     reasonCode: "in_scope",
-    reasonDetail: "No pre-generation escalation rule matched.",
+    reasonDetail: channelKind
+      ? `No pre-generation escalation rule matched for ${channelMessageNoun(channelKind)}.`
+      : "No pre-generation escalation rule matched.",
     confidence: 0,
   };
 }
 
 function buildGuardrailChecks(
   escalationRules: Record<string, unknown> | null | undefined,
+  channelKind?: ChannelKind,
 ): GuardrailCheck[] {
-  const rules = normalizeRulesObject(escalationRules);
+  const rules = effectiveRulesForChannel(normalizeRulesObject(escalationRules), channelKind);
   const disabledReasonCodes = new Set(stringArray(rules.disabledReasonCodes));
   const checks = defaultGuardrailChecks.map((check) => ({
     patterns: [...check.patterns],
@@ -307,14 +312,43 @@ function buildGuardrailChecks(
   return checks.filter((check) => !disabledReasonCodes.has(check.result.reasonCode));
 }
 
-function normalizeRulesObject(
-  escalationRules: Record<string, unknown> | null | undefined,
+function effectiveRulesForChannel(
+  rules: Record<string, unknown>,
+  channelKind: ChannelKind | undefined,
 ): Record<string, unknown> {
+  if (!channelKind) {
+    return rules;
+  }
+  const channelRules = normalizeRulesObject(rules.channelRules);
+  const specificRules = normalizeRulesObject(channelRules[channelKind]);
+  if (!Object.keys(specificRules).length) {
+    return rules;
+  }
+
+  const merged: Record<string, unknown> = { ...rules };
+  for (const { field } of configurableTermFields) {
+    if (Array.isArray(specificRules[field])) {
+      merged[field] = specificRules[field];
+    }
+  }
+  if (Array.isArray(specificRules.alwaysEscalateTopics)) {
+    merged.alwaysEscalateTopics = specificRules.alwaysEscalateTopics;
+  }
+  merged.disabledReasonCodes = [
+    ...new Set([
+      ...stringArray(rules.disabledReasonCodes),
+      ...stringArray(specificRules.disabledReasonCodes),
+    ]),
+  ];
+  return merged;
+}
+
+function normalizeRulesObject(escalationRules: unknown): Record<string, unknown> {
   if (!escalationRules) {
     return {};
   }
   if (typeof escalationRules === "object" && !Array.isArray(escalationRules)) {
-    return escalationRules;
+    return escalationRules as Record<string, unknown>;
   }
   logWarn("guardrails.invalid_escalation_rules", {
     rulesType: Array.isArray(escalationRules) ? "array" : typeof escalationRules,
@@ -344,6 +378,27 @@ function literalWordPattern(term: string): RegExp {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function withChannelContext(
+  result: GuardrailResult,
+  channelKind: ChannelKind | undefined,
+): GuardrailResult {
+  if (!channelKind) {
+    return result;
+  }
+  return {
+    ...result,
+    reasonDetail: `Matched ${channelMessageNoun(channelKind)} triage policy. ${result.reasonDetail}`,
+  };
+}
+
+function channelMessageNoun(channelKind: ChannelKind): string {
+  if (channelKind === "whatsapp") return "WhatsApp message";
+  if (channelKind === "telegram") return "Telegram bot message";
+  if (channelKind === "instagram") return "Instagram DM";
+  if (channelKind === "messenger") return "Messenger message";
+  return "email";
 }
 
 export function evaluateRetrievalConfidence(

@@ -73,6 +73,26 @@ describe("operator agent config route", () => {
     );
   });
 
+  it("accepts Azure OpenAI response generation and embeddings", async () => {
+    const form = validForm();
+    form.set("responseProvider", "azure");
+    form.set("responseModel", "gpt-5-deployment");
+    form.set("embeddingProvider", "azure");
+    form.set("embeddingModel", "embedding-deployment");
+
+    const response = await POST(formRequest(form));
+
+    expect(response.status).toBe(303);
+    expect(mocks.updateAgentConfigForClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        responseProvider: "azure",
+        responseModel: "gpt-5-deployment",
+        embeddingProvider: "azure",
+        embeddingModel: "embedding-deployment",
+      }),
+    );
+  });
+
   it("rejects invalid retrieval thresholds before updating", async () => {
     const form = validForm();
     form.set("retrievalThreshold", "1.5");

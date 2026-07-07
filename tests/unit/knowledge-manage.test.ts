@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   query: vi.fn(),
   transaction: vi.fn(),
+  getEmbeddingProvider: vi.fn(),
+  embed: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -12,9 +14,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/llm", () => ({
-  getEmbeddingProvider: () => ({
-    embed: vi.fn(async (values: string[]) => values.map(() => [0.1, 0.2, 0.3])),
-  }),
+  getEmbeddingProvider: mocks.getEmbeddingProvider,
 }));
 
 import {
@@ -26,6 +26,11 @@ import {
 describe("knowledge source management", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    mocks.embed.mockImplementation(async (values: string[]) =>
+      values.map(() => [0.1, 0.2, 0.3]),
+    );
+    mocks.getEmbeddingProvider.mockReturnValue({ embed: mocks.embed });
   });
 
   it("scopes source lookup by source and client", async () => {
@@ -103,6 +108,46 @@ describe("knowledge source management", () => {
       },
       "user-1",
     ]);
+  });
+
+  it("uses the runtime Azure embedding override when updating a source", async () => {
+    vi.stubEnv("PRONTO_EMBEDDING_PROVIDER", "azure");
+    vi.stubEnv("PRONTO_EMBEDDING_MODEL", "azure-embedding-deployment");
+    mocks.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: "source-1",
+            client_id: "client-1",
+            title: "Old menu",
+            content: "Old content",
+            metadata: {},
+            created_at: new Date("2026-01-01T00:00:00Z"),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ embedding_model: "text-embedding-3-small", embedding_provider: "openai" }],
+      });
+    mocks.transaction.mockImplementationOnce(async (callback) =>
+      callback({
+        query: vi
+          .fn()
+          .mockResolvedValueOnce({ rows: [{ max_version: "1" }] })
+          .mockResolvedValueOnce({ rows: [{ id: "source-1" }], rowCount: 1 })
+          .mockResolvedValue({ rows: [] }),
+      }),
+    );
+
+    await updateKnowledgeSourceForClient({
+      sourceId: "source-1",
+      clientId: "client-1",
+      title: "Menu",
+      content: "Kopi is SGD 2.20.",
+    });
+
+    expect(mocks.getEmbeddingProvider).toHaveBeenCalledWith("azure");
+    expect(mocks.embed).toHaveBeenCalledWith(["Kopi is SGD 2.20."], "azure-embedding-deployment");
   });
 
   it("returns false when deleting a missing source", async () => {

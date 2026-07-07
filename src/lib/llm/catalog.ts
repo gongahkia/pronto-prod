@@ -8,10 +8,14 @@ export type ModelChoice = {
   costLabel: "low" | "standard" | "premium";
 };
 
-const modelCatalog: Record<"openai" | "anthropic", Record<LlmTask, ModelChoice>> = {
+const modelCatalog: Record<"openai" | "azure" | "anthropic", Record<LlmTask, ModelChoice>> = {
   openai: {
     agent_answer: { provider: "openai", model: "gpt-5.5", costLabel: "standard" },
     routing: { provider: "openai", model: "gpt-5.4-mini", costLabel: "low" },
+  },
+  azure: {
+    agent_answer: { provider: "azure", model: "gpt-5", costLabel: "standard" },
+    routing: { provider: "azure", model: "gpt-5-mini", costLabel: "low" },
   },
   anthropic: {
     agent_answer: { provider: "anthropic", model: "claude-sonnet-4-5", costLabel: "standard" },
@@ -29,11 +33,7 @@ export function selectModel(input: {
     return { provider: "mock", model: "mock", costLabel: "low" };
   }
 
-  const envModel = (
-    provider === "anthropic"
-      ? process.env.ANTHROPIC_RESPONSE_MODEL
-      : process.env.OPENAI_RESPONSE_MODEL
-  )?.trim() || undefined;
+  const envModel = envResponseModel(provider);
   const catalogChoice = modelCatalog[provider];
   const choice = catalogChoice[input.task];
 
@@ -41,4 +41,18 @@ export function selectModel(input: {
     ...choice,
     model: envModel ?? input.configuredModel ?? choice.model,
   };
+}
+
+function envResponseModel(provider: Exclude<LlmProviderName, "mock">): string | undefined {
+  if (provider === "anthropic") {
+    return process.env.ANTHROPIC_RESPONSE_MODEL?.trim() || undefined;
+  }
+  if (provider === "azure") {
+    return (
+      process.env.AZURE_OPENAI_RESPONSE_DEPLOYMENT?.trim() ||
+      process.env.AZURE_OPENAI_DEPLOYMENT?.trim() ||
+      undefined
+    );
+  }
+  return process.env.OPENAI_RESPONSE_MODEL?.trim() || undefined;
 }

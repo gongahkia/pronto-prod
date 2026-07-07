@@ -18,6 +18,17 @@ Set these before running a realistic pilot staging environment.
 - `OPENAI_RESPONSE_MODEL`: Default response model. Current MVP default is `gpt-5.5`.
 - `OPENAI_EMBEDDING_MODEL`: Default embedding model. Current MVP default is `text-embedding-3-small`.
 
+## Azure OpenAI
+
+- `AZURE_OPENAI_API_KEY`: Required when `PRONTO_LLM_PROVIDER=azure`.
+- `AZURE_OPENAI_ENDPOINT`: Azure OpenAI resource endpoint. The app uses the OpenAI-compatible `/openai/v1/` path.
+- `AZURE_OPENAI_DEPLOYMENT`: Default Azure response deployment name.
+- `AZURE_OPENAI_RESPONSE_DEPLOYMENT`: Optional response deployment override.
+- `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`: Required when using `PRONTO_EMBEDDING_PROVIDER=azure`.
+- `AZURE_OPENAI_REASONING_EFFORT`: Optional, defaults to `minimal` for GPT-5 deployments.
+- `PRONTO_EMBEDDING_PROVIDER`: Optional runtime override; set to `azure` for Azure embeddings.
+- `PRONTO_EMBEDDING_MODEL`: Optional runtime model/deployment label for embedding telemetry.
+
 ## Anthropic
 
 - `ANTHROPIC_API_KEY`: Optional response-generation key for manual fallback.
@@ -140,3 +151,7 @@ Per-channel credentials/settings should be preferred for real clients:
 ## Tenant Isolation
 
 Prerelease deployment uses app-level RBAC plus the runtime tenant SQL gate. DB-enforced RLS is not enabled yet because the app and migrations currently share the owning DB role; adding RLS needs a dedicated non-owner runtime role and per-request `app.current_client_id`/role session context before policies provide real isolation.
+
+## Channel-Specific Triage
+
+The smart-triage JSON stores global decision terms plus `channelOverrides` per decision node. Runtime guardrails apply `channelRules.<kind>` when a message arrives from that channel, so WhatsApp messages, Telegram bot messages, Instagram DMs, Messenger messages, and email can have different trigger terms or disabled reason codes for the same client.

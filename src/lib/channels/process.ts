@@ -188,6 +188,7 @@ export async function processInboundMessage(
     : await runAgentForMessage({
         clientId: channel.client_id,
         channelId: inbound.channelId,
+        channelKind: inbound.channelKind,
         conversationId: created.conversation.id,
         customerMessageId: created.message.id,
         customerMessage: inbound.text,

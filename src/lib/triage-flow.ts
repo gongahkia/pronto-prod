@@ -1,3 +1,5 @@
+import type { ChannelKind } from "@/lib/types";
+
 export type TriageFlowNodeKind = "channel" | "decision" | "outcome" | "note";
 
 export type TriageDecisionKey =
@@ -13,8 +15,15 @@ export type TriageFlowNodeData = {
   label: string;
   description: string;
   badge?: string;
+  channelKind?: ChannelKind;
   decisionKey?: TriageDecisionKey;
   reasonCode?: string;
+  enabled?: boolean;
+  triggerTerms?: string[];
+  channelOverrides?: Partial<Record<ChannelKind, TriageChannelOverride>>;
+};
+
+export type TriageChannelOverride = {
   enabled?: boolean;
   triggerTerms?: string[];
 };
@@ -66,6 +75,36 @@ const MAX_TERMS_PER_DECISION = 20;
 const MAX_FLOW_NODES = 48;
 const MAX_FLOW_EDGES = 96;
 const FLOW_ID_PATTERN = /^[a-zA-Z0-9:_-]{3,96}$/;
+const TRIAGE_CHANNELS: ChannelKind[] = [
+  "whatsapp",
+  "telegram",
+  "instagram",
+  "messenger",
+  "email",
+];
+
+const channelCopy: Record<ChannelKind, { label: string; description: string }> = {
+  whatsapp: {
+    label: "Receive WhatsApp message",
+    description: "Inbound WhatsApp Cloud API message from a customer phone number.",
+  },
+  telegram: {
+    label: "Receive Telegram bot message",
+    description: "Telegram webhook receives a bot message update from a chat.",
+  },
+  instagram: {
+    label: "Receive Instagram DM",
+    description: "Instagram Messaging webhook receives a customer direct message.",
+  },
+  messenger: {
+    label: "Receive Messenger message",
+    description: "Messenger webhook receives a Page messaging event.",
+  },
+  email: {
+    label: "Receive email",
+    description: "Inbound email provider parses an email into a customer message.",
+  },
+};
 
 export const TRIAGE_DECISIONS: DecisionDefinition[] = [
   {
@@ -140,9 +179,10 @@ const defaultNodes: TriageFlowNode[] = [
     position: { x: -620, y: -380 },
     data: {
       kind: "channel",
-      label: "WhatsApp",
-      description: "Customer messages from WhatsApp Cloud API.",
+      label: channelCopy.whatsapp.label,
+      description: channelCopy.whatsapp.description,
       badge: "channel",
+      channelKind: "whatsapp",
     },
   },
   {
@@ -151,9 +191,10 @@ const defaultNodes: TriageFlowNode[] = [
     position: { x: -620, y: -190 },
     data: {
       kind: "channel",
-      label: "Telegram",
-      description: "Customer messages from Telegram bot.",
+      label: channelCopy.telegram.label,
+      description: channelCopy.telegram.description,
       badge: "channel",
+      channelKind: "telegram",
     },
   },
   {
@@ -162,9 +203,10 @@ const defaultNodes: TriageFlowNode[] = [
     position: { x: -620, y: 0 },
     data: {
       kind: "channel",
-      label: "Instagram",
-      description: "Customer messages from Instagram DMs.",
+      label: channelCopy.instagram.label,
+      description: channelCopy.instagram.description,
       badge: "channel",
+      channelKind: "instagram",
     },
   },
   {
@@ -173,9 +215,10 @@ const defaultNodes: TriageFlowNode[] = [
     position: { x: -620, y: 190 },
     data: {
       kind: "channel",
-      label: "Messenger",
-      description: "Customer messages from Messenger.",
+      label: channelCopy.messenger.label,
+      description: channelCopy.messenger.description,
       badge: "channel",
+      channelKind: "messenger",
     },
   },
   {
@@ -184,9 +227,10 @@ const defaultNodes: TriageFlowNode[] = [
     position: { x: -620, y: 380 },
     data: {
       kind: "channel",
-      label: "Email",
-      description: "Customer messages from connected email inboxes.",
+      label: channelCopy.email.label,
+      description: channelCopy.email.description,
       badge: "channel",
+      channelKind: "email",
     },
   },
   ...TRIAGE_DECISIONS.map<TriageFlowNode>((decision, index) => ({
@@ -205,6 +249,7 @@ const defaultNodes: TriageFlowNode[] = [
       reasonCode: decision.reasonCode,
       enabled: true,
       triggerTerms: [...decision.triggerTerms],
+      channelOverrides: channelOverridesForDecision(decision),
     },
   })),
   {
@@ -274,6 +319,7 @@ export function buildDefaultTriageFlow(): TriageFlowDraft {
       data: {
         ...node.data,
         triggerTerms: node.data.triggerTerms ? [...node.data.triggerTerms] : undefined,
+        channelOverrides: cloneChannelOverrides(node.data.channelOverrides),
       },
     })),
     edges: defaultEdges.map((edge) => ({ ...edge })),
@@ -340,8 +386,66 @@ export function compileTriageFlowToEscalationRules(
   if (disabledReasonCodes.length) {
     rules.disabledReasonCodes = disabledReasonCodes;
   }
+  const channelRules = compileChannelRules(normalizedNodes);
+  if (Object.keys(channelRules).length) {
+    rules.channelRules = channelRules;
+  }
 
   return rules;
+}
+
+function compileChannelRules(
+  nodes: TriageFlowNode[],
+): Partial<Record<ChannelKind, Record<string, unknown>>> {
+  const channelRules: Partial<Record<ChannelKind, Record<string, unknown>>> = {};
+  for (const channelKind of TRIAGE_CHANNELS) {
+    const alwaysEscalateTopics = new Set<string>();
+    const disabledReasonCodes: string[] = [];
+    const rules: Record<string, unknown> = {};
+    let hasChannelOverride = false;
+
+    for (const decision of TRIAGE_DECISIONS) {
+      const decisionNodes = nodes.filter(
+        (candidate) =>
+          candidate.data.kind === "decision" &&
+          candidate.data.decisionKey === decision.decisionKey,
+      );
+      const enabledNodes = decisionNodes.filter((node) => node.data.enabled !== false);
+      const channelEnabledNodes = enabledNodes.filter((node) => {
+        const override = node.data.channelOverrides?.[channelKind];
+        if (override) hasChannelOverride = true;
+        return override?.enabled !== false;
+      });
+      if (!channelEnabledNodes.length) {
+        disabledReasonCodes.push(decision.reasonCode);
+        continue;
+      }
+
+      for (const topic of decision.topics) {
+        alwaysEscalateTopics.add(topic);
+      }
+
+      const terms = sanitizeTerms(
+        channelEnabledNodes.flatMap((node) => {
+          const overrideTerms = node.data.channelOverrides?.[channelKind]?.triggerTerms;
+          return overrideTerms?.length ? overrideTerms : node.data.triggerTerms ?? [];
+        }),
+      );
+      if (terms.length) {
+        rules[decision.ruleField] = terms;
+      }
+    }
+
+    if (!hasChannelOverride) {
+      continue;
+    }
+    rules.alwaysEscalateTopics = [...alwaysEscalateTopics];
+    if (disabledReasonCodes.length) {
+      rules.disabledReasonCodes = disabledReasonCodes;
+    }
+    channelRules[channelKind] = rules;
+  }
+  return channelRules;
 }
 
 function normalizeNodes(nodes: unknown[]): TriageFlowNode[] {
@@ -404,6 +508,13 @@ function normalizeNodes(nodes: unknown[]): TriageFlowNode[] {
                 ? inputData.triggerTerms
                 : definition.triggerTerms,
             ),
+            channelOverrides: normalizeChannelOverrides(
+              inputData.channelOverrides,
+              definition,
+              Array.isArray(inputData.triggerTerms)
+                ? sanitizeTerms(inputData.triggerTerms)
+                : definition.triggerTerms,
+            ),
           },
         };
       }
@@ -464,6 +575,13 @@ function normalizeNodes(nodes: unknown[]): TriageFlowNode[] {
               ? inputData.triggerTerms
               : definition.triggerTerms,
           ),
+          channelOverrides: normalizeChannelOverrides(
+            inputData.channelOverrides,
+            definition,
+            Array.isArray(inputData.triggerTerms)
+              ? sanitizeTerms(inputData.triggerTerms)
+              : definition.triggerTerms,
+          ),
         },
       };
     }
@@ -481,6 +599,7 @@ function normalizeNodes(nodes: unknown[]): TriageFlowNode[] {
         label,
         description,
         badge: templateData.badge,
+        channelKind: templateData.channelKind,
       },
     };
   });
@@ -548,6 +667,112 @@ function ensureRequiredGraph(nodes: TriageFlowNode[], edges: TriageFlowEdge[]): 
       throw new TriageFlowValidationError(`Flow is missing ${decision.label}.`);
     }
   }
+}
+
+function channelOverridesForDecision(
+  decision: DecisionDefinition,
+  baseTerms: string[] = decision.triggerTerms,
+): Partial<Record<ChannelKind, TriageChannelOverride>> {
+  return Object.fromEntries(
+    TRIAGE_CHANNELS.map((channelKind) => [
+      channelKind,
+      {
+        enabled: true,
+        triggerTerms: channelOverrideTerms(decision, channelKind, baseTerms),
+      },
+    ]),
+  ) as Partial<Record<ChannelKind, TriageChannelOverride>>;
+}
+
+function channelOverrideTerms(
+  decision: DecisionDefinition,
+  channelKind: ChannelKind,
+  baseTerms: string[] = decision.triggerTerms,
+): string[] {
+  const extraTerms: Partial<Record<ChannelKind, Partial<Record<TriageDecisionKey, string[]>>>> = {
+    whatsapp: {
+      complaint_or_refund: ["WhatsApp refund", "WhatsApp order issue"],
+      transactional_action: ["change my WhatsApp order", "cancel via WhatsApp"],
+      human_handoff_requested: ["call me on WhatsApp", "WhatsApp human support"],
+    },
+    telegram: {
+      complaint_or_refund: ["Telegram complaint", "bot refund request"],
+      transactional_action: ["cancel from Telegram", "Telegram payment issue"],
+      human_handoff_requested: ["Telegram human support", "not a bot"],
+    },
+    instagram: {
+      complaint_or_refund: ["Instagram DM refund", "DM order issue"],
+      transactional_action: ["change my DM order", "cancel from Instagram"],
+      human_handoff_requested: ["human in DM", "Instagram human support"],
+      urgent_or_negative_sentiment: ["angry DM", "upset on Instagram"],
+    },
+    messenger: {
+      complaint_or_refund: ["Messenger complaint", "Page message refund"],
+      transactional_action: ["cancel from Messenger", "Messenger payment issue"],
+      human_handoff_requested: ["Messenger human support", "Page admin please"],
+    },
+    email: {
+      complaint_or_refund: ["email complaint", "refund request", "missing order"],
+      transactional_action: ["cancel by email", "change my email order"],
+      human_handoff_requested: ["please call me", "reply from staff"],
+      urgent_or_negative_sentiment: ["urgent email", "formal complaint"],
+    },
+  };
+  return sanitizeTerms([
+    ...baseTerms,
+    ...(extraTerms[channelKind]?.[decision.decisionKey] ?? []),
+  ]);
+}
+
+function normalizeChannelOverrides(
+  input: unknown,
+  definition: DecisionDefinition,
+  baseTerms: string[],
+): Partial<Record<ChannelKind, TriageChannelOverride>> {
+  const source =
+    input && typeof input === "object" && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {};
+  const defaults = channelOverridesForDecision(definition, baseTerms);
+  const normalized: Partial<Record<ChannelKind, TriageChannelOverride>> = {};
+
+  for (const channelKind of TRIAGE_CHANNELS) {
+    const candidate = source[channelKind];
+    const fallback = defaults[channelKind];
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+      normalized[channelKind] = fallback;
+      continue;
+    }
+    const override = candidate as Partial<TriageChannelOverride>;
+    normalized[channelKind] = {
+      enabled: override.enabled !== false,
+      triggerTerms: sanitizeTerms(
+        Array.isArray(override.triggerTerms)
+          ? override.triggerTerms
+          : fallback?.triggerTerms ?? definition.triggerTerms,
+      ),
+    };
+  }
+
+  return normalized;
+}
+
+function cloneChannelOverrides(
+  overrides: Partial<Record<ChannelKind, TriageChannelOverride>> | undefined,
+): Partial<Record<ChannelKind, TriageChannelOverride>> | undefined {
+  if (!overrides) {
+    return undefined;
+  }
+  const cloned: Partial<Record<ChannelKind, TriageChannelOverride>> = {};
+  for (const channelKind of TRIAGE_CHANNELS) {
+    const override = overrides[channelKind];
+    if (!override) continue;
+    cloned[channelKind] = {
+      enabled: override.enabled,
+      triggerTerms: override.triggerTerms ? [...override.triggerTerms] : undefined,
+    };
+  }
+  return cloned;
 }
 
 function normalizePosition(position: unknown): { x: number; y: number } {

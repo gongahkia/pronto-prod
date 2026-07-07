@@ -12,6 +12,11 @@ export async function listProviderCredentialStatuses(): Promise<ProviderCredenti
       updatedAt: null,
     },
     {
+      provider: "azure",
+      hasCredential: Boolean(envApiKeyForProvider("azure")),
+      updatedAt: null,
+    },
+    {
       provider: "anthropic",
       hasCredential: Boolean(envApiKeyForProvider("anthropic")),
       updatedAt: null,
@@ -32,6 +37,9 @@ export async function resolveProviderApiKey(
 export function envApiKeyForProvider(provider: string | null | undefined): string | null {
   if (provider === "openai") {
     return process.env.OPENAI_API_KEY?.trim() || null;
+  }
+  if (provider === "azure") {
+    return process.env.AZURE_OPENAI_API_KEY?.trim() || null;
   }
   if (provider === "anthropic") {
     return process.env.ANTHROPIC_API_KEY?.trim() || null;

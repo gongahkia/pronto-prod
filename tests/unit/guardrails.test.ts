@@ -119,6 +119,40 @@ describe("agent guardrails", () => {
     expect(result.reasonCode).toBe("urgent_or_negative_sentiment");
   });
 
+  it("applies channel-specific rule fields when a channel kind is supplied", () => {
+    const result = evaluatePreGenerationGuardrails("This DM is chaotic.", {
+      channelRules: {
+        instagram: {
+          sentimentTriggers: ["chaotic"],
+        },
+      },
+    }, "instagram");
+
+    expect(result.shouldEscalate).toBe(true);
+    expect(result.reasonCode).toBe("urgent_or_negative_sentiment");
+    expect(result.reasonDetail).toContain("Instagram DM");
+  });
+
+  it("can disable a reason code for only one channel", () => {
+    const email = evaluatePreGenerationGuardrails("This is urgent.", {
+      channelRules: {
+        email: {
+          disabledReasonCodes: ["urgent_or_negative_sentiment"],
+        },
+      },
+    }, "email");
+    const whatsapp = evaluatePreGenerationGuardrails("This is urgent.", {
+      channelRules: {
+        email: {
+          disabledReasonCodes: ["urgent_or_negative_sentiment"],
+        },
+      },
+    }, "whatsapp");
+
+    expect(email.shouldEscalate).toBe(false);
+    expect(whatsapp.shouldEscalate).toBe(true);
+  });
+
   it("can disable a default reason code for pilot tuning", () => {
     const result = evaluatePreGenerationGuardrails("Do you have karaoke rooms?", {
       disabledReasonCodes: ["out_of_scope"],

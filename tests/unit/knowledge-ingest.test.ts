@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   query: vi.fn(),
   transaction: vi.fn(),
+  getEmbeddingProvider: vi.fn(),
+  embed: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -12,9 +14,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/llm", () => ({
-  getEmbeddingProvider: () => ({
-    embed: vi.fn(async (values: string[]) => values.map(() => [0.1, 0.2, 0.3])),
-  }),
+  getEmbeddingProvider: mocks.getEmbeddingProvider,
 }));
 
 import { ingestKnowledgeSource } from "@/lib/knowledge/ingest";
@@ -22,6 +22,11 @@ import { ingestKnowledgeSource } from "@/lib/knowledge/ingest";
 describe("knowledge ingestion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    mocks.embed.mockImplementation(async (values: string[]) =>
+      values.map(() => [0.1, 0.2, 0.3]),
+    );
+    mocks.getEmbeddingProvider.mockReturnValue({ embed: mocks.embed });
   });
 
   it("creates version 1 for a newly ingested source", async () => {
@@ -58,5 +63,28 @@ describe("knowledge ingestion", () => {
       { entryMode: "manual" },
       "user-1",
     ]);
+  });
+
+  it("uses the runtime Azure embedding override when present", async () => {
+    vi.stubEnv("PRONTO_EMBEDDING_PROVIDER", "azure");
+    vi.stubEnv("PRONTO_EMBEDDING_MODEL", "azure-embedding-deployment");
+    mocks.query.mockResolvedValueOnce({
+      rows: [{ embedding_model: "text-embedding-3-small", embedding_provider: "openai" }],
+    });
+    mocks.transaction.mockImplementationOnce(async (callback) =>
+      callback({
+        query: vi.fn().mockResolvedValueOnce({ rows: [{ id: "source-1" }] }).mockResolvedValue({ rows: [] }),
+      }),
+    );
+
+    await ingestKnowledgeSource({
+      clientId: "client-1",
+      title: "Menu",
+      sourceType: "manual",
+      content: "Kopi is SGD 2.20.",
+    });
+
+    expect(mocks.getEmbeddingProvider).toHaveBeenCalledWith("azure");
+    expect(mocks.embed).toHaveBeenCalledWith(["Kopi is SGD 2.20."], "azure-embedding-deployment");
   });
 });

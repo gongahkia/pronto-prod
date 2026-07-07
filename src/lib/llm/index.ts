@@ -1,4 +1,5 @@
 import { AnthropicProvider } from "@/lib/llm/anthropic";
+import { AzureOpenAiProvider } from "@/lib/llm/azure";
 import { LlmConfigurationError } from "@/lib/llm/errors";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import { OpenAiProvider } from "@/lib/llm/openai";
@@ -9,7 +10,7 @@ import type {
   LlmProvider,
 } from "@/lib/llm/types";
 
-export type LlmProviderName = "mock" | "openai" | "anthropic";
+export type LlmProviderName = "mock" | "openai" | "azure" | "anthropic";
 
 class MockProvider implements LlmProvider {
   async generateGroundedAnswer(
@@ -25,6 +26,7 @@ class MockProvider implements LlmProvider {
 
 const mockProvider = new MockProvider();
 const openAiProvider = new OpenAiProvider();
+const azureOpenAiProvider = new AzureOpenAiProvider();
 const anthropicProvider = new AnthropicProvider();
 
 class UnsupportedEmbeddingProvider implements LlmProvider {
@@ -46,7 +48,7 @@ class UnsupportedEmbeddingProvider implements LlmProvider {
 }
 
 export function normalizeProviderName(value: string | null | undefined): LlmProviderName {
-  if (value === "anthropic" || value === "openai" || value === "mock") {
+  if (value === "anthropic" || value === "azure" || value === "openai" || value === "mock") {
     return value;
   }
   return "openai";
@@ -56,6 +58,9 @@ export function getGenerationProvider(provider: string | null | undefined): LlmP
   const normalized = normalizeProviderName(provider);
   if (process.env.PRONTO_USE_MOCK_AI === "1" || normalized === "mock") {
     return mockProvider;
+  }
+  if (normalized === "azure") {
+    return azureOpenAiProvider;
   }
   if (normalized === "anthropic") {
     return {
@@ -71,6 +76,9 @@ export function getEmbeddingProvider(provider: string | null | undefined): LlmPr
   const normalized = normalizeProviderName(provider);
   if (process.env.PRONTO_USE_MOCK_AI === "1" || normalized === "mock") {
     return mockProvider;
+  }
+  if (normalized === "azure") {
+    return azureOpenAiProvider;
   }
   if (normalized === "anthropic") {
     return new UnsupportedEmbeddingProvider(normalized);

@@ -37,7 +37,7 @@ import {
 } from "@/lib/llm/prompt";
 import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
 import type { GroundedAnswerDecision } from "@/lib/llm/types";
-import type { AgentConfig, Client, KnowledgeChunk, Message } from "@/lib/types";
+import type { AgentConfig, ChannelKind, Client, KnowledgeChunk, Message } from "@/lib/types";
 
 export type AgentRunResult = {
   action: "answered" | "escalated";
@@ -54,6 +54,7 @@ export type AgentRunResult = {
 export async function runAgentForMessage(input: {
   clientId: string;
   channelId: string;
+  channelKind?: ChannelKind;
   conversationId: string;
   customerMessageId: string;
   customerMessage: string;
@@ -180,6 +181,7 @@ export async function runAgentForMessage(input: {
   const precheck = evaluatePreGenerationGuardrails(
     input.customerMessage,
     config.escalation_rules,
+    input.channelKind,
   );
   if (precheck.shouldEscalate) {
     logInfo("agent.pre_generation_escalated", {
@@ -212,6 +214,10 @@ export async function runAgentForMessage(input: {
 
   const responseProvider =
     process.env.PRONTO_LLM_PROVIDER ?? config.response_provider ?? "openai";
+  const embeddingProvider =
+    process.env.PRONTO_EMBEDDING_PROVIDER ?? config.embedding_provider;
+  const embeddingModel =
+    process.env.PRONTO_EMBEDDING_MODEL ?? config.embedding_model;
   const responseModel = selectModel({
     provider: responseProvider,
     configuredModel: config.response_model,
@@ -225,22 +231,22 @@ export async function runAgentForMessage(input: {
     conversationId: input.conversationId,
     responseProvider: responseModel.provider,
     responseModel: responseModel.model,
-    embeddingProvider: config.embedding_provider,
-    embeddingModel: config.embedding_model,
+    embeddingProvider,
+    embeddingModel,
   });
   trace.addStep("provider_selected", {
     responseProvider: responseModel.provider,
     responseModel: responseModel.model,
-    embeddingProvider: config.embedding_provider,
-    embeddingModel: config.embedding_model,
+    embeddingProvider,
+    embeddingModel,
   });
 
   const normalizedKnowledgeQuery = normalizeKnowledgeQuery(input.customerMessage);
   let embedding: number[];
   try {
-    [embedding] = await getEmbeddingProvider(config.embedding_provider).embed(
+    [embedding] = await getEmbeddingProvider(embeddingProvider).embed(
       [normalizedKnowledgeQuery.embeddingText],
-      config.embedding_model,
+      embeddingModel,
       {
         requestId: input.requestId,
         clientId: input.clientId,
@@ -255,13 +261,13 @@ export async function runAgentForMessage(input: {
       clientId: input.clientId,
       channelId: input.channelId,
       conversationId: input.conversationId,
-      embeddingProvider: config.embedding_provider,
-      embeddingModel: config.embedding_model,
+      embeddingProvider,
+      embeddingModel,
       error: errorMessage,
     });
     trace.addStep("embedding_provider_failed", {
-      embeddingProvider: config.embedding_provider,
-      embeddingModel: config.embedding_model,
+      embeddingProvider,
+      embeddingModel,
       errorMessage,
     });
     const escalation = await createEscalation({
@@ -276,8 +282,8 @@ export async function runAgentForMessage(input: {
       confidence: 0,
       responseProvider: responseModel.provider,
       responseModel: responseModel.model,
-      embeddingProvider: config.embedding_provider,
-      embeddingModel: config.embedding_model,
+      embeddingProvider,
+      embeddingModel,
       escalationId: escalation.escalationId,
       errorMessage,
     });
@@ -287,8 +293,8 @@ export async function runAgentForMessage(input: {
     clientId: input.clientId,
     conversationId: input.conversationId,
     channelId: input.channelId,
-    provider: config.embedding_provider,
-    model: config.embedding_model,
+    provider: embeddingProvider,
+    model: embeddingModel,
     operation: "embedding",
     estimate: estimateEmbeddingCost(normalizedKnowledgeQuery.embeddingText),
     metadata: {
@@ -301,7 +307,7 @@ export async function runAgentForMessage(input: {
     requestId: input.requestId,
     conversationId: input.conversationId,
     queryText: normalizedKnowledgeQuery.searchQuery,
-    embeddingModel: config.embedding_model,
+    embeddingModel,
   });
   const integrationResults = await runIntegrationsForMessage({
     clientId: input.clientId,
@@ -365,8 +371,8 @@ export async function runAgentForMessage(input: {
       confidence: 1,
       responseProvider: responseModel.provider,
       responseModel: responseModel.model,
-      embeddingProvider: config.embedding_provider,
-      embeddingModel: config.embedding_model,
+      embeddingProvider,
+      embeddingModel,
       retrievalTopScore: chunks[0]?.score ?? null,
       retrievalThreshold,
       retrievalChunks: chunks,
@@ -388,8 +394,8 @@ export async function runAgentForMessage(input: {
       confidence: retrievalCheck.confidence,
       responseProvider: responseModel.provider,
       responseModel: responseModel.model,
-      embeddingProvider: config.embedding_provider,
-      embeddingModel: config.embedding_model,
+      embeddingProvider,
+      embeddingModel,
       retrievalTopScore: chunks[0]?.score ?? null,
       retrievalThreshold,
       retrievalChunks: chunks,
@@ -455,8 +461,8 @@ export async function runAgentForMessage(input: {
       confidence: 0,
       responseProvider: responseModel.provider,
       responseModel: responseModel.model,
-      embeddingProvider: config.embedding_provider,
-      embeddingModel: config.embedding_model,
+      embeddingProvider,
+      embeddingModel,
       retrievalTopScore: chunks[0]?.score ?? null,
       retrievalThreshold,
       retrievalChunks: chunks,
@@ -526,8 +532,8 @@ export async function runAgentForMessage(input: {
       confidence: selfCheck.confidence,
       responseProvider: responseModel.provider,
       responseModel: responseModel.model,
-      embeddingProvider: config.embedding_provider,
-      embeddingModel: config.embedding_model,
+      embeddingProvider,
+      embeddingModel,
       retrievalTopScore: chunks[0]?.score ?? null,
       retrievalThreshold,
       retrievalChunks: chunks,
@@ -569,8 +575,8 @@ export async function runAgentForMessage(input: {
       confidence: decision.confidence,
       responseProvider: generationProvider,
       responseModel: generationModel,
-      embeddingProvider: config.embedding_provider,
-      embeddingModel: config.embedding_model,
+      embeddingProvider,
+      embeddingModel,
       retrievalTopScore: chunks[0]?.score ?? null,
       retrievalThreshold,
       retrievalChunks: chunks,
@@ -637,8 +643,8 @@ export async function runAgentForMessage(input: {
     confidence: decision.confidence,
     responseProvider: generationProvider,
     responseModel: generationModel,
-    embeddingProvider: config.embedding_provider,
-    embeddingModel: config.embedding_model,
+    embeddingProvider,
+    embeddingModel,
     retrievalTopScore: chunks[0]?.score ?? null,
     retrievalThreshold,
     retrievalChunks: chunks,
