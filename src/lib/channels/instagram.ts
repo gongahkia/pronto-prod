@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
 import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib/channels/credentials";
 import { fetchWithTimeout } from "@/lib/http/fetch";
-import { redactErrorMessage } from "@/lib/logger";
+import { AmbiguousProviderAcceptanceError, ProviderSendError } from "@/lib/channels/provider-error";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
 
@@ -88,7 +88,7 @@ export async function sendInstagramText(input: {
   channel: Channel;
   externalThreadId: string;
   text: string;
-}): Promise<void> {
+}): Promise<string> {
   const token =
     (input.channel.credentials.pageAccessToken as string | undefined) ??
     process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
@@ -116,9 +116,11 @@ export async function sendInstagramText(input: {
   );
 
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(redactErrorMessage(`Instagram send failed: ${response.status} ${body}`));
+    throw new ProviderSendError("Instagram", response.status);
   }
+  const body = (await response.json()) as { message_id?: unknown };
+  if (typeof body.message_id !== "string") throw new AmbiguousProviderAcceptanceError("Instagram");
+  return body.message_id;
 }
 
 function channelFetchTimeoutMs(): number {

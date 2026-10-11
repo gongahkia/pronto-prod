@@ -1,4 +1,5 @@
 import type { Channel } from "@/lib/types";
+import { ChannelPolicyError } from "@/lib/channels/provider-error";
 
 export const PROACTIVE_WHATSAPP_PURPOSE = "proactive_notification";
 
@@ -6,21 +7,21 @@ export type ChannelSendPolicy = {
   purpose?: string;
   whatsappTemplateName?: string;
   whatsappTemplateApproved?: boolean;
+  whatsappTemplateLanguage?: string;
 };
 
 export function assertChannelSendAllowed(
   channel: Channel,
   policy?: ChannelSendPolicy,
 ): void {
-  if (channel.kind !== "whatsapp" || !isProactiveWhatsAppPolicy(policy)) {
+  if (channel.kind !== "whatsapp") {
     return;
   }
-
-  if (policy.whatsappTemplateName && policy.whatsappTemplateApproved === true) {
+  if (!isProactiveWhatsAppPolicy(policy) && !policy?.whatsappTemplateName) {
     return;
   }
-
-  throw new Error(
+  if (policy?.whatsappTemplateName && policy.whatsappTemplateApproved === true) return;
+  throw new ChannelPolicyError(
     "WhatsApp proactive notifications require an approved message template before sending.",
   );
 }
@@ -31,6 +32,7 @@ export function policyFromOutboundMetadata(
   const purpose = stringValue(metadata.purpose);
   const whatsappTemplateName = stringValue(metadata.whatsappTemplateName);
   const whatsappTemplateApproved = booleanValue(metadata.whatsappTemplateApproved);
+  const whatsappTemplateLanguage = stringValue(metadata.whatsappTemplateLanguage);
 
   if (
     purpose !== PROACTIVE_WHATSAPP_PURPOSE &&
@@ -44,6 +46,7 @@ export function policyFromOutboundMetadata(
     purpose,
     whatsappTemplateName,
     whatsappTemplateApproved,
+    whatsappTemplateLanguage,
   };
 }
 

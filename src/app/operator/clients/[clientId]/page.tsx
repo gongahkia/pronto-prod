@@ -21,6 +21,7 @@ import {
   OperatorClientNav,
 } from "@/components/operator/operator-nav";
 import { StatCard } from "@/components/stat-card";
+import { approvedChopeBookingLink } from "@/lib/reservations/chope";
 
 type OverviewSection =
   | "workspace"
@@ -126,6 +127,8 @@ export default async function ClientOperatorPage({
             knowledgeCount={knowledge.length}
             actionableTriage={escalations.length}
             workspaceLinks={workspaceLinks}
+            clientId={client.id}
+            chopeBooking={approvedChopeBookingLink(client.business_profile)}
           />
         ) : null}
 
@@ -187,6 +190,8 @@ function OperatorOverviewTabs({
 }
 
 function WorkspaceSection({
+  clientId,
+  chopeBooking,
   clientStatus,
   setupChannels,
   channelCount,
@@ -195,6 +200,8 @@ function WorkspaceSection({
   actionableTriage,
   workspaceLinks,
 }: {
+  clientId: string;
+  chopeBooking: { outletId: string; url: string; verifiedAt: string } | null;
   clientStatus: string;
   setupChannels: number;
   channelCount: number;
@@ -230,6 +237,23 @@ function WorkspaceSection({
             <span className="text-muted">Actionable triage</span>
             <span className="font-medium">{actionableTriage}</span>
           </div>
+        </div>
+      </div>
+      <div className="ui-panel">
+        <div className="ui-panel-header"><h2 className="text-base font-semibold">Chope booking handoff</h2></div>
+        <div className="space-y-3 p-4 text-sm">
+          <p className="text-muted">Direct Chope API bookings are unavailable. A verified outlet link lets customers confirm on Chope.</p>
+          {chopeBooking ? <p>Verified outlet: {chopeBooking.outletId}</p> : <p>No verified outlet link configured.</p>}
+          <form action={`/api/operator/clients/${clientId}/chope-link`} method="post" className="space-y-2">
+            <input name="outletId" aria-label="Chope outlet ID" placeholder="Chope outlet ID" defaultValue={chopeBooking?.outletId ?? ""} className="w-full rounded-md border border-line px-3 py-2" required />
+            <input name="url" aria-label="Chope outlet booking URL" placeholder="https://www.chope.co/..." defaultValue={chopeBooking?.url ?? ""} className="w-full rounded-md border border-line px-3 py-2" required />
+            <label className="flex gap-2"><input type="checkbox" name="verified" value="yes" required /> I checked this exact restaurant outlet and booking link.</label>
+            <button className="ui-button px-3 py-2">Save verified link</button>
+          </form>
+          {chopeBooking ? <form action={`/api/operator/clients/${clientId}/chope-link`} method="post">
+            <input type="hidden" name="action" value="clear" />
+            <button className="ui-button px-3 py-2">Remove link</button>
+          </form> : null}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { query } from "@/lib/db";
 import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib/channels/credentials";
 import { recordOutboundHealth } from "@/lib/channels/health";
+import { ChannelPolicyError } from "@/lib/channels/provider-error";
 import {
   assertChannelSendAllowed,
   type ChannelSendPolicy,
@@ -18,7 +19,7 @@ export async function sendChannelText(input: {
   externalThreadId: string;
   text: string;
   policy?: ChannelSendPolicy;
-}): Promise<void> {
+}): Promise<{ providerMessageId?: string }> {
   const channelResult = await query<Channel>(
     input.clientId
       ? "select * from channels where id = $1 and client_id = $2"
@@ -43,27 +44,38 @@ export async function sendChannelText(input: {
 
   try {
     if (channel.kind === "whatsapp") {
-      await sendWhatsAppText({ channel, externalThreadId: input.externalThreadId, text: input.text });
+      const template = input.policy?.whatsappTemplateName && input.policy.whatsappTemplateApproved === true
+        ? { name: input.policy.whatsappTemplateName,
+            languageCode: input.policy.whatsappTemplateLanguage ?? "en_US" } : undefined;
+      if (!template && !(await hasRecentCustomerMessage(channel, input.externalThreadId))) {
+        throw new ChannelPolicyError("WhatsApp text reply is outside the customer service window.");
+      }
+      const providerMessageId = await sendWhatsAppText({ channel,
+        externalThreadId: input.externalThreadId, text: input.text, template });
       await recordOutboundHealth(input.channelId, channel.client_id);
-      return;
+      return { providerMessageId };
     }
 
     if (channel.kind === "telegram") {
       await sendTelegramText({ channel, externalThreadId: input.externalThreadId, text: input.text });
       await recordOutboundHealth(input.channelId, channel.client_id);
-      return;
+      return {};
     }
 
     if (channel.kind === "messenger") {
       await sendMessengerText({ channel, externalThreadId: input.externalThreadId, text: input.text });
       await recordOutboundHealth(input.channelId, channel.client_id);
-      return;
+      return {};
     }
 
     if (channel.kind === "instagram") {
-      await sendInstagramText({ channel, externalThreadId: input.externalThreadId, text: input.text });
+      if (!(await hasRecentCustomerMessage(channel, input.externalThreadId))) {
+        throw new ChannelPolicyError("Instagram reply requires a recent customer-initiated conversation.");
+      }
+      const providerMessageId = await sendInstagramText({ channel,
+        externalThreadId: input.externalThreadId, text: input.text });
       await recordOutboundHealth(input.channelId, channel.client_id);
-      return;
+      return { providerMessageId };
     }
 
     if (channel.kind === "email") {
@@ -101,10 +113,23 @@ export async function sendChannelText(input: {
         [channel.id, input.externalThreadId, channel.client_id, messageId],
       );
       await recordOutboundHealth(input.channelId, channel.client_id);
-      return;
+      return { providerMessageId: messageId };
     }
   } catch (error) {
     await recordOutboundHealth(input.channelId, channel.client_id, error);
     throw error;
   }
+}
+
+async function hasRecentCustomerMessage(channel: Channel, externalThreadId: string): Promise<boolean> {
+  const recent = await query<{ created_at: Date }>(
+    `select m.created_at from messages m join conversations c on c.id = m.conversation_id
+     where m.client_id = $1 and m.channel_id = $2 and c.external_thread_id = $3
+       and c.client_id = $1 and m.sender_role = 'customer'
+     order by m.created_at desc limit 1`,
+    [channel.client_id, channel.id, externalThreadId],
+  );
+  const createdAt = recent.rows[0]?.created_at;
+  const age = createdAt ? Date.now() - new Date(createdAt).getTime() : Infinity;
+  return age >= 0 && age < 24 * 60 * 60 * 1000;
 }

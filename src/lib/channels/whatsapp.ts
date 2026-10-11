@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib/channels/credentials";
 import { whatsAppGraphVersion } from "@/lib/env";
 import { fetchWithTimeout } from "@/lib/http/fetch";
+import { AmbiguousProviderAcceptanceError, ProviderSendError } from "@/lib/channels/provider-error";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
 
@@ -116,7 +117,8 @@ export async function sendWhatsAppText(input: {
   channel: Channel;
   externalThreadId: string;
   text: string;
-}): Promise<void> {
+  template?: { name: string; languageCode: string };
+}): Promise<string> {
   const token =
     (input.channel.credentials.accessToken as string | undefined) ??
     process.env.WHATSAPP_ACCESS_TOKEN;
@@ -139,20 +141,21 @@ export async function sendWhatsAppText(input: {
       body: JSON.stringify({
         messaging_product: "whatsapp",
         to: input.externalThreadId,
-        type: "text",
-        text: {
-          preview_url: false,
-          body: input.text,
-        },
+        ...(input.template
+          ? { type: "template", template: { name: input.template.name,
+              language: { code: input.template.languageCode } } }
+          : { type: "text", text: { preview_url: false, body: input.text } }),
       }),
     },
     channelFetchTimeoutMs(),
   );
 
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`WhatsApp send failed: ${response.status} ${body}`);
+    throw new ProviderSendError("WhatsApp", response.status);
   }
+  const body = (await response.json()) as { messages?: Array<{ id?: unknown }> };
+  if (typeof body.messages?.[0]?.id !== "string") throw new AmbiguousProviderAcceptanceError("WhatsApp");
+  return body.messages[0].id;
 }
 
 function channelFetchTimeoutMs(): number {

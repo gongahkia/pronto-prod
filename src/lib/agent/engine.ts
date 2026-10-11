@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
 import { query, transaction } from "@/lib/db";
+import { bookingFallback } from "@/lib/reservations/chope";
 import {
   evaluateAiDisclosure,
   evaluatePreGenerationGuardrails,
@@ -98,6 +98,32 @@ export async function runAgentForMessage(input: {
   const config = configResult.rows[0];
   if (!client || !config) {
     throw new Error("Agent cannot run without client and config records.");
+  }
+
+  if (["fnb", "restaurant", "food_and_beverage"].includes(client.vertical.toLowerCase())) {
+    const booking = bookingFallback({ message: input.customerMessage, businessProfile: client.business_profile });
+    if (booking) {
+      if (booking.action === "link" && booking.response) {
+        const recorded = await recordDirectAgentAnswer(input, {
+          answer: booking.response, confidence: 1, reasonCode: booking.reasonCode,
+          metadata: { policy: "verified_booking_link" },
+        });
+        trace.addStep("booking_link_handoff");
+        await trace.finalize({ status: "answered", reasonCode: booking.reasonCode,
+          confidence: 1, agentMessageId: recorded.agentMessageId });
+        return { action: "answered", responseText: booking.response,
+          reasonCode: booking.reasonCode, reasonDetail: "Customer referred to an operator-verified Chope outlet link.",
+          confidence: 1, citedChunks: [], agentMessageId: recorded.agentMessageId, csatUrl: recorded.csatUrl };
+      }
+      const escalation = await createEscalation({
+        ...input, reasonCode: booking.reasonCode,
+        reasonDetail: "Restaurant booking requires a verified booking link or human assistance.", confidence: 1,
+      });
+      trace.addStep("booking_handoff");
+      await trace.finalize({ status: "escalated", reasonCode: booking.reasonCode,
+        confidence: 1, escalationId: escalation.escalationId });
+      return escalation;
+    }
   }
 
   const smallTalkGreeting = evaluateSmallTalkGreeting(
