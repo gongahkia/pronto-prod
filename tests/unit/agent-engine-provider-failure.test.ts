@@ -156,6 +156,9 @@ describe("agent engine provider failures", () => {
     mocks.transaction.mockImplementation(async (callback) =>
       callback({
         query: vi.fn(async (sql: string) => {
+          if (sql.includes("from messages") && sql.includes("for update")) {
+            return { rows: [{ id: "message-1" }] };
+          }
           if (sql.includes("insert into escalations")) {
             return { rows: [{ id: "escalation-1" }] };
           }

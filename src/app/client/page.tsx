@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getAssistantDraft } from "@/lib/assistant-drafts";
-import { getChannels, getClient, getKnowledgeSources } from "@/lib/dashboard";
+import { getChannels, getClient, getClientAttentionItems, getKnowledgeSources } from "@/lib/dashboard";
 import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
 import { getClientDashboardAnalytics, getFilteredConversations } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
@@ -12,7 +12,7 @@ import { StatCard } from "@/components/stat-card";
 export default async function ClientOverviewPage() {
   const user = await requireUser("client");
   if (!user.clientId) throw new Error("Client user is missing a client assignment.");
-  const [client, analytics, needsReply, recent, channels, sources, refreshes, draft] = await Promise.all([
+  const [client, analytics, needsReply, recent, channels, sources, refreshes, draft, attentionItems] = await Promise.all([
     getClient(user.clientId),
     getClientDashboardAnalytics(user.clientId),
     getFilteredConversations({ clientId: user.clientId, status: "needs_reply", sort: "attention", limit: 5 }),
@@ -21,13 +21,15 @@ export default async function ClientOverviewPage() {
     getKnowledgeSources(user.clientId),
     getKnowledgeRefreshRequests(user.clientId),
     getAssistantDraft(user.clientId),
+    getClientAttentionItems(user.clientId),
   ]);
   if (!client) throw new Error("Client record not found.");
   const activeChannels = channels.filter((channel) => channel.status === "active").length;
   const channelIssues = channels.filter((channel) => channel.status === "active" && channel.last_health_status === "degraded").length;
   const refreshDue = refreshes.filter((request) => request.status === "open").length;
   const setupNeeded = activeChannels === 0 || sources.length === 0;
-  const alertCount = Number(setupNeeded) + Number(channelIssues > 0) + Number(refreshDue > 0);
+  const alertCount = Number(setupNeeded) + Number(channelIssues > 0) + Number(refreshDue > 0) +
+    Number(attentionItems.length > 0);
 
   return (
     <AppShell user={user} active="client" clientActive="overview" workspaceName={client.name}>
@@ -56,8 +58,8 @@ export default async function ClientOverviewPage() {
         <div className="ui-panel p-5">
           <p className="text-sm text-muted">Assistant status</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Badge tone={setupNeeded || channelIssues ? "amber" : "green"}>
-              {setupNeeded ? "Setup needed" : channelIssues ? "Channel issue" : "Running"}
+            <Badge tone={setupNeeded || channelIssues || attentionItems.length ? "amber" : "green"}>
+              {setupNeeded ? "Setup needed" : attentionItems.length ? "Processing issue" : channelIssues ? "Channel issue" : "Running"}
             </Badge>
             {draft ? <Badge tone="amber">Unpublished changes</Badge> : null}
           </div>
@@ -83,6 +85,16 @@ export default async function ClientOverviewPage() {
               <Link href="/client/assistant/channels" className="block p-4 hover:bg-surface-hover">
                 {channelIssues} active channel {channelIssues === 1 ? "needs" : "need"} a health check.
               </Link>
+            ) : null}
+            {attentionItems.length ? (
+              <div className="p-4">
+                <p className="font-medium">{attentionItems.length} {attentionItems.length === 1 ? "message needs" : "messages need"} operational review.</p>
+                <ul className="mt-2 space-y-1 text-muted">
+                  {attentionItems.map((item) => (
+                    <li key={item.id}>{item.channel_name}: {item.kind} {item.status}</li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
             {refreshDue ? (
               <Link href="/client/knowledge" className="block p-4 hover:bg-surface-hover">

@@ -66,6 +66,20 @@ dbDescribe("isolated PostgreSQL escalation baseline", () => {
     expect(conversation.rows[0].status).toBe("escalated");
   });
 
+  it("reuses an escalation for the same customer message without a unique index", async () => {
+    const input = { clientId, channelId, conversationId, customerMessageId: messageId,
+      customerMessage: "Please cancel my booking", reasonCode: "transactional_action",
+      reasonDetail: "Human required.", confidence: 1 };
+    const first = await createEscalation(input);
+    const second = await createEscalation(input);
+    expect(second.escalationId).toBe(first.escalationId);
+    const result = await getPool().query<{ count: string }>(
+      "select count(*) from escalations where client_id = $1 and message_id = $2",
+      [clientId, messageId],
+    );
+    expect(Number(result.rows[0].count)).toBe(1);
+  });
+
   it("runs a grounded answer through the real agent path with deterministic mock AI", async () => {
     const sourceId = randomUUID();
     const db = getPool();

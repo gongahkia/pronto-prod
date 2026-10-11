@@ -67,7 +67,8 @@ Set `META_GRAPH_VERSION` to a supported version; `v20.0` is rejected.
 
 The local demonstration tests in `tests/integration/meta-rag-demo.test.ts`
 exercise signed webhook -> durable job -> mock embedding/model with real
-pgvector retrieval -> queued answer -> fake Graph transport. They are **mock
+pgvector retrieval -> queued answer -> fake Graph transport, plus booking-link
+assistance and unsupported-media human handoff. They are **mock
 verified**, not sandbox or live provider verification. No Meta credential or
 customer message was used during this sprint.
 
@@ -76,7 +77,10 @@ customer message was used during this sprint.
 Chope's public affiliate page says API integration may be offered after
 acceptance, but this repository has no authorized Chope endpoint contract or
 credentials. The production connector advertises no availability or mutation
-capabilities and performs no Chope requests. A deterministic fake under
+capabilities and performs no Chope requests. A separate read-only browser
+adapter for authorized demos is opt-in per worker and tenant. Its terms and
+operating limits are recorded in [the Chope reader guide](../integrations/chope-live-read.md).
+A deterministic fake under
 `tests/fixtures/fake-chope.ts` tests reservations without production data.
 The agent checks the connector's advertised availability capability; only an
 authorized adapter with that capability is asked for availability. Even then,

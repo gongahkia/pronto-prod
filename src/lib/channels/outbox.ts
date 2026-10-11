@@ -206,7 +206,8 @@ export async function flushOutboundMessage(
       (error instanceof ProviderSendError && error.ambiguous) ||
       (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
       ? "uncertain"
-      : error instanceof ChannelPolicyError || (error instanceof ProviderSendError && !error.retryable)
+      : error instanceof ChannelPolicyError || (error instanceof ProviderSendError && !error.retryable) ||
+          outbound.attempt_count >= maxAttempts
         ? "dead" : "failed";
     await query(
       `
@@ -231,7 +232,7 @@ export async function flushOutboundMessage(
     await recordErrorEvent({
       eventName: "outbox.flush_failed",
       source: "outbound",
-      severity: outbound.attempt_count >= DEFAULT_MAX_ATTEMPTS ? "error" : "warning",
+      severity: status === "dead" || status === "uncertain" ? "error" : "warning",
       requestId: options.requestId ?? null,
       clientId: outbound.client_id,
       channelId: outbound.channel_id,

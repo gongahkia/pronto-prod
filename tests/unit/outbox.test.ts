@@ -160,6 +160,21 @@ describe("outbound message outbox", () => {
     ]);
   });
 
+  it("does not resend after provider acceptance when the local sent write fails", async () => {
+    mocks.query
+      .mockResolvedValueOnce({ rows: [outboundMessage()] })
+      .mockRejectedValueOnce(new Error("injected sent status write failure"))
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await flushOutboundMessage("outbound-1");
+    expect(mocks.query.mock.calls[2][1]).toEqual([
+      "outbound-1", "injected sent status write failure", "client-1", "uncertain",
+    ]);
+    await flushOutboundMessage("outbound-1");
+    expect(mocks.sendChannelText).toHaveBeenCalledTimes(1);
+  });
+
   it("lists pending and known retryable failures without replaying stale sends", async () => {
     mocks.query.mockResolvedValueOnce({ rows: [outboundMessage()] });
 

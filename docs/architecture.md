@@ -49,9 +49,12 @@ authorized `release` action restores AI ownership for future messages.
   been verified.
 - Instagram uses the manually provisioned **Facebook Login / linked Page**
   path and a Page access token. It does not implement Instagram Login OAuth.
-- The production Chope connector advertises no API capabilities because no
-  authorized endpoint contract or credentials are present. F&B booking
-  requests receive an operator-verified outlet link or human handoff.
+- The default Chope connector advertises no API capabilities because no
+  authorized endpoint contract or credentials are present. A separate,
+  explicitly enabled read-only browser connector can observe demo availability
+  under the user's stated Chope permission. It never submits a reservation;
+  see [the reader guide](integrations/chope-live-read.md). F&B booking requests
+  otherwise receive an operator-verified outlet link or human handoff.
 - Shopify, WooCommerce, and delivery adapters remain read-only. Private order
   and tracking lookups are withheld from the agent until customer ownership
   can be verified.

@@ -30,5 +30,6 @@ from messages m
 where m.sender_role = 'customer'
 on conflict (message_id) do nothing;
 
-create unique index if not exists escalations_message_id_unique_idx
-  on escalations (message_id);
+-- Earlier releases allowed more than one escalation for a message. Preserve
+-- historical rows; the agent locks the customer message before reusing an
+-- escalation for new processing attempts.

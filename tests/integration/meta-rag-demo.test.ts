@@ -142,4 +142,30 @@ dbDescribe("mock-verified Meta webhook to RAG to outbound queue demonstrations",
     expect(queued.rows[0].body).toContain("I cannot confirm a reservation here");
     expect((await getPool().query("select id from escalations where client_id = $1", [clientId])).rows).toHaveLength(0);
   });
+
+  it("hands unsupported WhatsApp content to a human and suppresses later AI work", async () => {
+    await setup({ channelKind: "whatsapp", question: "Can you help?",
+      knowledge: "Fixture Cafe can help with menu enquiries." });
+    const message = (id: string, content: Record<string, unknown>) => ({
+      object: "whatsapp_business_account", entry: [{ id: "waba-a", changes: [{
+        field: "messages", value: { metadata: { phone_number_id: "phone-a" },
+          messages: [{ id, from: "6590000000", timestamp: String(Math.floor(Date.now() / 1000)),
+            ...content }] },
+      }] }],
+    });
+    const image = message("wamid.media", { type: "image", image: { id: "fixture-image" } });
+    expect((await whatsAppPost(request(image), { params: Promise.resolve({ channelId }) })).status).toBe(200);
+    expect((await processInboundJob())?.outcome).toBe("escalated");
+    const escalation = await getPool().query<{ status: string }>(
+      "select status from escalations where client_id = $1", [clientId]);
+    expect(escalation.rows).toHaveLength(1);
+    expect(escalation.rows[0].status).toBe("open");
+    await flushRetryableOutboundMessages();
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    const followup = message("wamid.after-handoff", { type: "text", text: { body: "Are you there?" } });
+    expect((await whatsAppPost(request(followup), { params: Promise.resolve({ channelId }) })).status).toBe(200);
+    expect((await processInboundJob())?.outcome).toBe("skipped");
+    expect((await getPool().query("select id from outbound_messages where client_id = $1", [clientId])).rows).toHaveLength(1);
+  });
 });

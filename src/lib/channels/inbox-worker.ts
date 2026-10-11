@@ -7,14 +7,16 @@ import { enqueueOutboundMessage } from "@/lib/channels/outbox";
 import { notifyOwnerOfEscalation } from "@/lib/escalations";
 import { logWarn } from "@/lib/logger";
 import type { Channel, Conversation, Escalation, Message } from "@/lib/types";
+import type { ReservationConnector } from "@/lib/reservations/types";
 
-export async function processInboundJob(input: { jobId?: string; requestId?: string } = {}): Promise<
+export async function processInboundJob(input: { jobId?: string; requestId?: string;
+  reservationConnector?: ReservationConnector } = {}): Promise<
   { jobId: string; outcome: "answered" | "escalated" | "skipped" } | null
 > {
   const job = await claimInboundJob({ jobId: input.jobId });
   if (!job) return null;
   try {
-    const outcome = await execute(job, input.requestId);
+    const outcome = await execute(job, input.requestId, input.reservationConnector);
     await finishInboundJob(job, outcome === "skipped" ? "skipped" : "completed");
     return { jobId: job.id, outcome };
   } catch (error) {
@@ -25,7 +27,8 @@ export async function processInboundJob(input: { jobId?: string; requestId?: str
   }
 }
 
-async function execute(job: InboundJob, requestId?: string): Promise<"answered" | "escalated" | "skipped"> {
+async function execute(job: InboundJob, requestId?: string,
+  reservationConnector?: ReservationConnector): Promise<"answered" | "escalated" | "skipped"> {
   const [channelResult, messageResult, conversationResult] = await Promise.all([
     query<Channel>("select * from channels where id = $1 and client_id = $2", [job.channel_id, job.client_id]),
     query<Message>("select * from messages where id = $1 and client_id = $2", [job.message_id, job.client_id]),
@@ -85,7 +88,7 @@ async function execute(job: InboundJob, requestId?: string): Promise<"answered" 
     : await runAgentForMessage({
         clientId: job.client_id, channelId: job.channel_id, channelKind: channel.kind,
         conversationId: job.conversation_id, customerMessageId: message.id,
-        customerMessage: message.body, requestId,
+        customerMessage: message.body, requestId, reservationConnector,
       });
 
   if (result.action === "answered") {

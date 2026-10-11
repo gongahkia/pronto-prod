@@ -1,5 +1,6 @@
 import { query, transaction } from "@/lib/db";
 import { assistWithRestaurantBooking } from "@/lib/reservations/chope";
+import { configuredChopeBrowserConnector } from "@/lib/reservations/chope-browser";
 import {
   evaluateAiDisclosure,
   evaluatePreGenerationGuardrails,
@@ -38,6 +39,7 @@ import {
 import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
 import type { GroundedAnswerDecision } from "@/lib/llm/types";
 import type { AgentConfig, ChannelKind, Client, KnowledgeChunk, Message } from "@/lib/types";
+import type { ReservationConnector } from "@/lib/reservations/types";
 
 export type AgentRunResult = {
   action: "answered" | "escalated";
@@ -59,6 +61,7 @@ export async function runAgentForMessage(input: {
   customerMessageId: string;
   customerMessage: string;
   requestId?: string;
+  reservationConnector?: ReservationConnector;
 }): Promise<AgentRunResult> {
   logInfo("agent.run_started", {
     requestId: input.requestId,
@@ -102,7 +105,9 @@ export async function runAgentForMessage(input: {
 
   if (["fnb", "restaurant", "food_and_beverage"].includes((client.vertical ?? "").toLowerCase())) {
     const booking = await assistWithRestaurantBooking({ clientId: input.clientId,
-      message: input.customerMessage, businessProfile: client.business_profile ?? {} });
+      message: input.customerMessage, businessProfile: client.business_profile ?? {},
+      connector: input.reservationConnector ??
+        configuredChopeBrowserConnector(input.clientId, client.business_profile ?? {}) ?? undefined });
     if (booking) {
       if (booking.action === "link" && booking.response) {
         const recorded = await recordDirectAgentAnswer(input, {
@@ -706,16 +711,25 @@ export async function createEscalation(input: {
   requestId?: string;
 }): Promise<AgentRunResult> {
   return transaction(async (client) => {
+    const customerMessage = await client.query<{ id: string }>(
+      "select id from messages where id = $1 and client_id = $2 and conversation_id = $3 for update",
+      [input.customerMessageId, input.clientId, input.conversationId],
+    );
+    if (!customerMessage.rows[0]) throw new Error("Escalation customer message was not found.");
     await client.query(
       "update conversations set status = 'escalated', last_message_at = now() where id = $1 and client_id = $2",
       [input.conversationId, input.clientId],
     );
 
-    const escalation = await client.query<{ id: string }>(
+    const existing = await client.query<{ id: string }>(
+      `select id from escalations where client_id = $1 and conversation_id = $2 and message_id = $3
+       order by created_at, id limit 1`,
+      [input.clientId, input.conversationId, input.customerMessageId],
+    );
+    const escalation = existing.rows[0] ? existing : await client.query<{ id: string }>(
       `
         insert into escalations (client_id, conversation_id, message_id, reason_code, reason_detail, confidence)
         values ($1, $2, $3, $4, $5, $6)
-        on conflict (message_id) do update set message_id = excluded.message_id
         returning id
       `,
       [
@@ -728,14 +742,16 @@ export async function createEscalation(input: {
       ],
     );
 
-    await client.query(
-      "insert into metric_events (client_id, event_type, value, metadata) values ($1, 'agent_escalated', $2, $3)",
-      [
-        input.clientId,
-        input.confidence,
-        { reasonCode: input.reasonCode, conversationId: input.conversationId },
-      ],
-    );
+    if (!existing.rows[0]) {
+      await client.query(
+        "insert into metric_events (client_id, event_type, value, metadata) values ($1, 'agent_escalated', $2, $3)",
+        [
+          input.clientId,
+          input.confidence,
+          { reasonCode: input.reasonCode, conversationId: input.conversationId },
+        ],
+      );
+    }
 
     logInfo("agent.escalation_created", {
       requestId: input.requestId,

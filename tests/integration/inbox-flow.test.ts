@@ -4,6 +4,7 @@ import { getPool } from "@/lib/db";
 import { ingestInboundMessage } from "@/lib/channels/inbox";
 import { processInboundJob } from "@/lib/channels/inbox-worker";
 import { flushRetryableOutboundMessages, markStaleOutboundUncertain } from "@/lib/channels/outbox";
+import { getClientAttentionItems } from "@/lib/dashboard";
 
 const fakes = vi.hoisted(() => ({
   runAgentForMessage: vi.fn(), createEscalation: vi.fn(),
@@ -207,5 +208,22 @@ dbDescribe("durable inbound processing in isolated PostgreSQL", () => {
       "select status from outbound_messages where client_id = $1", [clientId],
     );
     expect(row.rows[0].status).toBe("uncertain");
+  });
+
+  it("marks an exhausted outbound send dead so the operator can see it", async () => {
+    const first = await ingestInboundMessage(inbound(channelId, "outbound-exhausted"));
+    await processInboundJob({ jobId: first.jobId });
+    fakes.sendChannelText.mockRejectedValueOnce(new Error("injected transport rejection"));
+    const result = await flushRetryableOutboundMessages({ maxAttempts: 1 });
+    expect(result.failed).toBe(1);
+    const row = await getPool().query<{ status: string; attempt_count: number }>(
+      "select status, attempt_count from outbound_messages where client_id = $1", [clientId],
+    );
+    expect(row.rows[0]).toEqual({ status: "dead", attempt_count: 1 });
+    expect(await getClientAttentionItems(clientId)).toEqual([
+      expect.objectContaining({ kind: "outbound", status: "dead" }),
+    ]);
+    await flushRetryableOutboundMessages({ maxAttempts: 1 });
+    expect(fakes.sendChannelText).toHaveBeenCalledTimes(1);
   });
 });

@@ -22,6 +22,18 @@ export type ConfirmedReservationRequest = ReservationRequest & {
 };
 
 export type ReservationAvailability = "available" | "unavailable" | "unknown";
+export type AvailabilityResult = {
+  outletId: string;
+  date: string;
+  partySize: number;
+  availableSlots: string[];
+  timezone: "Asia/Singapore";
+  provider: string;
+  observedAt: string | null;
+  status: ReservationAvailability | "error";
+  errorCode?: "missing_authorization" | "invalid_request" | "network_error" |
+    "provider_timeout" | "rate_limited" | "stale" | "unexpected_response";
+};
 export type ReservationResult =
   | { status: "confirmed"; providerReservationId: string; date: string; time: string; partySize: number }
   | { status: "conflict" | "ambiguous" | "unsupported"; reason: string };
@@ -29,7 +41,7 @@ export type ReservationResult =
 export interface ReservationConnector {
   readonly provider: string;
   readonly capabilities: ReservationCapabilities;
-  getAvailability(request: ReservationRequest): Promise<ReservationAvailability>;
+  getAvailability(request: ReservationRequest): Promise<AvailabilityResult>;
   createReservation(request: ConfirmedReservationRequest): Promise<ReservationResult>;
   getReservation(clientId: string, outletId: string, reservationId: string): Promise<ReservationResult>;
   updateReservation(request: ConfirmedReservationRequest & { reservationId: string }): Promise<ReservationResult>;
