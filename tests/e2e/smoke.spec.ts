@@ -10,6 +10,16 @@ const clientLogin = {
   password: "pronto-client",
 };
 
+test.beforeEach(async ({ page }) => {
+  await page.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    if (url.hostname === "localhost" && url.port === "3000") {
+      return route.continue();
+    }
+    return route.abort("blockedbyclient");
+  });
+});
+
 test("login page renders", async ({ page }) => {
   await page.goto("/login");
 
@@ -44,7 +54,7 @@ test("seeded client can render the overview dashboard", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/client$/);
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  await expect(page.getByText("Needs your attention")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Needs your reply" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Recent conversations" })).toBeVisible();
 });
 

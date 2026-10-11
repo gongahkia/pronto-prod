@@ -18,8 +18,10 @@ type ChannelRow = Channel & {
   client_name: string;
 };
 
-loadDotEnv(".env");
-loadDotEnv(".env.local");
+if (process.env.PRONTO_PREFLIGHT_IGNORE_DOTENV !== "1") {
+  loadDotEnv(".env");
+  loadDotEnv(".env.local");
+}
 
 const checks: Check[] = [];
 const profile = process.env.PRONTO_PREFLIGHT_PROFILE === "ci" ? "ci" : "staging";

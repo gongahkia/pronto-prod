@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -18,7 +18,8 @@ export default defineConfig({
   webServer: {
     command: "pnpm start",
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    // Never attach safe E2E tests to an unrelated, possibly live-configured server.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [
