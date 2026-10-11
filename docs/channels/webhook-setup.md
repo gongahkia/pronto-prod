@@ -10,6 +10,9 @@ ngrok http 3000
 ```
 
 Use the HTTPS forwarding URL as `APP_BASE_URL` for local channel testing.
+Use only an authorized sandbox or test account. The webhook route requires an
+active channel and encrypted channel credentials. Start `pnpm worker` against
+the same migrated database; the webhook itself only stores a durable job.
 
 ## WhatsApp Cloud API
 
@@ -22,22 +25,38 @@ https://<public-host>/api/webhooks/whatsapp/<channelId>
 Verification:
 
 - Meta sends `hub.mode`, `hub.verify_token`, and `hub.challenge`.
-- Pronto compares `hub.verify_token` against channel setting `verifyToken`, then `WHATSAPP_VERIFY_TOKEN`.
+- Pronto compares `hub.verify_token` against that channel's encrypted `verifyToken` setting.
 - On success, Pronto returns `hub.challenge`.
 
 Inbound security:
 
-- Pronto verifies `X-Hub-Signature-256` with channel credential `appSecret`, then `WHATSAPP_APP_SECRET`.
+- Pronto verifies `X-Hub-Signature-256` with that channel's encrypted `appSecret` credential.
 
 Outbound send:
 
-- Pronto sends text replies through Graph `/messages`.
+- The worker sends text replies through Graph `/messages` while the customer
+  service window is open; approved templates use the template payload.
 - Required channel credential fields are `accessToken` and `phoneNumberId`.
 
-Policy rule:
+Delivery status callbacks update matching outbound rows and never enter the
+agent. Stale in-flight sends require manual reconciliation.
 
-- Do not use WhatsApp for cold outreach, broadcasts, or promotional pushes in v1.
-- Future proactive notifications must use approved WhatsApp templates only.
+## Instagram Direct Messages
+
+Webhook URL:
+
+```text
+https://<public-host>/api/webhooks/instagram/<channelId>
+```
+
+This implementation uses a manually provisioned Facebook Login linked-Page
+access token, an Instagram Professional account ID, app secret, and verify
+token. It does not support personal accounts or Instagram Login OAuth. The
+route validates the signature and professional-account mapping, ignores echo
+events, and persists customer DMs for the shared worker. Outbound replies use
+the same tenant's professional account and the customer sender ID. See
+[`docs/sprint1/technical-readiness.md`](../sprint1/technical-readiness.md)
+for App Review and test-account prerequisites.
 
 ## Telegram
 
@@ -67,4 +86,3 @@ Outbound send:
 
 - Pronto sends replies with `sendMessage`.
 - Required channel credential field is `botToken`.
-

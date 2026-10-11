@@ -20,7 +20,8 @@ describe("readiness route", () => {
     vi.stubEnv("APP_BASE_URL", "https://staging.example.com");
     vi.stubEnv("PRONTO_USE_MOCK_AI", "0");
     vi.stubEnv("PRONTO_DISABLE_TENANT_SQL_GATE", "0");
-    mocks.poolQuery.mockResolvedValue({ rows: [{ "?column?": 1 }] });
+    mocks.poolQuery.mockImplementation(async (sql: string) => ({ rows: sql.includes("worker_heartbeats")
+      ? [{ updated_at: new Date() }] : [{ "?column?": 1 }] }));
   });
 
   afterEach(() => {
@@ -43,6 +44,7 @@ describe("readiness route", () => {
         expect.objectContaining({ name: "PRONTO_USE_MOCK_AI", status: "pass" }),
         expect.objectContaining({ name: "Tenant SQL gate", status: "pass" }),
         expect.objectContaining({ name: "Database", status: "pass" }),
+        expect.objectContaining({ name: "Worker", status: "pass" }),
       ]),
     );
     expect(mocks.poolQuery).toHaveBeenCalledWith("select 1");
@@ -92,8 +94,18 @@ describe("readiness route", () => {
       expect.objectContaining({
         name: "Database",
         status: "fail",
-        detail: "connect ECONNREFUSED",
+        detail: "Database is unavailable.",
       }),
+    );
+  });
+
+  it("fails readiness when the worker has stopped heartbeating", async () => {
+    mocks.poolQuery.mockImplementation(async (sql: string) => ({ rows: sql.includes("worker_heartbeats")
+      ? [{ updated_at: new Date(Date.now() - 120_000) }] : [{ "?column?": 1 }] }));
+    const response = await GET();
+    expect(response.status).toBe(503);
+    expect((await response.json()).checks).toContainEqual(
+      expect.objectContaining({ name: "Worker", status: "fail" }),
     );
   });
 });

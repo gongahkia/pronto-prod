@@ -17,8 +17,9 @@ export type ProcessedInboundMessage = {
 // Webhook routes call this ingestion entry point and return after the DB commit.
 export async function processInboundMessages(
   messages: NormalizedInboundMessage[],
-  _context: { requestId?: string } = {},
+  context: { requestId?: string } = {},
 ) {
+  void context;
   return ingestInboundMessages(messages);
 }
 

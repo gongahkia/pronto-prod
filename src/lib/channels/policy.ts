@@ -1,5 +1,6 @@
 import type { Channel } from "@/lib/types";
 import { ChannelPolicyError } from "@/lib/channels/provider-error";
+import { isSupportedMetaGraphVersion, metaGraphVersion, whatsAppGraphVersion } from "@/lib/env";
 
 export const PROACTIVE_WHATSAPP_PURPOSE = "proactive_notification";
 
@@ -14,10 +15,16 @@ export function assertChannelSendAllowed(
   channel: Channel,
   policy?: ChannelSendPolicy,
 ): void {
+  if (channel.kind === "whatsapp" && !isSupportedMetaGraphVersion(whatsAppGraphVersion())) {
+    throw new ChannelPolicyError("WhatsApp Graph API version is expired or invalid.");
+  }
+  if (channel.kind === "instagram" && !isSupportedMetaGraphVersion(metaGraphVersion())) {
+    throw new ChannelPolicyError("Instagram Graph API version is expired or invalid.");
+  }
   if (channel.kind !== "whatsapp") {
     return;
   }
-  if (!isProactiveWhatsAppPolicy(policy) && !policy?.whatsappTemplateName) {
+  if (policy?.purpose !== PROACTIVE_WHATSAPP_PURPOSE && !policy?.whatsappTemplateName) {
     return;
   }
   if (policy?.whatsappTemplateName && policy.whatsappTemplateApproved === true) return;
@@ -48,12 +55,6 @@ export function policyFromOutboundMetadata(
     whatsappTemplateApproved,
     whatsappTemplateLanguage,
   };
-}
-
-function isProactiveWhatsAppPolicy(
-  policy: ChannelSendPolicy | undefined,
-): policy is ChannelSendPolicy {
-  return policy?.purpose === PROACTIVE_WHATSAPP_PURPOSE;
 }
 
 function stringValue(value: unknown): string | undefined {

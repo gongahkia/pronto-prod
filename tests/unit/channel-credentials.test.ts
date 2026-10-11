@@ -3,6 +3,7 @@ import {
   decryptChannelCredentials,
   encryptedChannelCredentialValues,
   protectChannelSettingsSecrets,
+  usesLegacyPlaintextCredentials,
 } from "@/lib/channels/credentials";
 
 describe("channel credential encryption", () => {
@@ -70,5 +71,12 @@ describe("channel credential encryption", () => {
     });
     expect(channel.settings).toEqual({ ownerPhone: "6590000000", verifyToken: "private-verify-token" });
     expect(channel.credentials).toEqual({ accessToken: "channel-token" });
+  });
+
+  it("detects legacy plaintext webhook secrets even when credentials are empty", () => {
+    expect(usesLegacyPlaintextCredentials({ credentials: {}, settings: { verifyToken: "legacy-secret" } })).toBe(true);
+    expect(usesLegacyPlaintextCredentials({ credentials: { accessToken: "legacy-token" }, settings: {} })).toBe(true);
+    expect(usesLegacyPlaintextCredentials({ credentials: {}, settings: { nested: { apiKey: "legacy-secret" } } })).toBe(true);
+    expect(usesLegacyPlaintextCredentials({ credentials: {}, settings: { ownerPhone: "6590000000" } })).toBe(false);
   });
 });

@@ -6,7 +6,7 @@ import { redactErrorMessage } from "@/lib/logger";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
 
-const GRAPH_VERSION = process.env.META_GRAPH_VERSION ?? "v20.0";
+const GRAPH_VERSION = process.env.META_GRAPH_VERSION ?? "v25.0";
 
 export function verifyMessengerSignature(
   rawBody: string,

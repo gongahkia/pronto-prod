@@ -37,16 +37,14 @@ Set these before running a realistic pilot staging environment.
 
 ## WhatsApp Cloud API
 
-- `WHATSAPP_GRAPH_VERSION`: Meta Graph API version for WhatsApp send and health checks. Defaults to `v20.0` for current local-release compatibility.
-- `WHATSAPP_APP_SECRET`: Used to verify `X-Hub-Signature-256`.
-- `WHATSAPP_VERIFY_TOKEN`: Fallback webhook verification token.
-- `WHATSAPP_ACCESS_TOKEN`: Fallback outbound send token when not stored per channel.
+- `WHATSAPP_GRAPH_VERSION`: Meta Graph API version for WhatsApp send and health checks. Defaults to `v25.0`; verify the selected version with an authorized sandbox before activation.
 
-Per-channel credentials should be preferred for real clients:
+Required per-channel credentials and settings for each business:
 
 - `appSecret`
 - `accessToken`
 - `phoneNumberId`
+- `verifyToken` (encrypted channel setting)
 
 For the live WhatsApp prototype, expose local port 3000 through an HTTPS tunnel,
 set `APP_BASE_URL` to that public URL, and register
@@ -67,7 +65,7 @@ Per-channel credentials/settings should be preferred for real clients:
 
 ## Messenger
 
-- `META_GRAPH_VERSION`: Meta Graph API version for Messenger and Instagram. Defaults to `v20.0`.
+- `META_GRAPH_VERSION`: Meta Graph API version for Messenger and Instagram. Defaults to `v25.0`.
 - `MESSENGER_PAGE_ACCESS_TOKEN`: Fallback page access token.
 - `MESSENGER_APP_SECRET`: Fallback app secret for `X-Hub-Signature-256`.
 - `MESSENGER_VERIFY_TOKEN`: Fallback webhook verification token.
@@ -80,12 +78,9 @@ Per-channel credentials/settings should be preferred for real clients:
 
 ## Instagram
 
-- `META_GRAPH_VERSION`: Meta Graph API version for Messenger and Instagram. Defaults to `v20.0`.
-- `INSTAGRAM_PAGE_ACCESS_TOKEN`: Fallback page access token.
-- `INSTAGRAM_APP_SECRET`: Fallback app secret for `X-Hub-Signature-256`.
-- `INSTAGRAM_VERIFY_TOKEN`: Fallback webhook verification token.
+- `META_GRAPH_VERSION`: Meta Graph API version for Messenger and Instagram. Defaults to `v25.0`; verify it with an authorized sandbox before activation.
 
-Per-channel credentials/settings should be preferred for real clients:
+Required per-channel credentials/settings for each Instagram business:
 
 - `pageAccessToken`
 - `appSecret`
@@ -144,8 +139,13 @@ Per-channel credentials/settings should be preferred for real clients:
 
 - Start one worker process per environment with the same `DATABASE_URL`, `PRONTO_SECRETS_KEY`, channel/provider env, and `PRONTO_ENFORCE_TENANT_SQL=1` as the web runner.
 - Safe restart: SIGTERM, wait for `worker.stopped`, then start the replacement.
-- Alert on repeated `outbox.flush_failed`, rising `outbound_messages.attempt_count`, or nonzero `error_events` from `source='outbound'`.
-- Manual retry: run `pnpm outbox:retry` after fixing credentials or provider outage.
+- The worker processes durable inbound jobs before draining the outbox. A fresh
+  `worker_heartbeats` row is required by `/api/readiness`; start the worker
+  before shifting traffic.
+- Alert on `inbound_jobs.status='dead'`, `outbound_messages.status in
+  ('dead','uncertain')`, repeated `outbox.flush_failed`, or a stale heartbeat.
+- Do not use `pnpm outbox:retry` on `uncertain` sends. Reconcile the provider
+  message ID first; the worker only retries known `pending` and `failed` rows.
 - Do not delete failed outbox rows during incident response; they preserve idempotency and retry state.
 
 ## Tenant Isolation

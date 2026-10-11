@@ -390,13 +390,32 @@ export async function getConversationActionableEscalation(input: {
       ) owner_reply on true
       where e.client_id = $1
         and e.conversation_id = $2
-        and ${actionableEscalationCondition}
+        and (${actionableEscalationCondition} or (c.status = 'closed' and e.status = 'resolved'))
       order by e.created_at desc
       limit 1
     `,
     [input.clientId, input.conversationId],
   );
   return result.rows[0] ?? null;
+}
+
+export async function getClientAttentionItems(clientId: string): Promise<Array<{
+  id: string; kind: string; status: string; channel_name: string; last_error: string | null;
+}>> {
+  const result = await query<{
+    id: string; kind: string; status: string; channel_name: string; last_error: string | null;
+  }>(
+    `select j.id, 'inbound' as kind, j.status, ch.name as channel_name, j.last_error
+     from inbound_jobs j join channels ch on ch.id = j.channel_id
+     where j.client_id = $1 and j.status = 'dead'
+     union all
+     select o.id, 'outbound' as kind, o.status, ch.name as channel_name, o.last_error
+     from outbound_messages o join channels ch on ch.id = o.channel_id
+     where o.client_id = $1 and o.status in ('dead', 'uncertain')
+     limit 20`,
+    [clientId],
+  );
+  return result.rows;
 }
 
 export async function getKnowledgeSources(

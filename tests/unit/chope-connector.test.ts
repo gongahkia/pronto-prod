@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FakeChopeConnector } from "../fixtures/fake-chope";
-import { approvedChopeBookingLink, bookingFallback, chopeConnector,
+import { approvedChopeBookingLink, assistWithRestaurantBooking, bookingFallback, chopeConnector,
   parseRestaurantBookingRequest } from "@/lib/reservations/chope";
 
 const now = new Date("2026-10-11T12:00:00+08:00");
@@ -33,6 +33,24 @@ describe("Chope reservation capability boundary", () => {
       businessProfile: {}, now })).toMatchObject({ action: "escalate" });
     expect(approvedChopeBookingLink({ chopeBooking: { ...profile.chopeBooking,
       url: "https://evil.example/restaurant-a" } })).toBeNull();
+  });
+
+  it("uses advertised availability only when supported and never creates a booking", async () => {
+    const fake = new FakeChopeConnector("tenant-a", "restaurant-a");
+    const input = { clientId: "tenant-a", message: "Can I book a table for 2 tomorrow at 7pm?",
+      businessProfile: profile, now, connector: fake };
+    const available = await assistWithRestaurantBooking(input);
+    expect(available).toMatchObject({ action: "link", reasonCode: "reservation_confirmation_required" });
+    expect(available?.response).toContain("This is not a booking");
+    expect(fake.reservations.size).toBe(0);
+    fake.availability = "unavailable";
+    expect(await assistWithRestaurantBooking(input)).toMatchObject({
+      action: "link", reasonCode: "reservation_unavailable",
+    });
+    await expect(assistWithRestaurantBooking({ ...input, clientId: "tenant-b" }))
+      .resolves.toMatchObject({ action: "link", reasonCode: "chope_booking_link" });
+    expect(await assistWithRestaurantBooking({ ...input, connector: chopeConnector }))
+      .toMatchObject({ action: "link", reasonCode: "chope_booking_link" });
   });
 
   it("fake adapter checks availability, confirmation, conflicts, idempotency, scope and unsupported mutations", async () => {

@@ -33,8 +33,10 @@ import {
   flushOutboundMessage,
   flushRetryableOutboundMessages,
   listRetryableOutboundMessages,
+  markStaleOutboundUncertain,
 } from "@/lib/channels/outbox";
 import type { OutboundMessage } from "@/lib/channels/outbox";
+import { ProviderSendError } from "@/lib/channels/provider-error";
 
 describe("outbound message outbox", () => {
   beforeEach(() => {
@@ -127,11 +129,12 @@ describe("outbound message outbox", () => {
 
     const result = await flushOutboundMessage("outbound-1");
 
-    expect(mocks.query.mock.calls[1][0]).toContain("status = 'failed'");
+    expect(mocks.query.mock.calls[1][0]).toContain("status = $4");
     expect(mocks.query.mock.calls[1][1]).toEqual([
       "outbound-1",
       "WhatsApp send failed",
       "client-1",
+      "failed",
     ]);
     expect(result).toEqual({
       status: "failed",
@@ -148,7 +151,16 @@ describe("outbound message outbox", () => {
     );
   });
 
-  it("lists pending, failed, and stale sending outbound messages for retry", async () => {
+  it("parks ambiguous provider HTTP failures for reconciliation", async () => {
+    mocks.query.mockResolvedValueOnce({ rows: [outboundMessage()] }).mockResolvedValueOnce({ rows: [] });
+    mocks.sendChannelText.mockRejectedValueOnce(new ProviderSendError("WhatsApp", 500));
+    await flushOutboundMessage("outbound-1");
+    expect(mocks.query.mock.calls[1][1]).toEqual([
+      "outbound-1", "WhatsApp send returned HTTP 500.", "client-1", "uncertain",
+    ]);
+  });
+
+  it("lists pending and known retryable failures without replaying stale sends", async () => {
     mocks.query.mockResolvedValueOnce({ rows: [outboundMessage()] });
 
     const result = await listRetryableOutboundMessages({
@@ -159,8 +171,15 @@ describe("outbound message outbox", () => {
 
     expect(result).toHaveLength(1);
     expect(mocks.query.mock.calls[0][0]).toContain("status in ('pending', 'failed')");
-    expect(mocks.query.mock.calls[0][0]).toContain("make_interval");
-    expect(mocks.query.mock.calls[0][1]).toEqual([4, 15, 10]);
+    expect(mocks.query.mock.calls[0][0]).not.toContain("status = 'sending'");
+    expect(mocks.query.mock.calls[0][1]).toEqual([4, 10]);
+  });
+
+  it("moves expired in-flight sends to manual reconciliation", async () => {
+    mocks.query.mockResolvedValueOnce({ rowCount: 2 });
+    expect(await markStaleOutboundUncertain(15)).toBe(2);
+    expect(mocks.query.mock.calls[0][0]).toContain("status = 'uncertain'");
+    expect(mocks.query.mock.calls[0][1]).toEqual([15]);
   });
 
   it("flushes retryable outbound messages and returns a batch summary", async () => {

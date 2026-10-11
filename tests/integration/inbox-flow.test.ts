@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { getPool } from "@/lib/db";
 import { ingestInboundMessage } from "@/lib/channels/inbox";
 import { processInboundJob } from "@/lib/channels/inbox-worker";
-import { flushRetryableOutboundMessages } from "@/lib/channels/outbox";
+import { flushRetryableOutboundMessages, markStaleOutboundUncertain } from "@/lib/channels/outbox";
 
 const fakes = vi.hoisted(() => ({
   runAgentForMessage: vi.fn(), createEscalation: vi.fn(),
@@ -138,6 +138,31 @@ dbDescribe("durable inbound processing in isolated PostgreSQL", () => {
     expect(rows.rows[0].client_id).toBe(otherClientId);
   });
 
+  it("keeps a second message pending while the first message is still executing", async () => {
+    const first = await ingestInboundMessage(inbound(channelId, "slow-first"));
+    const second = await ingestInboundMessage(inbound(channelId, "slow-second"));
+    const original = fakes.runAgentForMessage.getMockImplementation();
+    let signalStarted!: () => void;
+    let releaseFirst!: () => void;
+    const started = new Promise<void>((resolve) => { signalStarted = resolve; });
+    const blocked = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    fakes.runAgentForMessage.mockImplementationOnce(async (input) => {
+      signalStarted();
+      await blocked;
+      return original?.(input);
+    });
+    const processing = processInboundJob({ jobId: first.jobId });
+    try {
+      await started;
+      expect(await processInboundJob({ jobId: second.jobId })).toBeNull();
+      expect(fakes.runAgentForMessage).toHaveBeenCalledTimes(1);
+    } finally {
+      releaseFirst();
+    }
+    expect(await processing).toEqual({ jobId: first.jobId, outcome: "answered" });
+    expect(await processInboundJob({ jobId: second.jobId })).toEqual({ jobId: second.jobId, outcome: "answered" });
+  });
+
   it("does not run AI for human-owned or disabled conversations", async () => {
     const first = await ingestInboundMessage({ ...inbound(channelId, "media"),
       unsupportedMediaType: "image" });
@@ -147,5 +172,40 @@ dbDescribe("durable inbound processing in isolated PostgreSQL", () => {
     expect(fakes.runAgentForMessage).not.toHaveBeenCalled();
     await getPool().query("update channels set status = 'disabled' where id = $1", [channelId]);
     await expect(ingestInboundMessage(inbound(channelId, "disabled"))).rejects.toThrow(/disabled|inactive/);
+  });
+
+  it("suppresses a queued AI reply if a human takes ownership before delivery", async () => {
+    const first = await ingestInboundMessage(inbound(channelId, "pending-answer"));
+    await processInboundJob({ jobId: first.jobId });
+    const escalation = await ingestInboundMessage({ ...inbound(channelId, "needs-human"),
+      unsupportedMediaType: "image" });
+    await processInboundJob({ jobId: escalation.jobId });
+    await flushRetryableOutboundMessages();
+    const rows = await getPool().query<{ status: string; metadata: Record<string, unknown> }>(
+      "select status, metadata from outbound_messages where client_id = $1 order by created_at",
+      [clientId],
+    );
+    expect(rows.rows).toHaveLength(2);
+    expect(rows.rows.find((row) => row.metadata.purpose === "agent_answer")?.status).toBe("suppressed");
+    expect(fakes.sendChannelText).toHaveBeenCalledTimes(1);
+    expect(fakes.sendChannelText).toHaveBeenCalledWith(expect.objectContaining({
+      channelId, externalThreadId: "shared-customer",
+    }));
+  });
+
+  it("does not automatically resend an outbound message with ambiguous provider acceptance", async () => {
+    const first = await ingestInboundMessage(inbound(channelId, "outbound-ambiguous"));
+    await processInboundJob({ jobId: first.jobId });
+    await getPool().query(
+      "update outbound_messages set status = 'sending', updated_at = now() - interval '20 minutes' where client_id = $1",
+      [clientId],
+    );
+    expect(await markStaleOutboundUncertain(10)).toBe(1);
+    await flushRetryableOutboundMessages();
+    expect(fakes.sendChannelText).not.toHaveBeenCalled();
+    const row = await getPool().query<{ status: string }>(
+      "select status from outbound_messages where client_id = $1", [clientId],
+    );
+    expect(row.rows[0].status).toBe("uncertain");
   });
 });

@@ -13,9 +13,17 @@ export type ChannelWithCredentialColumns = {
 } & ChannelCredentialColumns;
 
 const encryptedSettingsKey = "__settingsSecrets";
+const sensitiveSettingName = /token|secret|password|api[_-]?key|credential/i;
 
 export function usesLegacyPlaintextCredentials(channel: ChannelWithCredentialColumns): boolean {
-  return Object.keys(channel.credentials ?? {}).length > 0;
+  return Object.keys(channel.credentials ?? {}).length > 0 ||
+    containsSensitiveSettingKey(channel.settings);
+}
+
+function containsSensitiveSettingKey(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.entries(value).some(([key, entry]) =>
+    sensitiveSettingName.test(key) || containsSensitiveSettingKey(entry));
 }
 
 export function decryptChannelCredentials<T extends ChannelWithCredentialColumns>(
@@ -83,9 +91,14 @@ export function protectChannelSettingsSecrets(
 ): { settings: Record<string, unknown>; credentials: Record<string, unknown> } {
   const publicSettings = { ...settings };
   const secrets: Record<string, unknown> = {};
-  for (const name of secretNames) {
+  for (const name of new Set([...secretNames, ...Object.keys(publicSettings).filter((key) => sensitiveSettingName.test(key))])) {
     if (publicSettings[name]) secrets[name] = publicSettings[name];
     delete publicSettings[name];
+  }
+  for (const value of Object.values(publicSettings)) {
+    if (value && typeof value === "object" && JSON.stringify(value).match(/"[^\"]*(token|secret|password|apiKey|credential)[^\"]*"\s*:/i)) {
+      throw new Error("Nested secrets are not allowed in channel settings.");
+    }
   }
   return {
     settings: publicSettings,

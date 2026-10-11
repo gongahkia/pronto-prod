@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runChannelHealthCheck } from "@/lib/channels/health";
 import { sendWhatsAppText } from "@/lib/channels/whatsapp";
+import { ProviderSendError } from "@/lib/channels/provider-error";
 import type { Channel } from "@/lib/types";
 
 describe("WhatsApp Graph API requests", () => {
@@ -10,7 +11,7 @@ describe("WhatsApp Graph API requests", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ id: "phone-number-id" }),
+        json: async () => ({ id: "phone-number-id", messages: [{ id: "wamid.outbound" }] }),
         text: async () => "",
       }),
     );
@@ -44,6 +45,7 @@ describe("WhatsApp Graph API requests", () => {
   });
 
   it("fails outbound sends when credentials are missing", async () => {
+    vi.stubEnv("WHATSAPP_ACCESS_TOKEN", "other-tenant-token");
     await expect(
       sendWhatsAppText({
         channel: whatsappChannel({ credentials: {}, external_id: null }),
@@ -51,6 +53,34 @@ describe("WhatsApp Graph API requests", () => {
         text: "Hello",
       }),
     ).rejects.toThrow("WhatsApp credentials missing");
+  });
+
+  it("classifies rate limits for retry and credential rejection as permanent", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({ ok: false, status: 500 }));
+    await expect(sendWhatsAppText({ channel: whatsappChannel(), externalThreadId: "6590000000", text: "Hello" }))
+      .rejects.toMatchObject({ retryable: true, statusCode: 429 } satisfies Partial<ProviderSendError>);
+    await expect(sendWhatsAppText({ channel: whatsappChannel(), externalThreadId: "6590000000", text: "Hello" }))
+      .rejects.toMatchObject({ retryable: false, statusCode: 401 } satisfies Partial<ProviderSendError>);
+    await expect(sendWhatsAppText({ channel: whatsappChannel(), externalThreadId: "6590000000", text: "Hello" }))
+      .rejects.toMatchObject({ retryable: false, ambiguous: true, statusCode: 500 } satisfies Partial<ProviderSendError>);
+  });
+
+  it("treats transport failure after send was attempted as ambiguous", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("network unavailable")));
+    await expect(sendWhatsAppText({ channel: whatsappChannel(), externalThreadId: "6590000000", text: "Hello" }))
+      .rejects.toMatchObject({ name: "AmbiguousProviderAcceptanceError" });
+  });
+
+  it("builds the actual template payload for approved WhatsApp messages", async () => {
+    await sendWhatsAppText({ channel: whatsappChannel(), externalThreadId: "6590000000", text: "unused",
+      template: { name: "approved_followup", languageCode: "en_US" } });
+    const options = vi.mocked(fetch).mock.calls[0][1];
+    const body = JSON.parse(String(options?.body));
+    expect(body).toMatchObject({ type: "template", to: "6590000000",
+      template: { name: "approved_followup", language: { code: "en_US" } } });
+    expect(body.text).toBeUndefined();
   });
 });
 

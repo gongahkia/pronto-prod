@@ -3,6 +3,7 @@ import { policyFromOutboundMetadata } from "@/lib/channels/policy";
 import { query, transaction, type Queryable } from "@/lib/db";
 import { recordErrorEvent } from "@/lib/error-tracking";
 import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
+import { AmbiguousProviderAcceptanceError, ChannelPolicyError, ProviderSendError } from "@/lib/channels/provider-error";
 
 export type OutboundMessage = {
   id: string;
@@ -12,7 +13,7 @@ export type OutboundMessage = {
   channel_id: string;
   external_thread_id: string;
   body: string;
-  status: "pending" | "sending" | "sent" | "failed" | "suppressed";
+  status: "pending" | "sending" | "sent" | "failed" | "suppressed" | "uncertain" | "dead";
   attempt_count: number;
   last_error: string | null;
   idempotency_key: string;
@@ -57,9 +58,10 @@ export type OutboundRetryBatchResult = {
   results: OutboundFlushResult[];
 };
 
-const DEFAULT_STALE_SENDING_MINUTES = 10;
-const DEFAULT_MAX_ATTEMPTS = 5;
-const DEFAULT_RETRY_LIMIT = 25;
+const DEFAULT_STALE_SENDING_MINUTES = normalizePositiveInteger(
+  Number(process.env.PRONTO_OUTBOX_STALE_SENDING_MINUTES), 10);
+const DEFAULT_MAX_ATTEMPTS = normalizePositiveInteger(Number(process.env.PRONTO_OUTBOX_MAX_ATTEMPTS), 5);
+const DEFAULT_RETRY_LIMIT = normalizePositiveInteger(Number(process.env.PRONTO_OUTBOX_RETRY_LIMIT), 25);
 
 export async function enqueueOutboundMessage(
   db: Queryable,
@@ -101,10 +103,6 @@ export async function flushOutboundMessage(
   outboundMessageId: string,
   options: OutboundFlushOptions = {},
 ): Promise<OutboundFlushResult> {
-  const staleSendingMinutes = normalizePositiveInteger(
-    options.staleSendingMinutes,
-    DEFAULT_STALE_SENDING_MINUTES,
-  );
   const maxAttempts = normalizePositiveInteger(
     options.maxAttempts,
     DEFAULT_MAX_ATTEMPTS,
@@ -116,18 +114,12 @@ export async function flushOutboundMessage(
           attempt_count = attempt_count + 1,
           updated_at = now()
       where id = $1
-        and ($4::uuid is null or client_id = $4::uuid)
+        and ($2::uuid is null or client_id = $2::uuid)
         and attempt_count < $3
-        and (
-          status in ('pending', 'failed')
-          or (
-            status = 'sending'
-            and updated_at <= now() - make_interval(mins => $2::int)
-          )
-        )
+        and status in ('pending', 'failed')
       returning *
     `,
-    [outboundMessageId, staleSendingMinutes, maxAttempts, options.clientId ?? null],
+    [outboundMessageId, options.clientId ?? null, maxAttempts],
   );
   const outbound = claimed.rows[0];
   if (!outbound) {
@@ -153,13 +145,18 @@ export async function flushOutboundMessage(
     attemptCount: outbound.attempt_count,
   });
 
+  let sendAccepted = false;
   try {
     const policy = policyFromOutboundMetadata(outbound.metadata);
-    const send = async () => sendChannelText({
-      channelId: outbound.channel_id, clientId: outbound.client_id,
-      externalThreadId: outbound.external_thread_id, text: outbound.body,
-      ...(policy ? { policy } : {}),
-    });
+    const send = async () => {
+      const result = await sendChannelText({
+        channelId: outbound.channel_id, clientId: outbound.client_id,
+        externalThreadId: outbound.external_thread_id, text: outbound.body,
+        ...(policy ? { policy } : {}),
+      });
+      sendAccepted = true;
+      return result;
+    };
     if (outbound.metadata.purpose === "agent_answer" && outbound.conversation_id) {
       const allowed = await transaction(async (db) => {
         const conversation = await db.query<{ status: string }>(
@@ -177,20 +174,20 @@ export async function flushOutboundMessage(
           );
           return false;
         }
-        await send();
+        const sent = await send();
         await db.query(
-          "update outbound_messages set status = 'sent', sent_at = now(), last_error = null, updated_at = now() where id = $1 and client_id = $2",
-          [outbound.id, outbound.client_id],
+          "update outbound_messages set status = 'sent', sent_at = now(), last_error = null, metadata = metadata || $3::jsonb, updated_at = now() where id = $1 and client_id = $2",
+          [outbound.id, outbound.client_id, JSON.stringify(sent?.providerMessageId ? { providerMessageId: sent.providerMessageId } : {})],
         );
         return true;
       });
       if (!allowed) return { status: "skipped", outboundMessageId: outbound.id,
         reason: "Human-owned conversation; AI reply suppressed." };
     } else {
-      await send();
+      const sent = await send();
       await query(
-        "update outbound_messages set status = 'sent', sent_at = now(), last_error = null, updated_at = now() where id = $1 and client_id = $2",
-        [outbound.id, outbound.client_id],
+        "update outbound_messages set status = 'sent', sent_at = now(), last_error = null, metadata = metadata || $3::jsonb, updated_at = now() where id = $1 and client_id = $2",
+        [outbound.id, outbound.client_id, JSON.stringify(sent?.providerMessageId ? { providerMessageId: sent.providerMessageId } : {})],
       );
     }
     logInfo("outbox.flush_sent", {
@@ -205,15 +202,21 @@ export async function flushOutboundMessage(
     return { status: "sent", outboundMessageId: outbound.id };
   } catch (error) {
     const message = errorToMessage(error);
+    const status = sendAccepted || error instanceof AmbiguousProviderAcceptanceError ||
+      (error instanceof ProviderSendError && error.ambiguous) ||
+      (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
+      ? "uncertain"
+      : error instanceof ChannelPolicyError || (error instanceof ProviderSendError && !error.retryable)
+        ? "dead" : "failed";
     await query(
       `
         update outbound_messages
-        set status = 'failed',
+        set status = $4,
             last_error = $2,
             updated_at = now()
         where id = $1 and client_id = $3
       `,
-      [outbound.id, message, outbound.client_id],
+      [outbound.id, message, outbound.client_id, status],
     );
     logWarn("outbox.flush_failed", {
       requestId: options.requestId,
@@ -248,10 +251,6 @@ export async function listRetryableOutboundMessages(
   input: OutboundRetryBatchInput = {},
 ): Promise<OutboundMessage[]> {
   const limit = normalizePositiveInteger(input.limit, DEFAULT_RETRY_LIMIT);
-  const staleSendingMinutes = normalizePositiveInteger(
-    input.staleSendingMinutes,
-    DEFAULT_STALE_SENDING_MINUTES,
-  );
   const maxAttempts = normalizePositiveInteger(
     input.maxAttempts,
     DEFAULT_MAX_ATTEMPTS,
@@ -262,20 +261,23 @@ export async function listRetryableOutboundMessages(
       select *
       from outbound_messages
       where attempt_count < $1
-        and (
-          status in ('pending', 'failed')
-          or (
-            status = 'sending'
-            and updated_at <= now() - make_interval(mins => $2::int)
-          )
-        )
+        and status in ('pending', 'failed')
       order by updated_at asc
-      limit $3
+      limit $2
     `,
-    [maxAttempts, staleSendingMinutes, limit],
+    [maxAttempts, limit],
   );
 
   return result.rows;
+}
+
+export async function markStaleOutboundUncertain(staleMinutes = DEFAULT_STALE_SENDING_MINUTES): Promise<number> {
+  const result = await query(
+    `update outbound_messages set status = 'uncertain', last_error = 'Worker stopped during provider send; reconcile before retry.',
+       updated_at = now() where status = 'sending' and updated_at <= now() - make_interval(mins => $1::int)`,
+    [normalizePositiveInteger(staleMinutes, DEFAULT_STALE_SENDING_MINUTES)],
+  );
+  return result.rowCount ?? 0;
 }
 
 export async function flushRetryableOutboundMessages(

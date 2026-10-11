@@ -1,7 +1,8 @@
-import { flushRetryableOutboundMessages } from "../src/lib/channels/outbox";
+import { flushRetryableOutboundMessages, markStaleOutboundUncertain } from "../src/lib/channels/outbox";
 import { expireExhaustedInboundLeases } from "../src/lib/channels/inbox";
 import { processInboundJob } from "../src/lib/channels/inbox-worker";
 import { getPool } from "../src/lib/db";
+import { redactErrorMessage } from "../src/lib/logger";
 
 const intervalMs = positiveNumber("PRONTO_WORKER_OUTBOX_INTERVAL_MS", 15_000);
 const batchLimit = positiveNumber("PRONTO_WORKER_OUTBOX_LIMIT", 25);
@@ -31,9 +32,10 @@ async function main() {
           if (!job) break;
         } catch (error) {
           console.error(JSON.stringify({ event: "worker.inbound_failed",
-            error: error instanceof Error ? error.message : String(error) }));
+            error: redactErrorMessage(error) }));
         }
       }
+      await markStaleOutboundUncertain();
       const result = await flushRetryableOutboundMessages({
         requestId: `worker-${startedAt}`,
         limit: batchLimit,
@@ -41,11 +43,15 @@ async function main() {
       if (result.attempted > 0) {
         console.log(JSON.stringify({ event: "worker.outbox_flushed", ...result }));
       }
+      await getPool().query(
+        `insert into worker_heartbeats (name, updated_at) values ('inbound-outbound', now())
+         on conflict (name) do update set updated_at = now()`,
+      );
     } catch (error) {
       console.error(
         JSON.stringify({
           event: "worker.outbox_failed",
-          error: error instanceof Error ? error.message : String(error),
+          error: redactErrorMessage(error),
         }),
       );
     }
@@ -70,7 +76,7 @@ function positiveNumber(name: string, fallback: number): number {
 }
 
 main().catch(async (error) => {
-  console.error(error);
+  console.error(redactErrorMessage(error));
   await getPool().end();
   process.exit(1);
 });

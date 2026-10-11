@@ -49,6 +49,15 @@ test("seeded operator can render the client portfolio", async ({ page }) => {
   await expect(page.getByRole("link", { name: "North Bridge Nasi", exact: true })).toBeVisible();
 });
 
+test("operator workspace shows channel state, failures and Chope handoff setup", async ({ page }) => {
+  await login(page, operatorLogin.email, operatorLogin.password);
+  await page.getByRole("link", { name: "North Bridge Nasi", exact: true }).click();
+  await expect(page.getByText("Channels configured")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Processing and delivery attention" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Chope booking handoff" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Chope outlet ID" })).toBeVisible();
+});
+
 test("seeded client can render the overview dashboard", async ({ page }) => {
   await login(page, clientLogin.email, clientLogin.password);
 

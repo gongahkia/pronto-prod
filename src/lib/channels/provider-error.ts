@@ -1,12 +1,14 @@
 export class ProviderSendError extends Error {
   readonly retryable: boolean;
+  readonly ambiguous: boolean;
   readonly statusCode: number;
 
   constructor(provider: string, statusCode: number) {
-    super(`${provider} send rejected with HTTP ${statusCode}.`);
+    super(`${provider} send returned HTTP ${statusCode}.`);
     this.name = "ProviderSendError";
     this.statusCode = statusCode;
-    this.retryable = statusCode === 429 || statusCode >= 500;
+    this.retryable = statusCode === 429;
+    this.ambiguous = statusCode === 408 || statusCode >= 500;
   }
 }
 

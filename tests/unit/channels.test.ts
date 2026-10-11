@@ -17,6 +17,7 @@ describe("channel verification and normalization", () => {
 
     expect(verifyWhatsAppSignature(body, signature, secret)).toBe(true);
     expect(verifyWhatsAppSignature(body, "sha256=bad", secret)).toBe(false);
+    expect(verifyWhatsAppSignature(body, signature, undefined)).toBe(false);
   });
 
   it("normalizes WhatsApp text messages", () => {

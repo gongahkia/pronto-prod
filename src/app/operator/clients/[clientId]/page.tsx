@@ -6,6 +6,7 @@ import { getAgentConfigDetail } from "@/lib/agent/config";
 import { getBrandVoiceProfile } from "@/lib/brand-voice";
 import {
   getChannels,
+  getClientAttentionItems,
   getClient,
   getKnowledgeSources,
   getMetrics,
@@ -59,11 +60,13 @@ export default async function ClientOperatorPage({
     channels,
     knowledge,
     escalations,
+    attentionItems,
   ] = await Promise.all([
     getMetrics(client.id),
     getChannels(client.id),
     getKnowledgeSources(client.id),
     getOpenEscalations(client.id),
+    getClientAttentionItems(client.id),
   ]);
   const [
     conversations,
@@ -129,6 +132,7 @@ export default async function ClientOperatorPage({
             workspaceLinks={workspaceLinks}
             clientId={client.id}
             chopeBooking={approvedChopeBookingLink(client.business_profile)}
+            attentionItems={attentionItems}
           />
         ) : null}
 
@@ -192,6 +196,7 @@ function OperatorOverviewTabs({
 function WorkspaceSection({
   clientId,
   chopeBooking,
+  attentionItems,
   clientStatus,
   setupChannels,
   channelCount,
@@ -202,6 +207,7 @@ function WorkspaceSection({
 }: {
   clientId: string;
   chopeBooking: { outletId: string; url: string; verifiedAt: string } | null;
+  attentionItems: Array<{ id: string; kind: string; status: string; channel_name: string; last_error: string | null }>;
   clientStatus: string;
   setupChannels: number;
   channelCount: number;
@@ -237,6 +243,23 @@ function WorkspaceSection({
             <span className="text-muted">Actionable triage</span>
             <span className="font-medium">{actionableTriage}</span>
           </div>
+        </div>
+      </div>
+      <div className="ui-panel">
+        <div className="ui-panel-header"><h2 className="text-base font-semibold">Processing and delivery attention</h2></div>
+        <div className="space-y-2 p-4 text-sm">
+          {attentionItems.length ? attentionItems.map((item) => (
+            <div key={item.id} className="rounded-md border border-line p-2">
+              <span className="font-medium">{item.channel_name}: {item.kind} {item.status}</span>
+              {item.last_error ? <p className="text-muted">{item.last_error}</p> : null}
+              {item.kind === "inbound" && item.status === "dead" ? (
+                <form action={`/api/operator/inbound-jobs/${item.id}/retry`} method="post" className="mt-2">
+                  <input type="hidden" name="clientId" value={clientId} />
+                  <button className="ui-button px-2 py-1">Retry after fixing cause</button>
+                </form>
+              ) : null}
+            </div>
+          )) : <p className="text-muted">No exhausted inbound jobs or uncertain outbound sends.</p>}
         </div>
       </div>
       <div className="ui-panel">

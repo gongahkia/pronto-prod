@@ -42,11 +42,13 @@ export class FakeChopeConnector implements ReservationConnector {
       row.providerReservationId === reservationId) ?? { status: "conflict", reason: "Reservation not found." };
   }
 
-  async updateReservation(_request: ConfirmedReservationRequest & { reservationId: string }): Promise<ReservationResult> {
+  async updateReservation(request: ConfirmedReservationRequest & { reservationId: string }): Promise<ReservationResult> {
+    void request;
     return { status: "unsupported", reason: "Update capability is unavailable." };
   }
 
-  async cancelReservation(_request: ConfirmedReservationRequest & { reservationId: string }): Promise<ReservationResult> {
+  async cancelReservation(request: ConfirmedReservationRequest & { reservationId: string }): Promise<ReservationResult> {
+    void request;
     return { status: "unsupported", reason: "Cancel capability is unavailable." };
   }
 

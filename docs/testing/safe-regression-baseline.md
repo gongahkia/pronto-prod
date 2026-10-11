@@ -8,9 +8,10 @@ skipped. Tests that need a provider response inject a fake `fetch`. No live
 provider credentials are needed. `pnpm test:coverage` uses the same harness;
 when `PRONTO_RUN_DB_TESTS=1`, it also runs the guarded DB fixtures.
 
-The separate `pnpm test:known-defects` suite intentionally exits nonzero while
-known defects remain. Do not add it to the passing CI gate. Move each specification
-to the normal suite when its behavior is fixed.
+`pnpm test:known-defects` remains an opt-in entry point for any future
+unresolved specifications. It currently contains no tests and exits zero.
+Sprint 1 moved the original A–F specifications into passing unit or isolated
+PostgreSQL tests after changing those paths.
 
 ## Isolated PostgreSQL tests
 
@@ -62,16 +63,17 @@ attaching to an existing process on port 3000.
 
 | Scenario | Current specification |
 |---|---|
-| A. Inbound retry after processing failure | Confirmed: retry sees the persisted message and does not rerun the agent. |
-| B. Customer message during open handoff | Confirmed: the agent still runs. |
-| C. Disabled channel inbound | Confirmed: shared processor accepts it. |
-| D. Unverified order/tracking identifier | Confirmed: lookups return status without requester ownership input. |
+| A. Inbound retry after processing failure | Fixed on webhook path; `tests/integration/inbox-flow.test.ts` retries the same durable job. |
+| B. Customer message during open handoff | Fixed on worker path; later jobs are skipped, and AI outbound is ownership-gated. |
+| C. Disabled channel inbound | Fixed on ingestion and dispatch paths; disabled channels reject work. |
+| D. Unverified order/tracking identifier | Private integration calls are withheld and the agent escalates. Ownership verification is still future work. |
 | E. Cross-tenant supported knowledge read | Negative DB test passes for source lookup and RAG retrieval; this is not proof of complete tenant isolation. |
-| F. Provider accepted send, local status write failed | Confirmed in failure injection: next retry sends again. |
+| F. Provider accepted send, local status write failed | Stale sends become `uncertain` and are excluded from automatic retry; provider-specific reconciliation is still required. |
 
-A–D and F live under `tests/known-defects`; E lives in the passing DB baseline.
-The tests use fake providers and are not evidence that Meta, email, commerce,
-calendar, or delivery provider accounts work in production.
+A–C and F now have isolated database coverage in `tests/integration/inbox-flow.test.ts`;
+D is covered by `tests/unit/private-lookups.test.ts`; E remains in the tenant
+negative DB baseline. The tests use fake providers and do not establish live
+account access.
 
 ## Verified local boundaries
 
@@ -81,10 +83,10 @@ calendar, or delivery provider accounts work in production.
 | Tenant conversation, message persistence and outbound queue | `tests/integration/message-baseline.test.ts` with real isolated PostgreSQL and fake sender | No cross-provider delivery guarantee |
 | RAG and tenant scope | Real pgvector retrieval and knowledge-source negative reads in the same DB fixture | No semantic answer-quality or complete database isolation proof |
 | Prompt, structured decision and agent answer | Prompt/provider unit tests; `tests/integration/escalation-baseline.test.ts` runs the real agent with mock AI and a retrieved source | No paid model or live integration response verified |
-| Escalation, brand voice and retries | Real DB escalation and scoped prompt-voice reads; unit outbox retry/failure tests | Human ownership and provider-accepted retry defects remain open |
+| Escalation, brand voice and retries | Real DB escalation and scoped prompt-voice reads; inbound lease and outbox uncertainty tests | No live provider reconciliation proof |
 
-The known-defect suite is an executable future contract: its five intentional
-failures must remain separate from normal CI until the corresponding fixes land.
+See `docs/sprint1/technical-readiness.md` for Sprint 1 demonstrations and
+remaining external access gates.
 
 ## Script effects and remaining limits
 

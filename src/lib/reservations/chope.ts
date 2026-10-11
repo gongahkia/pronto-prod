@@ -1,4 +1,4 @@
-import type { ReservationConnector, ReservationRequest, ConfirmedReservationRequest, ReservationResult } from "@/lib/reservations/types";
+import type { ReservationConnector, ReservationResult } from "@/lib/reservations/types";
 
 const unsupported: ReservationResult = {
   status: "unsupported", reason: "Authorized Chope reservation API access is not configured.",
@@ -9,11 +9,11 @@ const unsupported: ReservationResult = {
 export const chopeConnector: ReservationConnector = {
   provider: "chope",
   capabilities: { availability: false, create: false, read: false, update: false, cancel: false },
-  async getAvailability(_request: ReservationRequest) { return "unknown"; },
-  async createReservation(_request: ConfirmedReservationRequest) { return unsupported; },
-  async getReservation(_clientId: string, _outletId: string, _reservationId: string) { return unsupported; },
-  async updateReservation(_request: ConfirmedReservationRequest & { reservationId: string }) { return unsupported; },
-  async cancelReservation(_request: ConfirmedReservationRequest & { reservationId: string }) { return unsupported; },
+  async getAvailability() { return "unknown"; },
+  async createReservation() { return unsupported; },
+  async getReservation() { return unsupported; },
+  async updateReservation() { return unsupported; },
+  async cancelReservation() { return unsupported; },
 };
 
 export type ChopeBookingLink = { outletId: string; url: string; verifiedAt: string };
@@ -69,4 +69,34 @@ export function bookingFallback(input: {
     action: "link", reasonCode: "chope_booking_link",
     response: `For ${request.partySize} on ${request.date} at ${request.time} Singapore time, please check availability and confirm directly with ${link.url}. I cannot confirm a reservation here.`,
   };
+}
+
+export async function assistWithRestaurantBooking(input: {
+  clientId: string; message: string; businessProfile: Record<string, unknown>;
+  now?: Date; connector?: ReservationConnector;
+}): Promise<{ action: "link" | "escalate"; response?: string; reasonCode: string } | null> {
+  const fallback = bookingFallback(input);
+  if (!fallback || fallback.action === "escalate") return fallback;
+  const connector = input.connector ?? chopeConnector;
+  if (!connector.capabilities.availability) return fallback;
+  const request = parseRestaurantBookingRequest(input.message, input.now);
+  const link = approvedChopeBookingLink(input.businessProfile);
+  if (!request || !link) return fallback;
+  try {
+    const availability = await connector.getAvailability({
+      clientId: input.clientId, outletId: link.outletId, ...request,
+    });
+    if (availability === "unavailable") {
+      return { action: "link", reasonCode: "reservation_unavailable",
+        response: `I could not find availability for ${request.partySize} on ${request.date} at ${request.time} Singapore time. You can check other times and confirm directly with ${link.url}. I cannot confirm a reservation here.` };
+    }
+    if (availability === "available") {
+      return { action: "link", reasonCode: connector.capabilities.create
+        ? "reservation_confirmation_required" : "reservation_available_link",
+        response: `A table appears available for ${request.partySize} on ${request.date} at ${request.time} Singapore time. This is not a booking. Please confirm directly with ${link.url}. I cannot confirm a reservation here.` };
+    }
+  } catch {
+    // A provider lookup failure never becomes a claim of availability.
+  }
+  return fallback;
 }

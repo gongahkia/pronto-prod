@@ -46,17 +46,22 @@ export async function GET() {
 
   try {
     await getPool().query("select 1");
-    checks.push({
-      name: "Database",
-      status: "pass",
-      detail: "Database is reachable.",
-    });
-  } catch (error) {
-    checks.push({
-      name: "Database",
-      status: "fail",
-      detail: error instanceof Error ? error.message : String(error),
-    });
+    checks.push({ name: "Database", status: "pass", detail: "Database is reachable." });
+  } catch {
+    checks.push({ name: "Database", status: "fail", detail: "Database is unavailable." });
+  }
+  if (checks.at(-1)?.status === "pass") {
+    try {
+      const worker = await getPool().query<{ updated_at: Date }>(
+        "select updated_at from worker_heartbeats where name = 'inbound-outbound'",
+      );
+      const heartbeat = worker.rows[0]?.updated_at;
+      const fresh = Boolean(heartbeat && Date.now() - new Date(heartbeat).getTime() < 60_000);
+      checks.push({ name: "Worker", status: fresh ? "pass" : "fail",
+        detail: fresh ? "Inbound and outbound worker is running." : "Worker heartbeat is missing or stale." });
+    } catch {
+      checks.push({ name: "Worker", status: "fail", detail: "Worker heartbeat is unavailable." });
+    }
   }
 
   const ready = checks.every((check) => check.status === "pass");

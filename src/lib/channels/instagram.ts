@@ -3,10 +3,9 @@ import { query } from "@/lib/db";
 import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib/channels/credentials";
 import { fetchWithTimeout } from "@/lib/http/fetch";
 import { AmbiguousProviderAcceptanceError, ProviderSendError } from "@/lib/channels/provider-error";
+import { metaGraphVersion } from "@/lib/env";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
-
-const GRAPH_VERSION = process.env.META_GRAPH_VERSION ?? "v20.0";
 
 export function verifyInstagramSignature(
   rawBody: string,
@@ -64,6 +63,9 @@ export function normalizeInstagramPayload(
         externalMessageId: message.mid,
         externalThreadId: sender.id,
         customerHandle: sender.id,
+        ...(typeof event.timestamp === "number" && Number.isFinite(event.timestamp)
+          ? { occurredAt: new Date(event.timestamp < 1_000_000_000_000
+              ? event.timestamp * 1000 : event.timestamp).toISOString() } : {}),
         text: text ?? `[Unsupported Instagram ${unsupportedMediaType} message]`,
         unsupportedMediaType,
         raw: event,
@@ -89,9 +91,7 @@ export async function sendInstagramText(input: {
   externalThreadId: string;
   text: string;
 }): Promise<string> {
-  const token =
-    (input.channel.credentials.pageAccessToken as string | undefined) ??
-    process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
+  const token = input.channel.credentials.pageAccessToken as string | undefined;
   const igUserId =
     (input.channel.credentials.igUserId as string | undefined) ??
     input.channel.external_id;
@@ -99,8 +99,10 @@ export async function sendInstagramText(input: {
     throw new Error("Instagram page access token or IG user ID missing; outbound send skipped.");
   }
 
-  const response = await fetchWithTimeout(
-    `https://graph.facebook.com/${GRAPH_VERSION}/${igUserId}/messages`,
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+    `https://graph.facebook.com/${metaGraphVersion()}/${igUserId}/messages`,
     {
       method: "POST",
       headers: {
@@ -113,12 +115,20 @@ export async function sendInstagramText(input: {
       }),
     },
     channelFetchTimeoutMs(),
-  );
+    );
+  } catch {
+    throw new AmbiguousProviderAcceptanceError("Instagram");
+  }
 
   if (!response.ok) {
     throw new ProviderSendError("Instagram", response.status);
   }
-  const body = (await response.json()) as { message_id?: unknown };
+  let body: { message_id?: unknown };
+  try {
+    body = (await response.json()) as { message_id?: unknown };
+  } catch {
+    throw new AmbiguousProviderAcceptanceError("Instagram");
+  }
   if (typeof body.message_id !== "string") throw new AmbiguousProviderAcceptanceError("Instagram");
   return body.message_id;
 }

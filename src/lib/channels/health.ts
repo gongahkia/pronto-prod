@@ -1,6 +1,6 @@
 import { query } from "@/lib/db";
 import { decryptChannelCredentials } from "@/lib/channels/credentials";
-import { whatsAppGraphVersion } from "@/lib/env";
+import { isSupportedMetaGraphVersion, metaGraphVersion, whatsAppGraphVersion } from "@/lib/env";
 import { fetchWithTimeout } from "@/lib/http/fetch";
 import type { Channel } from "@/lib/types";
 
@@ -92,17 +92,12 @@ export function validateChannelHealthConfig(channel: Channel): string | null {
   }
 
   if (channel.kind === "whatsapp") {
-    const token =
-      (channel.credentials.accessToken as string | undefined) ??
-      process.env.WHATSAPP_ACCESS_TOKEN;
+    if (!isSupportedMetaGraphVersion(whatsAppGraphVersion())) return "WhatsApp Graph API version is expired or invalid.";
+    const token = channel.credentials.accessToken as string | undefined;
     const phoneNumberId =
       (channel.credentials.phoneNumberId as string | undefined) ?? channel.external_id;
-    const verifyToken =
-      (channel.settings.verifyToken as string | undefined) ??
-      process.env.WHATSAPP_VERIFY_TOKEN;
-    const appSecret =
-      (channel.credentials.appSecret as string | undefined) ??
-      process.env.WHATSAPP_APP_SECRET;
+    const verifyToken = channel.settings.verifyToken as string | undefined;
+    const appSecret = channel.credentials.appSecret as string | undefined;
     if (!token) {
       return "WhatsApp access token is missing.";
     }
@@ -135,15 +130,10 @@ export function validateChannelHealthConfig(channel: Channel): string | null {
   }
 
   if (channel.kind === "instagram") {
-    const token =
-      (channel.credentials.pageAccessToken as string | undefined) ??
-      process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
-    const appSecret =
-      (channel.credentials.appSecret as string | undefined) ??
-      process.env.INSTAGRAM_APP_SECRET;
-    const verifyToken =
-      (channel.settings.verifyToken as string | undefined) ??
-      process.env.INSTAGRAM_VERIFY_TOKEN;
+    if (!isSupportedMetaGraphVersion(metaGraphVersion())) return "Instagram Graph API version is expired or invalid.";
+    const token = channel.credentials.pageAccessToken as string | undefined;
+    const appSecret = channel.credentials.appSecret as string | undefined;
+    const verifyToken = channel.settings.verifyToken as string | undefined;
     const igUserId =
       (channel.credentials.igUserId as string | undefined) ?? channel.external_id;
     if (!token) return "Instagram page access token is missing.";
@@ -221,9 +211,7 @@ async function checkTelegramHealth(channel: Channel): Promise<ChannelHealthResul
 }
 
 async function checkWhatsAppHealth(channel: Channel): Promise<ChannelHealthResult> {
-  const token =
-    (channel.credentials.accessToken as string | undefined) ??
-    process.env.WHATSAPP_ACCESS_TOKEN;
+  const token = channel.credentials.accessToken as string | undefined;
   const phoneNumberId =
     (channel.credentials.phoneNumberId as string | undefined) ?? channel.external_id;
   const response = await fetchWithTimeout(
@@ -247,12 +235,9 @@ async function checkWhatsAppHealth(channel: Channel): Promise<ChannelHealthResul
 }
 
 async function checkMetaPlatformHealth(channel: Channel): Promise<ChannelHealthResult> {
-  const token =
-    (channel.credentials.pageAccessToken as string | undefined) ??
-    (channel.kind === "messenger"
-      ? process.env.MESSENGER_PAGE_ACCESS_TOKEN
-      : process.env.INSTAGRAM_PAGE_ACCESS_TOKEN);
-  const graphVersion = process.env.META_GRAPH_VERSION ?? "v20.0";
+  const token = (channel.credentials.pageAccessToken as string | undefined) ??
+    (channel.kind === "messenger" ? process.env.MESSENGER_PAGE_ACCESS_TOKEN : undefined);
+  const graphVersion = metaGraphVersion();
   const response = await fetchWithTimeout(
     `https://graph.facebook.com/${graphVersion}/me?fields=id,name`,
     { headers: { Authorization: `Bearer ${token}` } },

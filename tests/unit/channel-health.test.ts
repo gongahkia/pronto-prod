@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { validateChannelHealthConfig } from "@/lib/channels/health";
 import type { Channel } from "@/lib/types";
 
@@ -19,6 +19,7 @@ const baseChannel: Channel = {
 };
 
 describe("channel health config validation", () => {
+  afterEach(() => vi.unstubAllEnvs());
   it("requires Telegram token and webhook secret", () => {
     expect(validateChannelHealthConfig(baseChannel)).toBe("Telegram bot token is missing.");
     expect(
@@ -51,5 +52,14 @@ describe("channel health config validation", () => {
         settings: { verifyToken: "verify" },
       }),
     ).toBeNull();
+  });
+
+  it("does not mark an expired Meta Graph API version configured", () => {
+    vi.stubEnv("WHATSAPP_GRAPH_VERSION", "v20.0");
+    const whatsapp = { ...baseChannel, kind: "whatsapp" as const };
+    expect(validateChannelHealthConfig(whatsapp)).toMatch(/expired/);
+    vi.stubEnv("META_GRAPH_VERSION", "v20.0");
+    const instagram = { ...baseChannel, kind: "instagram" as const };
+    expect(validateChannelHealthConfig(instagram)).toMatch(/expired/);
   });
 });

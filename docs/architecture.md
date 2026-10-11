@@ -1,36 +1,57 @@
-# Pronto MVP Architecture
+# Pronto current architecture
 
-## Templated Core
+Pronto is one Next.js 16 application backed by PostgreSQL and pgvector, plus
+one Node worker process using the same code and database. There is no Redis,
+message broker, or separate agent service.
 
-The reusable core is shared across all clients:
+```text
+Meta / Telegram / email webhook
+  -> Next.js route: authenticate, bind provider account to channel, normalize
+  -> inbox transaction: conversation + customer message + inbound_jobs row
+  -> 200 acknowledgment
 
-- Prompt scaffolding with brand voice injection.
-- Knowledge ingestion, chunking, embedding, retrieval, and source citation.
-- Confidence checks and escalation logic.
-- Channel adapters separate from agent logic.
-- Standard integration patterns for read-only live sources.
-- Escalation notification and owner handoff workflow.
-- Operator and client dashboards.
+Node worker
+  -> claim oldest eligible inbound job per conversation
+  -> channel and human-ownership checks
+  -> existing agent: guardrails, tenant RAG, brand voice, integration tools
+  -> agent message or escalation + persistent outbound_messages row
+  -> mark inbound job completed, failed with bounded backoff, or skipped
+  -> drain outbound queue through channel adapter
+  -> worker_heartbeats row
 
-## Request Flow
+Operator/client dashboards
+  -> tenant-scoped conversations, handoff, knowledge, settings
+  -> operator view of exhausted inbound and uncertain outbound work
+```
 
-1. A channel webhook normalizes inbound customer messages.
-2. Pronto deduplicates messages by channel and external message ID.
-3. The conversation and customer message are stored.
-4. Pre-generation guardrails check topic, sentiment, transactional action, and scope.
-5. The customer message is embedded.
-6. pgvector retrieves relevant knowledge chunks.
-7. Retrieval confidence is checked against the client threshold.
-8. The LLM provider drafts a structured answer or escalation decision.
-9. Pronto requires source citations before sending any answer.
-10. The agent message or escalation is stored.
-11. The channel adapter sends a reply or owner notification.
+`src/lib/channels/inbox.ts` commits the customer message and its job atomically.
+Provider redelivery returns the same message and job. The worker claims with
+`FOR UPDATE SKIP LOCKED`, blocks a later job while an earlier one in the same
+conversation is unfinished, and reclaims expired leases up to five attempts.
+Agent messages and escalation records are keyed to the customer message; a
+worker restart reuses the recorded outcome and outbox idempotency key.
 
-## Provider Boundary
+The outbox is persistent but external providers cannot generally promise
+exactly-once delivery. A stale `sending` row becomes `uncertain` and requires
+manual reconciliation before retry. A successful provider response ID is
+stored in outbound metadata when available. WhatsApp delivery webhooks update
+that row; they are never passed to the agent.
 
-OpenAI is the first provider. The `LlmProvider` interface keeps generation and embeddings separate from channel and dashboard logic so Anthropic or Gemini can be added without rewriting the agent pipeline.
+Human handoff sets the conversation to `escalated`. Later inbound jobs are
+stored and skipped while human-owned. AI outbound sends recheck ownership while
+holding a conversation row lock. Resolution closes the conversation; an
+authorized `release` action restores AI ownership for future messages.
 
-## Data Boundary
+## Implemented and externally blocked
 
-Each core record is client-scoped. Client users should only access their own client data. Operator users can configure and review all clients.
-
+- WhatsApp and Instagram webhook and send paths have local fixture tests and
+  fake Graph transports. Neither account permission nor live delivery has
+  been verified.
+- Instagram uses the manually provisioned **Facebook Login / linked Page**
+  path and a Page access token. It does not implement Instagram Login OAuth.
+- The production Chope connector advertises no API capabilities because no
+  authorized endpoint contract or credentials are present. F&B booking
+  requests receive an operator-verified outlet link or human handoff.
+- Shopify, WooCommerce, and delivery adapters remain read-only. Private order
+  and tracking lookups are withheld from the agent until customer ownership
+  can be verified.

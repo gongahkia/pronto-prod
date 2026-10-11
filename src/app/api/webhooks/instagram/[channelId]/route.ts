@@ -25,9 +25,7 @@ export async function GET(request: Request, context: Context) {
   const mode = url.searchParams.get("hub.mode");
   const token = url.searchParams.get("hub.verify_token");
   const challenge = url.searchParams.get("hub.challenge");
-  const expected =
-    (channel.settings.verifyToken as string | undefined) ??
-    process.env.INSTAGRAM_VERIFY_TOKEN;
+  const expected = channel.settings.verifyToken as string | undefined;
 
   if (mode === "subscribe" && token === expected && challenge) {
     return new NextResponse(challenge);
@@ -55,9 +53,7 @@ export async function POST(request: Request, context: Context) {
     });
   }
 
-  const appSecret =
-    (channel.credentials.appSecret as string | undefined) ??
-    process.env.INSTAGRAM_APP_SECRET;
+  const appSecret = channel.credentials.appSecret as string | undefined;
 
   if (
     !verifyInstagramSignature(

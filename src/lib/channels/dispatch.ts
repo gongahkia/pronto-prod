@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { logWarn } from "@/lib/logger";
 import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib/channels/credentials";
 import { recordOutboundHealth } from "@/lib/channels/health";
 import { ChannelPolicyError } from "@/lib/channels/provider-error";
@@ -52,19 +53,19 @@ export async function sendChannelText(input: {
       }
       const providerMessageId = await sendWhatsAppText({ channel,
         externalThreadId: input.externalThreadId, text: input.text, template });
-      await recordOutboundHealth(input.channelId, channel.client_id);
+      await safeRecordOutboundHealth(input.channelId, channel.client_id);
       return { providerMessageId };
     }
 
     if (channel.kind === "telegram") {
       await sendTelegramText({ channel, externalThreadId: input.externalThreadId, text: input.text });
-      await recordOutboundHealth(input.channelId, channel.client_id);
+      await safeRecordOutboundHealth(input.channelId, channel.client_id);
       return {};
     }
 
     if (channel.kind === "messenger") {
       await sendMessengerText({ channel, externalThreadId: input.externalThreadId, text: input.text });
-      await recordOutboundHealth(input.channelId, channel.client_id);
+      await safeRecordOutboundHealth(input.channelId, channel.client_id);
       return {};
     }
 
@@ -74,7 +75,7 @@ export async function sendChannelText(input: {
       }
       const providerMessageId = await sendInstagramText({ channel,
         externalThreadId: input.externalThreadId, text: input.text });
-      await recordOutboundHealth(input.channelId, channel.client_id);
+      await safeRecordOutboundHealth(input.channelId, channel.client_id);
       return { providerMessageId };
     }
 
@@ -112,24 +113,36 @@ export async function sendChannelText(input: {
         `,
         [channel.id, input.externalThreadId, channel.client_id, messageId],
       );
-      await recordOutboundHealth(input.channelId, channel.client_id);
+      await safeRecordOutboundHealth(input.channelId, channel.client_id);
       return { providerMessageId: messageId };
     }
+    throw new ChannelPolicyError("Unsupported outbound channel kind.");
   } catch (error) {
-    await recordOutboundHealth(input.channelId, channel.client_id, error);
+    await safeRecordOutboundHealth(input.channelId, channel.client_id, error);
     throw error;
   }
 }
 
+async function safeRecordOutboundHealth(channelId: string, clientId: string, error?: unknown): Promise<void> {
+  try {
+    await recordOutboundHealth(channelId, clientId, error);
+  } catch (recordingError) {
+    logWarn("channel.health_record_failed", { channelId, clientId, error: recordingError });
+  }
+}
+
 async function hasRecentCustomerMessage(channel: Channel, externalThreadId: string): Promise<boolean> {
-  const recent = await query<{ created_at: Date }>(
-    `select m.created_at from messages m join conversations c on c.id = m.conversation_id
+  const recent = await query<{ created_at: Date; metadata: Record<string, unknown> }>(
+    `select m.created_at, m.metadata from messages m join conversations c on c.id = m.conversation_id
      where m.client_id = $1 and m.channel_id = $2 and c.external_thread_id = $3
        and c.client_id = $1 and m.sender_role = 'customer'
      order by m.created_at desc limit 1`,
     [channel.client_id, channel.id, externalThreadId],
   );
-  const createdAt = recent.rows[0]?.created_at;
-  const age = createdAt ? Date.now() - new Date(createdAt).getTime() : Infinity;
+  const occurredAt = recent.rows[0]?.metadata.providerOccurredAt;
+  // Meta's customer window is measured from the provider event, not when a
+  // delayed or replayed webhook happened to reach our database.
+  const age = typeof occurredAt === "string" && Number.isFinite(Date.parse(occurredAt))
+    ? Date.now() - Date.parse(occurredAt) : Infinity;
   return age >= 0 && age < 24 * 60 * 60 * 1000;
 }

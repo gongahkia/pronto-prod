@@ -7,6 +7,7 @@ export type NormalizedInboundMessage = {
   externalThreadId: string;
   customerHandle: string;
   customerName?: string;
+  occurredAt?: string;
   text: string;
   unsupportedMediaType?: string;
   raw: unknown;

@@ -2,8 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { getPool } from "../src/lib/db";
 import { appBaseUrl, databaseUrl, shouldUseMockAi } from "../src/lib/env";
 import { envApiKeyForProvider } from "../src/lib/llm/credentials";
-import { decryptChannelCredentials } from "../src/lib/channels/credentials";
+import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "../src/lib/channels/credentials";
 import { validateChannelHealthConfig } from "../src/lib/channels/health";
+import { redactErrorMessage } from "../src/lib/logger";
 import type { Channel } from "../src/lib/types";
 
 type CheckStatus = "pass" | "warn" | "fail";
@@ -204,7 +205,7 @@ async function checkSeededClientAndChannels() {
   });
 
   for (const channel of liveChannels) {
-    if (hasPlaintextCredentials(channel)) {
+    if (usesLegacyPlaintextCredentials(channel)) {
       checks.push({
         name: `${channel.client_name} ${channel.kind} credential storage`,
         status: "fail",
@@ -220,13 +221,6 @@ async function checkSeededClientAndChannels() {
       detail: configIssue ?? "Required channel credentials/settings are present.",
     });
   }
-}
-
-function hasPlaintextCredentials(channel: ChannelRow): boolean {
-  return (
-    Object.keys(channel.credentials ?? {}).length > 0 &&
-    !channel.encrypted_credentials
-  );
 }
 
 function isStrongSecret(value: string): boolean {
@@ -265,7 +259,7 @@ function errorMessage(error: unknown): string {
       .filter(Boolean);
     return messages.join("; ");
   }
-  return error instanceof Error ? error.message : String(error);
+  return redactErrorMessage(error);
 }
 
 function loadDotEnv(filename: string) {
@@ -306,7 +300,7 @@ function unquote(value: string): string {
 }
 
 main().catch(async (error) => {
-  console.error(error);
+  console.error(redactErrorMessage(error));
   await getPool().end();
   process.exit(1);
 });

@@ -43,7 +43,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit --audit-level moderate
+      # Both exceptions have no published fix. See docs/sprint1/technical-readiness.md.
+      - run: pnpm audit --audit-level moderate --ignore CVE-2026-93687 --ignore CVE-2026-97058
       - run: PRONTO_ALLOW_TEST_DB_MARK=1 pnpm test:db:mark
       - run: pnpm migrate:test
       - run: pnpm seed:test

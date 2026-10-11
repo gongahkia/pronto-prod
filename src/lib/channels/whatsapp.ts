@@ -46,6 +46,36 @@ export function whatsAppPayloadMatchesChannel(payload: Record<string, unknown>, 
   return true;
 }
 
+export async function recordWhatsAppStatusEvents(
+  channel: Pick<Channel, "id" | "client_id">, payload: Record<string, unknown>,
+): Promise<number> {
+  let recorded = 0;
+  const entries = Array.isArray(payload.entry) ? payload.entry : [];
+  for (const entry of entries) {
+    if (!isRecord(entry) || !Array.isArray(entry.changes)) continue;
+    for (const change of entry.changes) {
+      const value = isRecord(change) && isRecord(change.value) ? change.value : null;
+      if (!value || !Array.isArray(value.statuses)) continue;
+      for (const item of value.statuses) {
+        if (!isRecord(item) || typeof item.id !== "string" ||
+          !["sent", "delivered", "read", "failed"].includes(String(item.status))) continue;
+        const status = String(item.status);
+        const updated = await query(
+          `update outbound_messages set
+             metadata = jsonb_set(metadata, '{providerStatus}', to_jsonb($4::text), true),
+             status = case when $4 = 'failed' then 'dead' else status end,
+             last_error = case when $4 = 'failed' then 'WhatsApp provider reported failed delivery.' else last_error end,
+             updated_at = now()
+           where client_id = $1 and channel_id = $2 and metadata->>'providerMessageId' = $3`,
+          [channel.client_id, channel.id, item.id, status],
+        );
+        recorded += updated.rowCount ?? 0;
+      }
+    }
+  }
+  return recorded;
+}
+
 export function normalizeWhatsAppPayload(
   channelId: string,
   payload: Record<string, unknown>,
@@ -98,6 +128,8 @@ export function normalizeWhatsAppPayload(
           externalThreadId: message.from,
           customerHandle: message.from,
           customerName: contacts.get(message.from),
+          ...(typeof message.timestamp === "string" && /^\d{10}$/.test(message.timestamp)
+            ? { occurredAt: new Date(Number(message.timestamp) * 1000).toISOString() } : {}),
           text: body,
           unsupportedMediaType: message.type === "text" ? undefined : message.type,
           raw: message,
@@ -119,9 +151,7 @@ export async function sendWhatsAppText(input: {
   text: string;
   template?: { name: string; languageCode: string };
 }): Promise<string> {
-  const token =
-    (input.channel.credentials.accessToken as string | undefined) ??
-    process.env.WHATSAPP_ACCESS_TOKEN;
+  const token = input.channel.credentials.accessToken as string | undefined;
   const phoneNumberId =
     (input.channel.credentials.phoneNumberId as string | undefined) ??
     input.channel.external_id;
@@ -130,7 +160,9 @@ export async function sendWhatsAppText(input: {
     throw new Error("WhatsApp credentials missing; outbound send skipped.");
   }
 
-  const response = await fetchWithTimeout(
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
     `https://graph.facebook.com/${whatsAppGraphVersion()}/${phoneNumberId}/messages`,
     {
       method: "POST",
@@ -148,12 +180,20 @@ export async function sendWhatsAppText(input: {
       }),
     },
     channelFetchTimeoutMs(),
-  );
+    );
+  } catch {
+    throw new AmbiguousProviderAcceptanceError("WhatsApp");
+  }
 
   if (!response.ok) {
     throw new ProviderSendError("WhatsApp", response.status);
   }
-  const body = (await response.json()) as { messages?: Array<{ id?: unknown }> };
+  let body: { messages?: Array<{ id?: unknown }> };
+  try {
+    body = (await response.json()) as { messages?: Array<{ id?: unknown }> };
+  } catch {
+    throw new AmbiguousProviderAcceptanceError("WhatsApp");
+  }
   if (typeof body.messages?.[0]?.id !== "string") throw new AmbiguousProviderAcceptanceError("WhatsApp");
   return body.messages[0].id;
 }

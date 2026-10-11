@@ -104,13 +104,10 @@ Required:
 Repo/env fields:
 
 ```env
-WHATSAPP_GRAPH_VERSION=v20.0
-WHATSAPP_APP_SECRET=...
-WHATSAPP_VERIFY_TOKEN=...
-WHATSAPP_ACCESS_TOKEN=...
+WHATSAPP_GRAPH_VERSION=v25.0
 ```
 
-Per-channel credential fields preferred for real clients:
+Set these fields on each WhatsApp channel; global secrets are not used:
 
 - `appSecret`
 - `accessToken`
@@ -180,7 +177,7 @@ Required:
 Repo/env fields:
 
 ```env
-META_GRAPH_VERSION=v20.0
+META_GRAPH_VERSION=v25.0
 MESSENGER_PAGE_ACCESS_TOKEN=...
 MESSENGER_APP_SECRET=...
 MESSENGER_VERIFY_TOKEN=...
@@ -216,10 +213,7 @@ Required:
 Repo/env fields:
 
 ```env
-META_GRAPH_VERSION=v20.0
-INSTAGRAM_PAGE_ACCESS_TOKEN=...
-INSTAGRAM_APP_SECRET=...
-INSTAGRAM_VERIFY_TOKEN=...
+META_GRAPH_VERSION=v25.0
 ```
 
 Per-channel credential fields:

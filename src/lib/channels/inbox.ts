@@ -1,5 +1,4 @@
 import { query, transaction } from "@/lib/db";
-import { redactErrorMessage } from "@/lib/logger";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel, Conversation, Message } from "@/lib/types";
 
@@ -52,6 +51,7 @@ export async function ingestInboundMessage(inbound: NormalizedInboundMessage): P
        on conflict (channel_id, external_message_id) do nothing returning *`,
       [conversation.rows[0].id, channel.client_id, channel.id, inbound.externalMessageId,
         inbound.text, { raw: inbound.raw, channelKind: inbound.channelKind,
+          providerOccurredAt: inbound.occurredAt ?? null,
           unsupportedMediaType: inbound.unsupportedMediaType ?? null }],
     );
     const message = inserted.rows[0] ?? (await db.query<Message>(
@@ -130,7 +130,8 @@ export async function failInboundJob(job: InboundJob, error: unknown): Promise<v
        lease_expires_at = null, last_error = $5, updated_at = now()
      where id = $1 and client_id = $2 and status = 'processing' and attempt_count = $6`,
     [job.id, job.client_id, job.attempt_count >= MAX_ATTEMPTS ? "dead" : "failed",
-      delaySeconds, redactErrorMessage(error), job.attempt_count],
+      delaySeconds, error instanceof Error ? `Processing failed (${error.name}).` : "Processing failed.",
+      job.attempt_count],
   );
 }
 

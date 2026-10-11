@@ -18,7 +18,18 @@ export function appBaseUrl(): string {
 }
 
 export function whatsAppGraphVersion(): string {
-  return process.env.WHATSAPP_GRAPH_VERSION ?? "v20.0";
+  return process.env.WHATSAPP_GRAPH_VERSION ?? "v25.0";
+}
+
+export function metaGraphVersion(): string {
+  return process.env.META_GRAPH_VERSION ?? "v25.0";
+}
+
+// Meta retired v20.0 on 24 September 2026. Revisit this floor as later
+// versions expire; sandbox compatibility still needs separate verification.
+export function isSupportedMetaGraphVersion(version: string): boolean {
+  const match = /^v(\d+)\.\d+$/.exec(version);
+  return Boolean(match && Number(match[1]) >= 21);
 }
 
 export function shouldUseMockAi(): boolean {

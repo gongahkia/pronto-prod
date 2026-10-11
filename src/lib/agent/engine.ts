@@ -1,5 +1,5 @@
 import { query, transaction } from "@/lib/db";
-import { bookingFallback } from "@/lib/reservations/chope";
+import { assistWithRestaurantBooking } from "@/lib/reservations/chope";
 import {
   evaluateAiDisclosure,
   evaluatePreGenerationGuardrails,
@@ -100,8 +100,9 @@ export async function runAgentForMessage(input: {
     throw new Error("Agent cannot run without client and config records.");
   }
 
-  if (["fnb", "restaurant", "food_and_beverage"].includes(client.vertical.toLowerCase())) {
-    const booking = bookingFallback({ message: input.customerMessage, businessProfile: client.business_profile });
+  if (["fnb", "restaurant", "food_and_beverage"].includes((client.vertical ?? "").toLowerCase())) {
+    const booking = await assistWithRestaurantBooking({ clientId: input.clientId,
+      message: input.customerMessage, businessProfile: client.business_profile ?? {} });
     if (booking) {
       if (booking.action === "link" && booking.response) {
         const recorded = await recordDirectAgentAnswer(input, {
