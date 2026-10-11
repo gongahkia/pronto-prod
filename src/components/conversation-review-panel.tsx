@@ -13,7 +13,7 @@ export function ConversationReviewPanel({
     return (
       <div className="ui-panel">
         <div className="ui-panel-header">
-          <h2 className="text-base font-semibold">Conversation review</h2>
+          <h2 className="text-base font-semibold">Messages</h2>
         </div>
         <p className="p-4 text-sm text-muted">No conversations yet.</p>
       </div>
@@ -23,11 +23,9 @@ export function ConversationReviewPanel({
   return (
     <div id={`conversation-${conversation.id}`} className="ui-panel">
       <div className="ui-panel-header">
-        <h2 className="text-base font-semibold">Conversation review</h2>
+        <h2 className="text-base font-semibold">Messages</h2>
       </div>
-      <div className="p-4">
-        <ChannelConversationThread conversation={conversation} messages={messages} />
-      </div>
+      <ChannelConversationThread conversation={conversation} messages={messages} />
     </div>
   );
 }

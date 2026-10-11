@@ -2,6 +2,7 @@
 
 import { Loader2, Send } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { channelDefinition } from "@/lib/channels/catalog";
 import type { ChannelKind, ChannelStatus } from "@/lib/types";
@@ -92,6 +93,7 @@ export function AssistantTester({
   channels: AssistantTesterChannel[];
   clientName: string;
 }) {
+  const router = useRouter();
   const [selectedChannelId, setSelectedChannelId] = useState(channels[0]?.id ?? "");
   const [messages, setMessages] = useState<TesterMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -146,6 +148,7 @@ export function AssistantTester({
           reasonCode: payload.reasonCode,
         },
       ]);
+      router.refresh();
     } catch (error) {
       setMessages((current) => [
         ...current,

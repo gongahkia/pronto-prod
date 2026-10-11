@@ -12,6 +12,7 @@ export type ConversationFilterInput = {
   to?: string;
   limit?: number;
   offset?: number;
+  sort?: "recent" | "attention";
 };
 
 export type FilteredConversation = {
@@ -128,7 +129,12 @@ export async function getFilteredConversations(
         limit 1
       ) ae on true
       ${filters.where.length ? `where ${filters.where.join(" and ")}` : ""}
-      order by c.last_message_at desc
+      order by ${input.sort === "attention" ? `case
+        when ae.id is not null then 0
+        when c.status = 'escalated' then 1
+        when c.status = 'active' then 2
+        else 3
+      end,` : ""} c.last_message_at desc, c.id desc
       limit $${filters.values.length + 1}
       offset $${filters.values.length + 2}
     `,
@@ -333,7 +339,9 @@ function buildConversationFilters(input: ConversationFilterInput): SqlFilter {
   if (input.channelKind && channelKindSet.has(input.channelKind as Channel["kind"])) {
     where.push(`ch.kind = $${pushParam(values, input.channelKind)}::channel_kind`);
   }
-  if (input.status && conversationStatuses.has(input.status)) {
+  if (input.status === "needs_reply") {
+    where.push("ae.id is not null");
+  } else if (input.status && conversationStatuses.has(input.status)) {
     where.push(`c.status = $${pushParam(values, input.status)}::conversation_status`);
   }
   if (input.reasonCode?.trim()) {

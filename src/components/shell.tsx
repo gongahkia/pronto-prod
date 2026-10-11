@@ -1,6 +1,5 @@
 import {
   Bot,
-  Database,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -17,7 +16,7 @@ import { OperatorSidebarActions } from "@/components/operator-sidebar-actions";
 import type { SessionUser } from "@/lib/auth";
 import { getMockAiStatus } from "@/lib/llm/mock-status";
 
-type ClientSection = "overview" | "inbox" | "knowledge" | "assistant" | "settings";
+type ClientSection = "overview" | "inbox" | "assistant" | "settings";
 type OperatorSection =
   | "clients"
   | "conversations";
@@ -39,8 +38,7 @@ type OperatorSidebarItem = {
 const clientSidebarItems: ClientSidebarItem[] = [
   { href: "/client", label: "Overview", section: "overview", icon: LayoutDashboard },
   { href: "/client/inbox", label: "Inbox", section: "inbox", icon: Inbox },
-  { href: "/client/knowledge", label: "Knowledge", section: "knowledge", icon: Database },
-  { href: "/client/assistant", label: "Assistant", section: "assistant", icon: Bot },
+  { href: "/client/assistant", label: "Manage assistant", section: "assistant", icon: Bot },
   { href: "/client/settings", label: "Settings", section: "settings", icon: Settings },
 ];
 

@@ -9,7 +9,10 @@ export type ChannelCredentialColumns = {
 
 export type ChannelWithCredentialColumns = {
   credentials: Record<string, unknown>;
+  settings?: Record<string, unknown>;
 } & ChannelCredentialColumns;
+
+const encryptedSettingsKey = "__settingsSecrets";
 
 export function decryptChannelCredentials<T extends ChannelWithCredentialColumns>(
   channel: T,
@@ -22,13 +25,18 @@ export function decryptChannelCredentials<T extends ChannelWithCredentialColumns
     return channel;
   }
 
+  const decrypted = decryptCredentials({
+    ciphertext: channel.encrypted_credentials,
+    nonce: channel.credentials_encryption_nonce,
+    tag: channel.credentials_encryption_tag,
+  });
+  const { [encryptedSettingsKey]: settingsSecrets, ...credentials } = decrypted;
   return {
     ...channel,
-    credentials: decryptCredentials({
-      ciphertext: channel.encrypted_credentials,
-      nonce: channel.credentials_encryption_nonce,
-      tag: channel.credentials_encryption_tag,
-    }),
+    credentials,
+    ...(channel.settings && settingsSecrets && typeof settingsSecrets === "object" && !Array.isArray(settingsSecrets)
+      ? { settings: { ...channel.settings, ...settingsSecrets } }
+      : {}),
   };
 }
 
@@ -61,6 +69,25 @@ export function encryptedChannelCredentialValues(
     encryptedCredentials: encrypted.ciphertext,
     nonce: encrypted.nonce,
     tag: encrypted.tag,
+  };
+}
+
+export function protectChannelSettingsSecrets(
+  settings: Record<string, unknown>,
+  credentials: Record<string, unknown>,
+  secretNames: string[],
+): { settings: Record<string, unknown>; credentials: Record<string, unknown> } {
+  const publicSettings = { ...settings };
+  const secrets: Record<string, unknown> = {};
+  for (const name of secretNames) {
+    if (publicSettings[name]) secrets[name] = publicSettings[name];
+    delete publicSettings[name];
+  }
+  return {
+    settings: publicSettings,
+    credentials: Object.keys(secrets).length
+      ? { ...credentials, [encryptedSettingsKey]: secrets }
+      : credentials,
   };
 }
 

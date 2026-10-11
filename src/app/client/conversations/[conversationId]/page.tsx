@@ -42,15 +42,15 @@ export default async function ClientConversationPage({
           Back to inbox
         </Link>
         <h1 className="mt-1.5 text-xl font-semibold">
-          Customer conversation
+          {conversation.customer_name ?? conversation.customer_handle ?? "Customer conversation"}
         </h1>
         <p className="text-sm text-muted">
           Review this thread and reply when Pronto needs help.
         </p>
       </div>
-      <div className="space-y-6">
-        <ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo} />
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <ConversationReviewPanel conversation={conversation} messages={messages} />
+        <ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo} />
       </div>
     </AppShell>
   );

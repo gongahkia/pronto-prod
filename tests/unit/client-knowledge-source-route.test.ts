@@ -2,17 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(),
-  updateKnowledgeSourceForClient: vi.fn(),
-  deleteKnowledgeSourceForClient: vi.fn(),
+  stageKnowledge: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
   requireUser: mocks.requireUser,
 }));
 
-vi.mock("@/lib/knowledge/manage", () => ({
-  updateKnowledgeSourceForClient: mocks.updateKnowledgeSourceForClient,
-  deleteKnowledgeSourceForClient: mocks.deleteKnowledgeSourceForClient,
+vi.mock("@/lib/assistant-drafts", () => ({
+  stageKnowledge: mocks.stageKnowledge,
 }));
 
 import { POST } from "@/app/api/client/knowledge/[sourceId]/route";
@@ -28,10 +26,7 @@ describe("client knowledge source route", () => {
   });
 
   it("updates only the authenticated client's source", async () => {
-    mocks.updateKnowledgeSourceForClient.mockResolvedValueOnce({
-      sourceId: "source-1",
-      chunkCount: 1,
-    });
+    mocks.stageKnowledge.mockResolvedValueOnce("source-1");
 
     const form = new FormData();
     form.set("action", "update");
@@ -41,18 +36,19 @@ describe("client knowledge source route", () => {
     const response = await POST(formRequest(form), context("source-1"));
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("http://localhost/client/knowledge/source-1");
-    expect(mocks.updateKnowledgeSourceForClient).toHaveBeenCalledWith({
+    expect(response.headers.get("location")).toBe("http://localhost/client/knowledge/source-1?staged=1");
+    expect(mocks.stageKnowledge).toHaveBeenCalledWith({
       sourceId: "source-1",
       clientId: "client-actual",
       title: "Menu",
       content: "Kopi is SGD 2.20.",
       actorUserId: "user-1",
+      action: "upsert",
     });
   });
 
   it("deletes only the authenticated client's source", async () => {
-    mocks.deleteKnowledgeSourceForClient.mockResolvedValueOnce(true);
+    mocks.stageKnowledge.mockResolvedValueOnce("source-1");
 
     const form = new FormData();
     form.set("action", "delete");
@@ -60,16 +56,17 @@ describe("client knowledge source route", () => {
     const response = await POST(formRequest(form), context("source-1"));
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("http://localhost/client/knowledge");
-    expect(mocks.deleteKnowledgeSourceForClient).toHaveBeenCalledWith({
+    expect(response.headers.get("location")).toBe("http://localhost/client/knowledge?staged=1");
+    expect(mocks.stageKnowledge).toHaveBeenCalledWith({
       sourceId: "source-1",
       clientId: "client-actual",
       actorUserId: "user-1",
+      action: "delete",
     });
   });
 
   it("returns not found when update is outside client scope", async () => {
-    mocks.updateKnowledgeSourceForClient.mockResolvedValueOnce(null);
+    mocks.stageKnowledge.mockRejectedValueOnce(new Error("Knowledge source not found."));
 
     const form = new FormData();
     form.set("action", "update");
@@ -77,7 +74,6 @@ describe("client knowledge source route", () => {
     form.set("content", "Kopi is SGD 2.20.");
 
     const response = await POST(formRequest(form), context("source-other"));
-
     expect(response.status).toBe(404);
   });
 });

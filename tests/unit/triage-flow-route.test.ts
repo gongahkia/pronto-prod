@@ -4,6 +4,7 @@ import { TriageFlowValidationError } from "@/lib/triage-flow";
 const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(),
   saveTriageFlowForClient: vi.fn(),
+  stageFlow: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -13,6 +14,9 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/triage-flow-store", () => ({
   saveTriageFlowForClient: mocks.saveTriageFlowForClient,
   flowResponse: vi.fn((flow: unknown) => flow),
+}));
+vi.mock("@/lib/assistant-drafts", () => ({
+  stageFlow: mocks.stageFlow,
 }));
 
 import { POST as clientPost } from "@/app/api/client/flows/route";
@@ -33,7 +37,7 @@ describe("triage flow routes", () => {
     });
   });
 
-  it("lets a client save only their assigned client flow", async () => {
+  it("stages only the assigned client's flow", async () => {
     mocks.requireUser.mockResolvedValueOnce({
       userId: "client-user-1",
       clientId: "client-1",
@@ -43,13 +47,13 @@ describe("triage flow routes", () => {
     const response = await clientPost(jsonRequest({ nodes: [], edges: [] }));
 
     expect(response.status).toBe(200);
-    expect(mocks.saveTriageFlowForClient).toHaveBeenCalledWith({
+    expect(mocks.stageFlow).toHaveBeenCalledWith({
       clientId: "client-1",
       actorUserId: "client-user-1",
       nodes: [],
       edges: [],
-      source: "client",
     });
+    expect(mocks.saveTriageFlowForClient).not.toHaveBeenCalled();
   });
 
   it("lets an operator save a scoped client flow", async () => {
@@ -92,7 +96,7 @@ describe("triage flow routes", () => {
       clientId: "client-1",
       role: "client",
     });
-    mocks.saveTriageFlowForClient.mockRejectedValueOnce(
+    mocks.stageFlow.mockRejectedValueOnce(
       new TriageFlowValidationError("Flow contains an unknown node."),
     );
 

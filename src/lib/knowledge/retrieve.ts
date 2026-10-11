@@ -11,12 +11,14 @@ export async function retrieveKnowledge(
     conversationId?: string;
     queryText?: string | null;
     embeddingModel?: string | null;
+    excludeSourceIds?: string[];
   } = {},
 ): Promise<KnowledgeChunk[]> {
   const searchQuery = options.queryText?.trim();
   const candidateLimit = Math.max(limit * 4, 20);
   const embeddingDimensions = embedding.length;
   const vectorDistance = vectorDistanceExpression(embeddingDimensions);
+  const excluded = options.excludeSourceIds ?? [];
   const result = searchQuery
     ? await query<KnowledgeChunk & {
         distance: string;
@@ -44,6 +46,7 @@ export async function retrieveKnowledge(
             where client_id = $1
               and embedding_dimensions = $6
               and ($7::text is null or embedding_model = $7)
+              ${excluded.length ? "and source_id <> all($8::uuid[])" : ""}
             order by ${vectorDistance}
             limit $4
           ),
@@ -63,6 +66,7 @@ export async function retrieveKnowledge(
             where kc.client_id = $1
               and kc.embedding_dimensions = $6
               and ($7::text is null or kc.embedding_model = $7)
+              ${excluded.length ? "and kc.source_id <> all($8::uuid[])" : ""}
               and to_tsvector('simple', kc.content) @@ fts_query.query
             order by ts_rank_cd(to_tsvector('simple', kc.content), fts_query.query) desc
             limit $4
@@ -103,6 +107,7 @@ export async function retrieveKnowledge(
           candidateLimit,
           embeddingDimensions,
           options.embeddingModel ?? null,
+          ...(excluded.length ? [excluded] : []),
         ],
       )
     : await query<KnowledgeChunk & { distance: string }>(
@@ -123,6 +128,7 @@ export async function retrieveKnowledge(
             where client_id = $1
               and embedding_dimensions = $4
               and ($5::text is null or embedding_model = $5)
+              ${excluded.length ? "and source_id <> all($6::uuid[])" : ""}
           )
           select * from scored
           order by distance
@@ -134,6 +140,7 @@ export async function retrieveKnowledge(
           candidateLimit,
           embeddingDimensions,
           options.embeddingModel ?? null,
+          ...(excluded.length ? [excluded] : []),
         ],
       );
 

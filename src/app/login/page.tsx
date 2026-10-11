@@ -60,7 +60,7 @@ export default async function LoginPage({
         </form>
         {showSeedCredentials ? (
           <div className="mt-5 rounded-md bg-surface p-3 text-xs text-muted">
-            <p>Seed credentials after `pnpm db:seed`:</p>
+            <p>Seed credentials after `pnpm seed`:</p>
             <p>operator@pronto.sg / pronto-operator</p>
             <p>owner@northbridgenasi.sg / pronto-client</p>
           </div>

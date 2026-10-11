@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   decryptChannelCredentials,
   encryptedChannelCredentialValues,
+  protectChannelSettingsSecrets,
 } from "@/lib/channels/credentials";
 
 describe("channel credential encryption", () => {
@@ -46,5 +47,28 @@ describe("channel credential encryption", () => {
       nonce: null,
       tag: null,
     });
+  });
+
+  it("keeps webhook secrets out of stored settings while restoring them for verification", () => {
+    vi.stubEnv("PRONTO_SECRETS_KEY", "test-secret-material-with-at-least-32-chars");
+    const protectedValues = protectChannelSettingsSecrets(
+      { verifyToken: "private-verify-token", ownerPhone: "6590000000" },
+      { accessToken: "channel-token" },
+      ["verifyToken"],
+    );
+    const encrypted = encryptedChannelCredentialValues(protectedValues.credentials);
+
+    expect(protectedValues.settings).toEqual({ ownerPhone: "6590000000" });
+    expect(encrypted.encryptedCredentials).not.toContain("private-verify-token");
+
+    const channel = decryptChannelCredentials({
+      settings: protectedValues.settings,
+      credentials: encrypted.credentials,
+      encrypted_credentials: encrypted.encryptedCredentials,
+      credentials_encryption_nonce: encrypted.nonce,
+      credentials_encryption_tag: encrypted.tag,
+    });
+    expect(channel.settings).toEqual({ ownerPhone: "6590000000", verifyToken: "private-verify-token" });
+    expect(channel.credentials).toEqual({ accessToken: "channel-token" });
   });
 });

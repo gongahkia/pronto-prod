@@ -42,13 +42,14 @@ const messages: Message[] = [
 ];
 
 describe("ConversationReviewPanel", () => {
-  it("renders the shared channel-specific conversation view", () => {
+  it("shows real messages and channel without fake presence or controls", () => {
     render(<ConversationReviewPanel conversation={conversation} messages={messages} />);
 
-    expect(screen.getByRole("heading", { name: "Conversation review" })).toBeTruthy();
-    expect(screen.getByText("Alicia")).toBeTruthy();
-    expect(screen.getByText("whatsapp - online")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Messages" })).toBeTruthy();
+    expect(screen.getAllByText("Alicia")).toHaveLength(2);
+    expect(screen.getByText("WhatsApp conversation")).toBeTruthy();
     expect(screen.getByText("Are you open this Sunday?")).toBeTruthy();
+    expect(screen.queryByText("online")).toBeNull();
   });
 
   it("renders the empty state", () => {

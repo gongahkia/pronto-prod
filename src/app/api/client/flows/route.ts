@@ -1,10 +1,7 @@
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
-import {
-  flowResponse,
-  saveTriageFlowForClient,
-} from "@/lib/triage-flow-store";
+import { stageFlow } from "@/lib/assistant-drafts";
 import { TriageFlowValidationError } from "@/lib/triage-flow";
 
 export async function POST(request: Request) {
@@ -22,19 +19,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const saved = await saveTriageFlowForClient({
+    await stageFlow({
       clientId: user.clientId,
       actorUserId: user.userId,
       nodes: body.nodes,
       edges: body.edges,
-      source: "client",
     });
-
-    if (!saved) {
-      return NextResponse.json({ error: "Agent config not found." }, { status: 404 });
-    }
-
-    return NextResponse.json({ flow: flowResponse(saved) });
+    return NextResponse.json({ staged: true });
   } catch (error) {
     if (error instanceof TriageFlowValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });

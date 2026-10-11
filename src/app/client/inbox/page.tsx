@@ -4,7 +4,6 @@ import { getClient } from "@/lib/dashboard";
 import {
   getClientDashboardAnalytics,
   getFilteredConversations,
-  type FilteredConversation,
 } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import {
@@ -32,16 +31,15 @@ export default async function ClientInboxPage({
   const limit = 75;
   const [client, conversations, analytics] = await Promise.all([
     getClient(user.clientId),
-    getFilteredConversations({ ...filters, limit: limit + 1, offset: (page - 1) * limit }),
+    getFilteredConversations({ ...filters, sort: "attention", limit: limit + 1, offset: (page - 1) * limit }),
     getClientDashboardAnalytics(user.clientId),
   ]);
   if (!client) {
     throw new Error("Client record not found.");
   }
 
-  const sortedConversations = sortClientInbox(conversations);
-  const hasNext = sortedConversations.length > limit;
-  const visibleConversations = sortedConversations.slice(0, limit);
+  const hasNext = conversations.length > limit;
+  const visibleConversations = conversations.slice(0, limit);
 
   return (
     <AppShell user={user} active="client" clientActive="inbox" workspaceName={client.name}>
@@ -62,9 +60,9 @@ export default async function ClientInboxPage({
           <div className="flex flex-wrap gap-2">
             <QuickFilter href="/client/inbox" label="All" active={!filters.status} />
             <QuickFilter
-              href="/client/inbox?status=escalated"
+              href="/client/inbox?status=needs_reply"
               label="Needs reply"
-              active={filters.status === "escalated"}
+              active={filters.status === "needs_reply"}
             />
             <QuickFilter
               href="/client/inbox?status=active"
@@ -120,27 +118,4 @@ function QuickFilter({
       {label}
     </Link>
   );
-}
-
-function sortClientInbox(conversations: FilteredConversation[]): FilteredConversation[] {
-  return [...conversations].sort((a, b) => {
-    const bucketDelta = inboxBucket(a) - inboxBucket(b);
-    if (bucketDelta !== 0) {
-      return bucketDelta;
-    }
-    return b.last_message_at.getTime() - a.last_message_at.getTime();
-  });
-}
-
-function inboxBucket(conversation: FilteredConversation): number {
-  if (conversation.active_escalation_id) {
-    return 0;
-  }
-  if (conversation.status === "escalated") {
-    return 1;
-  }
-  if (conversation.status === "active") {
-    return 2;
-  }
-  return 3;
 }

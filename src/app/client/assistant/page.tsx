@@ -1,80 +1,122 @@
+import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { formatDate as formatDisplayDate } from "@/lib/date-format";
-import { getChannels, getClient } from "@/lib/dashboard";
+import { getAssistantDraft, getAssistantRevision } from "@/lib/assistant-drafts";
+import { getBrandVoiceProfile } from "@/lib/brand-voice";
+import { getChannels, getClient, getKnowledgeSources } from "@/lib/dashboard";
 import { getTriageFlowForClient } from "@/lib/triage-flow-store";
 import { AppShell } from "@/components/shell";
 import { AssistantTester } from "@/components/assistant-tester";
 import { Badge } from "@/components/badge";
+import { ClientAssistantNav } from "@/components/client-assistant-nav";
 
-export default async function ClientAssistantPage() {
+export default async function ClientAssistantPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ published?: string; error?: string }>;
+}) {
   const user = await requireUser("client");
-  if (!user.clientId) {
-    throw new Error("Client user is missing a client assignment.");
-  }
-
-  const [client, channels, flow] = await Promise.all([
+  if (!user.clientId) throw new Error("Client user is missing a client assignment.");
+  const [client, channels, knowledge, flow, voice, draft, revision, params] = await Promise.all([
     getClient(user.clientId),
     getChannels(user.clientId),
+    getKnowledgeSources(user.clientId),
     getTriageFlowForClient(user.clientId),
+    getBrandVoiceProfile(user.clientId),
+    getAssistantDraft(user.clientId),
+    getAssistantRevision(user.clientId),
+    searchParams ?? Promise.resolve({} as { published?: string; error?: string }),
   ]);
-  if (!client) {
-    throw new Error("Client record not found.");
-  }
-
-  const testChannels = channels
-    .filter((channel) => channel.status !== "disabled")
-    .map((channel) => ({
-      id: channel.id,
-      kind: channel.kind,
-      name: channel.name,
-      status: channel.status,
-    }));
+  if (!client) throw new Error("Client record not found.");
+  const testChannels = [
+    { id: "preview", kind: "whatsapp" as const, name: "General preview", status: "draft" as const },
+    ...channels
+      .filter((channel) => channel.status !== "disabled")
+      .map(({ id, kind, name, status }) => ({ id, kind, name, status })),
+  ];
+  const unpublishedCount = (draft?.voice ? 1 : 0)
+    + (draft?.flow ? 1 : 0)
+    + Object.keys(draft?.knowledge_changes ?? {}).length;
+  const setup = [
+    { label: "Knowledge sources", done: knowledge.length > 0, href: "/client/knowledge" },
+    { label: "Brand voice", done: Boolean(voice.document?.content), href: "/client/assistant/voice" },
+    { label: "Handoff rules", done: !flow.isDefault, href: "/client/assistant/rules" },
+    { label: "Active channel", done: channels.some((channel) => channel.status === "active"), href: "/client/assistant/channels" },
+  ];
 
   return (
     <AppShell user={user} active="client" clientActive="assistant" workspaceName={client.name}>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Assistant</h1>
-          <p className="text-sm text-muted">
-            Test how Pronto replies before customers see it.
-          </p>
+          <h1 className="text-xl font-semibold">Manage assistant</h1>
+          <p className="text-sm text-muted">Keep Pronto&apos;s answers current, test changes, and publish when ready.</p>
         </div>
-        <Badge tone={flow.isDefault ? "amber" : "green"}>
-          {flow.isDefault ? "Default rules" : `Published v${flow.version}`}
+        <Badge tone={draft ? "amber" : "green"}>
+          {draft ? `${unpublishedCount} unpublished change${unpublishedCount === 1 ? "" : "s"}` : `Live revision ${revision.revision}`}
         </Badge>
       </div>
+      <ClientAssistantNav active="overview" />
+      {params.published ? (
+        <p role="status" className="mb-4 rounded-md border border-success/30 bg-success-bg p-3 text-sm text-success">
+          Revision {params.published} is live.
+        </p>
+      ) : null}
+      {params.error ? (
+        <p role="alert" className="mb-4 rounded-md border border-danger/30 bg-danger-bg p-3 text-sm text-danger">
+          {params.error === "conflict"
+            ? "The live assistant changed while this draft was open. Discard the draft, then review the latest settings before editing again."
+            : params.error}
+        </p>
+      ) : null}
 
-      <section className="grid gap-6 xl:grid-cols-[0.36fr_0.64fr]">
-        <section className="ui-panel">
-          <div className="ui-panel-header">
-            <div>
-              <h2 className="text-base font-semibold">Assistant config</h2>
-              <p className="text-sm text-muted">
-                Current published behavior for this workspace.
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="space-y-5">
+          {draft ? (
+            <section className="ui-panel p-4">
+              <h2 className="font-semibold">Changes waiting to go live</h2>
+              <p className="mt-1 text-sm text-muted">
+                Test a customer question below. The test uses your draft; real customer replies still use the live version.
               </p>
-            </div>
-          </div>
-          <div className="divide-y divide-line text-sm">
-            <div className="flex items-center justify-between gap-4 p-4">
-              <span className="text-muted">Last published</span>
-              <span className="font-medium">{formatDate(flow.publishedAt)}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4 p-4">
-              <span className="text-muted">Configured channels</span>
-              <span className="font-medium">{testChannels.length}</span>
-            </div>
-          </div>
-        </section>
-
-        <AssistantTester channels={testChannels} clientName={client.name} />
-      </section>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <form action="/api/client/assistant/publish" method="post">
+                  <button className="ui-primary-button px-4 py-2" disabled={!draft.tested_at}>
+                    {draft.tested_at ? "Publish tested changes" : "Test a question to unlock publishing"}
+                  </button>
+                </form>
+                <DiscardDraftButton />
+              </div>
+            </section>
+          ) : null}
+          <AssistantTester channels={testChannels} clientName={client.name} />
+        </div>
+        <div className="space-y-5">
+          <section className="ui-panel">
+            <div className="ui-panel-header"><h2 className="font-semibold">Setup progress</h2></div>
+            <ul className="divide-y divide-line">
+              {setup.map((item) => (
+                <li key={item.label}>
+                  <Link href={item.href} className="flex items-center justify-between gap-3 p-4 text-sm hover:bg-surface-hover">
+                    <span>{item.label}</span>
+                    <Badge tone={item.done ? "green" : "amber"}>{item.done ? "Ready" : "Review"}</Badge>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section className="ui-panel p-4 text-sm">
+            <h2 className="font-semibold">Live assistant</h2>
+            <p className="mt-2 text-muted">{knowledge.length} knowledge sources · {channels.filter((channel) => channel.status === "active").length} active channels</p>
+            <p className="mt-1 text-muted">Rules: {flow.isDefault ? "default" : `published v${flow.version}`}</p>
+          </section>
+        </div>
+      </div>
     </AppShell>
   );
 }
 
-function formatDate(value: Date | null): string {
-  if (!value) {
-    return "Not published";
-  }
-  return formatDisplayDate(value);
+function DiscardDraftButton() {
+  return (
+    <form action="/api/client/assistant/discard" method="post">
+      <button className="ui-button px-4 py-2">Discard draft</button>
+    </form>
+  );
 }

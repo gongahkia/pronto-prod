@@ -70,6 +70,7 @@ export function ConversationFilterForm({
         className="rounded-md border border-line px-3 py-2 text-sm"
       >
         <option value="">All statuses</option>
+        {action === "/client/inbox" ? <option value="needs_reply">Needs reply</option> : null}
         <option value="active">Active</option>
         <option value="escalated">Escalated</option>
         <option value="closed">Closed</option>

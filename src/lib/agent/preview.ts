@@ -5,6 +5,7 @@ import {
   evaluateSmallTalkGreeting,
 } from "@/lib/agent/guardrails";
 import { evaluatePostGenerationSelfCheck } from "@/lib/agent/self-check";
+import { retrieveDraftKnowledge, type AssistantDraft } from "@/lib/assistant-drafts";
 import {
   agentMaxConversationTokens,
   agentMaxOutputTokens,
@@ -23,6 +24,7 @@ import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
 import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
 import { selectModel } from "@/lib/llm/catalog";
+import { compileTriageFlowToEscalationRules } from "@/lib/triage-flow";
 import { redactErrorMessage } from "@/lib/logger";
 import type { AgentConfig, Channel, Client, KnowledgeChunk } from "@/lib/types";
 
@@ -46,6 +48,7 @@ export async function previewAgentReply(input: {
   customerMessage: string;
   history?: AgentPreviewMessage[];
   requestId?: string;
+  draft?: AssistantDraft | null;
 }): Promise<AgentPreviewResult> {
   const [clientResult, configResult, brandVoiceProfile] = await Promise.all([
     query<Client>("select * from clients where id = $1", [input.clientId]),
@@ -68,9 +71,12 @@ export async function previewAgentReply(input: {
     return answer(aiDisclosure.answer, "ai_disclosure", "Customer directly asked whether the agent is AI or human.", 1);
   }
 
+  const escalationRules = input.draft?.flow
+    ? compileTriageFlowToEscalationRules(input.draft.flow.nodes)
+    : config.escalation_rules;
   const precheck = evaluatePreGenerationGuardrails(
     input.customerMessage,
-    config.escalation_rules,
+    escalationRules,
     input.channel.kind,
   );
   if (precheck.shouldEscalate) {
@@ -110,11 +116,16 @@ export async function previewAgentReply(input: {
     );
   }
 
+  const excludedSourceIds = Object.keys(input.draft?.knowledge_changes ?? {});
   const staticChunks = await retrieveKnowledge(input.clientId, embedding, 5, {
     requestId: input.requestId,
     queryText: normalizedKnowledgeQuery.searchQuery,
     embeddingModel,
+    excludeSourceIds: excludedSourceIds,
   });
+  const draftChunks = input.draft
+    ? await retrieveDraftKnowledge(input.clientId, embedding, embeddingModel, normalizedKnowledgeQuery.searchQuery, 5)
+    : [];
   const integrationResults = await runIntegrationsForMessage({
     clientId: input.clientId,
     message: input.customerMessage,
@@ -123,7 +134,8 @@ export async function previewAgentReply(input: {
   const chunks = [
     ...integrationResultsToKnowledgeChunks(input.clientId, integrationResults),
     ...staticChunks,
-  ];
+    ...draftChunks,
+  ].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 5);
   const retrievalThreshold = Number(config.retrieval_threshold);
   const retrievalCheck = evaluateRetrievalConfidence(chunks[0]?.score, retrievalThreshold);
   if (retrievalCheck.shouldEscalate) {
@@ -160,13 +172,19 @@ export async function previewAgentReply(input: {
       requestId: input.requestId,
       clientId: input.clientId,
       clientName: client.name,
-      brandVoice: client.brand_voice,
-      brandVoiceDocument: brandVoiceProfile.document?.content ?? null,
-      fewShotExamples: brandVoiceProfile.examples.map((example) => ({
-        customerMessage: example.customer_message,
-        idealResponse: example.ideal_response,
-        notes: example.notes,
-      })),
+      brandVoice: input.draft?.voice?.content ?? client.brand_voice,
+      brandVoiceDocument: input.draft?.voice?.content ?? brandVoiceProfile.document?.content ?? null,
+      fewShotExamples: input.draft?.voice
+        ? input.draft.voice.examples.filter((example) => example.active).map((example) => ({
+            customerMessage: example.customerMessage,
+            idealResponse: example.idealResponse,
+            notes: example.notes,
+          }))
+        : brandVoiceProfile.examples.map((example) => ({
+            customerMessage: example.customer_message,
+            idealResponse: example.ideal_response,
+            notes: example.notes,
+          })),
       promptPreamble: config.prompt_preamble,
       customerMessage: input.customerMessage,
       recentMessages,

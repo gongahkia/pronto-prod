@@ -13,7 +13,7 @@ export function ConversationTriagePanel({
   return (
     <section className="ui-panel">
       <div className="ui-panel-header">
-        <h2 className="text-base font-semibold">Active triage</h2>
+        <h2 className="text-base font-semibold">Your next action</h2>
       </div>
       {escalation ? (
         <div id={`escalation-${escalation.id}`} className="space-y-3 p-4">
@@ -33,11 +33,7 @@ export function ConversationTriagePanel({
               error={escalation.owner_notification_error}
             />
           </div>
-          <div>
-            <p className="text-sm font-medium">Customer question</p>
-            <p className="mt-1 text-sm text-muted">{escalation.customer_message}</p>
-          </div>
-          <p className="text-sm text-muted">{escalation.reason_detail}</p>
+          <p className="text-sm text-muted">Pronto handed this conversation to your team: {escalation.reason_detail}</p>
           <EscalationOutboundStatus
             escalationId={escalation.id}
             outboundMessageId={escalation.owner_resolution_outbound_id}
@@ -64,18 +60,31 @@ export function ConversationTriagePanel({
               <textarea
                 name="reply"
                 rows={4}
+                required
                 className="w-full rounded-md border border-line px-3 py-2 text-sm"
-                placeholder="Reply to customer before resolving"
+                placeholder="Write the reply the customer will receive"
               />
               <button className="ui-primary-button px-3 py-2">
                 Send reply and resolve
               </button>
             </form>
           ) : null}
+          {escalation.status !== "resolved" ? (
+            <details className="rounded-md border border-line p-3 text-sm">
+              <summary className="cursor-pointer font-medium">Resolve without sending a reply</summary>
+              <p className="my-2 text-muted">Use this only when the customer has already been helped elsewhere.</p>
+              <form action="/api/escalations" method="post">
+                <input type="hidden" name="action" value="resolve" />
+                <input type="hidden" name="escalationId" value={escalation.id} />
+                <input type="hidden" name="returnTo" value={returnTo} />
+                <button className="ui-button px-3 py-2">Confirm resolution</button>
+              </form>
+            </details>
+          ) : null}
         </div>
       ) : (
         <p className="p-4 text-sm text-muted">
-          No active triage is attached to this conversation.
+          No reply is needed right now. You can review the conversation here.
         </p>
       )}
     </section>

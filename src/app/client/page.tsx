@@ -1,247 +1,138 @@
-import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getBrandVoiceProfile } from "@/lib/brand-voice";
-import { getClient, getKnowledgeSources } from "@/lib/dashboard";
+import { getAssistantDraft } from "@/lib/assistant-drafts";
+import { getChannels, getClient, getKnowledgeSources } from "@/lib/dashboard";
 import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
-import {
-  getClientDashboardAnalytics,
-  getFilteredConversations,
-  type FilteredConversation,
-} from "@/lib/reporting";
+import { getClientDashboardAnalytics, getFilteredConversations } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
-import { ClientBrandVoicePreview } from "@/components/local-release-panels";
 import { ConversationList } from "@/components/reporting-panels";
 import { StatCard } from "@/components/stat-card";
 
 export default async function ClientOverviewPage() {
   const user = await requireUser("client");
-  if (!user.clientId) {
-    throw new Error("Client user is missing a client assignment.");
-  }
-
-  const [
-    client,
-    analytics,
-    attentionConversations,
-    recentConversations,
-    knowledgeSources,
-    refreshRequests,
-    brandVoice,
-  ] = await Promise.all([
+  if (!user.clientId) throw new Error("Client user is missing a client assignment.");
+  const [client, analytics, needsReply, recent, channels, sources, refreshes, draft] = await Promise.all([
     getClient(user.clientId),
     getClientDashboardAnalytics(user.clientId),
-    getFilteredConversations({ clientId: user.clientId, status: "escalated", limit: 5 }),
-    getFilteredConversations({ clientId: user.clientId, limit: 6 }),
+    getFilteredConversations({ clientId: user.clientId, status: "needs_reply", sort: "attention", limit: 5 }),
+    getFilteredConversations({ clientId: user.clientId, limit: 5 }),
+    getChannels(user.clientId),
     getKnowledgeSources(user.clientId),
     getKnowledgeRefreshRequests(user.clientId),
-    getBrandVoiceProfile(user.clientId),
+    getAssistantDraft(user.clientId),
   ]);
-  if (!client) {
-    throw new Error("Client record not found.");
-  }
-
-  const openRefreshes = refreshRequests.filter((request) => request.status === "open");
-  const themes = summarizeThemes(attentionConversations);
+  if (!client) throw new Error("Client record not found.");
+  const activeChannels = channels.filter((channel) => channel.status === "active").length;
+  const channelIssues = channels.filter((channel) => channel.status === "active" && channel.last_health_status === "degraded").length;
+  const refreshDue = refreshes.filter((request) => request.status === "open").length;
+  const setupNeeded = activeChannels === 0 || sources.length === 0;
+  const alertCount = Number(setupNeeded) + Number(channelIssues > 0) + Number(refreshDue > 0);
 
   return (
     <AppShell user={user} active="client" clientActive="overview" workspaceName={client.name}>
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">Overview</h1>
-          <p className="text-sm text-muted">
-            Business view of what Pronto handled, where it needs you, and what needs updating.
-          </p>
-        </div>
-        <Link className="ui-button px-3 py-2 text-accent" href="/client/inbox?status=escalated">
-          Review needs reply
-        </Link>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold">Overview</h1>
+        <p className="text-sm text-muted">A quick view of what Pronto handled and what needs your team.</p>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Conversations" value={analytics.conversationCount} />
-        <StatCard label="Needs reply" value={analytics.actionableEscalations} />
-        <StatCard
-          label="First response"
-          value={formatDuration(analytics.avgFirstResponseSeconds)}
-        />
-        <StatCard
-          label="Escalation rate"
-          value={`${Math.round(analytics.escalationRate * 100)}%`}
-          hint={`${analytics.escalatedConversationCount} escalated`}
-        />
-        <StatCard
-          label="CSAT"
-          value={analytics.csatAverage ? analytics.csatAverage.toFixed(1) : "Pending"}
-          hint={`${analytics.csatResponses} responses`}
-        />
-      </section>
-
-      <section className="mt-6 ui-panel">
-        <div className="ui-panel-header">
-          <div>
-            <h2 className="text-base font-semibold">Needs your attention</h2>
-            <p className="text-sm text-muted">
-              Items that affect current customers or the assistant&apos;s ability to answer well.
-            </p>
+      <section className="grid gap-4 md:grid-cols-[minmax(0,1.6fr)_minmax(16rem,1fr)]">
+        <div className="ui-panel p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-muted">Customer replies</p>
+              <p className="mt-2 text-3xl font-semibold">{analytics.actionableEscalations}</p>
+              <p className="mt-1 text-sm text-muted">
+                {analytics.actionableEscalations === 1 ? "conversation needs" : "conversations need"} a human response.
+              </p>
+            </div>
+            <Badge tone={analytics.actionableEscalations ? "amber" : "green"}>
+              {analytics.actionableEscalations ? "Needs attention" : "All caught up"}
+            </Badge>
           </div>
-          <Badge tone={attentionTone(analytics.actionableEscalations + openRefreshes.length)}>
-            {analytics.actionableEscalations + openRefreshes.length} open
-          </Badge>
+          <Link href="/client/inbox?status=needs_reply"
+            className="ui-primary-button mt-5 inline-flex px-4 py-2">Open reply queue</Link>
         </div>
-        <div className="grid gap-3 p-4 md:grid-cols-2">
-          <AttentionCard
-            label="Customer replies"
-            value={analytics.actionableEscalations}
-            detail="Conversations where Pronto needs a human answer."
-            href="/client/inbox?status=escalated"
-          />
-          <AttentionCard
-            label="Knowledge updates"
-            value={openRefreshes.length}
-            detail={`${knowledgeSources.length} sources currently available to Pronto.`}
-            href="/client/knowledge"
-          />
-        </div>
-        <ConversationList
-          conversations={attentionConversations}
-          hrefForConversation={(conversation) => `/client/conversations/${conversation.id}`}
-          emptyText="No customer replies need your attention."
-          ctaLabel="Open"
-        />
-      </section>
-
-      <ClientBrandVoicePreview profile={brandVoice} />
-
-      <section className="mt-6 ui-panel">
-        <div className="ui-panel-header">
-          <div>
-            <h2 className="text-base font-semibold">Recent customer themes</h2>
-            <p className="text-sm text-muted">
-              Patterns showing up in recent handoffs.
-            </p>
+        <div className="ui-panel p-5">
+          <p className="text-sm text-muted">Assistant status</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Badge tone={setupNeeded || channelIssues ? "amber" : "green"}>
+              {setupNeeded ? "Setup needed" : channelIssues ? "Channel issue" : "Running"}
+            </Badge>
+            {draft ? <Badge tone="amber">Unpublished changes</Badge> : null}
           </div>
-        </div>
-        <div className="divide-y divide-line">
-          {themes.length === 0 ? (
-            <p className="p-4 text-sm text-muted">
-              No repeated customer theme is standing out right now.
-            </p>
-          ) : (
-            themes.map((theme) => (
-              <Link
-                key={theme.key}
-                href={theme.href}
-                className="flex items-center justify-between gap-4 p-4 hover:bg-surface-hover"
-              >
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">{theme.label}</p>
-                    <Badge tone="amber">{theme.count}</Badge>
-                  </div>
-                  <p className="mt-1 text-sm text-muted">{theme.detail}</p>
-                </div>
-                <ArrowRight size={17} className="shrink-0 text-muted" />
-              </Link>
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="mt-6 ui-panel">
-        <div className="ui-panel-header">
-          <div>
-            <h2 className="text-base font-semibold">Recent conversations</h2>
-            <p className="text-sm text-muted">Latest customer threads across connected channels.</p>
-          </div>
-          <Link href="/client/inbox" className="text-sm font-medium text-accent">
-            Open inbox
+          <p className="mt-3 text-sm text-muted">{activeChannels} active channels · {sources.length} knowledge sources</p>
+          <Link href="/client/assistant" className="mt-4 inline-block text-sm font-medium text-accent">
+            Manage assistant
           </Link>
         </div>
-        <ConversationList
-          conversations={recentConversations}
-          hrefForConversation={(conversation) => `/client/conversations/${conversation.id}`}
-          emptyText="No conversations yet."
-          ctaLabel="Open"
-        />
+      </section>
+
+      {alertCount ? (
+        <section className="mt-5 ui-panel">
+          <div className="ui-panel-header">
+            <h2 className="font-semibold">Worth a look</h2>
+          </div>
+          <div className="divide-y divide-line text-sm">
+            {setupNeeded ? (
+              <Link href="/client/assistant" className="block p-4 hover:bg-surface-hover">
+                Finish assistant setup so Pronto has an active channel and approved knowledge.
+              </Link>
+            ) : null}
+            {channelIssues ? (
+              <Link href="/client/assistant/channels" className="block p-4 hover:bg-surface-hover">
+                {channelIssues} active channel {channelIssues === 1 ? "needs" : "need"} a health check.
+              </Link>
+            ) : null}
+            {refreshDue ? (
+              <Link href="/client/knowledge" className="block p-4 hover:bg-surface-hover">
+                {refreshDue} knowledge {refreshDue === 1 ? "review is" : "reviews are"} due.
+              </Link>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="mt-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="font-semibold">Business activity <span className="font-normal text-muted">· since setup</span></h2>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Conversations" value={analytics.conversationCount} />
+          <StatCard label="First response" value={formatDuration(analytics.avgFirstResponseSeconds)} />
+          <StatCard label="Escalation rate" value={Math.round(analytics.escalationRate * 100) + "%"} />
+          <StatCard label="Customer rating" value={analytics.csatAverage === null ? "Pending" : analytics.csatAverage.toFixed(1)}
+            hint={analytics.csatResponses + " responses"} />
+        </div>
+      </section>
+
+      <section className="mt-5 grid gap-5 xl:grid-cols-2">
+        <div className="ui-panel">
+          <div className="ui-panel-header flex items-center justify-between gap-3">
+            <h2 className="font-semibold">Needs your reply</h2>
+            <Link href="/client/inbox?status=needs_reply" className="text-sm text-accent">View all</Link>
+          </div>
+          <ConversationList conversations={needsReply}
+            hrefForConversation={(conversation) => "/client/conversations/" + conversation.id}
+            emptyText="No customers need a reply right now." ctaLabel="Open" />
+        </div>
+        <div className="ui-panel">
+          <div className="ui-panel-header flex items-center justify-between gap-3">
+            <h2 className="font-semibold">Recent conversations</h2>
+            <Link href="/client/inbox" className="text-sm text-accent">View inbox</Link>
+          </div>
+          <ConversationList conversations={recent}
+            hrefForConversation={(conversation) => "/client/conversations/" + conversation.id}
+            emptyText="No conversations yet." ctaLabel="Open" />
+        </div>
       </section>
     </AppShell>
   );
 }
 
-function AttentionCard({
-  label,
-  value,
-  detail,
-  href,
-}: {
-  label: string;
-  value: number;
-  detail: string;
-  href: string;
-}) {
-  return (
-    <Link href={href} className="rounded-lg border border-line bg-surface p-4 hover:bg-surface-hover">
-      <p className="text-sm font-medium leading-[18px] text-muted">{label}</p>
-      <p className="mt-3 text-[30px] font-normal leading-9">{value}</p>
-      <p className="mt-1 text-sm text-muted">{detail}</p>
-    </Link>
-  );
-}
-
-type ThemeSummary = {
-  key: string;
-  label: string;
-  detail: string;
-  count: number;
-  href: string;
-};
-
-function summarizeThemes(conversations: FilteredConversation[]): ThemeSummary[] {
-  const counts = new Map<string, number>();
-  for (const conversation of conversations) {
-    if (conversation.active_escalation_reason_code) {
-      counts.set(
-        conversation.active_escalation_reason_code,
-        (counts.get(conversation.active_escalation_reason_code) ?? 0) + 1,
-      );
-    }
-  }
-
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
-    .map(([key, count]) => ({
-      key,
-      label: titleize(key),
-      detail: count === 1 ? "One recent conversation" : `${count} recent conversations`,
-      count,
-      href: `/client/inbox?reason=${encodeURIComponent(key)}`,
-    }));
-}
-
-function attentionTone(total: number): "green" | "amber" {
-  return total > 0 ? "amber" : "green";
-}
-
 function formatDuration(seconds: number | null): string {
-  if (seconds === null) {
-    return "Pending";
-  }
-  if (seconds < 60) {
-    return `${Math.round(seconds)}s`;
-  }
-  if (seconds < 3600) {
-    return `${Math.round(seconds / 60)}m`;
-  }
-  return `${Math.round(seconds / 3600)}h`;
-}
-
-function titleize(value: string): string {
-  return value
-    .split(/[_\s-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  if (seconds === null) return "Pending";
+  if (seconds < 60) return Math.round(seconds) + "s";
+  if (seconds < 3600) return Math.round(seconds / 60) + "m";
+  return Math.round(seconds / 3600) + "h";
 }

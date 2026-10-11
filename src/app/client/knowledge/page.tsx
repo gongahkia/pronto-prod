@@ -1,179 +1,112 @@
-import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { formatDate as formatDisplayDate } from "@/lib/date-format";
+import { getAssistantDraft } from "@/lib/assistant-drafts";
 import { getClient, getKnowledgeSources } from "@/lib/dashboard";
 import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
+import { ClientAssistantNav } from "@/components/client-assistant-nav";
 import { KnowledgeFileInput } from "@/components/knowledge-file-input";
 import { KnowledgeRefreshPanel } from "@/components/knowledge-refresh-panel";
 import { PendingSubmitButton } from "@/components/pending-submit-button";
 
-type KnowledgeTab = "sources" | "refresh" | "add";
-
-export default async function ClientKnowledgePage({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+export default async function ClientKnowledgePage({ searchParams }: {
+  searchParams?: Promise<{ staged?: string }>;
 }) {
   const user = await requireUser("client");
-  if (!user.clientId) {
-    throw new Error("Client user is missing a client assignment.");
-  }
-  const resolvedSearchParams = searchParams ? await searchParams : {};
-  const activeTab = knowledgeTabFromSearchParams(resolvedSearchParams);
-
-  const [client, knowledge, refreshRequests] = await Promise.all([
+  if (!user.clientId) throw new Error("Client user is missing a client assignment.");
+  const [client, sources, refreshRequests, draft, params] = await Promise.all([
     getClient(user.clientId),
     getKnowledgeSources(user.clientId),
     getKnowledgeRefreshRequests(user.clientId),
+    getAssistantDraft(user.clientId),
+    searchParams ?? Promise.resolve({} as { staged?: string }),
   ]);
-  if (!client) {
-    throw new Error("Client record not found.");
-  }
-
-  const openRefreshes = refreshRequests.filter((request) => request.status === "open");
+  if (!client) throw new Error("Client record not found.");
+  const changes = draft?.knowledge_changes ?? {};
+  const rows = [
+    ...sources.map((source) => ({
+      id: source.id,
+      title: changes[source.id]?.title ?? source.title,
+      kind: source.source_type,
+      draftAction: changes[source.id]?.action ?? null,
+    })),
+    ...Object.values(changes)
+      .filter((change) => !sources.some((source) => source.id === change.sourceId))
+      .map((change) => ({
+        id: change.sourceId, title: change.title,
+        kind: change.sourceType, draftAction: change.action,
+      })),
+  ];
+  const openRefreshes = refreshRequests.filter((item) => item.status === "open");
 
   return (
-    <AppShell user={user} active="client" clientActive="knowledge" workspaceName={client.name}>
+    <AppShell user={user} active="client" clientActive="assistant" workspaceName={client.name}>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Knowledge</h1>
-          <p className="text-sm text-muted">
-            What Pronto knows about your business, and what needs updating.
-          </p>
+          <p className="text-sm text-muted">The business information Pronto can use to answer customers.</p>
         </div>
-        <nav aria-label="Knowledge sections" className="flex gap-2 overflow-x-auto">
-          <KnowledgeTabLink tab="sources" activeTab={activeTab} label="Sources" count={knowledge.length} />
-          <KnowledgeTabLink tab="refresh" activeTab={activeTab} label="Refresh" count={openRefreshes.length} />
-          <KnowledgeTabLink tab="add" activeTab={activeTab} label="Add source" />
-        </nav>
+        <a href="#add-source" className="ui-primary-button px-4 py-2">Add source</a>
       </div>
-
-      {activeTab === "sources" ? (
-        <section className="ui-panel">
-          <div className="ui-panel-header">
-            <div>
-              <h2 className="text-base font-semibold">What Pronto knows</h2>
-              <p className="text-sm text-muted">
-                Approved business sources that Pronto can use when answering customers.
-              </p>
-            </div>
-            <Badge tone={knowledge.length ? "green" : "amber"}>{knowledge.length} sources</Badge>
-          </div>
-          <div className="divide-y divide-line">
-            {knowledge.length === 0 ? (
-              <p className="p-4 text-sm text-muted">No knowledge sources yet.</p>
-            ) : (
-              knowledge.map((source) => (
-                <Link
-                  key={source.id}
-                  href={`/client/knowledge/${source.id}`}
-                  className="flex items-center justify-between gap-4 p-4 hover:bg-surface-hover"
-                >
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">{source.title}</p>
-                      <Badge>{source.source_type}</Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-muted">
-                      {source.chunk_count} searchable sections · added {formatKnowledgeDate(source.created_at)}
-                    </p>
-                  </div>
-                  <ArrowRight size={17} className="shrink-0 text-muted" />
-                </Link>
-              ))
-            )}
-          </div>
-        </section>
+      <ClientAssistantNav active="knowledge" />
+      {params.staged ? (
+        <p role="status" className="mb-4 rounded-md bg-success-bg p-3 text-sm text-success">
+          Saved as a draft. Test and publish it from Manage assistant when ready.
+        </p>
       ) : null}
-
-      {activeTab === "refresh" ? (
-        <KnowledgeRefreshPanel
-          requests={refreshRequests}
-          action="/api/client/knowledge-refresh"
-        />
-      ) : null}
-
-      {activeTab === "add" ? (
-        <section className="ui-panel">
-          <div className="ui-panel-header">
-            <div>
-              <h2 className="text-base font-semibold">Add knowledge</h2>
-              <p className="text-sm text-muted">
-                Add menus, policies, FAQs, or service notes Pronto should rely on.
-              </p>
-            </div>
+      <section className="ui-panel">
+        <div className="ui-panel-header">
+          <div>
+            <h2 className="font-semibold">Sources</h2>
+            <p className="text-sm text-muted">Review what is live and what is waiting to be published.</p>
           </div>
-          <form action="/api/client/knowledge" method="post" encType="multipart/form-data" className="space-y-3 p-4">
-            <input
-              name="title"
-              className="w-full rounded-md border border-line px-3 py-2 text-sm"
-              placeholder="Source title, optional for uploads"
-            />
-            <textarea
-              name="content"
-              rows={8}
-              className="w-full rounded-md border border-line px-3 py-2 text-sm"
-              placeholder="Paste menu, policy, opening hours, FAQs, or service notes"
-            />
-            <KnowledgeFileInput />
-            <PendingSubmitButton className="ui-primary-button px-4 py-2" pendingText="Adding...">
-              Add source
-            </PendingSubmitButton>
-          </form>
-        </section>
-      ) : null}
+          <Badge>{rows.length} sources</Badge>
+        </div>
+        <div className="divide-y divide-line">
+          {rows.length === 0 ? <p className="p-5 text-sm text-muted">No sources yet. Add a menu, FAQ, policy, or service note below.</p> : null}
+          {rows.map((source) => (
+            <Link key={source.id} href={"/client/knowledge/" + source.id}
+              className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-surface-hover">
+              <div>
+                <p className="font-medium">{source.title}</p>
+                <p className="mt-1 text-xs text-muted">{source.kind}</p>
+              </div>
+              {source.draftAction ? <Badge tone="amber">
+                {source.draftAction === "delete" ? "Removal draft" : "Unpublished"}
+              </Badge> : <Badge tone="green">Live</Badge>}
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section id="add-source" className="mt-5 ui-panel">
+        <div className="ui-panel-header">
+          <div>
+            <h2 className="font-semibold">Add knowledge</h2>
+            <p className="text-sm text-muted">Paste text or upload a supported document. The source stays in draft until publication.</p>
+          </div>
+        </div>
+        <form action="/api/client/knowledge" method="post" encType="multipart/form-data" className="space-y-3 p-4">
+          <label className="block text-sm font-medium">Source title
+            <input name="title" className="ui-input mt-1 w-full px-3 py-2" placeholder="Menu, returns policy, opening hours..." />
+          </label>
+          <label className="block text-sm font-medium">Content
+            <textarea name="content" rows={7} className="ui-input mt-1 w-full px-3 py-2 font-normal"
+              placeholder="Paste the facts customers should be able to ask about." />
+          </label>
+          <KnowledgeFileInput />
+          <PendingSubmitButton className="ui-primary-button px-4 py-2" pendingText="Saving draft...">
+            Save source draft
+          </PendingSubmitButton>
+        </form>
+      </section>
+      <details className="mt-5" open={openRefreshes.length > 0}>
+        <summary className="cursor-pointer text-sm font-medium">
+          Knowledge refresh requests{openRefreshes.length ? ` · ${openRefreshes.length} open` : ""}
+        </summary>
+        <div className="mt-3"><KnowledgeRefreshPanel requests={refreshRequests} action="/api/client/knowledge-refresh" /></div>
+      </details>
     </AppShell>
   );
-}
-
-function KnowledgeTabLink({
-  tab,
-  activeTab,
-  label,
-  count,
-}: {
-  tab: KnowledgeTab;
-  activeTab: KnowledgeTab;
-  label: string;
-  count?: number;
-}) {
-  const active = tab === activeTab;
-  return (
-    <Link
-      href={`/client/knowledge?tab=${tab}`}
-      aria-current={active ? "page" : undefined}
-      className={`inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${
-        active
-          ? "bg-accent text-white"
-          : "border border-line bg-surface text-muted hover:bg-surface-hover hover:text-foreground"
-      }`}
-    >
-      {label}
-      {count !== undefined ? (
-        <span className={`rounded-full px-2 py-0.5 text-xs ${active ? "bg-white/20 text-white" : "bg-panel text-muted"}`}>
-          {count}
-        </span>
-      ) : null}
-    </Link>
-  );
-}
-
-function knowledgeTabFromSearchParams(
-  searchParams: Record<string, string | string[] | undefined>,
-): KnowledgeTab {
-  const value = Array.isArray(searchParams.tab) ? searchParams.tab[0] : searchParams.tab;
-  if (value === "refresh" || value === "add") {
-    return value;
-  }
-  return "sources";
-}
-
-function formatKnowledgeDate(value: Date | null): string {
-  if (!value) {
-    return "None";
-  }
-  return formatDisplayDate(value);
 }

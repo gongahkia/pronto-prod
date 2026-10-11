@@ -21,6 +21,8 @@ pnpm dev
 
 Open `http://127.0.0.1:3000`.
 
+The client workspace has four main areas: Overview, Inbox, Manage assistant, and Settings. In Manage assistant, edits to knowledge, brand voice, and handoff rules are saved together as a draft. Test a customer question there, then publish the tested draft to make it live. Channel details have a separate save, connection check, and publish flow; activating a channel requires a successful live check.
+
 Seeded logins:
 
 - Operator: `operator@pronto.sg` / `pronto-operator`

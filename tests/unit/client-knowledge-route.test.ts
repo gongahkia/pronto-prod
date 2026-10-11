@@ -2,15 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(),
-  ingestKnowledgeSource: vi.fn(),
+  stageKnowledge: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
   requireUser: mocks.requireUser,
 }));
 
-vi.mock("@/lib/knowledge/ingest", () => ({
-  ingestKnowledgeSource: mocks.ingestKnowledgeSource,
+vi.mock("@/lib/assistant-drafts", () => ({
+  stageKnowledge: mocks.stageKnowledge,
 }));
 
 vi.mock("@/lib/knowledge/parse-upload", () => ({
@@ -34,19 +34,16 @@ describe("client knowledge route", () => {
     const response = await POST(formRequest(new FormData()));
 
     expect(response.status).toBe(400);
-    expect(mocks.ingestKnowledgeSource).not.toHaveBeenCalled();
+    expect(mocks.stageKnowledge).not.toHaveBeenCalled();
   });
 
-  it("ingests into the authenticated client's account", async () => {
+  it("stages knowledge for the authenticated client's account", async () => {
     mocks.requireUser.mockResolvedValueOnce({
       userId: "user-1",
       clientId: "client-actual",
       role: "client",
     });
-    mocks.ingestKnowledgeSource.mockResolvedValueOnce({
-      sourceId: "source-1",
-      chunkCount: 1,
-    });
+    mocks.stageKnowledge.mockResolvedValueOnce("source-1");
 
     const form = new FormData();
     form.set("clientId", "client-forged");
@@ -56,9 +53,10 @@ describe("client knowledge route", () => {
     const response = await POST(formRequest(form));
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("http://localhost/client/knowledge");
-    expect(mocks.ingestKnowledgeSource).toHaveBeenCalledWith({
+    expect(response.headers.get("location")).toBe("http://localhost/client/knowledge?staged=1");
+    expect(mocks.stageKnowledge).toHaveBeenCalledWith({
       clientId: "client-actual",
+      action: "upsert",
       title: "Updated menu",
       sourceType: "client_manual",
       content: "Kopi is SGD 2.20.",
