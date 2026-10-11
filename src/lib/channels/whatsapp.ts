@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
-import { decryptChannelCredentials } from "@/lib/channels/credentials";
+import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib/channels/credentials";
 import { whatsAppGraphVersion } from "@/lib/env";
 import { fetchWithTimeout } from "@/lib/http/fetch";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
@@ -12,7 +12,7 @@ export function verifyWhatsAppSignature(
   appSecret: string | undefined,
 ): boolean {
   if (!appSecret) {
-    return process.env.NODE_ENV !== "production";
+    return false;
   }
   if (!signatureHeader?.startsWith("sha256=")) {
     return false;
@@ -29,6 +29,20 @@ export function verifyWhatsAppSignature(
     expectedBuffer.length === providedBuffer.length &&
     timingSafeEqual(expectedBuffer, providedBuffer)
   );
+}
+
+export function whatsAppPayloadMatchesChannel(payload: Record<string, unknown>, phoneNumberId: string): boolean {
+  if (payload.object !== "whatsapp_business_account" || !phoneNumberId) return false;
+  const entries = Array.isArray(payload.entry) ? payload.entry : [];
+  if (!entries.length) return false;
+  for (const entry of entries) {
+    if (!isRecord(entry) || !Array.isArray(entry.changes)) return false;
+    for (const change of entry.changes) {
+      if (!isRecord(change) || !isRecord(change.value) || !isRecord(change.value.metadata) ||
+        change.value.metadata.phone_number_id !== phoneNumberId) return false;
+    }
+  }
+  return true;
 }
 
 export function normalizeWhatsAppPayload(
@@ -150,5 +164,6 @@ export async function getWhatsAppChannel(channelId: string): Promise<Channel | n
     "select * from channels where id = $1 and kind = 'whatsapp'",
     [channelId],
   );
-  return result.rows[0] ? decryptChannelCredentials(result.rows[0]) : null;
+  const row = result.rows[0];
+  return row && !usesLegacyPlaintextCredentials(row) ? decryptChannelCredentials(row) : null;
 }

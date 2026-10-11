@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   getInstagramChannel,
+  instagramPayloadMatchesChannel,
   normalizeInstagramPayload,
   verifyInstagramSignature,
 } from "@/lib/channels/instagram";
@@ -18,6 +19,7 @@ export async function GET(request: Request, context: Context) {
   if (!channel) {
     return new NextResponse("Not found", { status: 404 });
   }
+  if (channel.status !== "active") return new NextResponse("Channel inactive", { status: 403 });
 
   const url = new URL(request.url);
   const mode = url.searchParams.get("hub.mode");
@@ -43,6 +45,7 @@ export async function POST(request: Request, context: Context) {
       headers: requestIdHeaders(requestId),
     });
   }
+  if (channel.status !== "active") return new NextResponse("Channel inactive", { status: 403, headers: requestIdHeaders(requestId) });
 
   const rawBody = await request.text();
   if (!isBodyWithinLimit(rawBody)) {
@@ -77,6 +80,10 @@ export async function POST(request: Request, context: Context) {
       status: 400,
       headers: requestIdHeaders(requestId),
     });
+  }
+  const igUserId = (channel.credentials.igUserId as string | undefined) ?? channel.external_id;
+  if (!igUserId || !instagramPayloadMatchesChannel(payload, igUserId)) {
+    return new NextResponse("Business account mismatch", { status: 403, headers: requestIdHeaders(requestId) });
   }
   const messages = normalizeInstagramPayload(channelId, payload);
   return NextResponse.json(await processInboundMessages(messages, { requestId }), {

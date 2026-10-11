@@ -43,6 +43,11 @@ const transactionalPatterns = [
   /கட்டணம்|பணம் செலுத்த|ரத்து|மாற்ற|முன்பதிவு/,
 ];
 
+const privateLookupPatterns = [
+  /\b(order|parcel|shipment|tracking|delivery)\b.*(?:#\d{3,}|\b[A-Z0-9]{8,30}\b)/i,
+  /\b(where is my order|track my (order|parcel|shipment)|order status)\b/i,
+];
+
 const humanHandoffPatterns = [
   /\b(hop|jump|get) on (a )?(quick|short )?call\b/i,
   /\b(can|could|may) (i|we) (speak|talk|chat) (to|with) (a )?(human|person|staff|team|manager|owner|representative|agent)\b/i,
@@ -170,6 +175,15 @@ const defaultGuardrailChecks: GuardrailCheck[] = [
       reasonDetail:
         "The request is outside the agreed business customer-service scope.",
       confidence: 0.9,
+    },
+  },
+  {
+    patterns: privateLookupPatterns,
+    result: {
+      shouldEscalate: true,
+      reasonCode: "private_lookup_unverified",
+      reasonDetail: "Order and tracking information requires verified requester ownership.",
+      confidence: 1,
     },
   },
 ];

@@ -96,6 +96,10 @@ export async function runIntegrationsForMessage(input: {
 
   const results: IntegrationToolResult[] = [];
   for (const intent of intents) {
+    // Provider identifiers are not proof that the requester owns an order or parcel.
+    // These adapters currently lack a verified customer identity contract.
+    if (intent.provider === "shopify" || intent.provider === "woocommerce" ||
+        intent.provider === "delivery_tracking") continue;
     const credential = await resolveIntegrationCredential({
       clientId: input.clientId,
       provider: intent.provider,

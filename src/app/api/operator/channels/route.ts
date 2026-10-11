@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import {
   decryptChannelCredentials,
   encryptedChannelCredentialValues,
+  protectChannelSettingsSecrets,
 } from "@/lib/channels/credentials";
 import { mergeEscalationHoldingReply } from "@/lib/channels/escalation-handoff";
 import { query } from "@/lib/db";
@@ -96,7 +97,9 @@ export async function POST(request: Request) {
     form,
     scope: "credentials",
   });
-  const encryptedCredentials = encryptedChannelCredentialValues(credentialValue);
+  const protectedValues = protectChannelSettingsSecrets(settings, credentialValue,
+    ["verifyToken", "webhookSecret", "eventWebhookSecret"]);
+  const encryptedCredentials = encryptedChannelCredentialValues(protectedValues.credentials);
 
   await query(
     `
@@ -115,7 +118,7 @@ export async function POST(request: Request) {
       channelId,
       status,
       externalId,
-      settings,
+      protectedValues.settings,
       encryptedCredentials.credentials,
       encryptedCredentials.encryptedCredentials,
       encryptedCredentials.nonce,

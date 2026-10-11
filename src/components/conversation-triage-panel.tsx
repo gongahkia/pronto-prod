@@ -69,6 +69,14 @@ export function ConversationTriagePanel({
               </button>
             </form>
           ) : null}
+          {escalation.status === "resolved" ? (
+            <form action="/api/escalations" method="post">
+              <input type="hidden" name="action" value="release" />
+              <input type="hidden" name="escalationId" value={escalation.id} />
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <button className="ui-button px-3 py-2">Release conversation to AI</button>
+            </form>
+          ) : null}
           {escalation.status !== "resolved" ? (
             <details className="rounded-md border border-line p-3 text-sm">
               <summary className="cursor-pointer font-medium">Resolve without sending a reply</summary>

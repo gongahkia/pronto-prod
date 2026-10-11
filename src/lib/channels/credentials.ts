@@ -14,6 +14,10 @@ export type ChannelWithCredentialColumns = {
 
 const encryptedSettingsKey = "__settingsSecrets";
 
+export function usesLegacyPlaintextCredentials(channel: ChannelWithCredentialColumns): boolean {
+  return Object.keys(channel.credentials ?? {}).length > 0;
+}
+
 export function decryptChannelCredentials<T extends ChannelWithCredentialColumns>(
   channel: T,
 ): T {

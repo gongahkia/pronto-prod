@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getPool, vectorLiteral } from "@/lib/db";
 import { processInboundMessage } from "@/lib/channels/process";
+import { flushRetryableOutboundMessages } from "@/lib/channels/outbox";
 import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
 import { getKnowledgeSourceForClient } from "@/lib/knowledge/manage";
 import { deterministicEmbedding } from "@/lib/llm/mock";
@@ -9,15 +10,7 @@ import { getPromptBrandVoiceProfile } from "@/lib/brand-voice";
 
 const fakes = vi.hoisted(() => ({
   sendChannelText: vi.fn(async () => undefined),
-  runAgentForMessage: vi.fn(async () => ({
-    action: "answered" as const,
-    responseText: "We open at 10 am.",
-    reasonCode: "grounded_answer",
-    reasonDetail: "Local baseline fixture.",
-    confidence: 0.9,
-    citedChunks: [],
-    agentMessageId: "fixture-agent-message",
-  })),
+  runAgentForMessage: vi.fn(),
 }));
 
 vi.mock("@/lib/channels/dispatch", () => ({ sendChannelText: fakes.sendChannelText }));
@@ -44,6 +37,18 @@ dbDescribe("isolated PostgreSQL message and retrieval baseline", () => {
     fakes.sendChannelText.mockClear();
     fakes.runAgentForMessage.mockClear();
     const db = getPool();
+    fakes.runAgentForMessage.mockImplementation(async (input: {
+      clientId: string; channelId: string; conversationId: string; customerMessageId: string;
+    }) => {
+      const saved = await db.query<{ id: string }>(
+        `insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
+         values ($1, $2, $3, $4, 'agent', 'We open at 10 am.', $5) returning id`,
+        [input.conversationId, input.clientId, input.channelId, `agent-${input.customerMessageId}`,
+          { customerMessageId: input.customerMessageId, reasonCode: "grounded_answer" }],
+      );
+      return { action: "answered", responseText: "We open at 10 am.", reasonCode: "grounded_answer",
+        agentMessageId: saved.rows[0].id };
+    });
     await db.query(
       `insert into clients (id, name, slug, vertical, brand_voice) values
        ($1, 'Tenant A', $2, 'test', 'A voice'),
@@ -101,6 +106,7 @@ dbDescribe("isolated PostgreSQL message and retrieval baseline", () => {
     const first = await processInboundMessage(input(channelA, "a-message"));
     const duplicate = await processInboundMessage(input(channelA, "a-message"));
     const otherTenant = await processInboundMessage(input(channelB, "b-message"));
+    await flushRetryableOutboundMessages();
     expect(first.duplicate).toBe(false);
     expect(duplicate.duplicate).toBe(true);
     expect(otherTenant.conversationId).not.toBe(first.conversationId);

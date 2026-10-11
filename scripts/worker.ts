@@ -1,8 +1,11 @@
 import { flushRetryableOutboundMessages } from "../src/lib/channels/outbox";
+import { expireExhaustedInboundLeases } from "../src/lib/channels/inbox";
+import { processInboundJob } from "../src/lib/channels/inbox-worker";
 import { getPool } from "../src/lib/db";
 
 const intervalMs = positiveNumber("PRONTO_WORKER_OUTBOX_INTERVAL_MS", 15_000);
 const batchLimit = positiveNumber("PRONTO_WORKER_OUTBOX_LIMIT", 25);
+const inboundLimit = positiveNumber("PRONTO_WORKER_INBOUND_LIMIT", 25);
 let shuttingDown = false;
 
 async function main() {
@@ -11,6 +14,7 @@ async function main() {
       event: "worker.started",
       outboxIntervalMs: intervalMs,
       outboxLimit: batchLimit,
+      inboundLimit,
     }),
   );
 
@@ -20,6 +24,16 @@ async function main() {
   while (!shuttingDown) {
     const startedAt = Date.now();
     try {
+      await expireExhaustedInboundLeases();
+      for (let index = 0; index < inboundLimit; index += 1) {
+        try {
+          const job = await processInboundJob({ requestId: `worker-${startedAt}` });
+          if (!job) break;
+        } catch (error) {
+          console.error(JSON.stringify({ event: "worker.inbound_failed",
+            error: error instanceof Error ? error.message : String(error) }));
+        }
+      }
       const result = await flushRetryableOutboundMessages({
         requestId: `worker-${startedAt}`,
         limit: batchLimit,

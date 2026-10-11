@@ -142,6 +142,34 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL(returnTo, request.url), 303);
   }
 
+  if (action === "release") {
+    if (escalation.status !== "resolved") {
+      return NextResponse.json({ error: "Resolve the handoff before releasing AI ownership." }, { status: 409 });
+    }
+    await transaction(async (db) => {
+      const conversation = await db.query<{ id: string }>(
+        "select id from conversations where id = $1 and client_id = $2 for update",
+        [escalation.conversation_id, escalation.client_id],
+      );
+      if (!conversation.rows[0]) throw new Error("Conversation not found.");
+      const open = await db.query<{ id: string }>(
+        "select id from escalations where conversation_id = $1 and client_id = $2 and status in ('open', 'claimed') limit 1",
+        [escalation.conversation_id, escalation.client_id],
+      );
+      if (open.rows[0]) throw new Error("Another human handoff is still open.");
+      await db.query(
+        "update conversations set status = 'active', last_message_at = now() where id = $1 and client_id = $2",
+        [escalation.conversation_id, escalation.client_id],
+      );
+      await recordAuditLog({
+        clientId: escalation.client_id, actorUserId: user.userId,
+        action: "conversation.ai_released", targetType: "conversation",
+        targetId: escalation.conversation_id, metadata: { escalationId: escalation.id },
+      }, db);
+    }, { isolationLevel: "serializable", retries: 2 });
+    return NextResponse.redirect(new URL(returnTo, request.url), 303);
+  }
+
   if (action === "resolve") {
     const reply = String(form.get("reply") ?? "").trim();
     let outboundMessageId: string | null = null;

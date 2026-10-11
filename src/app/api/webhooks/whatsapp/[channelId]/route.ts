@@ -3,6 +3,7 @@ import {
   getWhatsAppChannel,
   normalizeWhatsAppPayload,
   verifyWhatsAppSignature,
+  whatsAppPayloadMatchesChannel,
 } from "@/lib/channels/whatsapp";
 import { processInboundMessages } from "@/lib/channels/process";
 import { isBodyWithinLimit } from "@/lib/http-limits";
@@ -18,6 +19,7 @@ export async function GET(request: Request, context: Context) {
   if (!channel) {
     return new NextResponse("Not found", { status: 404 });
   }
+  if (channel.status !== "active") return new NextResponse("Channel inactive", { status: 403 });
 
   const url = new URL(request.url);
   const mode = url.searchParams.get("hub.mode");
@@ -44,6 +46,7 @@ export async function POST(request: Request, context: Context) {
       headers: requestIdHeaders(requestId),
     });
   }
+  if (channel.status !== "active") return new NextResponse("Channel inactive", { status: 403, headers: requestIdHeaders(requestId) });
 
   const rawBody = await request.text();
   if (!isBodyWithinLimit(rawBody)) {
@@ -78,6 +81,10 @@ export async function POST(request: Request, context: Context) {
       status: 400,
       headers: requestIdHeaders(requestId),
     });
+  }
+  const phoneNumberId = (channel.credentials.phoneNumberId as string | undefined) ?? channel.external_id;
+  if (!phoneNumberId || !whatsAppPayloadMatchesChannel(payload, phoneNumberId)) {
+    return new NextResponse("Business number mismatch", { status: 403, headers: requestIdHeaders(requestId) });
   }
   const messages = normalizeWhatsAppPayload(channelId, payload);
   return NextResponse.json(await processInboundMessages(messages, { requestId }), {

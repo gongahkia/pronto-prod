@@ -1,5 +1,5 @@
 import { query } from "@/lib/db";
-import { decryptChannelCredentials } from "@/lib/channels/credentials";
+import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib/channels/credentials";
 import { recordOutboundHealth } from "@/lib/channels/health";
 import {
   assertChannelSendAllowed,
@@ -30,6 +30,13 @@ export async function sendChannelText(input: {
     : undefined;
   if (!channel) {
     throw new Error(`Channel not found: ${input.channelId}`);
+  }
+  if (channel.status !== "active") {
+    throw new Error("Channel is disabled or inactive; outbound send blocked.");
+  }
+  if ((channel.kind === "whatsapp" || channel.kind === "instagram") &&
+      usesLegacyPlaintextCredentials(channelResult.rows[0])) {
+    throw new Error("Meta channel credentials must be encrypted before activation.");
   }
 
   assertChannelSendAllowed(channel, input.policy);

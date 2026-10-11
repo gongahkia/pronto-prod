@@ -592,13 +592,14 @@ export async function runAgentForMessage(input: {
     `
       insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
       values ($1, $2, $3, $4, 'agent', $5, $6)
+      on conflict (channel_id, external_message_id) do update set external_message_id = excluded.external_message_id
       returning id
     `,
     [
       input.conversationId,
       input.clientId,
       input.channelId,
-      `agent-${randomUUID()}`,
+      `agent-${input.customerMessageId}`,
       decision.answer,
       {
         confidence: decision.confidence,
@@ -609,13 +610,14 @@ export async function runAgentForMessage(input: {
           reasonDetail: selfCheck.reasonDetail,
         },
         csatUrl,
+        customerMessageId: input.customerMessageId,
       },
     ],
   );
 
   await query(
-    "update conversations set status = 'active', last_message_at = now() where id = $1",
-    [input.conversationId],
+    "update conversations set last_message_at = now() where id = $1 and client_id = $2 and status = 'active'",
+    [input.conversationId, input.clientId],
   );
   await query(
     "insert into metric_events (client_id, event_type, value, metadata) values ($1, 'agent_answered', $2, $3)",
@@ -686,6 +688,7 @@ export async function createEscalation(input: {
       `
         insert into escalations (client_id, conversation_id, message_id, reason_code, reason_detail, confidence)
         values ($1, $2, $3, $4, $5, $6)
+        on conflict (message_id) do update set message_id = excluded.message_id
         returning id
       `,
       [
@@ -750,26 +753,28 @@ async function recordDirectAgentAnswer(
     `
       insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
       values ($1, $2, $3, $4, 'agent', $5, $6)
+      on conflict (channel_id, external_message_id) do update set external_message_id = excluded.external_message_id
       returning id
     `,
     [
       input.conversationId,
       input.clientId,
       input.channelId,
-      `agent-${randomUUID()}`,
+      `agent-${input.customerMessageId}`,
       output.answer,
       {
         confidence: output.confidence,
         reasonCode: output.reasonCode,
         citedChunkIds: [],
         csatUrl,
+        customerMessageId: input.customerMessageId,
         ...output.metadata,
       },
     ],
   );
 
   await query(
-    "update conversations set status = 'active', last_message_at = now() where id = $1 and client_id = $2",
+    "update conversations set last_message_at = now() where id = $1 and client_id = $2 and status = 'active'",
     [input.conversationId, input.clientId],
   );
   await query(

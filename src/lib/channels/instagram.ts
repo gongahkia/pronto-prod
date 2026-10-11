@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
-import { decryptChannelCredentials } from "@/lib/channels/credentials";
+import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib/channels/credentials";
 import { fetchWithTimeout } from "@/lib/http/fetch";
 import { redactErrorMessage } from "@/lib/logger";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
@@ -14,7 +14,7 @@ export function verifyInstagramSignature(
   appSecret: string | undefined,
 ): boolean {
   if (!appSecret) {
-    return process.env.NODE_ENV !== "production";
+    return false;
   }
   if (!signatureHeader?.startsWith("sha256=")) {
     return false;
@@ -26,6 +26,15 @@ export function verifyInstagramSignature(
   return (
     expectedBuf.length === providedBuf.length && timingSafeEqual(expectedBuf, providedBuf)
   );
+}
+
+export function instagramPayloadMatchesChannel(payload: Record<string, unknown>, igUserId: string): boolean {
+  if (payload.object !== "instagram" || !igUserId) return false;
+  const entries = Array.isArray(payload.entry) ? payload.entry : [];
+  if (!entries.length) return false;
+  return entries.every((entry) => isRecord(entry) && entry.id === igUserId &&
+    (Array.isArray(entry.messaging) ? entry.messaging.every((event) =>
+      !isRecord(event) || !isRecord(event.recipient) || event.recipient.id === igUserId) : true));
 }
 
 export function normalizeInstagramPayload(
@@ -43,6 +52,7 @@ export function normalizeInstagramPayload(
       const sender = event.sender;
       if (typeof sender.id !== "string" || typeof message.mid !== "string") continue;
       if (message.is_echo === true) continue;
+      if (isRecord(event.recipient) && sender.id === event.recipient.id) continue;
 
       const text = typeof message.text === "string" ? message.text : null;
       const unsupportedMediaType = text ? undefined : instagramUnsupportedType(message);
@@ -120,7 +130,8 @@ export async function getInstagramChannel(channelId: string): Promise<Channel | 
     "select * from channels where id = $1 and kind = 'instagram'",
     [channelId],
   );
-  return result.rows[0] ? decryptChannelCredentials(result.rows[0]) : null;
+  const row = result.rows[0];
+  return row && !usesLegacyPlaintextCredentials(row) ? decryptChannelCredentials(row) : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

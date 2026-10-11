@@ -1,6 +1,6 @@
 import { sendChannelText } from "@/lib/channels/dispatch";
 import { policyFromOutboundMetadata } from "@/lib/channels/policy";
-import { query, type Queryable } from "@/lib/db";
+import { query, transaction, type Queryable } from "@/lib/db";
 import { recordErrorEvent } from "@/lib/error-tracking";
 import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
 
@@ -12,7 +12,7 @@ export type OutboundMessage = {
   channel_id: string;
   external_thread_id: string;
   body: string;
-  status: "pending" | "sending" | "sent" | "failed";
+  status: "pending" | "sending" | "sent" | "failed" | "suppressed";
   attempt_count: number;
   last_error: string | null;
   idempotency_key: string;
@@ -155,24 +155,44 @@ export async function flushOutboundMessage(
 
   try {
     const policy = policyFromOutboundMetadata(outbound.metadata);
-    await sendChannelText({
-      channelId: outbound.channel_id,
-      clientId: outbound.client_id,
-      externalThreadId: outbound.external_thread_id,
-      text: outbound.body,
+    const send = async () => sendChannelText({
+      channelId: outbound.channel_id, clientId: outbound.client_id,
+      externalThreadId: outbound.external_thread_id, text: outbound.body,
       ...(policy ? { policy } : {}),
     });
-    await query(
-      `
-        update outbound_messages
-        set status = 'sent',
-            sent_at = now(),
-            last_error = null,
-            updated_at = now()
-        where id = $1 and client_id = $2
-      `,
-      [outbound.id, outbound.client_id],
-    );
+    if (outbound.metadata.purpose === "agent_answer" && outbound.conversation_id) {
+      const allowed = await transaction(async (db) => {
+        const conversation = await db.query<{ status: string }>(
+          "select status from conversations where id = $1 and client_id = $2 for share",
+          [outbound.conversation_id, outbound.client_id],
+        );
+        const open = await db.query<{ id: string }>(
+          "select id from escalations where conversation_id = $1 and client_id = $2 and status in ('open', 'claimed') limit 1",
+          [outbound.conversation_id, outbound.client_id],
+        );
+        if (conversation.rows[0]?.status !== "active" || open.rows[0]) {
+          await db.query(
+            "update outbound_messages set status = 'suppressed', last_error = 'Human-owned conversation', updated_at = now() where id = $1 and client_id = $2",
+            [outbound.id, outbound.client_id],
+          );
+          return false;
+        }
+        await send();
+        await db.query(
+          "update outbound_messages set status = 'sent', sent_at = now(), last_error = null, updated_at = now() where id = $1 and client_id = $2",
+          [outbound.id, outbound.client_id],
+        );
+        return true;
+      });
+      if (!allowed) return { status: "skipped", outboundMessageId: outbound.id,
+        reason: "Human-owned conversation; AI reply suppressed." };
+    } else {
+      await send();
+      await query(
+        "update outbound_messages set status = 'sent', sent_at = now(), last_error = null, updated_at = now() where id = $1 and client_id = $2",
+        [outbound.id, outbound.client_id],
+      );
+    }
     logInfo("outbox.flush_sent", {
       requestId: options.requestId,
       outboundMessageId: outbound.id,
