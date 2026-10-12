@@ -58,6 +58,12 @@ the customer holding reply and a notification addressed to
 `operator@ps-cafe-demo.test`. A subsequent customer reply with `In-Reply-To`
 keeps the thread human-owned and produces no independent AI answer.
 
+The escalation notification is now a durable staff job drained by the demo
+worker. The demo contact is explicitly marked as an operator audience and its
+action link requires operator login. Business staff destinations configured
+through Tranche A receive the tenant-scoped client conversation link instead.
+See [managed operations](../ops/managed-operations.md).
+
 The operator can inspect the tenant's channels, conversation ownership,
 escalations, worker heartbeat and outbound failures in the existing dashboard.
 The WhatsApp, Instagram and Messenger demo channels remain **draft**. Their

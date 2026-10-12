@@ -32,11 +32,35 @@ export default async function ClientApprovalsPage() {
       </section>)}
       {draft ? <section className="ui-panel p-4"><h2 className="font-semibold">Assistant and knowledge changes</h2>
         <p className="text-sm">Revision {draft.edit_version} · {Object.keys(draft.knowledge_changes).length} source change(s)</p>
+        {draft.voice ? <div className="my-2 rounded border border-line p-3 text-sm">
+          <p className="font-medium">Proposed voice guide: {draft.voice.title}</p>
+          <p className="mt-1 whitespace-pre-wrap">{draft.voice.content}</p>
+          <p className="mt-1 text-xs text-muted">{draft.voice.examples.length} example replies · source: {draft.voice.sourceNotes ?? "manual proposal"}</p>
+          {draft.voice.examples.length ? <details className="mt-2"><summary className="cursor-pointer">Review examples</summary>
+            <ul className="mt-2 space-y-2">{draft.voice.examples.map((example, index) => <li key={index} className="rounded border border-line p-2">
+              <p>Customer: {example.customerMessage}</p><p>Suggested reply: {example.idealResponse}</p></li>)}</ul>
+          </details> : null}
+        </div> : null}
+        {draft.flow ? <details className="my-2 rounded border border-line p-3 text-sm"><summary className="cursor-pointer font-medium">Proposed handoff rules</summary>
+          <ul className="mt-2 space-y-2">{draft.flow.nodes.filter((node) => node.data.kind === "decision" || node.data.kind === "outcome")
+            .map((node) => <li key={node.id}><strong>{node.data.label}</strong> · {node.data.enabled === false ? "off" : "on"}
+              <p>{node.data.description}</p>
+              {node.data.triggerTerms?.length ? <p className="text-xs text-muted">Triggers: {node.data.triggerTerms.join(", ")}</p> : null}</li>)}</ul>
+        </details> : null}
+        {draft.config ? <div className="my-2 rounded border border-line p-3 text-sm">
+          <p className="font-medium">Proposed assistant rules and model settings</p>
+          <p>Response provider: {draft.config.responseProvider} · model: {draft.config.responseModel}</p>
+          <p>Knowledge embedding: {draft.config.embeddingProvider} · model: {draft.config.embeddingModel}</p>
+          <p>Retrieval threshold: {draft.config.retrievalThreshold}</p>
+          <p className="mt-2 whitespace-pre-wrap">Prompt: {draft.config.promptPreamble}</p>
+          <pre className="mt-2 overflow-auto text-xs">{JSON.stringify(draft.config.escalationRules, null, 2)}</pre>
+        </div> : null}
         <ul className="my-2 space-y-3 text-sm">{Object.values(draft.knowledge_changes).map((change) =>
           <li key={change.sourceId} className="rounded border border-line p-3">
             <strong>{change.action}: {change.title}</strong> · {change.sourceType}
             {change.action === "upsert" ? <p className="mt-2 whitespace-pre-wrap">{change.content}</p> : null}
-            <p className="mt-2 text-xs text-muted">Source: {String(change.metadata.sourceUrl ?? change.metadata.entryMode ?? "not supplied")}</p>
+            <p className="mt-2 text-xs text-muted">Source: {String(change.metadata.sourceReference ?? "manual proposal")}
+              {change.authorUserId ? ` · proposed by user ${change.authorUserId}` : ""}</p>
           </li>)}</ul>
         {knowledgeApprover ? <form action="/api/client/approvals" method="post" className="space-y-2">
           <input type="hidden" name="kind" value="assistant"/><input type="hidden" name="revision" value={draft.edit_version}/>

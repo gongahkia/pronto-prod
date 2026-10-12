@@ -41,9 +41,6 @@ export async function POST(request: Request) {
   if (!channelStatuses.includes(status as ChannelStatus)) {
     return NextResponse.json({ error: "Invalid channel status." }, { status: 400 });
   }
-  if (status === "active") {
-    return NextResponse.json({ error: "Use reviewed activation after business approval and evidence checks." }, { status: 403 });
-  }
   if (!canAccessClient(user, clientId)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
@@ -56,8 +53,9 @@ export async function POST(request: Request) {
     encrypted_credentials?: string | null;
     credentials_encryption_nonce?: string | null;
     credentials_encryption_tag?: string | null;
+    updated_at: Date;
   }>(
-    "select client_id, kind, settings, credentials, encrypted_credentials, credentials_encryption_nonce, credentials_encryption_tag from channels where id = $1",
+    "select client_id, kind, settings, credentials, encrypted_credentials, credentials_encryption_nonce, credentials_encryption_tag, updated_at from channels where id = $1",
     [channelId],
   );
   const channel = channelResult.rows[0]
@@ -113,6 +111,31 @@ export async function POST(request: Request) {
     ["verifyToken", "webhookSecret", "eventWebhookSecret"]);
   const encryptedCredentials = encryptedChannelCredentialValues(protectedValues.credentials);
 
+  if (status === "active") {
+    const existingDraft = await query<{ base_updated_at: Date }>(
+      "select base_updated_at from channel_drafts where channel_id = $1 and client_id = $2", [channelId, clientId]);
+    const baseUpdatedAt = existingDraft.rows[0]?.base_updated_at ?? channel.updated_at;
+    if (new Date(baseUpdatedAt).getTime() !== new Date(channel.updated_at).getTime())
+      return NextResponse.json({ error: "Live channel changed; review before staging another revision." }, { status: 409 });
+    await query(
+      `insert into channel_drafts (channel_id, client_id, base_updated_at, status, external_id,
+       settings, encrypted_credentials, credentials_encryption_nonce, credentials_encryption_tag, updated_by)
+       values ($1, $2, $3, 'active', nullif($4, ''), $5::jsonb, $6, $7, $8, $9)
+       on conflict (channel_id) do update set status = 'active', external_id = excluded.external_id,
+         settings = excluded.settings, encrypted_credentials = excluded.encrypted_credentials,
+         credentials_encryption_nonce = excluded.credentials_encryption_nonce,
+         credentials_encryption_tag = excluded.credentials_encryption_tag,
+         health_status = null, health_detail = null, checked_at = null,
+         updated_by = excluded.updated_by, updated_at = now()`,
+      [channelId, clientId, baseUpdatedAt, externalId, JSON.stringify(protectedValues.settings),
+        encryptedCredentials.encryptedCredentials, encryptedCredentials.nonce,
+        encryptedCredentials.tag, user.userId]);
+    await query(
+      "insert into audit_logs (client_id, actor_user_id, action, target_type, target_id, metadata) values ($1, $2, 'channel.draft_saved', 'channel', $3, $4)",
+      [clientId, user.userId, channelId, { proposedStatus: "active" }]);
+    return NextResponse.redirect(new URL(returnTo, request.url), 303);
+  }
+
   await query(
     `
       update channels
@@ -123,6 +146,9 @@ export async function POST(request: Request) {
           encrypted_credentials = $6,
           credentials_encryption_nonce = $7,
           credentials_encryption_tag = $8,
+          last_health_check_at = null,
+          last_health_status = null,
+          last_health_error = null,
           updated_at = now()
       where id = $1
     `,

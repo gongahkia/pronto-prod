@@ -8,15 +8,17 @@ import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
 import { ConversationList } from "@/components/reporting-panels";
 import { StatCard } from "@/components/stat-card";
+import { canViewBusinessConversation } from "@/lib/staff-permissions";
 
 export default async function ClientOverviewPage() {
   const user = await requireUser("client");
   if (!user.clientId) throw new Error("Client user is missing a client assignment.");
+  const canViewConversations = await canViewBusinessConversation(user, user.clientId);
   const [client, analytics, needsReply, recent, channels, sources, refreshes, draft, attentionItems] = await Promise.all([
     getClient(user.clientId),
     getClientDashboardAnalytics(user.clientId),
-    getFilteredConversations({ clientId: user.clientId, status: "needs_reply", sort: "attention", limit: 5 }),
-    getFilteredConversations({ clientId: user.clientId, limit: 5 }),
+    canViewConversations ? getFilteredConversations({ clientId: user.clientId, status: "needs_reply", sort: "attention", limit: 5 }) : Promise.resolve([]),
+    canViewConversations ? getFilteredConversations({ clientId: user.clientId, limit: 5 }) : Promise.resolve([]),
     getChannels(user.clientId),
     getKnowledgeSources(user.clientId),
     getKnowledgeRefreshRequests(user.clientId),
@@ -66,8 +68,9 @@ export default async function ClientOverviewPage() {
               {analytics.actionableEscalations ? "Needs attention" : "All caught up"}
             </Badge>
           </div>
-          <Link href="/client/inbox?status=needs_reply"
+          {canViewConversations ? <Link href="/client/inbox?status=needs_reply"
             className="ui-primary-button mt-5 inline-flex px-4 py-2">Open reply queue</Link>
+            : <p className="mt-4 text-sm text-muted">Ask Pronto to grant conversation access before responding.</p>}
         </div>
         <div className="ui-panel p-5">
           <p className="text-sm text-muted">Assistant status</p>
@@ -131,20 +134,22 @@ export default async function ClientOverviewPage() {
         <div className="ui-panel">
           <div className="ui-panel-header flex items-center justify-between gap-3">
             <h2 className="font-semibold">Needs your reply</h2>
-            <Link href="/client/inbox?status=needs_reply" className="text-sm text-accent">View all</Link>
+            {canViewConversations ? <Link href="/client/inbox?status=needs_reply" className="text-sm text-accent">View all</Link> : null}
           </div>
-          <ConversationList conversations={needsReply}
+          {canViewConversations ? <ConversationList conversations={needsReply}
             hrefForConversation={(conversation) => "/client/conversations/" + conversation.id}
             emptyText="No customers need a reply right now." ctaLabel="Open" />
+            : <p className="p-4 text-sm text-muted">Conversation access has not been granted.</p>}
         </div>
         <div className="ui-panel">
           <div className="ui-panel-header flex items-center justify-between gap-3">
             <h2 className="font-semibold">Recent conversations</h2>
-            <Link href="/client/inbox" className="text-sm text-accent">View inbox</Link>
+            {canViewConversations ? <Link href="/client/inbox" className="text-sm text-accent">View inbox</Link> : null}
           </div>
-          <ConversationList conversations={recent}
+          {canViewConversations ? <ConversationList conversations={recent}
             hrefForConversation={(conversation) => "/client/conversations/" + conversation.id}
             emptyText="No conversations yet." ctaLabel="Open" />
+            : <p className="p-4 text-sm text-muted">Conversation access has not been granted.</p>}
         </div>
       </section>
     </AppShell>

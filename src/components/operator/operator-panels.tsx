@@ -134,6 +134,9 @@ export function OperatorChannelSetup({
     <div className="ui-panel">
       <div className="ui-panel-header">
         <h2 className="text-base font-semibold">Channel setup</h2>
+        <Link href={`/operator/clients/${clientId}/onboarding#communications`} className="text-sm text-accent">
+          Staff notification contacts
+        </Link>
       </div>
       <div className="border-b border-line p-3">
         <nav aria-label="Channel setup" className="flex gap-2 overflow-x-auto">
@@ -292,12 +295,10 @@ const channelFields: Record<ChannelKind, ChannelField[]> = {
     { scope: "credentials", name: "phoneNumberId", label: "Phone number ID" },
     { scope: "credentials", name: "appSecret", label: "App secret", secret: true },
     { scope: "settings", name: "verifyToken", label: "Webhook verify token", secret: true },
-    { scope: "settings", name: "ownerPhone", label: "Owner WhatsApp phone" },
   ],
   telegram: [
     { scope: "credentials", name: "botToken", label: "Bot token", secret: true },
     { scope: "settings", name: "webhookSecret", label: "Webhook secret", secret: true },
-    { scope: "settings", name: "ownerChatId", label: "Owner Telegram chat" },
   ],
   messenger: [
     { scope: "credentials", name: "pageAccessToken", label: "Page access token", secret: true },
@@ -448,7 +449,6 @@ function channelReadinessChecks(channel: Channel): ChannelReadinessCheck[] {
       },
       jsonStringCheck(channel.credentials.appSecret, "App secret"),
       jsonStringCheck(channel.settings.verifyToken, "Webhook verify token"),
-      jsonStringCheck(channel.settings.ownerPhone, "Owner WhatsApp phone"),
       {
         label: "Proactive template guard",
         tone: "green",
@@ -462,7 +462,6 @@ function channelReadinessChecks(channel: Channel): ChannelReadinessCheck[] {
     checks.push(
       jsonStringCheck(channel.credentials.botToken, "Bot token"),
       jsonStringCheck(channel.settings.webhookSecret, "Webhook secret"),
-      jsonStringCheck(channel.settings.ownerChatId, "Owner Telegram chat"),
     );
   }
 

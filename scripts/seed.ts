@@ -156,11 +156,14 @@ async function main() {
         location: "North Bridge Road, Singapore",
         ownerName: "Mei",
         notificationPreference: "telegram",
-        responseSla: "Pilot support, business hours",
       },
       `Warm, quick, practical, and Singapore-aware. Keep replies concise, use plain English with light Singlish only when natural, never sound like a generic chatbot, and avoid over-promising. If unsure, say the team will check.`,
     ],
   );
+  await pool.query(
+    `insert into onboarding_stages (client_id, stage)
+     select $1, stage from (values ('profile'), ('communications'), ('knowledge'), ('testing'), ('activation')) s(stage)
+     on conflict (client_id, stage) do nothing`, [CLIENT_ID]);
 
   await pool.query(
     `

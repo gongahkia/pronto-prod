@@ -24,6 +24,7 @@ import {
 import { StatCard } from "@/components/stat-card";
 import { approvedChopeBookingLink } from "@/lib/reservations/chope";
 import { listOnboardingStages, nextOnboardingAction } from "@/lib/onboarding";
+import { getAssistantDraft } from "@/lib/assistant-drafts";
 
 type OverviewSection =
   | "workspace"
@@ -75,6 +76,7 @@ export default async function ClientOperatorPage({
     conversations,
     brandVoice,
     agentConfig,
+    assistantDraft,
   ] = await Promise.all([
     activeSection === "conversations"
       ? getRecentConversations(client.id, 5)
@@ -85,6 +87,7 @@ export default async function ClientOperatorPage({
     activeSection === "tuning"
       ? getAgentConfigDetail(client.id)
       : Promise.resolve(null),
+    activeSection === "tuning" ? getAssistantDraft(client.id) : Promise.resolve(null),
   ]);
   const activeChannels = channels.filter((channel) => channel.status === "active").length;
   const setupChannels = channels.filter((channel) => channel.status !== "disabled").length;
@@ -182,6 +185,7 @@ export default async function ClientOperatorPage({
           <OperatorAgentConfigPanel
             clientId={client.id}
             detail={agentConfig}
+            draftConfig={assistantDraft?.config}
             returnTo={activeReturnTo}
           />
         ) : null}

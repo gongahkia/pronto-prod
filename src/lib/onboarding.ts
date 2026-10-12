@@ -68,6 +68,12 @@ export async function changeOnboardingStage(input: {
       const details = input.details ?? row.details;
       const evidence = input.evidence ?? row.evidence;
       const blockers = input.blockers ?? row.blockers;
+      if (input.responsibleUserId) {
+        const responsible = await db.query<{ id: string }>(
+          "select id from users where id = $1 and (client_id = $2 or role = 'operator')",
+          [input.responsibleUserId, input.clientId]);
+        if (!responsible.rows[0]) throw new Error("Responsible user must belong to this business or Pronto.");
+      }
       if (input.action === "submit") {
         const required = requiredFields(input.stage);
         if (required.details.some((field) => !hasValue(details[field])) ||
@@ -116,8 +122,11 @@ export async function changeOnboardingStage(input: {
     if (input.stage !== "activation" || input.actor.role !== "operator" || row.state !== "approved")
       throw new Error("Approved activation and Pronto operator access are required.");
     const active = await db.query<{ id: string }>(
-      "select id from channels where client_id = $1 and status = 'active' limit 1", [input.clientId]);
-    if (!active.rows[0]) throw new Error("An approved active customer channel is required.");
+      `select c.id from channels c where c.client_id = $1 and c.status = 'active'
+       and exists (select 1 from audit_logs a where a.client_id = c.client_id and a.target_type = 'channel'
+         and a.target_id = c.id and a.action in ('channel.activated_by_operator', 'channel.client_published'))
+       limit 1`, [input.clientId]);
+    if (!active.rows[0]) throw new Error("An explicitly approved and operator-activated customer channel is required.");
     const changed = await db.query<OnboardingStage>(
       `update onboarding_stages set state = 'active', updated_by = $3, updated_at = now()
        where client_id = $1 and stage = $2 returning *`, [input.clientId, input.stage, input.actor.userId]);

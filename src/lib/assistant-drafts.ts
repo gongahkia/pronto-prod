@@ -10,9 +10,11 @@ import {
   type TriageFlowDraft,
 } from "@/lib/triage-flow";
 import type { KnowledgeChunk } from "@/lib/types";
+import type { AgentConfigUpdate } from "@/lib/agent/config";
 
 export type KnowledgeDraftChange = {
   sourceId: string;
+  authorUserId?: string;
   action: "upsert" | "delete";
   title: string;
   content: string;
@@ -38,6 +40,7 @@ export type AssistantDraft = {
   base_fingerprint: string;
   voice: VoiceDraft | null;
   flow: TriageFlowDraft | null;
+  config: AgentConfigUpdate | null;
   knowledge_changes: Record<string, KnowledgeDraftChange>;
   updated_at: Date;
   edit_version: number;
@@ -52,7 +55,7 @@ export class DraftConflictError extends Error {
 
 export async function getAssistantDraft(clientId: string): Promise<AssistantDraft | null> {
   const result = await query<AssistantDraft>(
-    "select client_id, base_fingerprint, voice, flow, knowledge_changes, updated_at, edit_version, tested_at from assistant_drafts where client_id = $1",
+    "select client_id, base_fingerprint, voice, flow, config, knowledge_changes, updated_at, edit_version, tested_at from assistant_drafts where client_id = $1",
     [clientId],
   );
   return result.rows[0] ?? null;
@@ -118,6 +121,17 @@ export async function stageFlow(input: {
   );
 }
 
+export async function stageAgentConfig(input: AgentConfigUpdate): Promise<void> {
+  const actor = await query<{ role: string }>("select role from users where id = $1", [input.actorUserId]);
+  if (actor.rows[0]?.role !== "operator") throw new Error("Only a Pronto operator may prepare agent tuning.");
+  await ensureDraft(input.clientId, input.actorUserId);
+  await query(
+    `update assistant_drafts set config = $2::jsonb, updated_by = $3, tested_at = null,
+       edit_version = edit_version + 1, updated_at = now() where client_id = $1`,
+    [input.clientId, JSON.stringify(input), input.actorUserId],
+  );
+}
+
 export async function stageKnowledge(input: {
   clientId: string;
   actorUserId: string;
@@ -149,11 +163,18 @@ export async function stageKnowledge(input: {
   } else {
     changes[sourceId] = {
       sourceId,
+      authorUserId: input.actorUserId,
       action: input.action,
       title: input.title?.trim() ?? existingChange?.title ?? source?.title ?? "",
       content: input.content?.trim() ?? existingChange?.content ?? source?.content ?? "",
       sourceType: input.sourceType ?? existingChange?.sourceType ?? source?.source_type ?? "client_manual",
-      metadata: input.metadata ?? existingChange?.metadata ?? source?.metadata ?? {},
+      metadata: {
+        ...(input.metadata ?? existingChange?.metadata ?? source?.metadata ?? {}),
+        proposalAuthorId: input.actorUserId,
+        sourceReference: String(input.metadata?.sourceUrl ?? input.metadata?.sourceReference ??
+          input.metadata?.fileName ?? input.metadata?.entryMode ?? existingChange?.metadata?.sourceReference ?? source?.metadata?.sourceUrl ??
+          source?.source_type ?? input.sourceType ?? "manual_proposal"),
+      },
     };
   }
   const change = changes[sourceId];
@@ -285,7 +306,7 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
          select $1, $2, coalesce(max(version_number), 0) + 1, $3, $4, $5::jsonb, $6, $7
          from knowledge_source_versions where source_id = $1 and client_id = $2`,
         [change.sourceId, clientId, change.title, change.content, JSON.stringify(change.metadata),
-          existing.rowCount ? "updated" : "created", actorUserId],
+          existing.rowCount ? "updated" : "created", change.authorUserId ?? actorUserId],
       );
     }
     if (draft.voice) {
@@ -310,6 +331,26 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
           [clientId, example.customerMessage, example.idealResponse, example.notes, example.active],
         );
       }
+    }
+    if (draft.config) {
+      const config = draft.config;
+      const before = await db.query("select * from agent_configs where client_id = $1 for update", [clientId]);
+      if (!before.rows[0]) throw new Error("Agent configuration is missing.");
+      const after = await db.query(
+        `update agent_configs set retrieval_threshold = $2, prompt_preamble = $3,
+         escalation_rules = $4::jsonb, response_provider = $5, response_model = $6,
+         embedding_provider = $7, embedding_model = $8, updated_at = now()
+         where client_id = $1 returning *`,
+        [clientId, config.retrievalThreshold, config.promptPreamble, JSON.stringify(config.escalationRules),
+          config.responseProvider, config.responseModel, config.embeddingProvider, config.embeddingModel],
+      );
+      await db.query(
+        `insert into agent_config_changes
+         (client_id, actor_user_id, previous_config, new_config, change_reason)
+         values ($1, $2, $3::jsonb, $4::jsonb, $5)`,
+        [clientId, actorUserId, JSON.stringify(before.rows[0]), JSON.stringify(after.rows[0]),
+          config.changeReason?.trim() || null],
+      );
     }
     if (draft.flow) {
       const flow = validateAndNormalizeTriageFlow(draft.flow);

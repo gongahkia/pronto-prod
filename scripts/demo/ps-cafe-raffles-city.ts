@@ -87,6 +87,10 @@ export async function setupPsCafeDemo(): Promise<void> {
       [PS_CAFE_DEMO_CLIENT_ID, PS_CAFE_DEMO_SLUG, JSON.stringify(profile),
         "Demonstration default, pending restaurant approval: concise, courteous and clear. State uncertainty and refer booking or allergy questions to staff."],
     );
+    await db.query(
+      `insert into onboarding_stages (client_id, stage)
+       select $1, stage from (values ('profile'), ('communications'), ('knowledge'), ('testing'), ('activation')) s(stage)
+       on conflict (client_id, stage) do nothing`, [PS_CAFE_DEMO_CLIENT_ID]);
     await db.query(`insert into agent_configs (client_id, prompt_preamble, retrieval_threshold,
       response_provider, embedding_provider) values ($1, $2, 0.05, 'openai', 'openai')
       on conflict (client_id) do update set prompt_preamble = excluded.prompt_preamble,

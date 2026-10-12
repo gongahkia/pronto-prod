@@ -46,7 +46,7 @@ test("seeded operator can render the client portfolio", async ({ page }) => {
   await login(page, operatorLogin.email, operatorLogin.password);
 
   await expect(page).toHaveURL(/\/operator$/);
-  await expect(page.getByRole("heading", { name: "Clients" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Businesses" })).toBeVisible();
   await expect(page.getByText("Client portfolio")).toBeVisible();
   await expect(page.getByRole("link", { name: "North Bridge Nasi", exact: true })).toBeVisible();
 });
@@ -70,6 +70,13 @@ test("seeded client can render the overview dashboard", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Recent conversations" })).toBeVisible();
 });
 
+test("client account cannot open operator diagnostics", async ({ page }) => {
+  await login(page, clientLogin.email, clientLogin.password);
+  await page.goto("/operator/operations");
+  await expect(page).not.toHaveURL(/\/operator\/operations/);
+  await expect(page.getByRole("heading", { name: "Operations", exact: true })).toHaveCount(0);
+});
+
 test("client can follow setup to a response preview without sending a customer message", async ({ page }) => {
   await login(page, clientLogin.email, clientLogin.password);
   await page.goto("/client/assistant");
@@ -86,7 +93,7 @@ test("login and dashboards avoid obvious mobile horizontal overflow", async ({ p
   await expectNoHorizontalOverflow(page);
 
   await login(page, operatorLogin.email, operatorLogin.password);
-  await expect(page.getByRole("heading", { name: "Clients" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Businesses" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.getByRole("button", { name: "Log out" }).click();
@@ -95,6 +102,39 @@ test("login and dashboards avoid obvious mobile horizontal overflow", async ({ p
   await login(page, clientLogin.email, clientLogin.password);
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
+});
+
+test("operator can navigate the five work areas and find a business", async ({ page }) => {
+  await login(page, operatorLogin.email, operatorLogin.password);
+  await page.getByRole("textbox", { name: "Search businesses" }).fill("North Bridge");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByRole("link", { name: "North Bridge Nasi", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Create client" }).first().click();
+  await expect(page.getByRole("heading", { name: "Create client" })).toBeVisible();
+  await expect(page.getByText("New businesses begin in draft.")).toBeVisible();
+  for (const [route, heading] of [
+    ["/operator/overview", "Overview"], ["/operator/conversations", "Inbox"],
+    ["/operator/knowledge-connections", "Knowledge & Connections"],
+    ["/operator/operations", "Operations"],
+  ]) {
+    await page.goto(route);
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+  }
+});
+
+test("operator areas retain keyboard entry and mobile width", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, operatorLogin.email, operatorLogin.password);
+  for (const route of ["/operator/overview", "/operator", "/operator/conversations",
+    "/operator/knowledge-connections", "/operator/operations"]) {
+    await page.goto(route);
+    await expectNoHorizontalOverflow(page);
+    const skip = page.getByRole("link", { name: "Skip to main content" });
+    await skip.focus();
+    await expect(skip).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/#main-content$/);
+  }
 });
 
 async function login(page: Page, email: string, password: string) {

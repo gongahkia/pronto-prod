@@ -36,13 +36,14 @@ export async function approveConfiguration(input: {
       input.kind === "assistant" ? "knowledge.approve" : "channel.activate", db);
     const current = await currentConfigurationRevision(db, input.clientId, input.kind, input.targetId);
     if (!current || current !== input.revision) throw new Error("Configuration changed; review the current revision before approving.");
-    await db.query(
+    const inserted = await db.query(
       `insert into configuration_approvals
        (client_id, kind, target_id, revision, approved_by, evidence)
        values ($1, $2, $3, $4, $5, $6)
-       on conflict (client_id, kind, target_id, revision) do nothing`,
+       on conflict (client_id, kind, target_id, revision) do nothing returning id`,
       [input.clientId, input.kind, input.targetId, current, input.actor.userId, input.evidence.trim()],
     );
+    if (!inserted.rows[0]) return;
     await recordAuditLog({ clientId: input.clientId, actorUserId: input.actor.userId,
       action: `configuration.${input.kind}_approved`, targetType: input.kind,
       targetId: input.targetId, metadata: { revision: current, evidence: input.evidence.trim() } }, db);

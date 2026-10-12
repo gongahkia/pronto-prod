@@ -104,6 +104,34 @@ describe("owner escalation notifications", () => {
       "client-1",
     ]);
   });
+
+  it("uses the tenant-scoped client link for a verified business recipient", async () => {
+    mocks.query
+      .mockResolvedValueOnce({ rows: [escalation({})] })
+      .mockResolvedValueOnce({ rows: [channel({ id: "wa-channel", kind: "whatsapp" })] })
+      .mockResolvedValueOnce({ rows: [{ initial_destination_id: null }] })
+      .mockResolvedValueOnce({ rows: [{ id: "staff-1", kind: "whatsapp", destination: "+6590000000", audience: "business" }] })
+      .mockResolvedValueOnce({ rows: [] });
+    await notifyOwnerOfEscalation("escalation-1", "client-1");
+    expect(mocks.sendChannelText).toHaveBeenCalledWith(expect.objectContaining({
+      externalThreadId: "+6590000000",
+      text: expect.stringContaining("https://example.test/client/conversations/conversation-1"),
+    }));
+    expect(mocks.sendChannelText.mock.calls[0][0].text).not.toContain("Customer asked for human takeover");
+  });
+
+  it("uses the operator link only for an explicitly configured operator recipient", async () => {
+    mocks.query
+      .mockResolvedValueOnce({ rows: [escalation({})] })
+      .mockResolvedValueOnce({ rows: [channel({ id: "wa-channel", kind: "whatsapp" })] })
+      .mockResolvedValueOnce({ rows: [{ initial_destination_id: null }] })
+      .mockResolvedValueOnce({ rows: [{ id: "staff-2", kind: "whatsapp", destination: "+6590000001", audience: "operator" }] })
+      .mockResolvedValueOnce({ rows: [] });
+    await notifyOwnerOfEscalation("escalation-1", "client-1");
+    expect(mocks.sendChannelText).toHaveBeenCalledWith(expect.objectContaining({
+      text: expect.stringContaining("https://example.test/operator/clients/client-1/conversations/conversation-1"),
+    }));
+  });
 });
 
 function escalation(businessProfile: Record<string, unknown>) {

@@ -100,6 +100,13 @@ account access.
 See `docs/sprint1/technical-readiness.md` for Sprint 1 demonstrations and
 remaining external access gates.
 
+Tranche A adds DB-backed authority, onboarding, approval, staff-notification
+and portfolio-filter tests in `tests/integration/managed-operations.test.ts`.
+Apply versioned migrations 034 and 035 to the verified disposable database
+before running these tests. The new permission grants are deliberately empty
+after migration; the local PS.Cafe email fixture and provider mocks still use
+the existing worker and network guard. See [managed operations](../ops/managed-operations.md).
+
 ## Script effects and remaining limits
 
 | Command | Effect |

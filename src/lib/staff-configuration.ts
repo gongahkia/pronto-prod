@@ -58,7 +58,8 @@ export async function saveStaffDestination(input: {
     if (input.id && !existing?.rows[0]) throw new Error("Staff destination not found.");
     const changedIdentity = existing?.rows[0] && (
       existing.rows[0].kind !== input.kind || existing.rows[0].destination !== destination ||
-      existing.rows[0].recipient_user_id !== (input.recipientUserId ?? null));
+      existing.rows[0].recipient_user_id !== (input.recipientUserId ?? null) ||
+      existing.rows[0].audience !== input.audience);
     const verified = input.verified && !changedIdentity;
     if (input.id) {
       await db.query(
@@ -70,13 +71,14 @@ export async function saveStaffDestination(input: {
         [input.id, input.clientId, input.kind, destination, input.recipientUserId ?? null,
           input.audience, verified, input.enabled, input.verificationEvidence?.trim() ?? null]);
     } else {
-      await db.query(
+      const inserted = await db.query(
         `insert into staff_notification_destinations
          (client_id, kind, destination, recipient_user_id, audience, verified_at, enabled, created_by, verification_evidence)
          values ($1, $2, $3, $4, $5, case when $6 then now() else null end, $7, $8, $9)
-         on conflict (client_id, kind, destination) do nothing`,
+         on conflict (client_id, kind, destination) do nothing returning id`,
         [input.clientId, input.kind, destination, input.recipientUserId ?? null, input.audience,
           verified, input.enabled && verified, input.actor.userId, input.verificationEvidence?.trim() ?? null]);
+      if (!inserted.rows[0]) throw new Error("This destination already exists; edit its existing record.");
     }
     await recordAuditLog({ clientId: input.clientId, actorUserId: input.actor.userId,
       action: "staff.destination_saved", targetType: "staff_destination",
@@ -105,6 +107,7 @@ export async function saveEscalationPolicy(input: {
 }): Promise<number> {
   const policy = input.policy;
   if (!policy || typeof policy !== "object" || !policy.staffedHours ||
+      typeof policy.staffedHours !== "object" || Array.isArray(policy.staffedHours) ||
       !Array.isArray(policy.reminderMinutes) || typeof policy.timezone !== "string")
     throw new Error("Invalid escalation policy.");
   if (policy.targetMinutes !== null && (!Number.isInteger(policy.targetMinutes) || policy.targetMinutes < 1 || policy.targetMinutes > 10080))
@@ -114,10 +117,13 @@ export async function saveEscalationPolicy(input: {
   if (policy.reminderMinutes.some((minute) => !Number.isInteger(minute) || minute < 1 || minute > 10080))
     throw new Error("Invalid reminder interval.");
   for (const [day, hours] of Object.entries(policy.staffedHours)) {
-    if (!/^[0-6]$/.test(day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(hours.start) ||
+    if (!hours || typeof hours !== "object" || !/^[0-6]$/.test(day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(hours.start) ||
         !/^([01]\d|2[0-3]):[0-5]\d$/.test(hours.end) || hours.start >= hours.end)
       throw new Error("Invalid staffed hours.");
   }
+  if (policy.outOfHoursAcknowledgement !== null &&
+      (typeof policy.outOfHoursAcknowledgement !== "string" || policy.outOfHoursAcknowledgement.length > 1000))
+    throw new Error("Out-of-hours acknowledgement must be at most 1000 characters.");
   return transaction(async (db) => {
     await requireStaffCapability(input.actor, input.clientId, "staff.permissions.manage", db);
     const latest = await db.query<{ version: number }>(

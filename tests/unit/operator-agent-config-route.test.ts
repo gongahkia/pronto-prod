@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(),
-  updateAgentConfigForClient: vi.fn(),
+  stageAgentConfig: vi.fn(),
   logWarn: vi.fn(),
 }));
 
@@ -10,8 +10,8 @@ vi.mock("@/lib/auth", () => ({
   requireUser: mocks.requireUser,
 }));
 
-vi.mock("@/lib/agent/config", () => ({
-  updateAgentConfigForClient: mocks.updateAgentConfigForClient,
+vi.mock("@/lib/assistant-drafts", () => ({
+  stageAgentConfig: mocks.stageAgentConfig,
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -28,10 +28,10 @@ describe("operator agent config route", () => {
       clientId: null,
       role: "operator",
     });
-    mocks.updateAgentConfigForClient.mockResolvedValue({ config: { id: "config-1" } });
+    mocks.stageAgentConfig.mockResolvedValue({ config: { id: "config-1" } });
   });
 
-  it("updates agent tuning for a client and redirects", async () => {
+  it("stages agent tuning for a client and redirects", async () => {
     const form = validForm();
     form.set("returnTo", "/operator/clients/client-1");
 
@@ -39,7 +39,7 @@ describe("operator agent config route", () => {
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("http://localhost/operator/clients/client-1");
-    expect(mocks.updateAgentConfigForClient).toHaveBeenCalledWith({
+    expect(mocks.stageAgentConfig).toHaveBeenCalledWith({
       clientId: "client-1",
       responseProvider: "mock",
       responseModel: "mock",
@@ -63,7 +63,7 @@ describe("operator agent config route", () => {
     const response = await POST(formRequest(form));
 
     expect(response.status).toBe(303);
-    expect(mocks.updateAgentConfigForClient).toHaveBeenCalledWith(
+    expect(mocks.stageAgentConfig).toHaveBeenCalledWith(
       expect.objectContaining({
         responseProvider: "anthropic",
         responseModel: "claude-sonnet-4-5",
@@ -83,7 +83,7 @@ describe("operator agent config route", () => {
     const response = await POST(formRequest(form));
 
     expect(response.status).toBe(303);
-    expect(mocks.updateAgentConfigForClient).toHaveBeenCalledWith(
+    expect(mocks.stageAgentConfig).toHaveBeenCalledWith(
       expect.objectContaining({
         responseProvider: "azure",
         responseModel: "gpt-5-deployment",
@@ -93,7 +93,7 @@ describe("operator agent config route", () => {
     );
   });
 
-  it("rejects invalid retrieval thresholds before updating", async () => {
+  it("rejects invalid retrieval thresholds before staging", async () => {
     const form = validForm();
     form.set("retrievalThreshold", "1.5");
 
@@ -104,7 +104,7 @@ describe("operator agent config route", () => {
       "agent_config.invalid_retrieval_threshold",
       expect.objectContaining({ clientId: "client-1" }),
     );
-    expect(mocks.updateAgentConfigForClient).not.toHaveBeenCalled();
+    expect(mocks.stageAgentConfig).not.toHaveBeenCalled();
   });
 
   it("rejects escalation rules that are not a JSON object", async () => {
@@ -114,7 +114,7 @@ describe("operator agent config route", () => {
     const response = await POST(formRequest(form));
 
     expect(response.status).toBe(400);
-    expect(mocks.updateAgentConfigForClient).not.toHaveBeenCalled();
+    expect(mocks.stageAgentConfig).not.toHaveBeenCalled();
   });
 });
 

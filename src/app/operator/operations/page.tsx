@@ -11,6 +11,8 @@ export default async function OperationsPage() {
       <p className="text-sm text-muted">Review durable work and reconcile uncertain delivery before retrying.</p></header>
     <section className="ui-panel mb-5 p-4"><h2 className="font-semibold">Worker</h2>
       <p className="text-sm">{report.workerFresh ? "Heartbeat fresh" : "Heartbeat missing or stale"}</p>
+      <p className="text-sm">{report.stalledInbound} inbound processing lease(s) expired</p>
+      <p className="text-sm">{report.pendingOnboardingBusinesses} business(es) have onboarding actions pending</p>
       {report.heartbeatAt ? <p className="text-xs text-muted">Last cycle: {new Date(report.heartbeatAt).toLocaleString()}</p> : null}</section>
     <section className="mb-5 grid gap-3 md:grid-cols-3">
       {(["inbound", "outbound", "staff"] as const).map((kind) => <div className="ui-panel p-4" key={kind}>

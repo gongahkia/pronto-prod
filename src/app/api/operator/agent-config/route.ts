@@ -1,7 +1,7 @@
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { updateAgentConfigForClient } from "@/lib/agent/config";
+import { stageAgentConfig } from "@/lib/assistant-drafts";
 import { logWarn } from "@/lib/logger";
 import { canAccessClient } from "@/lib/rbac";
 
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const updated = await updateAgentConfigForClient({
+  await stageAgentConfig({
     clientId,
     responseProvider,
     responseModel,
@@ -103,10 +103,6 @@ export async function POST(request: Request) {
     actorUserId: user.userId,
     changeReason,
   });
-  if (!updated) {
-    return NextResponse.json({ error: "Agent config not found." }, { status: 404 });
-  }
-
   return NextResponse.redirect(new URL(returnTo, request.url), 303);
 }
 

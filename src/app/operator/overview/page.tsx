@@ -15,10 +15,11 @@ export default async function OverviewPage() {
     <header className="mb-5"><h1 className="text-xl font-semibold">Overview</h1>
       <p className="text-sm text-muted">Customer work, setup and delivery issues across businesses.</p></header>
     <section className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Fleet attention">
-      <a className="ui-panel p-4" href="/operator/conversations?status=escalated"><strong className="block text-2xl">{fleet.needsActionNow}</strong><span>Handoffs and channel issues</span></a>
+      <a className="ui-panel p-4" href="/operator/conversations?status=escalated"><strong className="block text-2xl">{fleet.needsActionNow - fleet.channelIssues}</strong><span>Human handoffs</span></a>
       <a className="ui-panel p-4" href="/operator/operations"><strong className="block text-2xl">{count(operations.outbound, ["uncertain", "dead"])}</strong><span>Delivery issues</span></a>
       <a className="ui-panel p-4" href="/operator/operations"><strong className="block text-2xl">{count(operations.inbound, ["failed", "dead"])}</strong><span>Inbound retries or dead jobs</span></a>
-      <a className="ui-panel p-4" href="/operator"><strong className="block text-2xl">{fleet.setupNeeds}</strong><span>Businesses needing setup</span></a>
+      <a className="ui-panel p-4" href="/operator"><strong className="block text-2xl">{operations.pendingOnboardingBusinesses}</strong><span>Businesses with onboarding actions</span></a>
+      <a className="ui-panel p-4" href="/operator/knowledge-connections"><strong className="block text-2xl">{fleet.channelIssues}</strong><span>Channel configuration warnings</span></a>
     </section>
     <section className="ui-panel"><div className="ui-panel-header"><h2 className="font-semibold">Priority work</h2></div>
       {issues.length ? <ul className="divide-y divide-line">{issues.map((item) =>

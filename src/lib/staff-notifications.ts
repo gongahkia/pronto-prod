@@ -1,5 +1,5 @@
 import { recordAuditLog } from "@/lib/audit";
-import { query, type Queryable } from "@/lib/db";
+import { query, transaction, type Queryable } from "@/lib/db";
 import { notifyOwnerOfEscalation } from "@/lib/escalations";
 import { logWarn } from "@/lib/logger";
 
@@ -18,7 +18,7 @@ export async function markExpiredStaffNotificationsUncertain(): Promise<number> 
   return result.rowCount ?? 0;
 }
 
-export async function flushStaffNotifications(limit = 25): Promise<{ attempted: number; sent: number; failed: number }> {
+export async function flushStaffNotifications(limit = 25, clientId?: string): Promise<{ attempted: number; sent: number; failed: number }> {
   let attempted = 0;
   let sent = 0;
   let failed = 0;
@@ -28,8 +28,9 @@ export async function flushStaffNotifications(limit = 25): Promise<{ attempted: 
          lease_expires_at = now() + interval '2 minutes', updated_at = now()
        where id = (select id from staff_notification_jobs
          where status in ('pending', 'failed') and available_at <= now() and attempt_count < 5
+           and ($1::uuid is null or client_id = $1)
          order by available_at, created_at for update skip locked limit 1)
-       returning id, client_id, escalation_id, attempt_count`, []);
+       returning id, client_id, escalation_id, attempt_count`, [clientId ?? null]);
     const job = claimed.rows[0];
     if (!job) break;
     attempted += 1;
@@ -61,13 +62,15 @@ export async function retryStaffNotification(input: {
   clientId: string; jobId: string; actorUserId: string; reconciliation: string;
 }): Promise<void> {
   if (!input.reconciliation.trim()) throw new Error("Record the reconciliation result before retrying.");
-  const result = await query(
-    `update staff_notification_jobs set status = 'pending', attempt_count = 0,
-       available_at = now(), lease_expires_at = null, last_error = null, updated_at = now()
-     where id = $1 and client_id = $2 and status in ('dead', 'uncertain')`,
-    [input.jobId, input.clientId]);
-  if (!result.rowCount) throw new Error("Notification is not eligible for manual retry.");
-  await recordAuditLog({ clientId: input.clientId, actorUserId: input.actorUserId,
-    action: "staff_notification.manual_retry", targetType: "staff_notification_job", targetId: input.jobId,
-    metadata: { reconciliation: input.reconciliation.trim() } });
+  await transaction(async (db) => {
+    const result = await db.query(
+      `update staff_notification_jobs set status = 'pending', attempt_count = 0,
+         available_at = now(), lease_expires_at = null, last_error = null, updated_at = now()
+       where id = $1 and client_id = $2 and status in ('dead', 'uncertain')`,
+      [input.jobId, input.clientId]);
+    if (!result.rowCount) throw new Error("Notification is not eligible for manual retry.");
+    await recordAuditLog({ clientId: input.clientId, actorUserId: input.actorUserId,
+      action: "staff_notification.manual_retry", targetType: "staff_notification_job", targetId: input.jobId,
+      metadata: { reconciliation: input.reconciliation.trim() } }, db);
+  });
 }

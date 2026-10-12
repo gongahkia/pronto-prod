@@ -18,7 +18,8 @@ export async function activateCustomerChannel(input: {
     if (channel.status === "active") throw new Error("Channel is already active.");
     const revision = new Date(channel.updated_at).toISOString();
     if (revision !== input.revision) throw new Error("Channel changed; review current settings before activation.");
-    if (channel.last_health_status !== "healthy") throw new Error("A successful channel health check is required.");
+    if (channel.last_health_status !== "healthy" || !channel.last_health_check_at)
+      throw new Error("A successful current channel health check is required.");
     const credentials = decryptChannelCredentials(channel).credentials;
     const localOnly = channel.kind === "email" && credentials.provider === "local_smtp" &&
       process.env.PRONTO_LOCAL_EMAIL_ENABLED === "1" && process.env.NODE_ENV !== "production";

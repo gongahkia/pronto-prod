@@ -24,6 +24,9 @@ export async function POST(request: Request) {
   if (!canAccessClient(user, clientId)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
+  const channel = await query<{ client_id: string }>("select client_id from channels where id = $1", [channelId]);
+  if (channel.rows[0]?.client_id !== clientId)
+    return NextResponse.json({ error: "Channel does not belong to this business." }, { status: 404 });
 
   const health = await checkChannelHealth(channelId);
   await query(

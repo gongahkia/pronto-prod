@@ -1,4 +1,4 @@
-import type { AgentConfigDetail } from "@/lib/agent/config";
+import type { AgentConfigDetail, AgentConfigUpdate } from "@/lib/agent/config";
 import {
   getProviderReadiness,
   type ReadinessTone,
@@ -8,10 +8,12 @@ import { Badge } from "@/components/badge";
 export function OperatorAgentConfigPanel({
   clientId,
   detail,
+  draftConfig,
   returnTo,
 }: {
   clientId: string;
   detail: AgentConfigDetail | null;
+  draftConfig?: AgentConfigUpdate | null;
   returnTo?: string;
 }) {
   if (!detail) {
@@ -25,6 +27,7 @@ export function OperatorAgentConfigPanel({
     );
   }
   const formReturnTo = returnTo ?? `/operator/clients/${clientId}`;
+  const config = draftConfig;
 
   return (
     <section className="ui-panel">
@@ -32,7 +35,8 @@ export function OperatorAgentConfigPanel({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">Agent tuning</h2>
-            <p className="text-sm text-muted">Operator-controlled prompt and retrieval settings.</p>
+            <p className="text-sm text-muted">Changes become a draft for private testing and business approval.</p>
+            {config ? <p className="text-xs text-accent">A proposed revision is pending. Live readiness below describes the current published settings.</p> : null}
           </div>
           <Badge>{detail.config.response_provider}</Badge>
         </div>
@@ -45,7 +49,7 @@ export function OperatorAgentConfigPanel({
             <span>Response provider</span>
             <select
               name="responseProvider"
-              defaultValue={detail.config.response_provider}
+              defaultValue={config?.responseProvider ?? detail.config.response_provider}
               className="w-full rounded-md border border-line px-3 py-2 text-sm font-normal"
             >
               <option value="mock">Simulated (local)</option>
@@ -58,7 +62,7 @@ export function OperatorAgentConfigPanel({
             <span>Response model</span>
             <input
               name="responseModel"
-              defaultValue={detail.config.response_model}
+              defaultValue={config?.responseModel ?? detail.config.response_model}
               list="response-model-options"
               className="w-full rounded-md border border-line px-3 py-2 text-sm font-normal"
             />
@@ -67,7 +71,7 @@ export function OperatorAgentConfigPanel({
             <span>Embedding provider</span>
             <select
               name="embeddingProvider"
-              defaultValue={detail.config.embedding_provider}
+              defaultValue={config?.embeddingProvider ?? detail.config.embedding_provider}
               className="w-full rounded-md border border-line px-3 py-2 text-sm font-normal"
             >
               <option value="mock">Simulated (local)</option>
@@ -79,7 +83,7 @@ export function OperatorAgentConfigPanel({
             <span>Embedding model</span>
             <input
               name="embeddingModel"
-              defaultValue={detail.config.embedding_model}
+              defaultValue={config?.embeddingModel ?? detail.config.embedding_model}
               className="w-full rounded-md border border-line px-3 py-2 text-sm font-normal"
             />
           </label>
@@ -99,7 +103,7 @@ export function OperatorAgentConfigPanel({
             min="0"
             max="1"
             step="0.0001"
-            defaultValue={detail.retrievalThreshold.toFixed(4)}
+            defaultValue={(config?.retrievalThreshold ?? detail.retrievalThreshold).toFixed(4)}
             className="w-full rounded-md border border-line px-3 py-2 text-sm font-normal"
           />
         </label>
@@ -109,7 +113,7 @@ export function OperatorAgentConfigPanel({
             name="promptPreamble"
             rows={4}
             maxLength={4000}
-            defaultValue={detail.config.prompt_preamble}
+            defaultValue={config?.promptPreamble ?? detail.config.prompt_preamble}
             className="w-full rounded-md border border-line px-3 py-2 text-sm font-normal"
           />
         </label>
@@ -118,7 +122,7 @@ export function OperatorAgentConfigPanel({
           <textarea
             name="escalationRules"
             rows={9}
-            defaultValue={detail.escalationRulesJson}
+            defaultValue={config ? JSON.stringify(config.escalationRules, null, 2) : detail.escalationRulesJson}
             className="w-full rounded-md border border-line px-3 py-2 font-mono text-xs font-normal"
           />
         </label>
@@ -131,7 +135,7 @@ export function OperatorAgentConfigPanel({
           />
         </label>
         <button className="ui-primary-button px-4 py-2">
-          Save tuning
+          Save proposed tuning
         </button>
       </form>
       <ProviderReadinessPanel detail={detail} />

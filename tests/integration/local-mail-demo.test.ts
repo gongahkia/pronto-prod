@@ -129,7 +129,7 @@ localMailDescribe("PS.Cafe customer support email through Mailpit", () => {
     const first = await getPool().query<{ id: string }>("select id from inbound_jobs where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID]);
     expect(await processInboundJob({ jobId: first.rows[0].id })).toMatchObject({ outcome: "escalated" });
     await flushRetryableOutboundMessages();
-    await flushStaffNotifications();
+    await flushStaffNotifications(25, PS_CAFE_DEMO_CLIENT_ID);
     const messages = await mailpitMessages();
     expect(messages.some((message) => message.To.some((to) => to.Address === "operator@ps-cafe-demo.test"))).toBe(true);
     const followup = Buffer.from(`From: customer@example.test\r\nTo: ${PS_CAFE_DEMO_SUPPORT_ADDRESS}\r\n` +

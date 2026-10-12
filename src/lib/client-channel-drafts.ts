@@ -225,7 +225,8 @@ export async function publishChannelDraft(input: {
     await recordAuditLog({
       clientId: input.clientId, actorUserId: input.actorUserId,
       action: "channel.client_published", targetType: "channel", targetId: input.channelId,
-      metadata: { status: draft.status },
+      metadata: { status: draft.status, approvedRevision: draft.status === "active"
+        ? new Date(draft.updated_at).toISOString() : null },
     }, db);
   }, { isolationLevel: "serializable", retries: 2 });
 }

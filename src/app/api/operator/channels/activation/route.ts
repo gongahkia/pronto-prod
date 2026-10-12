@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { activateCustomerChannel } from "@/lib/channel-activation";
-import { publishChannelDraft } from "@/lib/client-channel-drafts";
+import { checkChannelDraft, publishChannelDraft } from "@/lib/client-channel-drafts";
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { channelEvidenceKinds, recordChannelActivationEvidence } from "@/lib/managed-approvals";
 
@@ -25,6 +25,8 @@ export async function POST(request: Request) {
       await activateCustomerChannel({ actor, clientId, channelId, revision });
     } else if (action === "publish_draft") {
       await publishChannelDraft({ clientId, channelId, actorUserId: actor.userId });
+    } else if (action === "check_draft") {
+      await checkChannelDraft(clientId, channelId);
     } else return NextResponse.json({ error: "Unsupported action." }, { status: 400 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Activation failed." }, { status: 409 });

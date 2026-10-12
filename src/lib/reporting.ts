@@ -10,7 +10,7 @@ export type ConversationFilterInput = {
   status?: string;
   reasonCode?: string;
   escalationStatus?: string;
-  assignedUserId?: string;
+  assignedSearch?: string;
   deliveryFailure?: boolean;
   from?: string;
   to?: string;
@@ -370,8 +370,11 @@ function buildConversationFilters(input: ConversationFilterInput): SqlFilter {
   if (input.escalationStatus && ["open", "claimed"].includes(input.escalationStatus)) {
     where.push(`ae.status = $${pushParam(values, input.escalationStatus)}::escalation_status`);
   }
-  if (input.assignedUserId?.trim()) {
-    where.push(`ae.assigned_to_user_id = $${pushParam(values, input.assignedUserId.trim())}::uuid`);
+  if (input.assignedSearch?.trim()) {
+    const assigned = input.assignedSearch.trim();
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assigned))
+      where.push(`ae.assigned_to_user_id = $${pushParam(values, assigned)}::uuid`);
+    else where.push(`assignee.name ilike $${pushParam(values, `%${assigned}%`)}`);
   }
   if (input.deliveryFailure) where.push("delivery.status in ('failed', 'dead', 'uncertain')");
   if (isDateInput(input.from)) {

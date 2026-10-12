@@ -38,7 +38,7 @@ export default async function OperatorClientChannelsPage({
     <AppShell user={user} active="operator">
       <OperatorClientHeader
         client={client}
-        description="Configure live channels, webhook URLs, credentials, and health checks."
+        description="Prepare customer channels, review approval evidence, and activate explicitly."
       />
       <OperatorClientNav clientId={client.id} active="channels" />
       <OperatorChannelSetup
@@ -53,8 +53,13 @@ export default async function OperatorClientChannelsPage({
           const draft = drafts.find((item) => item.channel_id === channel.id);
           return <div className="border-t border-line py-4 text-sm" key={channel.id}>
             <strong>{channel.name}</strong> · {channel.status}{draft ? ` · proposed ${draft.status}` : ""}
-            <p>Business approved: {state.approval ? "yes" : "pending"} · Evidence: {state.evidence.join(", ") || "none"}</p>
-            {state.revision && channel.status !== "active" ? <>
+            <p>Business approved: {state.approval ? "yes" : "pending"} · Evidence: {state.evidence.join(", ") || "none"}
+              {draft ? ` · proposed health ${draft.health_status ?? "unchecked"}` : ""}</p>
+            {state.revision && (channel.status !== "active" || draft) ? <>
+              {draft ? <form action="/api/operator/channels/activation" method="post" className="mt-2">
+                <input type="hidden" name="clientId" value={client.id}/><input type="hidden" name="channelId" value={channel.id}/>
+                <button className="ui-button px-3 py-2" name="action" value="check_draft">Check proposed connection</button>
+              </form> : null}
               <form action="/api/operator/channels/activation" method="post" className="mt-2 flex flex-wrap gap-2">
                 <input type="hidden" name="clientId" value={client.id}/><input type="hidden" name="channelId" value={channel.id}/>
                 <input type="hidden" name="revision" value={state.revision}/><input type="hidden" name="action" value="evidence"/>
@@ -67,9 +72,10 @@ export default async function OperatorClientChannelsPage({
                 <input type="hidden" name="clientId" value={client.id}/><input type="hidden" name="channelId" value={channel.id}/>
                 <input type="hidden" name="revision" value={state.revision}/>
                 <button className="ui-primary-button px-3 py-2" name="action" value={draft ? "publish_draft" : "activate"}>
-                  Activate approved channel</button>
+                  {draft?.status === "active" || !draft ? "Activate approved channel" : "Publish nonactive revision"}</button>
               </form>
             </> : null}
+            {draft && channel.status === "active" ? <p className="mt-2 text-muted">This proposed edit leaves the live channel active until Pronto publishes its reviewed revision.</p> : null}
           </div>;
         })}
       </section>

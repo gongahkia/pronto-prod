@@ -74,9 +74,14 @@ export async function notifyOwnerOfEscalation(
      from escalation_policy_versions where client_id = $1 order by version desc limit 1`,
     [escalation.client_id]);
   const destinationResult = await query<{ id: string; kind: string; destination: string; audience: string }>(
-    `select id, kind, destination, audience from staff_notification_destinations
-     where client_id = $1 and enabled = true and verified_at is not null
-     order by case when id::text = $2 then 0 else 1 end, updated_at desc`,
+    `select d.id, d.kind, d.destination, d.audience from staff_notification_destinations d
+     join users u on u.id = d.recipient_user_id
+     where d.client_id = $1 and d.enabled = true and d.verified_at is not null
+       and ((d.audience = 'operator' and u.role = 'operator') or
+            (d.audience = 'business' and u.role = 'client' and u.client_id = d.client_id and
+             exists (select 1 from staff_permission_grants g where g.client_id = d.client_id
+               and g.user_id = u.id and g.permission in ('conversation.respond','conversation.release'))))
+     order by case when d.id::text = $2 then 0 else 1 end, d.updated_at desc`,
     [escalation.client_id, policy.rows[0]?.initial_destination_id ?? ""]);
   const verified = destinationResult.rows.map((row) => ({
     channel: channels.find((channel) => channel.kind === row.kind),

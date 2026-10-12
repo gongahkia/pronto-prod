@@ -16,7 +16,7 @@ export default async function OperatorConversationsPage({ searchParams }: {
   const filters = {
     businessSearch: value("business"), query: value("q"), channelKind: value("channel"),
     status: value("status"), escalationStatus: value("escalation"),
-    assignedUserId: value("assigned"), deliveryFailure: value("delivery") === "failed",
+    assignedSearch: value("assigned"), deliveryFailure: value("delivery") === "failed",
   };
   const rows = await getFilteredConversations({ ...filters, sort: "attention", limit: limit + 1,
     offset: (page - 1) * limit });
@@ -38,7 +38,7 @@ export default async function OperatorConversationsPage({ searchParams }: {
         <select className="ui-input px-3 py-2" name="escalation" aria-label="Escalation state" defaultValue={filters.escalationStatus}>
           <option value="">Any handoff</option><option value="open">Open</option><option value="claimed">Claimed</option>
         </select>
-        <input className="ui-input px-3 py-2" name="assigned" aria-label="Assigned user ID" placeholder="Assigned user ID" defaultValue={filters.assignedUserId} />
+        <input className="ui-input px-3 py-2" name="assigned" aria-label="Assigned staff" placeholder="Assigned staff" defaultValue={filters.assignedSearch} />
         <select className="ui-input px-3 py-2" name="delivery" aria-label="Delivery state" defaultValue={value("delivery")}>
           <option value="">Any delivery</option><option value="failed">Failed or uncertain</option>
         </select>

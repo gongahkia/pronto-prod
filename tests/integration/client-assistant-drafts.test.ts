@@ -77,6 +77,7 @@ dbDescribe("client assistant drafts in PostgreSQL", () => {
     expect(draft?.knowledge_changes[sourceId]?.title).toBe("Opening hours");
     expect((await getPool().query("select id from knowledge_sources where id = $1", [sourceId])).rowCount).toBe(0);
     expect((await retrieveDraftKnowledge(clientId, Array(1536).fill(0.01), null, "Sunday", 5)).length).toBe(1);
+    await expect(publishAssistantDraft(clientId, actorUserId)).rejects.toThrow("Pronto operator");
     await expect(publishAssistantDraft(clientId, operatorUserId)).rejects.toThrow("Test the current draft");
 
     await markAssistantDraftTested(clientId, draft!.edit_version);

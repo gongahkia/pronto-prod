@@ -20,8 +20,10 @@ Node worker
   -> worker_heartbeats row
 
 Operator/client dashboards
-  -> tenant-scoped conversations, handoff, knowledge, settings
-  -> operator view of exhausted inbound and uncertain outbound work
+  -> operator overview, businesses, inbox, knowledge/connections, operations
+  -> tenant-scoped client handoff, approvals and settings
+  -> revisioned assistant/channel approval before publication or activation
+  -> durable staff notification job for each escalation
 ```
 
 `src/lib/channels/inbox.ts` commits the customer message and its job atomically.
@@ -41,6 +43,13 @@ Human handoff sets the conversation to `escalated`. Later inbound jobs are
 stored and skipped while human-owned. AI outbound sends recheck ownership while
 holding a conversation row lock. Resolution closes the conversation; an
 authorized `release` action restores AI ownership for future messages.
+
+Tranche A retains these workers and adds a five-stage, separately persisted
+onboarding workflow, independent business approval capabilities, revision-bound
+assistant and channel review, and retriable staff-notification jobs. See the
+[managed operations runbook](ops/managed-operations.md) for routes, permissions
+and activation gates. The public readiness probe exposes only aggregate status;
+operator-only Operations shows queue and worker detail.
 
 ## Implemented and externally blocked
 
