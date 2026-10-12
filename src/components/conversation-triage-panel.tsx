@@ -6,9 +6,13 @@ import type { EscalationWithContext } from "@/lib/dashboard";
 export function ConversationTriagePanel({
   escalation,
   returnTo,
+  canRespond = true,
+  canRelease = true,
 }: {
   escalation: EscalationWithContext | null;
   returnTo: string;
+  canRespond?: boolean;
+  canRelease?: boolean;
 }) {
   return (
     <section className="ui-panel">
@@ -42,7 +46,7 @@ export function ConversationTriagePanel({
             attemptCount={escalation.owner_resolution_outbound_attempt_count}
             returnTo={returnTo}
           />
-          {escalation.status === "open" ? (
+          {escalation.status === "open" && canRespond ? (
             <form action="/api/escalations" method="post">
               <input type="hidden" name="action" value="claim" />
               <input type="hidden" name="escalationId" value={escalation.id} />
@@ -52,7 +56,7 @@ export function ConversationTriagePanel({
               </button>
             </form>
           ) : null}
-          {escalation.status !== "resolved" ? (
+          {escalation.status !== "resolved" && canRespond ? (
             <form action="/api/escalations" method="post" className="space-y-2">
               <input type="hidden" name="action" value="resolve" />
               <input type="hidden" name="escalationId" value={escalation.id} />
@@ -69,7 +73,7 @@ export function ConversationTriagePanel({
               </button>
             </form>
           ) : null}
-          {escalation.status === "resolved" ? (
+          {escalation.status === "resolved" && canRelease ? (
             <form action="/api/escalations" method="post">
               <input type="hidden" name="action" value="release" />
               <input type="hidden" name="escalationId" value={escalation.id} />
@@ -77,7 +81,7 @@ export function ConversationTriagePanel({
               <button className="ui-button px-3 py-2">Release conversation to AI</button>
             </form>
           ) : null}
-          {escalation.status !== "resolved" ? (
+          {escalation.status !== "resolved" && canRespond ? (
             <details className="rounded-md border border-line p-3 text-sm">
               <summary className="cursor-pointer font-medium">Resolve without sending a reply</summary>
               <p className="my-2 text-muted">Use this only when the customer has already been helped elsewhere.</p>

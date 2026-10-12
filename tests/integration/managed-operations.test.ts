@@ -170,6 +170,12 @@ dbDescribe("managed operations and tenant authority", () => {
   it("versions response targets without inventing an SLA and isolates staff contacts from customer channels", async () => {
     await setStaffCapability({ actor: operator, clientId: first, userId: activatorId,
       capability: "staff.permissions.manage", granted: true, evidence: "Owner delegation" });
+    await expect(saveEscalationPolicy({ actor: activator, clientId: first, expectedVersion: 0,
+      policy: { targetMinutes: null, timezone: "Asia/Singapore", staffedHours: {}, initialDestinationId: null,
+        reminderMinutes: [], backupDestinationId: null, outOfHoursAcknowledgement: null } }))
+      .rejects.toThrow("escalation.policy.manage");
+    await setStaffCapability({ actor: operator, clientId: first, userId: activatorId,
+      capability: "escalation.policy.manage", granted: true, evidence: "Policy delegation" });
     const channelId = randomUUID();
     await getPool().query("insert into channels (id, client_id, kind, name, status, settings) values ($1, $2, 'email', 'Support', 'draft', $3)",
       [channelId, first, { supportAddress: "support@example.test" }]);

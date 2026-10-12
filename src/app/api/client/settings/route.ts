@@ -1,8 +1,6 @@
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
-import { recordAuditLog } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
-import { query } from "@/lib/db";
 import { saveStaffDestination } from "@/lib/staff-configuration";
 
 export async function POST(request: Request) {
@@ -25,13 +23,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error instanceof Error ? error.message : "Could not save destination." }, { status: 403 });
     }
   } else if (action === "location") {
-    const location = String(form.get("location") ?? "").trim();
-    await query(
-      "update clients set business_profile = jsonb_set(business_profile, '{location}', to_jsonb($2::text), true), updated_at = now() where id = $1",
-      [actor.clientId, location]);
-    await recordAuditLog({ clientId: actor.clientId, actorUserId: actor.userId,
-      action: "client.location_updated", targetType: "client", targetId: actor.clientId,
-      metadata: { fields: ["location"] } });
+    return NextResponse.json({ error: "Suggest a business knowledge correction for Pronto review." }, { status: 403 });
   } else return NextResponse.json({ error: "Unsupported settings action." }, { status: 400 });
   return NextResponse.redirect(new URL("/client/settings", request.url), 303);
 }

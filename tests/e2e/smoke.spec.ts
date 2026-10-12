@@ -1,4 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
+import { getPool } from "../../src/lib/db";
+import { PS_CAFE_DEMO_CLIENT_ID, PS_CAFE_DEMO_EMAIL_ID,
+  setupPsCafeDemo } from "../../scripts/demo/ps-cafe-raffles-city";
 
 const operatorLogin = {
   email: "operator@pronto.sg",
@@ -65,9 +69,10 @@ test("seeded client can render the overview dashboard", async ({ page }) => {
   await login(page, clientLogin.email, clientLogin.password);
 
   await expect(page).toHaveURL(/\/client$/);
-  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Needs your reply" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Recent conversations" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Needs Attention" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Conversations needing a person" })).toBeVisible();
+  for (const label of ["Needs Attention", "Recent Activity", "Business Knowledge", "Connected Channels"])
+    await expect(page.getByRole("navigation").getByRole("link", { name: label }).first()).toBeVisible();
 });
 
 test("client account cannot open operator diagnostics", async ({ page }) => {
@@ -100,7 +105,7 @@ test("login and dashboards avoid obvious mobile horizontal overflow", async ({ p
   await expect(page).toHaveURL(/\/login$/);
 
   await login(page, clientLogin.email, clientLogin.password);
-  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Needs Attention" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 
@@ -134,6 +139,114 @@ test("operator areas retain keyboard entry and mobile width", async ({ page }) =
     await expect(skip).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/#main-content$/);
+  }
+});
+
+test("business destinations remain usable by keyboard on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, clientLogin.email, clientLogin.password);
+  for (const [route, heading] of [
+    ["/client", "Needs Attention"], ["/client/activity", "Recent Activity"],
+    ["/client/knowledge", "Business Knowledge"], ["/client/channels", "Connected Channels"],
+  ]) {
+    await page.goto(route);
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    const skip = page.getByRole("link", { name: "Skip to main content" });
+    await skip.focus();
+    await expect(skip).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/#main-content$/);
+  }
+});
+
+test("PS.Cafe synthetic staff proposes knowledge and confirms a local policy command", async ({ page }) => {
+  await setupPsCafeDemo();
+  const suggestionTitle = `Dietary caveat demo ${Date.now()}`;
+  await login(page, "responder@ps-cafe-demo.test", "pronto-ps-demo");
+  await expect(page).toHaveURL(/\/client$/);
+  await expect(page.getByRole("heading", { name: "Needs Attention" })).toBeVisible();
+  await page.goto("/client/knowledge");
+  await expect(page.getByRole("heading", { name: "Business Knowledge" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Title", exact: true }).fill(suggestionTitle);
+  await page.getByRole("textbox", { name: "Proposed answer or policy" }).fill("Ask staff to confirm ingredients before making a dietary promise.");
+  await page.getByRole("textbox", { name: "Why should this change?" }).fill("Ingredients can change.");
+  await page.getByRole("button", { name: "Submit suggestion" }).click();
+  await expect(page.getByText("Saved for review. Customer answers have not changed.")).toBeVisible();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await login(page, "approver@ps-cafe-demo.test", "pronto-ps-demo");
+  await page.goto("/client/knowledge");
+  await expect(page.getByText(suggestionTitle)).toBeVisible();
+  await page.getByRole("textbox", { name: `Review note for ${suggestionTitle}` }).fill("Synthetic business review only");
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(page.getByText(suggestionTitle)).toBeVisible();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await login(page, "policy@ps-cafe-demo.test", "pronto-ps-demo");
+  await page.goto("/client/contact-pronto");
+  await page.getByRole("textbox", { name: "Your request" }).fill("Change our escalation response target to 30 minutes");
+  await page.getByRole("button", { name: "Send request" }).click();
+  await expect(page.getByText(/Change response target from (?:unset|\d+) to 30 minutes/)).toBeVisible();
+  await page.getByRole("button", { name: "Confirm change" }).click();
+  await expect(page.getByText(/Response target saved/)).toBeVisible();
+  await page.goto("/client/settings");
+  await expect(page.getByText("Current: 30 minutes")).toBeVisible();
+});
+
+test("PS.Cafe responder claims, replies and explicitly releases a local email handoff", async ({ page }) => {
+  test.skip(process.env.PRONTO_TEST_LOCAL_MAIL !== "1", "Requires opt-in loopback Mailpit transport.");
+  test.setTimeout(60_000);
+  await setupPsCafeDemo();
+  const conversationId = randomUUID();
+  const messageId = randomUUID();
+  const inserted = await getPool().query<{ id: string }>(
+    `with conversation as (
+       insert into conversations (id, client_id, channel_id, external_thread_id, customer_handle, status)
+       values ($1, $2, $3, $4, $4, 'escalated') returning id
+     ), message as (
+       insert into messages (id, client_id, channel_id, conversation_id, external_message_id, sender_role, body)
+       values ($5, $2, $3, $1, $6, 'customer', 'Please help with my special request') returning id
+     )
+     insert into escalations (client_id, conversation_id, message_id, reason_code, reason_detail)
+     values ($2, $1, $5, 'other', 'Synthetic local handoff') returning id`,
+    [conversationId, PS_CAFE_DEMO_CLIENT_ID, PS_CAFE_DEMO_EMAIL_ID,
+      `local-${conversationId}@example.test`, messageId, `local-${messageId}`]);
+  const escalationId = inserted.rows[0].id;
+  try {
+    await login(page, "staff@ps-cafe-demo.test", "pronto-ps-demo");
+    await page.goto(`/client/conversations/${conversationId}`);
+    await expect(page.getByRole("heading", { name: "This Pronto view is unavailable." })).toBeVisible();
+    await page.goto("/client");
+    await page.getByRole("button", { name: "Log out" }).click();
+    await login(page, clientLogin.email, clientLogin.password);
+    await page.goto(`/client/conversations/${conversationId}`);
+    await expect(page.getByRole("heading", { name: "This Pronto view is unavailable." })).toBeVisible();
+    await page.goto("/client");
+    await page.getByRole("button", { name: "Log out" }).click();
+    await login(page, "responder@ps-cafe-demo.test", "pronto-ps-demo");
+    await expect(page.getByRole("heading", { name: "Needs Attention" })).toBeVisible();
+    await page.locator(`a[href="/client/conversations/${conversationId}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`/client/conversations/${conversationId}`));
+    await page.getByRole("button", { name: "Claim", exact: true }).click();
+    await expect(page.getByText("claimed", { exact: true })).toBeVisible();
+    await page.getByPlaceholder("Write the reply the customer will receive").fill("We can help with this request.");
+    await page.getByRole("button", { name: "Send reply and resolve" }).click();
+    await expect(page.getByRole("button", { name: "Release conversation to AI" })).toBeVisible();
+    const outbound = await getPool().query<{ status: string }>(
+      "select status from outbound_messages where client_id = $1 and escalation_id = $2",
+      [PS_CAFE_DEMO_CLIENT_ID, escalationId]);
+    expect(outbound.rows[0]?.status).toBe("sent");
+    const captured = await fetch("http://127.0.0.1:8025/api/v1/messages");
+    expect(captured.ok).toBe(true);
+    const mailbox = await captured.json() as { messages: Array<{ To: Array<{ Address: string }> }> };
+    expect(mailbox.messages.some((message) => message.To.some((recipient) =>
+      recipient.Address === `local-${conversationId}@example.test`))).toBe(true);
+    await page.getByRole("button", { name: "Release conversation to AI" }).click();
+    const state = await getPool().query<{ status: string }>(
+      "select status from conversations where id = $1 and client_id = $2", [conversationId, PS_CAFE_DEMO_CLIENT_ID]);
+    expect(state.rows[0].status).toBe("active");
+  } finally {
+    await getPool().query("delete from conversations where id = $1 and client_id = $2",
+      [conversationId, PS_CAFE_DEMO_CLIENT_ID]);
   }
 });
 

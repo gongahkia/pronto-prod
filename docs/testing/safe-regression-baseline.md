@@ -107,6 +107,27 @@ before running these tests. The new permission grants are deliberately empty
 after migration; the local PS.Cafe email fixture and provider mocks still use
 the existing worker and network guard. See [managed operations](../ops/managed-operations.md).
 
+Tranche B requires migrations `036_business_interaction.sql` and
+`037_business_interaction_user_deletion.sql` on the **verified disposable**
+database. The latter permits normal removal of synthetic test users without
+orphaning suggestion audit history. `tests/integration/business-interaction.test.ts`
+covers tenant isolation, revision-bound correction review, private-test and
+operator publication gates, independent policy authority, command expiry,
+replay, revocation, and honest business delivery labels. The browser suite
+exercises the four client destinations and the local PS.Cafe synthetic staff
+flow. `pnpm test:e2e:local-mail` also runs the browser claim/reply/release
+flow against loopback Mailpit; start the local-mail Compose profile first.
+The ordinary browser command skips only that Mailpit-dependent case.
+The local-mail browser command runs Next development mode because the local
+SMTP sender intentionally refuses production mode; only the web-server child
+allows Next's loopback build IPC. External network remains blocked.
+`pnpm test:e2e` enables the local command harness only with a marked
+loopback test database. It does not enable Meta staff commands or contact live
+providers. See [business experience](../ops/business-experience.md).
+On 12 October 2026, the DB-inclusive suite passed 337 tests with 5 existing
+skips and 71.20% line coverage. Compare that only with other DB-inclusive
+runs; browser and Mailpit tests are separate commands.
+
 ## Script effects and remaining limits
 
 | Command | Effect |

@@ -16,7 +16,8 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "pnpm start",
+    command: process.env.PRONTO_TEST_LOCAL_MAIL === "1"
+      ? "PRONTO_TEST_ALLOW_BUILD_IPC=1 pnpm dev" : "pnpm start",
     url: baseURL,
     // Never attach safe E2E tests to an unrelated, possibly live-configured server.
     reuseExistingServer: false,

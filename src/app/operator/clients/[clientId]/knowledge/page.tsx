@@ -5,6 +5,7 @@ import { getAssistantDraft } from "@/lib/assistant-drafts";
 import { getChannels } from "@/lib/dashboard";
 import { AssistantTester } from "@/components/assistant-tester";
 import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
+import { listKnowledgeSuggestions } from "@/lib/knowledge/suggestions";
 import { AppShell } from "@/components/shell";
 import { KnowledgeRefreshPanel } from "@/components/knowledge-refresh-panel";
 import {
@@ -28,10 +29,10 @@ export default async function OperatorClientKnowledgePage({
     notFound();
   }
 
-  const [knowledge, refreshRequests, draft, channels] = await Promise.all([
+  const [knowledge, refreshRequests, draft, channels, suggestions] = await Promise.all([
     getKnowledgeSources(client.id),
     getKnowledgeRefreshRequests(client.id),
-    getAssistantDraft(client.id), getChannels(client.id),
+    getAssistantDraft(client.id), getChannels(client.id), listKnowledgeSuggestions(client.id),
   ]);
 
   return (
@@ -41,6 +42,20 @@ export default async function OperatorClientKnowledgePage({
         description="Add and inspect the sources that ground this client's assistant."
       />
       <OperatorClientNav clientId={client.id} active="knowledge" />
+      <section className="ui-panel mb-5"><div className="ui-panel-header"><h2 className="font-semibold">Business correction proposals</h2>
+        <p className="text-sm text-muted">Pronto prepares approved suggestions for a private assistant test and final revision approval.</p></div>
+        {suggestions.length ? <ul className="divide-y divide-line">{suggestions.map((item) => <li key={item.id} className="p-4 text-sm">
+          <strong>{item.title}</strong> · revision {item.current_revision} · {item.status.replace(/_/g, " ")}
+          <p className="mt-1 text-muted">Author: {item.author_name ?? "former staff member"} · Source: {item.source_reference ?? "not supplied"}</p>
+          <details className="mt-2"><summary className="cursor-pointer">Review proposed fact and reason</summary>
+            <p className="mt-2 whitespace-pre-wrap">{item.content}</p><p className="mt-1">Reason: {item.reason}</p>
+            {item.review_note ? <p className="mt-1">Business review by {item.reviewer_name}: {item.review_note}</p> : null}</details>
+          {item.status === "approved" ? <form action="/api/operator/knowledge-suggestions" method="post" className="mt-3">
+            <input type="hidden" name="clientId" value={client.id}/><input type="hidden" name="suggestionId" value={item.id}/>
+            <input type="hidden" name="revision" value={item.current_revision}/>
+            <button className="ui-button px-3 py-2">Prepare this approved correction</button></form> : null}
+        </li>)}</ul> : <p className="p-4 text-sm text-muted">No business correction proposals yet.</p>}
+      </section>
       {draft ? <section className="ui-panel mb-5 p-4">
         <h2 className="font-semibold">Changes awaiting business approval</h2>
         <p className="text-sm">Draft revision {draft.edit_version} · {draft.tested_at ? "privately tested" : "test before publishing"}</p>

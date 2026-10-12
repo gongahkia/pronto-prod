@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { canViewBusinessConversation } from "@/lib/staff-permissions";
+import { canViewBusinessConversation, hasStaffCapability } from "@/lib/staff-permissions";
 import {
   getClient,
   getConversationActionableEscalation,
@@ -34,6 +34,10 @@ export default async function ClientConversationPage({
     getConversationActionableEscalation({ clientId: user.clientId, conversationId }),
     getConversationMessages(conversation.id, user.clientId),
   ]);
+  const [canRespond, canRelease] = await Promise.all([
+    hasStaffCapability(user, user.clientId, "conversation.respond"),
+    hasStaffCapability(user, user.clientId, "conversation.release"),
+  ]);
 
   const returnTo = `/client/conversations/${conversation.id}`;
 
@@ -52,7 +56,8 @@ export default async function ClientConversationPage({
       </div>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <ConversationReviewPanel conversation={conversation} messages={messages} />
-        <ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo} />
+        <ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo}
+          canRespond={canRespond} canRelease={canRelease} />
       </div>
     </AppShell>
   );

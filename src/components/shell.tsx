@@ -5,8 +5,10 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquareText,
-  Settings,
   UserRound,
+  BookOpenText,
+  Radio,
+  Clock3,
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -16,7 +18,8 @@ import { OperatorSidebarActions } from "@/components/operator-sidebar-actions";
 import type { SessionUser } from "@/lib/auth";
 import { getMockAiStatus } from "@/lib/llm/mock-status";
 
-type ClientSection = "overview" | "inbox" | "assistant" | "settings";
+type ClientSection = "attention" | "activity" | "knowledge" | "channels" |
+  "overview" | "inbox" | "assistant" | "settings";
 type OperatorSection =
   | "overview" | "businesses" | "inbox" | "knowledge" | "operations";
 
@@ -35,10 +38,10 @@ type OperatorSidebarItem = {
 };
 
 const clientSidebarItems: ClientSidebarItem[] = [
-  { href: "/client", label: "Overview", section: "overview", icon: LayoutDashboard },
-  { href: "/client/inbox", label: "Inbox", section: "inbox", icon: Inbox },
-  { href: "/client/assistant", label: "Assistant", section: "assistant", icon: Bot },
-  { href: "/client/settings", label: "Settings", section: "settings", icon: Settings },
+  { href: "/client", label: "Needs Attention", section: "attention", icon: Inbox },
+  { href: "/client/activity", label: "Recent Activity", section: "activity", icon: Clock3 },
+  { href: "/client/knowledge", label: "Business Knowledge", section: "knowledge", icon: BookOpenText },
+  { href: "/client/channels", label: "Connected Channels", section: "channels", icon: Radio },
 ];
 
 const operatorWorkspaceItems: OperatorSidebarItem[] = [
@@ -52,7 +55,7 @@ const operatorWorkspaceItems: OperatorSidebarItem[] = [
 export function AppShell({
   user,
   children,
-  clientActive = "overview",
+  clientActive = "attention",
   operatorActive = "businesses",
   workspaceName,
 }: {
@@ -187,6 +190,13 @@ function ClientSidebar({
       </nav>
 
       <div className="border-t border-sidebar-line p-3">
+        <details className="mb-2 px-2 text-xs text-sidebar-muted"><summary className="cursor-pointer">More tools</summary>
+          <div className="mt-2 flex flex-col gap-2">
+            <Link href="/client/inbox">All conversations</Link>
+            <Link href="/client/assistant">Test an answer</Link>
+            <Link href="/client/settings">Preferences and permissions</Link>
+          </div>
+        </details>
         <p className="truncate px-2 pb-2 text-xs text-sidebar-muted">{email}</p>
         <form action="/api/auth/logout" method="post">
           <button

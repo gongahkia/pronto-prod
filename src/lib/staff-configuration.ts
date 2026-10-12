@@ -1,6 +1,6 @@
 import { recordAuditLog } from "@/lib/audit";
 import type { SessionUser } from "@/lib/auth";
-import { query, transaction } from "@/lib/db";
+import { query, transaction, type Queryable } from "@/lib/db";
 import { requireStaffCapability } from "@/lib/staff-permissions";
 
 export type StaffDestination = {
@@ -96,14 +96,14 @@ export type EscalationPolicy = {
   outOfHoursAcknowledgement: string | null;
 };
 
-export async function getEscalationPolicy(clientId: string): Promise<{ version: number; policy: EscalationPolicy } | null> {
-  const result = await query<{ version: number; policy: EscalationPolicy }>(
+export async function getEscalationPolicy(clientId: string, db: Queryable = { query }): Promise<{ version: number; policy: EscalationPolicy } | null> {
+  const result = await db.query<{ version: number; policy: EscalationPolicy }>(
     "select version, policy from escalation_policy_versions where client_id = $1 order by version desc limit 1", [clientId]);
   return result.rows[0] ?? null;
 }
 
 export async function saveEscalationPolicy(input: {
-  actor: SessionUser; clientId: string; expectedVersion: number; policy: EscalationPolicy;
+  actor: SessionUser; clientId: string; expectedVersion: number; policy: EscalationPolicy; db?: Queryable;
 }): Promise<number> {
   const policy = input.policy;
   if (!policy || typeof policy !== "object" || !policy.staffedHours ||
@@ -124,8 +124,8 @@ export async function saveEscalationPolicy(input: {
   if (policy.outOfHoursAcknowledgement !== null &&
       (typeof policy.outOfHoursAcknowledgement !== "string" || policy.outOfHoursAcknowledgement.length > 1000))
     throw new Error("Out-of-hours acknowledgement must be at most 1000 characters.");
-  return transaction(async (db) => {
-    await requireStaffCapability(input.actor, input.clientId, "staff.permissions.manage", db);
+  const save = async (db: Queryable) => {
+    await requireStaffCapability(input.actor, input.clientId, "escalation.policy.manage", db);
     const latest = await db.query<{ version: number }>(
       "select version from escalation_policy_versions where client_id = $1 order by version desc limit 1 for update",
       [input.clientId]);
@@ -144,5 +144,6 @@ export async function saveEscalationPolicy(input: {
       action: "escalation_policy.updated", targetType: "client", targetId: input.clientId,
       metadata: { version: current + 1, hasTarget: policy.targetMinutes !== null } }, db);
     return current + 1;
-  }, { isolationLevel: "serializable", retries: 2 });
+  };
+  return input.db ? save(input.db) : transaction(save, { isolationLevel: "serializable", retries: 2 });
 }

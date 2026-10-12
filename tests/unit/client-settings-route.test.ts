@@ -26,7 +26,7 @@ describe("client settings route", () => {
     mocks.query.mockResolvedValue({ rows: [] });
   });
 
-  it("updates the location without mutating customer-channel owner contacts", async () => {
+  it("refuses a legacy direct business-fact edit and leaves customer channels untouched", async () => {
     const form = new FormData();
     form.set("location", "North Bridge Road");
     form.set("ownerChatId", "12345");
@@ -43,9 +43,8 @@ describe("client settings route", () => {
       }),
     );
 
-    expect(mocks.query.mock.calls[0][1]).toEqual(["client-1", "North Bridge Road"]);
-    expect(mocks.query.mock.calls.every(([sql]) => !String(sql).includes("update channels"))).toBe(true);
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("http://localhost/client/settings");
+    expect(mocks.query).not.toHaveBeenCalled();
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: "Suggest a business knowledge correction for Pronto review." });
   });
 });

@@ -3,6 +3,7 @@ import { deterministicEmbedding } from "../../src/lib/llm/mock";
 import { chunkText } from "../../src/lib/knowledge/chunk";
 import { verifyTestDatabase } from "../test-db-safety";
 import { encryptedChannelCredentialValues } from "../../src/lib/channels/credentials";
+import { hashPassword } from "../../src/lib/password";
 
 // Fixed IDs make this disposable fixture idempotent and easy to remove.
 export const PS_CAFE_DEMO_CLIENT_ID = "00000000-0000-4000-8000-00000000a101";
@@ -10,6 +11,10 @@ export const PS_CAFE_DEMO_WHATSAPP_ID = "00000000-0000-4000-8000-00000000a102";
 export const PS_CAFE_DEMO_INSTAGRAM_ID = "00000000-0000-4000-8000-00000000a103";
 export const PS_CAFE_DEMO_EMAIL_ID = "00000000-0000-4000-8000-00000000a104";
 export const PS_CAFE_DEMO_MESSENGER_ID = "00000000-0000-4000-8000-00000000a105";
+export const PS_CAFE_DEMO_RESPONDER_ID = "00000000-0000-4000-8000-00000000a301";
+export const PS_CAFE_DEMO_APPROVER_ID = "00000000-0000-4000-8000-00000000a302";
+export const PS_CAFE_DEMO_POLICY_MANAGER_ID = "00000000-0000-4000-8000-00000000a303";
+export const PS_CAFE_DEMO_ORDINARY_STAFF_ID = "00000000-0000-4000-8000-00000000a304";
 export const PS_CAFE_DEMO_SUPPORT_ADDRESS = "support@ps-cafe-demo.test";
 export const PS_CAFE_CHOPE_OUTLET_ID = "pscaferafflescity1808psc";
 export const PS_CAFE_CHOPE_URL = "https://www.chope.co/singapore-restaurants/restaurant/ps-cafe-raffles-city";
@@ -91,6 +96,33 @@ export async function setupPsCafeDemo(): Promise<void> {
       `insert into onboarding_stages (client_id, stage)
        select $1, stage from (values ('profile'), ('communications'), ('knowledge'), ('testing'), ('activation')) s(stage)
        on conflict (client_id, stage) do nothing`, [PS_CAFE_DEMO_CLIENT_ID]);
+    const demoPasswordHash = await hashPassword("pronto-ps-demo");
+    for (const person of [
+      { id: PS_CAFE_DEMO_RESPONDER_ID, email: "responder@ps-cafe-demo.test", name: "Demo responder",
+        permissions: ["conversation.respond", "conversation.release"] },
+      { id: PS_CAFE_DEMO_APPROVER_ID, email: "approver@ps-cafe-demo.test", name: "Demo knowledge approver",
+        permissions: ["knowledge.approve"] },
+      { id: PS_CAFE_DEMO_POLICY_MANAGER_ID, email: "policy@ps-cafe-demo.test", name: "Demo policy manager",
+        permissions: ["escalation.policy.manage"] },
+      { id: PS_CAFE_DEMO_ORDINARY_STAFF_ID, email: "staff@ps-cafe-demo.test", name: "Demo staff",
+        permissions: [] },
+    ]) {
+      const claimed = await db.query<{ id: string; client_id: string | null; email: string }>(
+        "select id, client_id, email from users where id = $1 or email = $2", [person.id, person.email]);
+      if (claimed.rows.some((row) => row.id !== person.id || row.client_id !== PS_CAFE_DEMO_CLIENT_ID || row.email !== person.email))
+        throw new Error("A synthetic PS.Cafe staff identity is occupied by non-demo data.");
+      await db.query(
+        `insert into users (id, client_id, email, name, role, password_hash)
+         values ($1, $2, $3, $4, 'client', $5)
+         on conflict (id) do update set name = excluded.name, password_hash = excluded.password_hash`,
+        [person.id, PS_CAFE_DEMO_CLIENT_ID, person.email, person.name, demoPasswordHash]);
+      for (const permission of person.permissions) {
+        await db.query(
+          `insert into staff_permission_grants (client_id, user_id, permission)
+           values ($1, $2, $3) on conflict do nothing`,
+          [PS_CAFE_DEMO_CLIENT_ID, person.id, permission]);
+      }
+    }
     await db.query(`insert into agent_configs (client_id, prompt_preamble, retrieval_threshold,
       response_provider, embedding_provider) values ($1, $2, 0.05, 'openai', 'openai')
       on conflict (client_id) do update set prompt_preamble = excluded.prompt_preamble,

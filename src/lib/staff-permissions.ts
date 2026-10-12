@@ -5,6 +5,7 @@ import type { SessionUser } from "@/lib/auth";
 export const staffCapabilities = [
   "knowledge.approve", "channel.activate", "conversation.respond",
   "conversation.release", "staff.permissions.manage",
+  "escalation.policy.manage",
 ] as const;
 export type StaffCapability = typeof staffCapabilities[number];
 
@@ -47,6 +48,8 @@ export async function setStaffCapability(input: {
   capability: StaffCapability; granted: boolean; evidence: string;
 }): Promise<void> {
   if (!input.evidence.trim()) throw new Error("Authorization evidence is required.");
+  if (input.actor.role !== "operator" && input.actor.userId === input.userId)
+    throw new Error("Business staff cannot change their own permissions.");
   await transaction(async (db) => {
     await requireStaffCapability(input.actor, input.clientId, "staff.permissions.manage", db);
     const target = await db.query<{ role: string }>(

@@ -21,9 +21,10 @@ Node worker
 
 Operator/client dashboards
   -> operator overview, businesses, inbox, knowledge/connections, operations
-  -> tenant-scoped client handoff, approvals and settings
+  -> four-destination tenant-scoped business portal, handoff and settings
   -> revisioned assistant/channel approval before publication or activation
   -> durable staff notification job for each escalation
+  -> local-only authenticated staff proposals and explicit confirmations
 ```
 
 `src/lib/channels/inbox.ts` commits the customer message and its job atomically.
@@ -50,6 +51,15 @@ assistant and channel review, and retriable staff-notification jobs. See the
 [managed operations runbook](ops/managed-operations.md) for routes, permissions
 and activation gates. The public readiness probe exposes only aggregate status;
 operator-only Operations shows queue and worker detail.
+
+Tranche B reuses the same tenant, assistant draft, RAG, approval and escalation
+tables. Business correction proposals remain outside active knowledge until
+business review, private assistant testing, revision-bound approval and Pronto
+publication. The local staff command service reads authenticated business
+identity, checks an independent policy capability and stores expiring
+confirmation requests in PostgreSQL. No real provider routes feed staff
+commands. See [business experience](ops/business-experience.md) for the
+portal, role matrix and supported local requests.
 
 ## Implemented and externally blocked
 

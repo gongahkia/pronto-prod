@@ -149,11 +149,11 @@ function tenantSqlGateEnabled(): boolean {
 }
 
 function mentionsClientScopedTable(sql: string): boolean {
-  return /\b(from|join|update|into|delete from)\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests)\b/.test(sql);
+  return /\b(from|join|update|into|delete from)\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|knowledge_suggestions|knowledge_suggestion_revisions|staff_command_requests|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests)\b/.test(sql);
 }
 
 function isTenantInsert(sql: string): boolean {
-  return /\binsert\s+into\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests)\b/.test(sql);
+  return /\binsert\s+into\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|knowledge_suggestions|knowledge_suggestion_revisions|staff_command_requests|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests)\b/.test(sql);
 }
 
 function hasBoundClientIdInsertValue(
@@ -162,7 +162,7 @@ function hasBoundClientIdInsertValue(
   clientId: string,
 ): boolean {
   const match = sql.match(
-    /\binsert\s+into\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests)\s*\(([^)]*)\)\s*values\s*/,
+    /\binsert\s+into\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|knowledge_suggestions|knowledge_suggestion_revisions|staff_command_requests|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests)\s*\(([^)]*)\)\s*values\s*/,
   );
   if (!match) {
     return false;

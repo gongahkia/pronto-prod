@@ -6,29 +6,27 @@ import { getEscalationPolicy, listStaffDestinations } from "@/lib/staff-configur
 import { hasStaffCapability } from "@/lib/staff-permissions";
 import { listStaffCapabilities, staffCapabilities } from "@/lib/staff-permissions";
 import { query } from "@/lib/db";
+import { localStaffCommandsEnabled } from "@/lib/staff-interaction";
 
 const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default async function ClientSettingsPage() {
   const actor = await requireUser("client");
   if (!actor.clientId) throw new Error("Client assignment required.");
-  const [client, destinations, policy, canManage, staff, grants] = await Promise.all([
+  const [client, destinations, policy, canManage, canManagePolicy, staff, grants] = await Promise.all([
     getClient(actor.clientId), listStaffDestinations(actor.clientId), getEscalationPolicy(actor.clientId),
     hasStaffCapability(actor, actor.clientId, "staff.permissions.manage"),
+    hasStaffCapability(actor, actor.clientId, "escalation.policy.manage"),
     query<{ id: string; name: string; email: string }>(
       "select id, name, email from users where client_id = $1 and role = 'client' order by name", [actor.clientId]),
     listStaffCapabilities(actor.clientId),
   ]);
   if (!client) throw new Error("Business not found.");
-  return <AppShell user={actor} active="client" clientActive="settings" workspaceName={client.name}>
+  return <AppShell user={actor} active="client" clientActive="channels" workspaceName={client.name}>
     <h1 className="mb-5 text-xl font-semibold">Settings</h1>
     <section className="ui-panel mb-5 p-4"><h2 className="font-semibold">Business location</h2>
-      <form action="/api/client/settings" method="post" className="mt-3 flex flex-wrap gap-2">
-        <input type="hidden" name="action" value="location"/>
-        <input name="location" aria-label="Business location" className="ui-input min-w-64 flex-1 px-3 py-2"
-          defaultValue={String(client.business_profile.location ?? "")}/>
-        <button className="ui-primary-button px-3 py-2">Save location</button>
-      </form></section>
+      <p className="mt-2 text-sm">{String(client.business_profile.location ?? "No location recorded")}</p>
+      <Link href="/client/knowledge" className="mt-2 inline-block text-sm text-accent">Suggest a correction</Link></section>
     <section className="ui-panel p-4"><h2 className="font-semibold">Staff notification destinations</h2>
       <p className="text-sm text-muted">These contacts are independent of customer messaging channels. Pronto verifies a destination before using it.</p>
       <ul className="mt-3 text-sm">{destinations.map((item) =>
@@ -47,6 +45,7 @@ export default async function ClientSettingsPage() {
         <strong>{person.name}</strong> · {person.email}
         <p className="text-xs text-muted">Granted: {grants.filter((grant) => grant.user_id === person.id)
           .map((grant) => grant.permission).join(", ") || "none"}</p>
+        {person.id === actor.userId ? <p className="mt-2 text-xs text-muted">Ask another authorized manager or Pronto to change your permissions.</p> :
         <form action="/api/client/staff-permissions" method="post" className="mt-2 flex flex-wrap gap-2">
           <input type="hidden" name="userId" value={person.id}/>
           <select className="ui-input px-2 py-1" name="capability" aria-label={`Permission for ${person.name}`}>
@@ -56,13 +55,13 @@ export default async function ClientSettingsPage() {
             placeholder="Approval reference"/>
           <button className="ui-button px-2 py-1" name="action" value="grant">Grant</button>
           <button className="ui-button px-2 py-1" name="action" value="revoke">Revoke</button>
-        </form>
+        </form>}
       </div>)}
     </section> : null}
     <section className="ui-panel mt-5 p-4"><h2 className="font-semibold">Escalation response target</h2>
       <p className="text-sm text-muted">An optional operating target. An unset target does not create an SLA.</p>
       <p className="my-2 text-sm">Current: {policy?.policy.targetMinutes == null ? "Not set" : `${policy.policy.targetMinutes} minutes`}</p>
-      {canManage ? <form action="/api/client/escalation-policy" method="post" className="flex flex-wrap gap-2">
+      {canManagePolicy ? <form action="/api/client/escalation-policy" method="post" className="flex flex-wrap gap-2">
         <input type="hidden" name="expectedVersion" value={policy?.version ?? 0}/>
         <input className="ui-input px-3 py-2" name="targetMinutes" type="number" min="1" max="10080"
           aria-label="Response target in minutes" placeholder="Minutes, optional" defaultValue={policy?.policy.targetMinutes ?? ""}/>
@@ -94,8 +93,11 @@ export default async function ClientSettingsPage() {
               defaultValue={policy?.policy.outOfHoursAcknowledgement ?? ""}/></label>
           </div>
         </details>
-        <button className="ui-button px-3 py-2">Save escalation policy</button></form> : null}
+        <p className="w-full text-xs text-muted">Reminder and backup preferences are stored for review; automated reminder delivery is not enabled.</p>
+        <button className="ui-button px-3 py-2">Save escalation policy</button></form>
+        : <p className="mt-2 text-sm text-muted">A designated policy manager can change this target.</p>}
     </section>
     <p className="mt-4 text-sm text-muted">Review pending business decisions in <Link className="text-accent" href="/client/approvals">Approvals</Link>.</p>
+    {localStaffCommandsEnabled() ? <p className="mt-2 text-sm"><Link className="text-accent" href="/client/contact-pronto">Try a local staff message</Link></p> : null}
   </AppShell>;
 }

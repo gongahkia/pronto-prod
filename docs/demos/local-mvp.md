@@ -70,6 +70,37 @@ The WhatsApp, Instagram and Messenger demo channels remain **draft**. Their
 signed fixture paths are exercised by the isolated integration tests; the
 local procedure never sends a real Meta message.
 
+## Business staff demonstration
+
+The guarded demo setup also creates four **synthetic** staff identities with password
+`pronto-ps-demo`: `responder@ps-cafe-demo.test`,
+`approver@ps-cafe-demo.test`, `policy@ps-cafe-demo.test`, and
+`staff@ps-cafe-demo.test`. They hold separate conversation, knowledge approval,
+policy management, and ordinary staff permissions respectively. These are
+internal test accounts only. Never use them with a real customer account.
+
+Sign in as the responder at `/client` to see the four-destination business
+portal. Open a human handoff from Needs Attention, claim it, reply, then
+explicitly release it. The existing email escalation fixtures above provide a
+safe local conversation and Mailpit captures the staff reply. Sign in as the
+responder or ordinary staff member at `/client/knowledge` to suggest a
+correction about the disputed reservation cutoff; it remains pending and cannot
+change customer answers. The approver can review the exact revision, but this
+does **not** state that the real restaurant has approved it. A Pronto operator
+then stages the reviewed suggestion, performs a private test, obtains the
+separate version-bound assistant approval, and publishes it. Avoid publishing
+either conflicting cutoff as an authoritative fact. The fixture's existing
+knowledge and Chope read-only fallback remain intact.
+
+For a local staff configuration exercise, start the app with
+`PRONTO_LOCAL_STAFF_COMMANDS=1` in the marked test database. Sign in as
+`policy@ps-cafe-demo.test`, open `/client/contact-pronto`, send
+`Change our escalation response target to 30 minutes`, review the old/new
+proposal, and confirm. Settings then shows the persisted versioned target.
+This interface uses authenticated synthetic identities and is disabled for
+real messaging providers. See [the business experience guide](../ops/business-experience.md)
+for exact command syntax, permissions and limitations.
+
 Stop the app and worker, then run `pnpm demo:ps-cafe:remove`. The guarded
 removal deletes only the marked demo tenant. `docker compose --profile
 local-mail stop mailpit` stops the local mailbox.

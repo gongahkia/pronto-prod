@@ -129,8 +129,8 @@ export async function POST(request: Request) {
   if (action === "claim") {
     await transaction(async (client) => {
       await client.query(
-        "update escalations set status = 'claimed' where id = $1 and client_id = $2 and status = 'open'",
-        [escalation.id, escalation.client_id],
+        "update escalations set status = 'claimed', assigned_to_user_id = $3 where id = $1 and client_id = $2 and status = 'open'",
+        [escalation.id, escalation.client_id, user.userId],
       );
       await recordAuditLog(
         {

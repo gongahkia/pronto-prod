@@ -141,7 +141,13 @@ export async function stageKnowledge(input: {
   content?: string;
   sourceType?: string;
   metadata?: Record<string, unknown>;
+  allowNewSourceId?: boolean;
+  proposalAuthorUserId?: string;
 }): Promise<string> {
+  if (input.allowNewSourceId || input.proposalAuthorUserId) {
+    const actor = await query<{ role: string }>("select role from users where id = $1", [input.actorUserId]);
+    if (actor.rows[0]?.role !== "operator") throw new Error("Only Pronto may prepare an approved suggestion.");
+  }
   await ensureDraft(input.clientId, input.actorUserId);
   const sourceId = input.sourceId ?? randomUUID();
   const draft = await getAssistantDraft(input.clientId);
@@ -153,7 +159,7 @@ export async function stageKnowledge(input: {
         [sourceId, input.clientId],
       )
     : null;
-  if (input.sourceId && !existingSource?.rows[0] && !existingChange) {
+  if (input.sourceId && !existingSource?.rows[0] && !existingChange && !input.allowNewSourceId) {
     throw new Error("Knowledge source not found.");
   }
   const source = existingSource?.rows[0];
@@ -163,14 +169,14 @@ export async function stageKnowledge(input: {
   } else {
     changes[sourceId] = {
       sourceId,
-      authorUserId: input.actorUserId,
+      authorUserId: input.proposalAuthorUserId ?? input.actorUserId,
       action: input.action,
       title: input.title?.trim() ?? existingChange?.title ?? source?.title ?? "",
       content: input.content?.trim() ?? existingChange?.content ?? source?.content ?? "",
       sourceType: input.sourceType ?? existingChange?.sourceType ?? source?.source_type ?? "client_manual",
       metadata: {
         ...(input.metadata ?? existingChange?.metadata ?? source?.metadata ?? {}),
-        proposalAuthorId: input.actorUserId,
+        proposalAuthorId: input.proposalAuthorUserId ?? input.actorUserId,
         sourceReference: String(input.metadata?.sourceUrl ?? input.metadata?.sourceReference ??
           input.metadata?.fileName ?? input.metadata?.entryMode ?? existingChange?.metadata?.sourceReference ?? source?.metadata?.sourceUrl ??
           source?.source_type ?? input.sourceType ?? "manual_proposal"),
@@ -268,6 +274,30 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
       throw new DraftConflictError();
     }
     for (const change of Object.values(draft.knowledge_changes)) {
+      const suggestionId = change.metadata.suggestionId;
+      if (typeof suggestionId === "string") {
+        const suggestion = await db.query<{ status: string; current_revision: number;
+          reviewed_revision: number | null; reviewed_by: string | null; target_source_id: string; created_by: string | null;
+          title: string; content: string; reason: string; source_reference: string | null; outlet_name: string | null }>(
+          `select s.status, s.current_revision, s.reviewed_revision, s.reviewed_by, s.target_source_id, s.created_by,
+             r.title, r.content, r.reason, r.source_reference, r.outlet_name
+           from knowledge_suggestions s join knowledge_suggestion_revisions r
+             on r.suggestion_id = s.id and r.client_id = s.client_id and r.revision = s.current_revision
+           where s.id = $1 and s.client_id = $2 for update of s`,
+          [suggestionId, clientId]);
+        const approved = suggestion.rows[0];
+        if (!approved || !approved.reviewed_by || approved.status !== "staged" || change.action !== "upsert" ||
+            approved.current_revision !== change.metadata.suggestionRevision ||
+            approved.reviewed_revision !== approved.current_revision ||
+            approved.target_source_id !== change.sourceId ||
+            approved.title !== change.title || approved.content !== change.content ||
+            (approved.created_by !== null && change.authorUserId !== approved.created_by) ||
+            change.metadata.correctionReason !== approved.reason ||
+            change.metadata.outletName !== approved.outlet_name ||
+            change.metadata.sourceReference !== (approved.source_reference ?? "business_suggestion")) {
+          throw new Error("A knowledge suggestion changed after business review; publication is blocked.");
+        }
+      }
       if (change.action === "delete") {
         await db.query("delete from knowledge_sources where id = $1 and client_id = $2", [
           change.sourceId, clientId,
@@ -308,6 +338,11 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
         [change.sourceId, clientId, change.title, change.content, JSON.stringify(change.metadata),
           existing.rowCount ? "updated" : "created", change.authorUserId ?? actorUserId],
       );
+      if (typeof suggestionId === "string") {
+        await db.query(
+          `update knowledge_suggestions set status = 'published', updated_at = now()
+           where id = $1 and client_id = $2`, [suggestionId, clientId]);
+      }
     }
     if (draft.voice) {
       const voice = draft.voice;
