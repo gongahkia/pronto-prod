@@ -85,6 +85,7 @@ Required per-channel credentials/settings for each Instagram business:
 - `pageAccessToken`
 - `appSecret`
 - `igUserId`
+- `pageId` (linked Facebook Page; checked against the professional account)
 - `verifyToken`
 
 ## Email

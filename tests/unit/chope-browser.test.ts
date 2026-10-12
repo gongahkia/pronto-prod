@@ -32,6 +32,10 @@ describe("Chope browser availability boundary", () => {
       .toBe(false);
     expect(validChopeBrowserConfig({ ...config, listingUrl: `${config.listingUrl}?token=secret` }))
       .toBe(false);
+    expect(validChopeBrowserConfig({ ...config, listingUrl: config.listingUrl.replace(
+      "www.chope.co", "www.chope.co:8443") })).toBe(false);
+    expect(validChopeBrowserConfig({ ...config, listingUrl: config.listingUrl.replace(
+      "www.chope.co", "localhost") })).toBe(false);
   });
 
   it("fails closed before launching a browser without both live-read opt-ins", async () => {

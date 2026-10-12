@@ -7,6 +7,10 @@ unmocked `fetch` and external sockets, and leaves PostgreSQL integration tests
 skipped. Tests that need a provider response inject a fake `fetch`. No live
 provider credentials are needed. `pnpm test:coverage` uses the same harness;
 when `PRONTO_RUN_DB_TESTS=1`, it also runs the guarded DB fixtures.
+Compare coverage only with the same DB-test setting: the ordinary run skips
+PostgreSQL suites and therefore reports a different denominator. On 11 October
+2026, the guarded DB-inclusive run covered 294 tests and reported 70.17% line
+coverage; the earlier 59.29% figure was from a DB-excluded run.
 
 `pnpm test:known-defects` remains an opt-in entry point for any future
 unresolved specifications. It currently contains no tests and exits zero.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { validateChannelHealthConfig } from "@/lib/channels/health";
+import { runChannelHealthCheck, validateChannelHealthConfig } from "@/lib/channels/health";
 import type { Channel } from "@/lib/types";
 
 const baseChannel: Channel = {
@@ -19,7 +19,7 @@ const baseChannel: Channel = {
 };
 
 describe("channel health config validation", () => {
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
   it("requires Telegram token and webhook secret", () => {
     expect(validateChannelHealthConfig(baseChannel)).toBe("Telegram bot token is missing.");
     expect(
@@ -61,5 +61,22 @@ describe("channel health config validation", () => {
     vi.stubEnv("META_GRAPH_VERSION", "v20.0");
     const instagram = { ...baseChannel, kind: "instagram" as const };
     expect(validateChannelHealthConfig(instagram)).toMatch(/expired/);
+  });
+
+  it("requires and verifies Instagram's linked Page to professional-account mapping", async () => {
+    const instagram: Channel = { ...baseChannel, kind: "instagram", status: "active",
+      external_id: "ig-a", credentials: { pageAccessToken: "token", appSecret: "secret",
+        igUserId: "ig-a" }, settings: { verifyToken: "verify" } };
+    expect(validateChannelHealthConfig(instagram)).toMatch(/Page ID/);
+    const configured = { ...instagram, credentials: { ...instagram.credentials, pageId: "page-a" } };
+    expect(validateChannelHealthConfig(configured)).toBeNull();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ id: "page-a",
+      instagram_business_account: { id: "ig-a" } }), { status: 200 })));
+    expect(await runChannelHealthCheck(configured)).toMatchObject({ status: "healthy", checkedLive: true });
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/page-a?fields=id,instagram_business_account"),
+      expect.objectContaining({ headers: { Authorization: "Bearer token" } }));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ id: "page-a",
+      instagram_business_account: { id: "ig-b" } }), { status: 200 })));
+    expect(await runChannelHealthCheck(configured)).toMatchObject({ status: "degraded", checkedLive: true });
   });
 });

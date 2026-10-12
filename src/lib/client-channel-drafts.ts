@@ -55,6 +55,7 @@ export const channelSetupFields: Record<ChannelKind, ChannelField[]> = {
     { scope: "credentials", name: "pageAccessToken", label: "Page access token", secret: true },
     { scope: "credentials", name: "appSecret", label: "App secret", secret: true },
     { scope: "credentials", name: "igUserId", label: "Instagram user ID" },
+    { scope: "credentials", name: "pageId", label: "Linked Facebook Page ID" },
     { scope: "settings", name: "verifyToken", label: "Webhook verify token", secret: true },
   ],
   email: [

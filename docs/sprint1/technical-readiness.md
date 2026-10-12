@@ -56,7 +56,7 @@ supported version such as `v25.0` and confirm it with a permitted test account.
 Instagram currently uses **Facebook Login with a linked Facebook Page** and
 a manually provisioned Page access token, plus the Instagram professional
 account ID. Personal accounts and Instagram Login OAuth are unsupported.
-Configure the professional account ID, Page token, app secret, and verify token
+Configure the professional account ID, linked Page ID, Page token, app secret, and verify token
 for `/api/webhooks/instagram/<channelId>`. Obtain the applicable Instagram
 messaging permission and webhook subscription in the Meta app; complete App
 Review/Advanced Access and business verification as Meta requires for
@@ -64,6 +64,9 @@ non-role users. The customer must initiate the conversation. Confirm actual
 webhook `entry.id`, recipient IDs, token scope, and send endpoint with a
 permitted test account before enabling a customer channel.
 Set `META_GRAPH_VERSION` to a supported version; `v20.0` is rejected.
+The read-only health check now requires the Page's linked professional-account
+ID to match this channel. Follow the [isolated Meta verification guide](../channels/meta-sandbox-verification.md)
+for account prerequisites, guarded Graph reads and the controlled send test.
 
 The local demonstration tests in `tests/integration/meta-rag-demo.test.ts`
 exercise signed webhook -> durable job -> mock embedding/model with real

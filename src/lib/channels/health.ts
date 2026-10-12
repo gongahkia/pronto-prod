@@ -63,7 +63,11 @@ export async function runChannelHealthCheck(
     return checkWhatsAppHealth(channel);
   }
 
-  if (channel.kind === "messenger" || channel.kind === "instagram") {
+  if (channel.kind === "instagram") {
+    return checkInstagramHealth(channel);
+  }
+
+  if (channel.kind === "messenger") {
     return checkMetaPlatformHealth(channel);
   }
 
@@ -136,10 +140,12 @@ export function validateChannelHealthConfig(channel: Channel): string | null {
     const verifyToken = channel.settings.verifyToken as string | undefined;
     const igUserId =
       (channel.credentials.igUserId as string | undefined) ?? channel.external_id;
+    const pageId = channel.credentials.pageId as string | undefined;
     if (!token) return "Instagram page access token is missing.";
     if (!appSecret) return "Instagram app secret is missing.";
     if (!verifyToken) return "Instagram webhook verify token is missing.";
     if (!igUserId) return "Instagram user ID is missing.";
+    if (!pageId) return "Instagram linked Page ID is missing.";
     return null;
   }
 
@@ -227,6 +233,12 @@ async function checkWhatsAppHealth(channel: Channel): Promise<ChannelHealthResul
     };
   }
 
+  let body: { id?: unknown };
+  try { body = await response.json() as typeof body; }
+  catch { return { status: "degraded", detail: "WhatsApp phone number response was invalid.", checkedLive: true }; }
+  if (body.id !== phoneNumberId) return { status: "degraded",
+    detail: "WhatsApp token does not resolve to the configured phone number ID.", checkedLive: true };
+
   return {
     status: "healthy",
     detail: "WhatsApp phone number credentials are valid.",
@@ -255,6 +267,27 @@ async function checkMetaPlatformHealth(channel: Channel): Promise<ChannelHealthR
     detail: `${channel.kind} page token is valid.`,
     checkedLive: true,
   };
+}
+
+async function checkInstagramHealth(channel: Channel): Promise<ChannelHealthResult> {
+  const token = channel.credentials.pageAccessToken as string;
+  const pageId = channel.credentials.pageId as string;
+  const igUserId = (channel.credentials.igUserId as string | undefined) ?? channel.external_id;
+  const response = await fetchWithTimeout(
+    `https://graph.facebook.com/${metaGraphVersion()}/${pageId}?fields=id,instagram_business_account`,
+    { headers: { Authorization: `Bearer ${token}` } }, channelHealthTimeoutMs(),
+  );
+  if (!response.ok) return { status: "degraded",
+    detail: `Instagram linked Page check failed with HTTP ${response.status}.`, checkedLive: true };
+  let body: { id?: unknown; instagram_business_account?: { id?: unknown } };
+  try { body = await response.json() as typeof body; }
+  catch { return { status: "degraded", detail: "Instagram linked Page response was invalid.", checkedLive: true }; }
+  if (body.id !== pageId || body.instagram_business_account?.id !== igUserId) {
+    return { status: "degraded", detail: "Instagram linked Page does not match the configured professional account.",
+      checkedLive: true };
+  }
+  return { status: "healthy", detail: "Instagram Page token and professional-account mapping are valid.",
+    checkedLive: true };
 }
 
 async function checkEmailHealth(channel: Channel): Promise<ChannelHealthResult> {

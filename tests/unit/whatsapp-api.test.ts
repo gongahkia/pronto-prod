@@ -36,12 +36,18 @@ describe("WhatsApp Graph API requests", () => {
   });
 
   it("uses the configured Graph version for health checks", async () => {
-    await runChannelHealthCheck(whatsappChannel());
+    expect(await runChannelHealthCheck(whatsappChannel())).toMatchObject({ status: "healthy" });
 
     expect(fetch).toHaveBeenCalledWith(
       "https://graph.facebook.com/v99.0/phone-number-id?fields=id,display_phone_number,verified_name",
       expect.any(Object),
     );
+  });
+
+  it("does not mark a different phone number as healthy", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ id: "phone-other" }),
+      { status: 200 })));
+    expect(await runChannelHealthCheck(whatsappChannel())).toMatchObject({ status: "degraded" });
   });
 
   it("fails outbound sends when credentials are missing", async () => {

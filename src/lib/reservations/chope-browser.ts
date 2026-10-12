@@ -22,7 +22,7 @@ export function validChopeBrowserConfig(config: ChopeBrowserConfig): boolean {
       config.scope !== "demo_availability" || !Number.isFinite(Date.parse(config.authorizedAt))) return false;
   try {
     const url = new URL(config.listingUrl);
-    return url.protocol === "https:" && url.hostname === "www.chope.co" && !url.username &&
+    return url.protocol === "https:" && url.hostname === "www.chope.co" && !url.port && !url.username &&
       !url.password && !url.search && !url.hash &&
       /^\/singapore-restaurants\/restaurant\/[a-z0-9-]+\/?$/i.test(url.pathname);
   } catch { return false; }
@@ -127,12 +127,14 @@ export async function readChopeBrowserAvailability(request: ReservationRequest,
       const call = route.request();
       const url = new URL(call.url());
       const hostAllowed = url.hostname === "chope.co" || url.hostname.endsWith(".chope.co");
-      if (hostAllowed && url.hostname !== "book.chope.co" && call.method() === "GET" &&
+      if (hostAllowed && url.protocol === "https:" && !url.port &&
+          url.hostname !== "book.chope.co" && call.method() === "GET" &&
           !/\/booking\/|\/payment|\/checkout/i.test(url.pathname)) {
         await route.continue();
         return;
       }
-      if (url.hostname === "www.chope.co" && url.pathname === GET_TIMES_PATH &&
+      if (url.protocol === "https:" && !url.port && url.hostname === "www.chope.co" &&
+          url.pathname === GET_TIMES_PATH &&
           call.method() === "POST" && !allowedRead) {
         const fields = new URLSearchParams(call.postData() ?? "");
         if (fields.get("rid") === request.outletId && fields.get("date") === providerDate &&

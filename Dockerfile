@@ -53,3 +53,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY scripts ./scripts
 COPY src ./src
 CMD ["pnpm", "worker"]
+
+# Optional single-worker image for explicitly authorized Chope demo reads.
+# Replace the ordinary worker with this image; do not run both concurrently.
+FROM worker AS worker-chope
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN pnpm exec playwright-core install --with-deps chromium

@@ -24,6 +24,7 @@
     "demo:ps-cafe:setup": "tsx scripts/ps-cafe-demo.ts setup",
     "demo:ps-cafe:remove": "tsx scripts/ps-cafe-demo.ts remove",
     "chope:live-read": "tsx scripts/chope-live-read.ts",
+    "meta:verify": "tsx scripts/meta-verify.ts",
     "test:watch": "vitest",
     "test:e2e": "tsx scripts/verify-test-db.ts && PRONTO_USE_MOCK_AI=1 PRONTO_TEST_ALLOW_BUILD_IPC=0 APP_BASE_URL=http://localhost:3000 PLAYWRIGHT_BASE_URL=http://localhost:3000 NODE_OPTIONS=--import=./tests/setup/network-guard.mjs playwright test",
     "migrate": "tsx scripts/migrate.ts",

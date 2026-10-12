@@ -37,6 +37,13 @@ TMPDIR=/var/tmp CHOPE_LIVE_READ_APPROVED=1 PRONTO_CHOPE_LIVE_READS=1 \
   2026-10-12 19:00 2
 ```
 
+The ordinary Docker `worker` image has no Chromium. For an authorized
+container demo, build the optional `worker-chope` target with
+`docker build --target worker-chope -t pronto-worker-chope .` and use it
+**instead of** the ordinary worker. It installs Chromium and its system
+libraries at build time. Run only one such worker until the written rate cap
+and a shared limiter are established; the current interval is per process.
+
 Use a future date and current outlet mapping. Without **both** opt-in flags,
 the command fails before network access. The default `pnpm test`, DB tests,
 CI and local fake-provider demos do not enable these flags or contact Chope.

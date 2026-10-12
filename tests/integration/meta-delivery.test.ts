@@ -133,5 +133,37 @@ dbDescribe("Meta delivery policy with isolated PostgreSQL", () => {
       "select metadata from outbound_messages where id = $1", [inserted.rows[0].id]);
     expect(row.rows[0].metadata.providerStatus).toBe("delivered");
     expect(await recordWhatsAppStatusEvents({ id: instagramId, client_id: clientId }, payload)).toBe(0);
+    const older = { entry: [{ changes: [{ value: { statuses: [
+      { id: "wamid.sent-a", status: "sent", timestamp: "1790000000" },
+      { id: "wamid.sent-a", status: "failed", timestamp: "1790000001" },
+    ] } }] }] };
+    expect(await recordWhatsAppStatusEvents({ id: whatsappId, client_id: clientId }, older)).toBe(0);
+    const read = { entry: [{ changes: [{ value: { statuses: [
+      { id: "wamid.sent-a", status: "read", timestamp: "1790000002" },
+    ] } }] }] };
+    expect(await recordWhatsAppStatusEvents({ id: whatsappId, client_id: clientId }, read)).toBe(1);
+    expect(await recordWhatsAppStatusEvents({ id: whatsappId, client_id: clientId }, payload)).toBe(0);
+    const final = await getPool().query<{ status: string; metadata: Record<string, unknown> }>(
+      "select status, metadata from outbound_messages where id = $1", [inserted.rows[0].id]);
+    expect(final.rows[0]).toMatchObject({ status: "sent", metadata: { providerStatus: "read" } });
+  });
+
+  it("can recover a provider failure when later delivery evidence arrives", async () => {
+    const row = await getPool().query<{ id: string }>(
+      `insert into outbound_messages (client_id, conversation_id, channel_id, external_thread_id,
+       body, idempotency_key, status, metadata) values ($1, $2, $3, 'customer-a', 'Hello',
+       $4, 'sent', $5) returning id`,
+      [clientId, conversationId, whatsappId, randomUUID(), { providerMessageId: "wamid.recovered" }],
+    );
+    const event = (status: string) => ({ entry: [{ changes: [{ value: { statuses: [
+      { id: "wamid.recovered", status, timestamp: "1790000000" },
+    ] } }] }] });
+    expect(await recordWhatsAppStatusEvents({ id: whatsappId, client_id: clientId }, event("failed"))).toBe(1);
+    expect((await getPool().query<{ status: string }>("select status from outbound_messages where id = $1",
+      [row.rows[0].id])).rows[0].status).toBe("dead");
+    expect(await recordWhatsAppStatusEvents({ id: whatsappId, client_id: clientId }, event("delivered"))).toBe(1);
+    expect((await getPool().query<{ status: string; last_error: string | null }>(
+      "select status, last_error from outbound_messages where id = $1", [row.rows[0].id])).rows[0])
+      .toMatchObject({ status: "sent", last_error: null });
   });
 });

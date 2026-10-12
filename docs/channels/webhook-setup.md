@@ -1,5 +1,8 @@
 # Channel Webhook Setup
 
+For the isolated Meta test-account sequence and evidence levels, see
+[Meta sandbox activation](meta-sandbox-verification.md).
+
 ## Local HTTPS Tunnel
 
 Run the app locally and expose it with an HTTPS tunnel:
@@ -50,7 +53,7 @@ https://<public-host>/api/webhooks/instagram/<channelId>
 ```
 
 This implementation uses a manually provisioned Facebook Login linked-Page
-access token, an Instagram Professional account ID, app secret, and verify
+access token, linked Page ID, Instagram Professional account ID, app secret, and verify
 token. It does not support personal accounts or Instagram Login OAuth. The
 route validates the signature and professional-account mapping, ignores echo
 events, and persists customer DMs for the shared worker. Outbound replies use

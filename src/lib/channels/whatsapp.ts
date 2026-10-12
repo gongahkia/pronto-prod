@@ -60,14 +60,23 @@ export async function recordWhatsAppStatusEvents(
         if (!isRecord(item) || typeof item.id !== "string" ||
           !["sent", "delivered", "read", "failed"].includes(String(item.status))) continue;
         const status = String(item.status);
+        const rank = { sent: 1, failed: 2, delivered: 3, read: 4 }[status] ?? 0;
+        const observedAt = typeof item.timestamp === "string" && /^\d{10}$/.test(item.timestamp)
+          ? new Date(Number(item.timestamp) * 1000).toISOString() : null;
         const updated = await query(
           `update outbound_messages set
-             metadata = jsonb_set(metadata, '{providerStatus}', to_jsonb($4::text), true),
-             status = case when $4 = 'failed' then 'dead' else status end,
-             last_error = case when $4 = 'failed' then 'WhatsApp provider reported failed delivery.' else last_error end,
+             metadata = metadata || $6::jsonb,
+             status = case when $4 = 'failed' then 'dead'
+                           when $4 in ('delivered', 'read') then 'sent' else status end,
+             last_error = case when $4 = 'failed' then 'WhatsApp provider reported failed delivery.'
+                               when $4 in ('delivered', 'read') then null else last_error end,
              updated_at = now()
-           where client_id = $1 and channel_id = $2 and metadata->>'providerMessageId' = $3`,
-          [channel.client_id, channel.id, item.id, status],
+           where client_id = $1 and channel_id = $2 and metadata->>'providerMessageId' = $3
+             and case metadata->>'providerStatus'
+                   when 'sent' then 1 when 'failed' then 2
+                   when 'delivered' then 3 when 'read' then 4 else 0 end < $5`,
+          [channel.client_id, channel.id, item.id, status, rank,
+            JSON.stringify({ providerStatus: status, ...(observedAt ? { providerStatusAt: observedAt } : {}) })],
         );
         recorded += updated.rowCount ?? 0;
       }
