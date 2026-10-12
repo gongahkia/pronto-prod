@@ -51,14 +51,14 @@ export default async function OperatorClientConversationDetailPage({
         </Link>
       </div>
 
-      <div className="space-y-6">
-        <ConversationTriagePanel
-          escalation={activeEscalation}
-          returnTo={`/operator/clients/${client.id}/conversations/${conversation.id}`}
-        />
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <OperatorConversationReview
           conversation={conversation}
           messages={messages}
+        />
+        <ConversationTriagePanel
+          escalation={activeEscalation}
+          returnTo={`/operator/clients/${client.id}/conversations/${conversation.id}`}
         />
       </div>
     </AppShell>

@@ -37,31 +37,22 @@ export default async function ClientSettingsPage() {
           </div>
         </div>
         <form action="/api/client/settings" method="post" className="space-y-3 p-4">
-          <input
-            name="location"
-            defaultValue={location}
-            className="w-full rounded-md border border-line px-3 py-2 text-sm"
-            placeholder="Business location"
-          />
-          <input
-            name="ownerChatId"
-            defaultValue={ownerChatId}
-            className="w-full rounded-md border border-line px-3 py-2 text-sm"
-            placeholder="Owner Telegram chat ID"
-          />
-          <input
-            name="ownerPhone"
-            defaultValue={ownerPhone}
-            className="w-full rounded-md border border-line px-3 py-2 text-sm"
-            placeholder="Owner WhatsApp phone number"
-          />
+          <label className="block text-sm font-medium">Business location
+            <input name="location" defaultValue={location} className="ui-input mt-1 block w-full px-3 py-2" placeholder="Address customers should see" />
+          </label>
+          <label className="block text-sm font-medium">Team Telegram chat ID
+            <input name="ownerChatId" defaultValue={ownerChatId} className="ui-input mt-1 block w-full px-3 py-2" placeholder="Optional" />
+          </label>
+          <label className="block text-sm font-medium">Team WhatsApp number
+            <input name="ownerPhone" type="tel" defaultValue={ownerPhone} className="ui-input mt-1 block w-full px-3 py-2" placeholder="Optional, with country code" />
+          </label>
           <button className="ui-primary-button px-4 py-2">
             Save settings
           </button>
         </form>
       </section>
       <p className="mt-4 text-sm text-muted">
-        Assistant setup and testing live in <Link className="text-accent" href="/client/assistant">Manage assistant</Link>.
+        Review your assistant in <Link className="text-accent" href="/client/assistant">Test &amp; publish</Link>.
       </p>
     </AppShell>
   );

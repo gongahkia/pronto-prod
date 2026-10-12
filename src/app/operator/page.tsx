@@ -99,7 +99,8 @@ function ClientPortfolioRow({ client }: { client: OperatorClientHealth }) {
         <div className="grid grid-cols-2 gap-2 text-xs text-muted md:grid-cols-3 xl:w-[26rem] xl:grid-cols-4">
           <PortfolioMetric
             label="Channels"
-            value={`${client.activeChannels}/${client.degradedChannels}`}
+            value={client.activeChannels}
+            hint={client.degradedChannels ? `${client.degradedChannels} need review` : "active"}
             danger={client.degradedChannels > 0}
           />
           <PortfolioMetric
@@ -128,10 +129,12 @@ function ClientPortfolioRow({ client }: { client: OperatorClientHealth }) {
 function PortfolioMetric({
   label,
   value,
+  hint,
   danger,
 }: {
   label: string;
   value: number | string;
+  hint?: string;
   danger?: boolean;
 }) {
   return (
@@ -140,6 +143,7 @@ function PortfolioMetric({
       <p className={`mt-1 font-semibold ${danger ? "text-danger" : "text-foreground"}`}>
         {value}
       </p>
+      {hint ? <p className="mt-0.5 text-[11px]">{hint}</p> : null}
     </div>
   );
 }

@@ -28,15 +28,29 @@ export default async function ClientOverviewPage() {
   const channelIssues = channels.filter((channel) => channel.status === "active" && channel.last_health_status === "degraded").length;
   const refreshDue = refreshes.filter((request) => request.status === "open").length;
   const setupNeeded = activeChannels === 0 || sources.length === 0;
-  const alertCount = Number(setupNeeded) + Number(channelIssues > 0) + Number(refreshDue > 0) +
+  const alertCount = Number(channelIssues > 0) + Number(refreshDue > 0) +
     Number(attentionItems.length > 0);
 
   return (
     <AppShell user={user} active="client" clientActive="overview" workspaceName={client.name}>
       <div className="mb-5">
         <h1 className="text-xl font-semibold">Overview</h1>
-        <p className="text-sm text-muted">A quick view of what Pronto handled and what needs your team.</p>
+        <p className="text-sm text-muted">See customer questions, take over when needed, and keep answers accurate.</p>
       </div>
+
+      {setupNeeded ? (
+        <section className="mb-5 ui-panel" aria-labelledby="setup-heading">
+          <div className="ui-panel-header">
+            <h2 id="setup-heading" className="font-semibold">Get ready to answer customers</h2>
+            <p className="mt-1 text-sm text-muted">Add business facts, connect a customer channel, then try a question before inviting customers.</p>
+          </div>
+          <ol className="grid divide-y divide-line md:grid-cols-3 md:divide-x md:divide-y-0">
+            <SetupStep number={1} label="Add business knowledge" detail="Hours, menu, policies, and other answers." href="/client/knowledge" done={sources.length > 0} />
+            <SetupStep number={2} label="Connect a channel" detail="Choose where customers can reach you." href="/client/assistant/channels" done={activeChannels > 0} />
+            <SetupStep number={3} label="Try a customer question" detail="Preview the answer and publish any changes." href="/client/assistant" done={false} />
+          </ol>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-[minmax(0,1.6fr)_minmax(16rem,1fr)]">
         <div className="ui-panel p-5">
@@ -59,13 +73,13 @@ export default async function ClientOverviewPage() {
           <p className="text-sm text-muted">Assistant status</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Badge tone={setupNeeded || channelIssues || attentionItems.length ? "amber" : "green"}>
-              {setupNeeded ? "Setup needed" : attentionItems.length ? "Processing issue" : channelIssues ? "Channel issue" : "Running"}
+              {setupNeeded ? "Setup needed" : attentionItems.length ? "Processing issue" : channelIssues ? "Channel issue" : "Configured"}
             </Badge>
             {draft ? <Badge tone="amber">Unpublished changes</Badge> : null}
           </div>
           <p className="mt-3 text-sm text-muted">{activeChannels} active channels · {sources.length} knowledge sources</p>
           <Link href="/client/assistant" className="mt-4 inline-block text-sm font-medium text-accent">
-            Manage assistant
+            Test an answer
           </Link>
         </div>
       </section>
@@ -73,14 +87,9 @@ export default async function ClientOverviewPage() {
       {alertCount ? (
         <section className="mt-5 ui-panel">
           <div className="ui-panel-header">
-            <h2 className="font-semibold">Worth a look</h2>
+            <h2 className="font-semibold">Needs attention</h2>
           </div>
           <div className="divide-y divide-line text-sm">
-            {setupNeeded ? (
-              <Link href="/client/assistant" className="block p-4 hover:bg-surface-hover">
-                Finish assistant setup so Pronto has an active channel and approved knowledge.
-              </Link>
-            ) : null}
             {channelIssues ? (
               <Link href="/client/assistant/channels" className="block p-4 hover:bg-surface-hover">
                 {channelIssues} active channel {channelIssues === 1 ? "needs" : "need"} a health check.
@@ -139,6 +148,33 @@ export default async function ClientOverviewPage() {
         </div>
       </section>
     </AppShell>
+  );
+}
+
+function SetupStep({
+  number,
+  label,
+  detail,
+  href,
+  done,
+}: {
+  number: number;
+  label: string;
+  detail: string;
+  href: string;
+  done: boolean;
+}) {
+  return (
+    <li>
+      <Link href={href} className="flex h-full items-start gap-3 p-4 hover:bg-surface-hover">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent">{number}</span>
+        <span className="min-w-0">
+          <span className="block font-medium">{label}</span>
+          <span className="mt-1 block text-sm text-muted">{detail}</span>
+          {number < 3 ? <span className={`mt-2 block text-xs font-medium ${done ? "text-success" : "text-warning"}`}>{done ? "Added" : "To do"}</span> : null}
+        </span>
+      </Link>
+    </li>
   );
 }
 

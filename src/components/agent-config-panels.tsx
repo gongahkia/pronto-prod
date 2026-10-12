@@ -48,7 +48,7 @@ export function OperatorAgentConfigPanel({
               defaultValue={detail.config.response_provider}
               className="w-full rounded-md border border-line px-3 py-2 text-sm font-normal"
             >
-              <option value="mock">Mock local</option>
+              <option value="mock">Simulated (local)</option>
               <option value="openai">OpenAI</option>
               <option value="azure">Azure OpenAI</option>
               <option value="anthropic">Anthropic</option>
@@ -70,7 +70,7 @@ export function OperatorAgentConfigPanel({
               defaultValue={detail.config.embedding_provider}
               className="w-full rounded-md border border-line px-3 py-2 text-sm font-normal"
             >
-              <option value="mock">Mock local</option>
+              <option value="mock">Simulated (local)</option>
               <option value="openai">OpenAI</option>
               <option value="azure">Azure OpenAI</option>
             </select>
@@ -150,7 +150,7 @@ function ProviderReadinessPanel({ detail }: { detail: AgentConfigDetail }) {
         <div>
           <h3 className="text-sm font-semibold">Live AI readiness</h3>
           <p className="text-xs text-muted">
-            Current local runtime and credential status before switching a pilot off mock AI.
+            Review model and credential status before using generated replies for customers.
           </p>
         </div>
         <Badge tone={readiness.readyForLive ? "green" : "amber"}>

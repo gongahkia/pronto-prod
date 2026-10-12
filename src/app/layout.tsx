@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Pronto MVP",
-  description: "Purpose-driven AI customer service agent operations console.",
+  title: "Pronto | Customer service, handled",
+  description: "Manage customer conversations, business knowledge, and human handoffs in one place.",
 };
 
 export default function RootLayout({

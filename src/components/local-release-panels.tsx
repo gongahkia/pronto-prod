@@ -17,7 +17,7 @@ export function OperatorBrandVoicePanel({
     <section className="ui-panel">
       <div className="ui-panel-header">
         <h2 className="text-base font-semibold">Brand voice</h2>
-        <p className="text-sm text-muted">Operator-managed voice guide and few-shot reply examples.</p>
+        <p className="text-sm text-muted">A style guide and example replies for this business.</p>
       </div>
       <form action="/api/operator/brand-voice" method="post" className="space-y-3 p-4">
         <input type="hidden" name="action" value="update_document" />

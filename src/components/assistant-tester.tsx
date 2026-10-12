@@ -168,7 +168,7 @@ export function AssistantTester({
     return (
       <section className="ui-panel">
         <div className="ui-panel-header">
-          <h2 className="text-base font-semibold">Test assistant</h2>
+          <h2 className="text-base font-semibold">Preview a customer conversation</h2>
         </div>
         <p className="p-4 text-sm text-muted">No configured channels are available.</p>
       </section>
@@ -179,8 +179,8 @@ export function AssistantTester({
     <section className="ui-panel overflow-hidden">
       <div className="ui-panel-header">
         <div>
-          <h2 className="text-base font-semibold">Test assistant</h2>
-          <p className="text-sm text-muted">{clientName}</p>
+          <h2 className="text-base font-semibold">Preview a customer conversation</h2>
+          <p className="text-sm text-muted">{clientName} · Nothing here is sent to a customer.</p>
         </div>
         <select
           value={selectedChannel.id}

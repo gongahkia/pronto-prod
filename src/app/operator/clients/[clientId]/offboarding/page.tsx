@@ -24,7 +24,7 @@ export default async function OperatorClientOffboardingPage({
     <AppShell user={user} active="operator">
       <OperatorClientHeader
         client={client}
-        description="Export or delete client data when a pilot ends."
+        description="Export or delete this business's stored data."
       />
       <OperatorClientNav clientId={client.id} active="offboarding" />
       <OperatorOffboardingPanel client={client} />

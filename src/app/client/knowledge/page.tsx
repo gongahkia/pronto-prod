@@ -52,7 +52,7 @@ export default async function ClientKnowledgePage({ searchParams }: {
       <ClientAssistantNav active="knowledge" />
       {params.staged ? (
         <p role="status" className="mb-4 rounded-md bg-success-bg p-3 text-sm text-success">
-          Saved as a draft. Test and publish it from Manage assistant when ready.
+          Saved as a draft. Preview an answer in Test &amp; publish before publishing.
         </p>
       ) : null}
       <section className="ui-panel">

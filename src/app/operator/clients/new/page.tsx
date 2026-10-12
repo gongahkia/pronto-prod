@@ -34,7 +34,7 @@ export default async function NewClientPage({
         </Link>
         <h1 className="mt-1.5 text-xl font-semibold">Create client</h1>
         <p className="text-sm text-muted">
-          Creates the client, default agent config, brand voice, and triage flow. Configure live channels under the new client&apos;s workspace once created.
+          Add a business, then set up its knowledge, channels, and handoff rules.
         </p>
       </div>
 

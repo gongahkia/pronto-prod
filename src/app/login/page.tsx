@@ -12,26 +12,33 @@ export default async function LoginPage({
     redirect(user.role === "operator" ? "/operator" : "/client");
   }
   const params = await searchParams;
-  const showSeedCredentials = process.env.NODE_ENV !== "production";
-
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-10">
-      <section className="w-full max-w-md ui-panel p-6">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-accent text-white">
-            <BotMessageSquare size={22} />
+    <main className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-10 text-foreground">
+      <div className="grid w-full max-w-5xl items-center gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)] lg:gap-16">
+        <section className="max-w-xl">
+          <div className="mb-8 flex items-center gap-3 text-lg font-semibold">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-white"><BotMessageSquare size={22} aria-hidden="true" /></span>
+            Pronto
           </div>
-          <div>
-            <h1 className="text-xl font-semibold">Pronto MVP</h1>
-            <p className="text-sm text-muted">Sign in to operate customer-service agents.</p>
-          </div>
-        </div>
-        {params.error ? (
-          <p className="mb-4 rounded-md border border-danger/25 bg-danger-bg px-3 py-2 text-sm text-danger">
-            Invalid email or password.
+          <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">Customer service grounded in your business.</h1>
+          <p className="mt-4 max-w-lg text-base leading-7 text-muted">
+            Answer routine questions from your business knowledge, keep conversations together, and bring your team in when a person is needed.
           </p>
-        ) : null}
-        <form action="/api/auth/login" method="post" className="space-y-4">
+          <ul className="mt-7 grid gap-3 text-sm sm:grid-cols-3 lg:grid-cols-1">
+            <li className="rounded-lg border border-line bg-panel px-4 py-3">Answers from your business information</li>
+            <li className="rounded-lg border border-line bg-panel px-4 py-3">Customer messages in one inbox</li>
+            <li className="rounded-lg border border-line bg-panel px-4 py-3">Human handoff when a question needs care</li>
+          </ul>
+        </section>
+        <section className="ui-panel w-full p-6 sm:p-8" aria-labelledby="sign-in-heading">
+          <h2 id="sign-in-heading" className="text-xl font-semibold">Sign in</h2>
+          <p className="mb-6 mt-1 text-sm text-muted">Open your Pronto workspace.</p>
+          {params.error ? (
+            <p className="mb-4 rounded-md border border-danger/25 bg-danger-bg px-3 py-2 text-sm text-danger">
+              Invalid email or password.
+            </p>
+          ) : null}
+          <form action="/api/auth/login" method="post" className="space-y-4">
           <label className="block text-sm font-medium">
             Email
             <input
@@ -57,15 +64,9 @@ export default async function LoginPage({
           <button className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-dark">
             Sign in
           </button>
-        </form>
-        {showSeedCredentials ? (
-          <div className="mt-5 rounded-md bg-surface p-3 text-xs text-muted">
-            <p>Seed credentials after `pnpm seed`:</p>
-            <p>operator@pronto.sg / pronto-operator</p>
-            <p>owner@northbridgenasi.sg / pronto-client</p>
-          </div>
-        ) : null}
-      </section>
+          </form>
+        </section>
+      </div>
     </main>
   );
 }

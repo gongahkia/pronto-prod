@@ -23,7 +23,9 @@ test.beforeEach(async ({ page }) => {
 test("login page renders", async ({ page }) => {
   await page.goto("/login");
 
-  await expect(page.getByRole("heading", { name: "Pronto MVP" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Customer service grounded in your business." })).toBeVisible();
+  await expect(page.getByText("Human handoff when a question needs care")).toBeVisible();
+  await expect(page.getByText("pronto-operator")).toHaveCount(0);
   await expect(page.getByLabel("Email")).toBeVisible();
   await expect(page.getByLabel("Password")).toBeVisible();
 });
@@ -56,6 +58,7 @@ test("operator workspace shows channel state, failures and Chope handoff setup",
   await expect(page.getByRole("heading", { name: "Processing and delivery attention" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Chope booking handoff" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Chope outlet ID" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Business workspace" }).getByRole("link", { name: "Integrations" })).toBeVisible();
 });
 
 test("seeded client can render the overview dashboard", async ({ page }) => {
@@ -65,6 +68,15 @@ test("seeded client can render the overview dashboard", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Needs your reply" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Recent conversations" })).toBeVisible();
+});
+
+test("client can follow setup to a response preview without sending a customer message", async ({ page }) => {
+  await login(page, clientLogin.email, clientLogin.password);
+  await page.goto("/client/assistant");
+  await expect(page.getByRole("heading", { name: "Test & publish" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Before customers write in" })).toBeVisible();
+  await expect(page.getByText("Nothing here is sent to a customer.")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Assistant setup" }).getByRole("link", { name: "Knowledge" })).toBeVisible();
 });
 
 test("login and dashboards avoid obvious mobile horizontal overflow", async ({ page }) => {

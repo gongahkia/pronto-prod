@@ -53,7 +53,7 @@ export function ClientRulesEditor({ initialFlow }: { initialFlow: TriageFlowDraf
       });
       const body = await response.json() as { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Could not save rules.");
-      setStatus("Rules saved as a draft. Test them in Manage assistant before publishing.");
+      setStatus("Rules saved as a draft. Preview an answer in Test & publish before publishing.");
       router.refresh();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not save rules.");

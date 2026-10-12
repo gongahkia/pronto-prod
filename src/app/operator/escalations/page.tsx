@@ -28,12 +28,11 @@ export default async function OperatorAllEscalationsPage({
   }
 
   return (
-    <AppShell user={user} active="operator">
+    <AppShell user={user} active="operator" operatorActive="handoffs">
       <div className="mb-5">
-        <h1 className="text-xl font-semibold">Cross-client escalations</h1>
+        <h1 className="text-xl font-semibold">Handoffs</h1>
         <p className="text-sm text-muted">
-          Open items grouped by client. Bulk actions are per-client; click through
-          to act on each client&rsquo;s queue.
+          Customer conversations waiting for a person, grouped by business.
         </p>
       </div>
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getAssistantDraft, getAssistantRevision } from "@/lib/assistant-drafts";
+import { getAssistantDraft } from "@/lib/assistant-drafts";
 import { getBrandVoiceProfile } from "@/lib/brand-voice";
 import { getChannels, getClient, getKnowledgeSources } from "@/lib/dashboard";
 import { getTriageFlowForClient } from "@/lib/triage-flow-store";
@@ -16,14 +16,13 @@ export default async function ClientAssistantPage({
 }) {
   const user = await requireUser("client");
   if (!user.clientId) throw new Error("Client user is missing a client assignment.");
-  const [client, channels, knowledge, flow, voice, draft, revision, params] = await Promise.all([
+  const [client, channels, knowledge, flow, voice, draft, params] = await Promise.all([
     getClient(user.clientId),
     getChannels(user.clientId),
     getKnowledgeSources(user.clientId),
     getTriageFlowForClient(user.clientId),
     getBrandVoiceProfile(user.clientId),
     getAssistantDraft(user.clientId),
-    getAssistantRevision(user.clientId),
     searchParams ?? Promise.resolve({} as { published?: string; error?: string }),
   ]);
   if (!client) throw new Error("Client record not found.");
@@ -37,21 +36,21 @@ export default async function ClientAssistantPage({
     + (draft?.flow ? 1 : 0)
     + Object.keys(draft?.knowledge_changes ?? {}).length;
   const setup = [
-    { label: "Knowledge sources", done: knowledge.length > 0, href: "/client/knowledge" },
-    { label: "Brand voice", done: Boolean(voice.document?.content), href: "/client/assistant/voice" },
-    { label: "Handoff rules", done: !flow.isDefault, href: "/client/assistant/rules" },
-    { label: "Active channel", done: channels.some((channel) => channel.status === "active"), href: "/client/assistant/channels" },
+    { label: "Knowledge", detail: "Answers your assistant can use", done: knowledge.length > 0, href: "/client/knowledge", required: true },
+    { label: "Customer channel", detail: "Where replies are sent", done: channels.some((channel) => channel.status === "active"), href: "/client/assistant/channels", required: true },
+    { label: "Brand voice", detail: "How replies should sound", done: Boolean(voice.document?.content), href: "/client/assistant/voice", required: false },
+    { label: "Handoff rules", detail: "When a person should take over", done: !flow.isDefault, href: "/client/assistant/rules", required: false },
   ];
 
   return (
     <AppShell user={user} active="client" clientActive="assistant" workspaceName={client.name}>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Manage assistant</h1>
-          <p className="text-sm text-muted">Keep Pronto&apos;s answers current, test changes, and publish when ready.</p>
+          <h1 className="text-xl font-semibold">Test & publish</h1>
+          <p className="text-sm text-muted">Ask a customer question to check the answer before changes reach customers.</p>
         </div>
         <Badge tone={draft ? "amber" : "green"}>
-          {draft ? `${unpublishedCount} unpublished change${unpublishedCount === 1 ? "" : "s"}` : `Live revision ${revision.revision}`}
+          {draft ? `${unpublishedCount} unpublished change${unpublishedCount === 1 ? "" : "s"}` : "All changes published"}
         </Badge>
       </div>
       <ClientAssistantNav active="overview" />
@@ -90,22 +89,22 @@ export default async function ClientAssistantPage({
         </div>
         <div className="space-y-5">
           <section className="ui-panel">
-            <div className="ui-panel-header"><h2 className="font-semibold">Setup progress</h2></div>
+            <div className="ui-panel-header"><h2 className="font-semibold">Before customers write in</h2></div>
             <ul className="divide-y divide-line">
               {setup.map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="flex items-center justify-between gap-3 p-4 text-sm hover:bg-surface-hover">
-                    <span>{item.label}</span>
-                    <Badge tone={item.done ? "green" : "amber"}>{item.done ? "Ready" : "Review"}</Badge>
+                    <span><span className="block font-medium">{item.label}</span><span className="block text-xs text-muted">{item.detail}</span></span>
+                    <Badge tone={item.done ? "green" : item.required ? "amber" : "neutral"}>{item.done ? "Added" : item.required ? "Needed" : "Optional"}</Badge>
                   </Link>
                 </li>
               ))}
             </ul>
           </section>
           <section className="ui-panel p-4 text-sm">
-            <h2 className="font-semibold">Live assistant</h2>
+            <h2 className="font-semibold">Current setup</h2>
             <p className="mt-2 text-muted">{knowledge.length} knowledge sources · {channels.filter((channel) => channel.status === "active").length} active channels</p>
-            <p className="mt-1 text-muted">Rules: {flow.isDefault ? "default" : `published v${flow.version}`}</p>
+            <p className="mt-1 text-muted">Handoff rules: {flow.isDefault ? "standard" : "custom"}</p>
           </section>
         </div>
       </div>

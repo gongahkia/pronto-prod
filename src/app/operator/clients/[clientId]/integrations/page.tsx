@@ -32,9 +32,9 @@ export default async function OperatorClientIntegrationsPage({
     <AppShell user={user} active="operator">
       <OperatorClientHeader
         client={client}
-        description="Manage non-LLM integration credentials and test live calls."
+        description="Connect the business systems used to answer customer questions."
       />
-      <OperatorClientNav clientId={client.id} active="channels" />
+      <OperatorClientNav clientId={client.id} active="integrations" />
 
       <IntegrationsPanel
         clientId={client.id}

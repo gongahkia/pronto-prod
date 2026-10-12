@@ -4,6 +4,7 @@ export function MockAiBanner({ status }: { status: MockAiStatus }) {
   if (!status.active || !status.reason) {
     return null;
   }
+  const previewMode = status.reason === "PRONTO_USE_MOCK_AI=1";
 
   return (
     <div
@@ -12,8 +13,10 @@ export function MockAiBanner({ status }: { status: MockAiStatus }) {
       aria-live="polite"
     >
       <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="font-medium">Dev mock AI active</span>
-        <span>{status.reason}</span>
+        <span className="font-medium">{previewMode ? "Response preview mode" : "AI connection needs review"}</span>
+        <span>{previewMode
+          ? "Answers are simulated in this environment. Check your connection before serving customers."
+          : "Check the model configuration before relying on automated replies."}</span>
       </div>
     </div>
   );

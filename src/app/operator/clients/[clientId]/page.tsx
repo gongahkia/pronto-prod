@@ -85,6 +85,12 @@ export default async function ClientOperatorPage({
   ]);
   const activeChannels = channels.filter((channel) => channel.status === "active").length;
   const setupChannels = channels.filter((channel) => channel.status !== "disabled").length;
+  const nextActions = [
+    ...(knowledge.length === 0 ? [{ href: `${basePath}/knowledge`, label: "Add business knowledge", detail: "Give the assistant approved facts to answer from." }] : []),
+    ...(activeChannels === 0 ? [{ href: `${basePath}/channels`, label: "Connect a customer channel", detail: "Check credentials and channel health before enabling it." }] : []),
+    ...(escalations.length > 0 ? [{ href: `${basePath}/escalations`, label: `Reply to ${escalations.length} customer handoff${escalations.length === 1 ? "" : "s"}`, detail: "These conversations are waiting for a person." }] : []),
+    ...(attentionItems.length > 0 ? [{ href: `${basePath}#processing-attention`, label: "Review message failures", detail: "Inspect processing or delivery before retrying." }] : []),
+  ];
 
   const workspaceLinks = [
     {
@@ -108,6 +114,22 @@ export default async function ClientOperatorPage({
     <AppShell user={user} active="operator">
       <OperatorClientHeader client={client} />
       <OperatorClientNav clientId={client.id} active="overview" />
+
+      {nextActions.length ? (
+        <section className="mb-5 ui-panel" aria-labelledby="next-actions-heading">
+          <div className="ui-panel-header">
+            <h2 id="next-actions-heading" className="font-semibold">Next for this business</h2>
+          </div>
+          <div className="grid gap-px bg-line sm:grid-cols-2">
+            {nextActions.map((action) => (
+              <Link key={action.href} href={action.href} className="flex items-center justify-between gap-3 bg-panel p-4 hover:bg-surface-hover">
+                <span><span className="block font-medium">{action.label}</span><span className="mt-1 block text-sm text-muted">{action.detail}</span></span>
+                <ArrowRight size={17} className="shrink-0 text-accent" aria-hidden="true" />
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard label="Conversations" value={metrics.conversations} />
@@ -245,7 +267,7 @@ function WorkspaceSection({
           </div>
         </div>
       </div>
-      <div className="ui-panel">
+      <div id="processing-attention" className="ui-panel">
         <div className="ui-panel-header"><h2 className="text-base font-semibold">Processing and delivery attention</h2></div>
         <div className="space-y-2 p-4 text-sm">
           {attentionItems.length ? attentionItems.map((item) => (
