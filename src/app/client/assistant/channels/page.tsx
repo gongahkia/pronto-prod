@@ -98,23 +98,38 @@ export default async function ClientChannelsPage({ searchParams }: { searchParam
                       className="ui-input mt-1 w-full px-3 py-2" />
                   </label>
                   {channelSetupFields[selected.kind].map((field) => {
+                    const igMode = currentSettings.authMode === "instagram_login" ? "instagram_login" : "facebook_login";
+                    if (selected.kind === "instagram" &&
+                        ((igMode === "instagram_login" && ["pageAccessToken", "pageId"].includes(field.name)) ||
+                         (igMode === "facebook_login" && ["instagramAccessToken", "tokenExpiresAt"].includes(field.name)))) return null;
                     const source = field.scope === "settings" ? currentSettings : currentCredentials;
                     const stored = Boolean(source[field.name]);
                     return (
                       <label key={field.scope + "." + field.name} className="text-sm font-medium">
                         {field.label}
-                        <input name={field.scope + "." + field.name}
+                        {field.options ? <select name={field.scope + "." + field.name}
+                          defaultValue={String(source[field.name] ?? field.options[0])}
+                          className="ui-input mt-1 w-full px-3 py-2">
+                          {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
+                        </select> : <input name={field.scope + "." + field.name}
                           type={field.secret ? "password" : "text"}
                           autoComplete="off"
                           defaultValue={field.secret ? "" : String(source[field.name] ?? "")}
                           placeholder={field.secret && stored ? "Saved securely · leave blank to keep" : ""}
-                          className="ui-input mt-1 w-full px-3 py-2" />
+                          className="ui-input mt-1 w-full px-3 py-2" />}
                       </label>
                     );
                   })}
                 </div>
                 <button className="ui-primary-button px-4 py-2">Save draft settings</button>
               </form>
+              {selected.kind === "instagram" ? <div className="border-t border-line p-4 text-sm">
+                <p>Instagram Login uses a professional account directly; Facebook Login keeps the linked Page path.</p>
+                <form action={"/api/client/channels/" + selected.id + "/instagram-login"} method="post" className="mt-3">
+                  <button className="ui-button px-4 py-2">Connect with Instagram Login</button>
+                </form>
+                <p className="mt-2 text-muted">Requires configured Meta app credentials and an authorized professional test account. Connection remains a draft until checked and published.</p>
+              </div> : null}
               <div className="space-y-4 border-t border-line p-4">
                 <div className="rounded-md bg-surface p-3 text-sm">
                   <p className="font-medium">Webhook URL</p>

@@ -91,18 +91,26 @@ export async function sendInstagramText(input: {
   externalThreadId: string;
   text: string;
 }): Promise<string> {
-  const token = input.channel.credentials.pageAccessToken as string | undefined;
+  if (input.channel.settings.authMode && !["facebook_login", "instagram_login"].includes(String(input.channel.settings.authMode)))
+    throw new Error("Unsupported Instagram login mode.");
+  const direct = input.channel.settings.authMode === "instagram_login";
+  if (direct && process.env.PRONTO_INSTAGRAM_LOGIN_ENABLED !== "1")
+    throw new Error("Instagram Login is disabled until authorized test-account configuration is enabled.");
+  const token = input.channel.credentials[direct ? "instagramAccessToken" : "pageAccessToken"] as string | undefined;
   const igUserId =
     (input.channel.credentials.igUserId as string | undefined) ??
     input.channel.external_id;
   if (!token || !igUserId) {
-    throw new Error("Instagram page access token or IG user ID missing; outbound send skipped.");
+    throw new Error("Instagram scoped token or IG user ID missing; outbound send skipped.");
+  }
+  if (direct && isInstagramTokenExpired(input.channel)) {
+    throw new ProviderSendError("Instagram expired token", 401);
   }
 
   let response: Response;
   try {
     response = await fetchWithTimeout(
-    `https://graph.facebook.com/${metaGraphVersion()}/${igUserId}/messages`,
+    `https://${direct ? "graph.instagram.com" : "graph.facebook.com"}/${metaGraphVersion()}/${igUserId}/messages`,
     {
       method: "POST",
       headers: {
@@ -133,6 +141,13 @@ export async function sendInstagramText(input: {
   return body.message_id;
 }
 
+export function isInstagramTokenExpired(channel: Channel, now = Date.now()): boolean {
+  if (channel.settings.authMode !== "instagram_login") return false;
+  const expiry = channel.credentials.tokenExpiresAt;
+  return typeof expiry !== "string" || !Number.isFinite(Date.parse(expiry)) ||
+    Date.parse(expiry) <= now;
+}
+
 function channelFetchTimeoutMs(): number {
   return Number(process.env.PRONTO_CHANNEL_FETCH_TIMEOUT_MS ?? 10_000);
 }
@@ -143,7 +158,9 @@ export async function getInstagramChannel(channelId: string): Promise<Channel | 
     [channelId],
   );
   const row = result.rows[0];
-  return row && !usesLegacyPlaintextCredentials(row) ? decryptChannelCredentials(row) : null;
+  if (!row || usesLegacyPlaintextCredentials(row) ||
+      (row.settings.authMode === "instagram_login" && process.env.PRONTO_INSTAGRAM_LOGIN_ENABLED !== "1")) return null;
+  return decryptChannelCredentials(row);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

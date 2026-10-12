@@ -36,7 +36,7 @@ export async function sendChannelText(input: {
   if (channel.status !== "active") {
     throw new Error("Channel is disabled or inactive; outbound send blocked.");
   }
-  if ((channel.kind === "whatsapp" || channel.kind === "instagram") &&
+  if (["whatsapp", "instagram", "messenger", "email"].includes(channel.kind) &&
       usesLegacyPlaintextCredentials(channelResult.rows[0])) {
     throw new Error("Meta channel credentials must be encrypted before activation.");
   }
@@ -64,9 +64,12 @@ export async function sendChannelText(input: {
     }
 
     if (channel.kind === "messenger") {
-      await sendMessengerText({ channel, externalThreadId: input.externalThreadId, text: input.text });
+      if (!(await hasRecentCustomerMessage(channel, input.externalThreadId))) {
+        throw new ChannelPolicyError("Messenger reply requires a recent customer-initiated conversation.");
+      }
+      const providerMessageId = await sendMessengerText({ channel, externalThreadId: input.externalThreadId, text: input.text });
       await safeRecordOutboundHealth(input.channelId, channel.client_id);
-      return {};
+      return { providerMessageId };
     }
 
     if (channel.kind === "instagram") {
@@ -82,6 +85,7 @@ export async function sendChannelText(input: {
     if (channel.kind === "email") {
       const threading = await lookupReplyThreadingHints({
         channelId: channel.id,
+        clientId: channel.client_id,
         externalThreadId: input.externalThreadId,
       });
       const subjectSetting =

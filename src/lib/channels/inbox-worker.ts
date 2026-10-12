@@ -42,11 +42,15 @@ async function execute(job: InboundJob, requestId?: string,
     throw new Error("Inbound job has inconsistent tenant or conversation references.");
   }
   if (channelRow.status !== "active") return "skipped";
-  if ((channelRow.kind === "whatsapp" || channelRow.kind === "instagram") &&
+  if (channelRow.kind === "instagram" && channelRow.settings.authMode === "instagram_login" &&
+      process.env.PRONTO_INSTAGRAM_LOGIN_ENABLED !== "1") return "skipped";
+  if (["whatsapp", "instagram", "messenger", "email"].includes(channelRow.kind) &&
       usesLegacyPlaintextCredentials(channelRow)) {
     throw new Error("Meta channel credentials must be encrypted before processing.");
   }
   const channel = decryptChannelCredentials(channelRow);
+  if (channel.kind === "email" && channel.credentials.provider === "local_smtp" &&
+      (process.env.NODE_ENV === "production" || process.env.PRONTO_LOCAL_EMAIL_ENABLED !== "1")) return "skipped";
 
   // Recover a model decision already persisted before a worker crash.
   const answer = await query<Message>(

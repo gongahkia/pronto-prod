@@ -14,6 +14,10 @@ if (
 }
 
 const allowedPorts = new Set([Number(database.port), 3000]);
+if (process.env.PRONTO_TEST_LOCAL_MAIL === "1" && process.env.PRONTO_LOCAL_EMAIL_ENABLED === "1") {
+  allowedPorts.add(1025);
+  allowedPorts.add(8025);
+}
 const loopbackHosts = new Set(["localhost", "127.0.0.1", "::1"]);
 // Next's build worker uses an ephemeral loopback TCP port for local IPC.
 // This opt-in is used for the build check only, never for the E2E command.

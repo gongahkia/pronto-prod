@@ -1,21 +1,18 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { query } from "@/lib/db";
-import { decryptChannelCredentials } from "@/lib/channels/credentials";
+import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib/channels/credentials";
 import { fetchWithTimeout } from "@/lib/http/fetch";
-import { redactErrorMessage } from "@/lib/logger";
+import { AmbiguousProviderAcceptanceError, ProviderSendError } from "@/lib/channels/provider-error";
+import { metaGraphVersion } from "@/lib/env";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
-
-const GRAPH_VERSION = process.env.META_GRAPH_VERSION ?? "v25.0";
 
 export function verifyMessengerSignature(
   rawBody: string,
   signatureHeader: string | null,
   appSecret: string | undefined,
 ): boolean {
-  if (!appSecret) {
-    return process.env.NODE_ENV !== "production";
-  }
+  if (!appSecret) return false;
   if (!signatureHeader?.startsWith("sha256=")) {
     return false;
   }
@@ -31,17 +28,21 @@ export function verifyMessengerSignature(
 export function normalizeMessengerPayload(
   channelId: string,
   payload: Record<string, unknown>,
+  pageId?: string,
 ): NormalizedInboundMessage[] {
   const messages: NormalizedInboundMessage[] = [];
   const entries = Array.isArray(payload.entry) ? payload.entry : [];
   for (const entry of entries) {
     if (!isRecord(entry)) continue;
+    if (pageId && entry.id !== pageId) continue;
     const messaging = Array.isArray(entry.messaging) ? entry.messaging : [];
     for (const event of messaging) {
       if (!isRecord(event) || !isRecord(event.message) || !isRecord(event.sender)) continue;
       const message = event.message;
       const sender = event.sender;
       if (typeof sender.id !== "string" || typeof message.mid !== "string") continue;
+      if (message.is_echo === true || (pageId && sender.id === pageId)) continue;
+      if (pageId && (!isRecord(event.recipient) || event.recipient.id !== pageId)) continue;
 
       const text = typeof message.text === "string" ? message.text : null;
       const unsupportedMediaType = text ? undefined : messengerUnsupportedType(message);
@@ -53,6 +54,9 @@ export function normalizeMessengerPayload(
         externalMessageId: message.mid,
         externalThreadId: sender.id,
         customerHandle: sender.id,
+        ...(typeof event.timestamp === "number" && Number.isFinite(event.timestamp)
+          ? { occurredAt: new Date(event.timestamp < 1_000_000_000_000
+              ? event.timestamp * 1000 : event.timestamp).toISOString() } : {}),
         text: text ?? `[Unsupported Messenger ${unsupportedMediaType} message]`,
         unsupportedMediaType,
         raw: event,
@@ -60,6 +64,16 @@ export function normalizeMessengerPayload(
     }
   }
   return messages;
+}
+
+export function messengerPayloadMatchesChannel(payload: Record<string, unknown>, pageId: string): boolean {
+  if (payload.object !== "page" || !pageId) return false;
+  const entries = Array.isArray(payload.entry) ? payload.entry : [];
+  return entries.length > 0 && entries.every((entry) => isRecord(entry) && entry.id === pageId &&
+    (!Array.isArray(entry.messaging) || entry.messaging.every((event) =>
+      !isRecord(event) || !isRecord(event.message) || event.message.is_echo === true ||
+      (isRecord(event.sender) && event.sender.id === pageId) ||
+      !isRecord(event.recipient) || event.recipient.id === pageId)));
 }
 
 function messengerUnsupportedType(message: Record<string, unknown>): string | undefined {
@@ -77,19 +91,19 @@ export async function sendMessengerText(input: {
   channel: Channel;
   externalThreadId: string;
   text: string;
-}): Promise<void> {
-  const token =
-    (input.channel.credentials.pageAccessToken as string | undefined) ??
-    process.env.MESSENGER_PAGE_ACCESS_TOKEN;
-  if (!token) {
-    throw new Error("Messenger page access token missing; outbound send skipped.");
+}): Promise<string> {
+  const token = input.channel.credentials.pageAccessToken as string | undefined;
+  const pageId = (input.channel.credentials.pageId as string | undefined) ?? input.channel.external_id;
+  if (!token || !pageId) {
+    throw new Error("Messenger page credentials missing; outbound send skipped.");
   }
 
-  const response = await fetchWithTimeout(
-    `https://graph.facebook.com/${GRAPH_VERSION}/me/messages?access_token=${encodeURIComponent(token)}`,
+  let response: Response;
+  try { response = await fetchWithTimeout(
+    `https://graph.facebook.com/${metaGraphVersion()}/${pageId}/messages`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         recipient: { id: input.externalThreadId },
         message: { text: input.text },
@@ -97,12 +111,14 @@ export async function sendMessengerText(input: {
       }),
     },
     channelFetchTimeoutMs(),
-  );
+  ); } catch { throw new AmbiguousProviderAcceptanceError("Messenger"); }
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(redactErrorMessage(`Messenger send failed: ${response.status} ${body}`));
-  }
+  if (!response.ok) throw new ProviderSendError("Messenger", response.status);
+  let body: { message_id?: unknown };
+  try { body = await response.json() as typeof body; }
+  catch { throw new AmbiguousProviderAcceptanceError("Messenger"); }
+  if (typeof body.message_id !== "string") throw new AmbiguousProviderAcceptanceError("Messenger");
+  return body.message_id;
 }
 
 function channelFetchTimeoutMs(): number {
@@ -114,7 +130,8 @@ export async function getMessengerChannel(channelId: string): Promise<Channel | 
     "select * from channels where id = $1 and kind = 'messenger'",
     [channelId],
   );
-  return result.rows[0] ? decryptChannelCredentials(result.rows[0]) : null;
+  const row = result.rows[0];
+  return row && !usesLegacyPlaintextCredentials(row) ? decryptChannelCredentials(row) : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

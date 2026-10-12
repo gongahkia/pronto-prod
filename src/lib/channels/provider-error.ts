@@ -3,10 +3,15 @@ export class ProviderSendError extends Error {
   readonly ambiguous: boolean;
   readonly statusCode: number;
 
-  constructor(provider: string, statusCode: number) {
-    super(`${provider} send returned HTTP ${statusCode}.`);
+  readonly providerCode?: number;
+
+  constructor(provider: string, statusCode: number, providerCode?: number) {
+    super(provider === "WhatsApp" && providerCode === 131031
+      ? "WhatsApp business account restricted (Meta code 131031); review WhatsApp Manager."
+      : `${provider} send returned HTTP ${statusCode}${providerCode ? ` (provider code ${providerCode})` : ""}.`);
     this.name = "ProviderSendError";
     this.statusCode = statusCode;
+    this.providerCode = providerCode;
     this.retryable = statusCode === 429;
     this.ambiguous = statusCode === 408 || statusCode >= 500;
   }

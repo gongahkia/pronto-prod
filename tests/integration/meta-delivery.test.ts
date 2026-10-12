@@ -166,4 +166,21 @@ dbDescribe("Meta delivery policy with isolated PostgreSQL", () => {
       "select status, last_error from outbound_messages where id = $1", [row.rows[0].id])).rows[0])
       .toMatchObject({ status: "sent", last_error: null });
   });
+
+  it("surfaces Meta restriction code 131031 without storing provider PII", async () => {
+    const row = await getPool().query<{ id: string }>(
+      `insert into outbound_messages (client_id, conversation_id, channel_id, external_thread_id,
+       body, idempotency_key, status, metadata) values ($1, $2, $3, 'customer-a', 'Hello',
+       $4, 'sent', $5) returning id`,
+      [clientId, conversationId, whatsappId, randomUUID(), { providerMessageId: "wamid.restricted" }],
+    );
+    const event = { entry: [{ changes: [{ value: { statuses: [{ id: "wamid.restricted",
+      status: "failed", errors: [{ code: 131031, message: "provider PII must not be stored" }] }] } }] }] };
+    expect(await recordWhatsAppStatusEvents({ id: whatsappId, client_id: clientId }, event)).toBe(1);
+    const result = await getPool().query<{ status: string; last_error: string; metadata: Record<string, unknown> }>(
+      "select status, last_error, metadata from outbound_messages where id = $1", [row.rows[0].id]);
+    expect(result.rows[0]).toMatchObject({ status: "dead", metadata: { providerErrorCode: 131031 } });
+    expect(result.rows[0].last_error).toContain("WhatsApp Manager");
+    expect(JSON.stringify(result.rows[0])).not.toContain("provider PII");
+  });
 });

@@ -22,6 +22,7 @@ export async function POST(request: Request, context: Context) {
       headers: requestIdHeaders(requestId),
     });
   }
+  if (channel.status !== "active") return new NextResponse("Channel inactive", { status: 403, headers: requestIdHeaders(requestId) });
 
   const rawBody = await request.text();
   if (!isBodyWithinLimit(rawBody)) {
@@ -34,12 +35,10 @@ export async function POST(request: Request, context: Context) {
   const provider =
     ((channel.credentials.provider as string | undefined) as EmailProviderKind | undefined) ??
     "postmark";
+  if (provider === "local_smtp") return new NextResponse("Local email has no public webhook", { status: 403, headers: requestIdHeaders(requestId) });
   const secret =
     (channel.settings.eventWebhookSecret as string | undefined) ??
-    (channel.settings.webhookSecret as string | undefined) ??
-    (provider === "postmark"
-      ? process.env.POSTMARK_WEBHOOK_SECRET
-      : process.env.RESEND_WEBHOOK_SECRET);
+    (channel.settings.webhookSecret as string | undefined);
 
   const signatureHeader =
     request.headers.get("x-pronto-signature") ??

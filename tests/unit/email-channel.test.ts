@@ -12,6 +12,8 @@ vi.mock("@/lib/db", () => ({
 import {
   normalizeEmailPayload,
   parseEmailPayload,
+  parseLocalRfc822,
+  normalizeParsedEmail,
   stripHtml,
   verifyEmailWebhookSignature,
 } from "@/lib/channels/email";
@@ -67,7 +69,7 @@ describe("Email adapter — Postmark inbound", () => {
     );
   });
 
-  it("falls back to In-Reply-To when DB has no match", async () => {
+  it("does not attach an unrecognized In-Reply-To to another customer thread", async () => {
     mocks.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
     const result = await normalizeEmailPayload("email-channel", "postmark", {
       MessageID: "provider-3",
@@ -79,7 +81,7 @@ describe("Email adapter — Postmark inbound", () => {
         { Name: "In-Reply-To", Value: "<earlier@example.com>" },
       ],
     });
-    expect(result[0].externalThreadId).toBe("earlier@example.com");
+    expect(result[0].externalThreadId).toBe("alice@example.com:rfc-3@example.com");
   });
 
   it("skips auto-responders by Auto-Submitted header", async () => {
@@ -183,6 +185,8 @@ describe("Email adapter — pure helpers", () => {
         secret,
       }),
     ).toBe(false);
+    expect(verifyEmailWebhookSignature({ provider: "postmark", rawBody: body,
+      signatureHeader: signature, secret: undefined })).toBe(false);
   });
 
   it("parses Postmark headers + extracts addresses", () => {
@@ -200,6 +204,28 @@ describe("Email adapter — pure helpers", () => {
   it("strips html into readable text", () => {
     const text = stripHtml("<p>Hello <strong>world</strong>!</p><script>x</script>");
     expect(text).toBe("Hello world!");
+  });
+
+  it("parses MIME plain text, de-duplicates by RFC Message-ID and enforces the support inbox", async () => {
+    const parsed = await parseLocalRfc822(Buffer.from(`From: Alice <alice@example.test>\r\nTo: support@demo.test\r\nMessage-ID: <local-1@example.test>\r\nSubject: Hours\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nWhen do you close?`));
+    expect(parsed).toMatchObject({ provider: "local_smtp", fromAddress: "alice@example.test",
+      rfcMessageId: "local-1@example.test", text: "When do you close?" });
+    const messages = await normalizeParsedEmail("channel", parsed, "support@demo.test");
+    expect(messages).toHaveLength(1);
+    expect(messages[0].externalMessageId).toBe("local-1@example.test");
+    expect(await normalizeParsedEmail("channel", parsed, "other@demo.test")).toEqual([]);
+  });
+
+  it("rejects oversized local mail", async () => {
+    await expect(parseLocalRfc822(Buffer.alloc(1024 * 1024 + 1))).rejects.toThrow("1 MiB");
+  });
+
+  it("escalates excessive email text without putting the full body in an agent prompt", async () => {
+    const parsed = await parseLocalRfc822(Buffer.from(`From: alice@example.test\r\nTo: support@demo.test\r\n` +
+      `Message-ID: <long@example.test>\r\nSubject: Long\r\n\r\n${"x".repeat(4001)}`));
+    const [message] = await normalizeParsedEmail("channel", parsed, "support@demo.test");
+    expect(message.unsupportedMediaType).toBe("email_oversize");
+    expect(message.text).not.toContain("xxxxxxxxxx");
   });
 });
 

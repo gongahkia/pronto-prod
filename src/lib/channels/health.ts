@@ -1,5 +1,6 @@
 import { query } from "@/lib/db";
 import { decryptChannelCredentials } from "@/lib/channels/credentials";
+import { isInstagramTokenExpired } from "@/lib/channels/instagram";
 import { isSupportedMetaGraphVersion, metaGraphVersion, whatsAppGraphVersion } from "@/lib/env";
 import { fetchWithTimeout } from "@/lib/http/fetch";
 import type { Channel } from "@/lib/types";
@@ -118,40 +119,43 @@ export function validateChannelHealthConfig(channel: Channel): string | null {
   }
 
   if (channel.kind === "messenger") {
-    const token =
-      (channel.credentials.pageAccessToken as string | undefined) ??
-      process.env.MESSENGER_PAGE_ACCESS_TOKEN;
-    const appSecret =
-      (channel.credentials.appSecret as string | undefined) ??
-      process.env.MESSENGER_APP_SECRET;
-    const verifyToken =
-      (channel.settings.verifyToken as string | undefined) ??
-      process.env.MESSENGER_VERIFY_TOKEN;
+    if (!isSupportedMetaGraphVersion(metaGraphVersion())) return "Messenger Graph API version is expired or invalid.";
+    const token = channel.credentials.pageAccessToken as string | undefined;
+    const appSecret = channel.credentials.appSecret as string | undefined;
+    const verifyToken = channel.settings.verifyToken as string | undefined;
+    const pageId = (channel.credentials.pageId as string | undefined) ?? channel.external_id;
     if (!token) return "Messenger page access token is missing.";
+    if (!pageId) return "Messenger Page ID is missing.";
     if (!appSecret) return "Messenger app secret is missing.";
     if (!verifyToken) return "Messenger webhook verify token is missing.";
     return null;
   }
 
   if (channel.kind === "instagram") {
+    if (channel.settings.authMode && !["facebook_login", "instagram_login"].includes(String(channel.settings.authMode)))
+      return "Unsupported Instagram login mode.";
     if (!isSupportedMetaGraphVersion(metaGraphVersion())) return "Instagram Graph API version is expired or invalid.";
-    const token = channel.credentials.pageAccessToken as string | undefined;
+    const direct = channel.settings.authMode === "instagram_login";
+    if (direct && process.env.PRONTO_INSTAGRAM_LOGIN_ENABLED !== "1") return "Instagram Login is disabled pending test-account authorization.";
+    const token = channel.credentials[direct ? "instagramAccessToken" : "pageAccessToken"] as string | undefined;
     const appSecret = channel.credentials.appSecret as string | undefined;
     const verifyToken = channel.settings.verifyToken as string | undefined;
     const igUserId =
       (channel.credentials.igUserId as string | undefined) ?? channel.external_id;
     const pageId = channel.credentials.pageId as string | undefined;
-    if (!token) return "Instagram page access token is missing.";
+    if (!token) return "Instagram scoped access token is missing.";
+    if (direct && isInstagramTokenExpired(channel)) return "Instagram Login token has expired or has no verified expiry.";
     if (!appSecret) return "Instagram app secret is missing.";
     if (!verifyToken) return "Instagram webhook verify token is missing.";
     if (!igUserId) return "Instagram user ID is missing.";
-    if (!pageId) return "Instagram linked Page ID is missing.";
+    if (!direct && !pageId) return "Instagram linked Page ID is missing.";
     return null;
   }
 
   if (channel.kind === "email") {
     const provider =
       (channel.credentials.provider as string | undefined) ?? "postmark";
+    if (!["postmark", "resend", "local_smtp"].includes(provider)) return "Unsupported email provider.";
     const apiKey =
       (channel.credentials.apiKey as string | undefined) ??
       (provider === "postmark"
@@ -162,6 +166,12 @@ export function validateChannelHealthConfig(channel: Channel): string | null {
       (provider === "postmark"
         ? process.env.POSTMARK_FROM_ADDRESS
         : process.env.RESEND_FROM_ADDRESS);
+    if (provider === "local_smtp") {
+      if (process.env.NODE_ENV === "production" || process.env.PRONTO_LOCAL_EMAIL_ENABLED !== "1")
+        return "Local SMTP sandbox is disabled.";
+      if (!fromAddress) return "Local support address is missing.";
+      return null;
+    }
     if (!apiKey) return `Email ${provider} API key is missing.`;
     if (!fromAddress) return `Email ${provider} from-address is missing.`;
     return null;
@@ -262,26 +272,34 @@ async function checkMetaPlatformHealth(channel: Channel): Promise<ChannelHealthR
       checkedLive: true,
     };
   }
-  return {
-    status: "healthy",
-    detail: `${channel.kind} page token is valid.`,
-    checkedLive: true,
-  };
+  let body: { id?: unknown };
+  try { body = await response.json() as typeof body; }
+  catch { return { status: "degraded", detail: "Messenger Page response was invalid.", checkedLive: true }; }
+  if (body.id !== ((channel.credentials.pageId as string | undefined) ?? channel.external_id))
+    return { status: "degraded", detail: "Messenger token does not resolve to the configured Page.", checkedLive: true };
+  return { status: "healthy", detail: "Messenger Page token and mapping are valid.", checkedLive: true };
 }
 
 async function checkInstagramHealth(channel: Channel): Promise<ChannelHealthResult> {
-  const token = channel.credentials.pageAccessToken as string;
+  const direct = channel.settings.authMode === "instagram_login";
+  const token = channel.credentials[direct ? "instagramAccessToken" : "pageAccessToken"] as string;
   const pageId = channel.credentials.pageId as string;
   const igUserId = (channel.credentials.igUserId as string | undefined) ?? channel.external_id;
   const response = await fetchWithTimeout(
-    `https://graph.facebook.com/${metaGraphVersion()}/${pageId}?fields=id,instagram_business_account`,
+    direct ? `https://graph.instagram.com/${metaGraphVersion()}/me?fields=id,account_type` :
+      `https://graph.facebook.com/${metaGraphVersion()}/${pageId}?fields=id,instagram_business_account`,
     { headers: { Authorization: `Bearer ${token}` } }, channelHealthTimeoutMs(),
   );
   if (!response.ok) return { status: "degraded",
     detail: `Instagram linked Page check failed with HTTP ${response.status}.`, checkedLive: true };
-  let body: { id?: unknown; instagram_business_account?: { id?: unknown } };
+  let body: { id?: unknown; account_type?: unknown; instagram_business_account?: { id?: unknown } };
   try { body = await response.json() as typeof body; }
   catch { return { status: "degraded", detail: "Instagram linked Page response was invalid.", checkedLive: true }; }
+  if (direct) {
+    if (body.id !== igUserId || !["BUSINESS", "CREATOR", "MEDIA_CREATOR"].includes(String(body.account_type)))
+      return { status: "degraded", detail: "Instagram Login token does not resolve to the configured professional account.", checkedLive: true };
+    return { status: "healthy", detail: "Instagram Login token and professional-account identity are valid; messaging permission needs sandbox verification.", checkedLive: true };
+  }
   if (body.id !== pageId || body.instagram_business_account?.id !== igUserId) {
     return { status: "degraded", detail: "Instagram linked Page does not match the configured professional account.",
       checkedLive: true };
@@ -293,6 +311,22 @@ async function checkInstagramHealth(channel: Channel): Promise<ChannelHealthResu
 async function checkEmailHealth(channel: Channel): Promise<ChannelHealthResult> {
   const provider =
     (channel.credentials.provider as string | undefined) ?? "postmark";
+  if (provider === "local_smtp") {
+    const port = Number(process.env.PRONTO_LOCAL_SMTP_PORT ?? 1025);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) return {
+      status: "unconfigured", detail: "Invalid local SMTP port.", checkedLive: false };
+    try {
+      const net = await import("node:net");
+      await new Promise<void>((resolve, reject) => {
+        const socket = net.createConnection({ host: "127.0.0.1", port });
+        socket.setTimeout(2000);
+        socket.once("connect", () => { socket.destroy(); resolve(); });
+        socket.once("error", reject);
+        socket.once("timeout", () => { socket.destroy(); reject(new Error("timeout")); });
+      });
+      return { status: "healthy", detail: "Local SMTP sandbox is reachable.", checkedLive: true };
+    } catch { return { status: "degraded", detail: "Local SMTP sandbox is unavailable.", checkedLive: true }; }
+  }
   const apiKey =
     (channel.credentials.apiKey as string | undefined) ??
     (provider === "postmark"

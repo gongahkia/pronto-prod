@@ -48,6 +48,14 @@ The DB suite sets test-only auth/encryption values and
 from overriding the isolated database URL with local `.env` files. It has no
 effect on normal preflight runs.
 
+For the opt-in local customer-email demonstration, start Mailpit on loopback
+with `docker compose --profile local-mail up -d mailpit` and run
+`pnpm test:local-mail` with the same two marked database variables. The
+test-only socket guard then permits `127.0.0.1:1025` for SMTP and
+`127.0.0.1:8025` for Mailpit inspection; ordinary tests continue to block
+both ports. See [local MVP](../demos/local-mvp.md). The guarded RFC822 injector
+and demo worker must be used only with the marked test database.
+
 `pnpm build` followed by `pnpm test:e2e` can be run with the same two database
 variables. The E2E command verifies the test database, forces mock AI, and
 preloads a network guard for the application and Playwright Node processes.

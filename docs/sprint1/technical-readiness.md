@@ -53,9 +53,10 @@ Graph API version before activation. The old `v20.0` local setting expired on
 24 September 2026; outbound sends and channel preflight reject it. Set a
 supported version such as `v25.0` and confirm it with a permitted test account.
 
-Instagram currently uses **Facebook Login with a linked Facebook Page** and
-a manually provisioned Page access token, plus the Instagram professional
-account ID. Personal accounts and Instagram Login OAuth are unsupported.
+Instagram keeps **Facebook Login with a linked Facebook Page** and now also
+has an **Instagram Login** path for professional accounts without a Page.
+The direct OAuth callback and Graph send are locally fixture verified; Meta
+permissions and delivery remain unverified. Personal accounts are unsupported.
 Configure the professional account ID, linked Page ID, Page token, app secret, and verify token
 for `/api/webhooks/instagram/<channelId>`. Obtain the applicable Instagram
 messaging permission and webhook subscription in the Meta app; complete App
@@ -67,6 +68,12 @@ Set `META_GRAPH_VERSION` to a supported version; `v20.0` is rejected.
 The read-only health check now requires the Page's linked professional-account
 ID to match this channel. Follow the [isolated Meta verification guide](../channels/meta-sandbox-verification.md)
 for account prerequisites, guarded Graph reads and the controlled send test.
+
+Messenger Page binding, fail-closed signatures, bearer-token sends and
+provider IDs have local fixture tests. The PS.Cafe Messenger channel remains
+draft; no Page was created. Customer-support email has a local Mailpit
+transport and guarded RFC822 inbound injector, distinct from a future real
+mailbox. See [the local MVP runbook](../demos/local-mvp.md).
 
 The local demonstration tests in `tests/integration/meta-rag-demo.test.ts`
 exercise signed webhook -> durable job -> mock embedding/model with real

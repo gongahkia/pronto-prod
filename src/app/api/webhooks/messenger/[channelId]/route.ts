@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   getMessengerChannel,
   normalizeMessengerPayload,
+  messengerPayloadMatchesChannel,
   verifyMessengerSignature,
 } from "@/lib/channels/messenger";
 import { processInboundMessages } from "@/lib/channels/process";
@@ -18,16 +19,15 @@ export async function GET(request: Request, context: Context) {
   if (!channel) {
     return new NextResponse("Not found", { status: 404 });
   }
+  if (channel.status !== "active") return new NextResponse("Channel inactive", { status: 403 });
 
   const url = new URL(request.url);
   const mode = url.searchParams.get("hub.mode");
   const token = url.searchParams.get("hub.verify_token");
   const challenge = url.searchParams.get("hub.challenge");
-  const expected =
-    (channel.settings.verifyToken as string | undefined) ??
-    process.env.MESSENGER_VERIFY_TOKEN;
+  const expected = channel.settings.verifyToken as string | undefined;
 
-  if (mode === "subscribe" && token === expected && challenge) {
+  if (expected && mode === "subscribe" && token === expected && challenge) {
     return new NextResponse(challenge);
   }
   return new NextResponse("Forbidden", { status: 403 });
@@ -43,6 +43,7 @@ export async function POST(request: Request, context: Context) {
       headers: requestIdHeaders(requestId),
     });
   }
+  if (channel.status !== "active") return new NextResponse("Channel inactive", { status: 403, headers: requestIdHeaders(requestId) });
 
   const rawBody = await request.text();
   if (!isBodyWithinLimit(rawBody)) {
@@ -52,9 +53,7 @@ export async function POST(request: Request, context: Context) {
     });
   }
 
-  const appSecret =
-    (channel.credentials.appSecret as string | undefined) ??
-    process.env.MESSENGER_APP_SECRET;
+  const appSecret = channel.credentials.appSecret as string | undefined;
 
   if (
     !verifyMessengerSignature(
@@ -78,7 +77,11 @@ export async function POST(request: Request, context: Context) {
       headers: requestIdHeaders(requestId),
     });
   }
-  const messages = normalizeMessengerPayload(channelId, payload);
+  const pageId = (channel.credentials.pageId as string | undefined) ?? channel.external_id;
+  if (!pageId || !messengerPayloadMatchesChannel(payload, pageId)) {
+    return new NextResponse("Page mismatch", { status: 403, headers: requestIdHeaders(requestId) });
+  }
+  const messages = normalizeMessengerPayload(channelId, payload, pageId);
   return NextResponse.json(await processInboundMessages(messages, { requestId }), {
     headers: requestIdHeaders(requestId),
   });

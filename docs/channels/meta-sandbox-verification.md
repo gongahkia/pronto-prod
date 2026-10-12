@@ -1,9 +1,11 @@
 # Meta sandbox activation and evidence
 
-Status on 11 October 2026: **local fixtures verified; no authorized Meta
-provider check or send performed**. The local `.env` has no WhatsApp access
-token/app secret or Instagram Page token/app secret. The test accounts still
-need to be created. Keep credentials out of Git, chat, shell arguments and
+Status on 12 October 2026: **local fixtures verified; no authorized Meta
+provider check or send performed by this MVP tranche**. The user reports a
+WhatsApp test WABA whose outbound delivery failed with Meta code `131031`
+and a restricted Business Account; that restriction is not bypassed.
+Instagram test-account setup remains pending. Keep credentials out of Git,
+chat, shell arguments and
 logs. This procedure uses only a newly marked, isolated `pronto_test`
 database; see [safe testing](../testing/safe-regression-baseline.md).
 
@@ -23,7 +25,7 @@ webhook; managing that subscription requires
 [webhook subscriptions](https://www.postman.com/meta/whatsapp-business-platform/folder/ozgs3jn/webhook-subscriptions)
 and [status payloads](https://www.postman.com/meta/whatsapp-business-platform/folder/tduohwq/webhook-payload-reference).
 
-**Instagram:** This code uses the **Facebook Login, linked Page** path with
+**Instagram with Facebook Login:** This path uses a linked Page with
 an Instagram Professional account. Obtain the Page ID, professional IG User
 ID and a Page access token granted by a person with the Page's messaging
 task. Meta's official [Page token guide](https://www.postman.com/meta/instagram/request/lpx8lul/get-access-tokens-of-pages-you-manage)
@@ -33,8 +35,23 @@ list `instagram_basic`, `instagram_manage_messages` and
 `pages_manage_metadata`, with business verification and Advanced Access for
 non-role users. Confirm the exact webhook fields and send endpoint in the
 Meta app and with an authorized test account before relying on the channel.
-The separate Instagram Login flow uses different scopes and is **not**
-implemented here. A test sender must first message the professional account;
+**Instagram with Instagram Login:** The second path needs no Facebook Page.
+It requests `instagram_business_basic` and
+`instagram_business_manage_messages` from a professional account. Configure
+`PRONTO_INSTAGRAM_LOGIN_ENABLED=1`, `INSTAGRAM_LOGIN_CLIENT_ID`,
+`INSTAGRAM_LOGIN_CLIENT_SECRET`, `INSTAGRAM_LOGIN_REDIRECT_URI` and a strong
+`AUTH_SECRET` in the authorized sandbox. The redirect must equal
+`APP_BASE_URL/api/client/instagram-login/callback`; start from the client
+channel page. State is signed, expires after ten minutes, and is tied to a
+same-site nonce cookie and the authenticated client user. The callback checks
+the account identity and professional type and saves the token encrypted in
+a **draft** channel. Configure the webhook app secret and per-channel verify
+token before health check and publish. Token expiry blocks sends. The
+Meta permission grant and send behavior still require authorized sandbox
+verification; a profile read alone cannot prove messaging access. Official
+[Instagram Login collection](https://www.postman.com/meta/instagram/folder/6raa77c/instagram-api-with-instagram-login)
+documents the no-Page path and current scopes. A test sender must first
+message the professional account;
 the current worker only attempts a reply within 24 hours of that provider
 event. API acceptance is not proof of delivery to the recipient.
 
@@ -66,8 +83,9 @@ PRONTO_META_TEST_ACCOUNT=1 PRONTO_META_READ_APPROVED=1 \
 `inspect` reads only the isolated database and prints no tokens or customer
 content. `read` additionally requires both explicit flags and makes one
 read-only Graph request. For WhatsApp it checks that the token resolves to
-the configured Phone Number ID. For Instagram it checks that the configured
-Page links to the configured professional account. The script rejects an
+the configured Phone Number ID. For Instagram with Facebook Login it checks
+that the configured Page links to the professional account; with Instagram
+Login it checks token identity and professional type. The script rejects an
 inactive, plaintext or unconfigured channel and exits nonzero on a failed
 provider check. No command above sends a message.
 

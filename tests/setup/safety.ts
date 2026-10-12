@@ -14,17 +14,21 @@ process.env.PRONTO_USE_MOCK_AI = "1";
 
 const originalConnect = net.Socket.prototype.connect;
 net.Socket.prototype.connect = function (...args: unknown[]) {
-  const target = args[0];
+  const values = Array.isArray(args[0]) ? args[0] : args;
+  const target = values[0];
   const port =
     typeof target === "number" ? target :
     target && typeof target === "object" && "port" in target ? Number(target.port) : NaN;
   const host =
-    typeof target === "number" && typeof args[1] === "string" ? args[1] :
+    typeof target === "number" && typeof values[1] === "string" ? values[1] :
     target && typeof target === "object" && "host" in target ? String(target.host) : "localhost";
   const allowed = allowedDatabase &&
     port === Number(allowedDatabase.port) &&
     ["localhost", "127.0.0.1", "::1"].includes(host);
-  if (!allowed) {
+  const localMail = process.env.PRONTO_TEST_LOCAL_MAIL === "1" &&
+    process.env.PRONTO_LOCAL_EMAIL_ENABLED === "1" && [1025, 8025].includes(port) &&
+    ["localhost", "127.0.0.1", "::1"].includes(host);
+  if (!allowed && !localMail) {
     throw new Error(`External network blocked by Pronto test harness: ${host}:${port}`);
   }
   return (originalConnect as (...values: unknown[]) => net.Socket).apply(this, args);

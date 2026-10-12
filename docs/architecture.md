@@ -44,11 +44,16 @@ authorized `release` action restores AI ownership for future messages.
 
 ## Implemented and externally blocked
 
-- WhatsApp and Instagram webhook and send paths have local fixture tests and
-  fake Graph transports. Neither account permission nor live delivery has
-  been verified.
-- Instagram uses the manually provisioned **Facebook Login / linked Page**
-  path and a Page access token. It does not implement Instagram Login OAuth.
+- WhatsApp, Instagram and Messenger webhook and send paths have local fixture
+  tests and fake Graph transports. Neither account permission nor live
+  delivery has been verified in this MVP tranche.
+- Instagram supports both the existing **Facebook Login / linked Page** path
+  and a separate **Instagram Login / professional account** path. OAuth state,
+  encrypted tokens and direct Graph endpoint use have local tests; actual
+  permissions and delivery remain an external activation gate.
+- Customer support email reuses the same inbox, worker, RAG and outbox. A
+  guarded RFC822 injector and loopback Mailpit transport provide the local
+  demo; no external mailbox is verified. See [local MVP](demos/local-mvp.md).
 - The default Chope connector advertises no API capabilities because no
   authorized endpoint contract or credentials are present. A separate,
   explicitly enabled read-only browser connector can observe demo availability

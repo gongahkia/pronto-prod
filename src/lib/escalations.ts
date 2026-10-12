@@ -1,6 +1,8 @@
 import { appBaseUrl } from "@/lib/env";
 import { query } from "@/lib/db";
 import { sendChannelText } from "@/lib/channels/dispatch";
+import { sendEmail } from "@/lib/channels/email";
+import { decryptChannelCredentials } from "@/lib/channels/credentials";
 import type { Channel, DeliveryStatus } from "@/lib/types";
 
 type EscalationNotification = {
@@ -59,13 +61,13 @@ export async function notifyOwnerOfEscalation(
       select * from channels
       where client_id = $1
         and status = 'active'
-        and kind in ('telegram', 'whatsapp')
-      order by case kind when 'telegram' then 0 else 1 end
+        and kind in ('telegram', 'whatsapp', 'email')
+      order by case kind when 'email' then 0 when 'telegram' then 1 else 2 end
     `,
     [escalation.client_id],
   );
   const channelSelection = selectOwnerNotificationChannel(
-    channelResult.rows,
+    channelResult.rows.map((channel) => decryptChannelCredentials(channel)),
     escalation.business_profile,
   );
   if (!channelSelection) {
@@ -88,7 +90,9 @@ export async function notifyOwnerOfEscalation(
   ].join("\n");
 
   try {
-    await sendChannelText({
+    if (channel.kind === "email" && channel.credentials.provider === "local_smtp") {
+      await sendEmail({ channel, to: destination, subject: "Pronto escalation", text });
+    } else await sendChannelText({
       channelId: channel.id,
       clientId: escalation.client_id,
       externalThreadId: destination,
@@ -128,7 +132,7 @@ function selectOwnerNotificationChannel(
   }
 
   const preference = businessProfile.notificationPreference;
-  if (preference === "telegram" || preference === "whatsapp") {
+  if (preference === "telegram" || preference === "whatsapp" || preference === "email") {
     return (
       configured.find((candidate) => candidate.channel.kind === preference) ??
       configured[0]
@@ -144,7 +148,9 @@ function ownerDestination(channel: Channel): string | null {
       ? channel.settings.ownerChatId
       : channel.kind === "whatsapp"
         ? channel.settings.ownerPhone
-        : null;
+        : channel.kind === "email" && channel.credentials.provider === "local_smtp" &&
+          process.env.PRONTO_LOCAL_EMAIL_ENABLED === "1"
+          ? channel.settings.ownerEmail : null;
   if (typeof value !== "string") {
     return null;
   }

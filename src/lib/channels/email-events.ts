@@ -30,10 +30,12 @@ export async function processEmailEvent(input: {
         emailAddress: event.emailAddress,
         reason: event.kind === "bounce" ? "bounce" : "spam_complaint",
         provider: input.provider,
-        raw: input.payload,
+        raw: { eventKind: event.kind },
       });
     }
     await markOutboundFailed({
+      clientId: input.clientId,
+      channelId: input.channelId,
       provider: input.provider,
       payload: input.payload,
       kind: event.kind,
@@ -45,7 +47,6 @@ export async function processEmailEvent(input: {
       provider: input.provider,
       channelId: input.channelId,
       kind: event.kind,
-      emailAddress: event.emailAddress,
       reason: event.reason,
     });
     return event;
@@ -56,7 +57,6 @@ export async function processEmailEvent(input: {
       requestId: input.requestId,
       provider: input.provider,
       channelId: input.channelId,
-      emailAddress: event.emailAddress,
     });
   }
   return event;
@@ -122,6 +122,8 @@ export function classifyEmailEvent(
 }
 
 async function markOutboundFailed(input: {
+  clientId: string;
+  channelId: string;
   provider: EmailProviderKind;
   payload: Record<string, unknown>;
   kind: "bounce" | "complaint";
@@ -137,8 +139,9 @@ async function markOutboundFailed(input: {
           last_error = $2,
           metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{deliveryFailure}', $3::jsonb, true),
           updated_at = now()
-      where metadata->>'rfcMessageId' = $1
-         or metadata->>'outgoingMessageId' = $1
+      where client_id = $4 and channel_id = $5
+        and (metadata->>'rfcMessageId' = $1 or metadata->>'outgoingMessageId' = $1
+          or metadata->>'providerMessageId' = $1)
     `,
     [
       outboundMessageId,
@@ -149,6 +152,8 @@ async function markOutboundFailed(input: {
         provider: input.provider,
         requestId: input.requestId ?? null,
       }),
+      input.clientId,
+      input.channelId,
     ],
   );
 }

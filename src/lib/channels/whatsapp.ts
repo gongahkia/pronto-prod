@@ -63,12 +63,18 @@ export async function recordWhatsAppStatusEvents(
         const rank = { sent: 1, failed: 2, delivered: 3, read: 4 }[status] ?? 0;
         const observedAt = typeof item.timestamp === "string" && /^\d{10}$/.test(item.timestamp)
           ? new Date(Number(item.timestamp) * 1000).toISOString() : null;
+        const firstError = Array.isArray(item.errors) && isRecord(item.errors[0]) ? item.errors[0] : null;
+        const providerErrorCode = typeof firstError?.code === "number" ? firstError.code : null;
+        const failureDetail = providerErrorCode === 131031
+          ? "WhatsApp business account restricted (Meta code 131031); review WhatsApp Manager."
+          : providerErrorCode ? `WhatsApp provider reported failed delivery (code ${providerErrorCode}).`
+            : "WhatsApp provider reported failed delivery.";
         const updated = await query(
           `update outbound_messages set
              metadata = metadata || $6::jsonb,
              status = case when $4 = 'failed' then 'dead'
                            when $4 in ('delivered', 'read') then 'sent' else status end,
-             last_error = case when $4 = 'failed' then 'WhatsApp provider reported failed delivery.'
+             last_error = case when $4 = 'failed' then $7
                                when $4 in ('delivered', 'read') then null else last_error end,
              updated_at = now()
            where client_id = $1 and channel_id = $2 and metadata->>'providerMessageId' = $3
@@ -76,7 +82,8 @@ export async function recordWhatsAppStatusEvents(
                    when 'sent' then 1 when 'failed' then 2
                    when 'delivered' then 3 when 'read' then 4 else 0 end < $5`,
           [channel.client_id, channel.id, item.id, status, rank,
-            JSON.stringify({ providerStatus: status, ...(observedAt ? { providerStatusAt: observedAt } : {}) })],
+            JSON.stringify({ providerStatus: status, ...(observedAt ? { providerStatusAt: observedAt } : {}),
+              ...(providerErrorCode ? { providerErrorCode } : {}) }), failureDetail],
         );
         recorded += updated.rowCount ?? 0;
       }
@@ -195,7 +202,12 @@ export async function sendWhatsAppText(input: {
   }
 
   if (!response.ok) {
-    throw new ProviderSendError("WhatsApp", response.status);
+    let code: number | undefined;
+    try {
+      const error = await response.json() as { error?: { code?: unknown } };
+      if (typeof error.error?.code === "number") code = error.error.code;
+    } catch { /* Keep the HTTP classification if Meta returns non-JSON. */ }
+    throw new ProviderSendError("WhatsApp", response.status, code);
   }
   let body: { messages?: Array<{ id?: unknown }> };
   try {

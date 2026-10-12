@@ -105,4 +105,46 @@ describe("Instagram adapter", () => {
       externalThreadId: "ig-customer-a", text: "Hello",
     })).rejects.toMatchObject({ name: "AmbiguousProviderAcceptanceError" });
   });
+
+  it("uses a direct Instagram Login token without a Page and rejects expiry", async () => {
+    vi.stubEnv("PRONTO_INSTAGRAM_LOGIN_ENABLED", "1");
+    const channel = { id: "ig-channel", client_id: "tenant-a", kind: "instagram" as const,
+      name: "Instagram", status: "active" as const, external_id: "ig-business-a",
+      credentials: { instagramAccessToken: "direct-token", igUserId: "ig-business-a",
+        tokenExpiresAt: new Date(Date.now() + 60_000).toISOString() },
+      settings: { authMode: "instagram_login" }, last_health_check_at: null,
+      last_health_status: null, last_health_error: null, last_outbound_at: null, last_outbound_error: null };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ message_id: "mid.direct" }))));
+    expect(await sendInstagramText({ channel, externalThreadId: "customer", text: "Hello" })).toBe("mid.direct");
+    expect(String(vi.mocked(fetch).mock.calls[0][0])).toContain("graph.instagram.com");
+    await expect(sendInstagramText({ channel: { ...channel, credentials: { ...channel.credentials,
+      tokenExpiresAt: new Date(Date.now() - 1000).toISOString() } }, externalThreadId: "customer",
+      text: "Hello" })).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it("classifies direct Instagram rate limit and revoked token responses", async () => {
+    vi.stubEnv("PRONTO_INSTAGRAM_LOGIN_ENABLED", "1");
+    const channel = { id: "ig-channel", client_id: "tenant-a", kind: "instagram" as const,
+      name: "Instagram", status: "active" as const, external_id: "ig-business-a",
+      credentials: { instagramAccessToken: "direct-token", tokenExpiresAt: new Date(Date.now() + 60_000).toISOString() },
+      settings: { authMode: "instagram_login" }, last_health_check_at: null,
+      last_health_status: null, last_health_error: null, last_outbound_at: null, last_outbound_error: null };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("{}", { status: 429 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 401 })));
+    await expect(sendInstagramText({ channel, externalThreadId: "customer", text: "Hello" }))
+      .rejects.toMatchObject({ retryable: true, statusCode: 429 });
+    await expect(sendInstagramText({ channel, externalThreadId: "customer", text: "Hello" }))
+      .rejects.toMatchObject({ retryable: false, statusCode: 401 });
+  });
+
+  it("keeps the direct login send path disabled without explicit authorization configuration", async () => {
+    vi.stubEnv("PRONTO_INSTAGRAM_LOGIN_ENABLED", "0");
+    await expect(sendInstagramText({ channel: {
+      id: "ig-channel", client_id: "tenant-a", kind: "instagram", name: "Instagram",
+      status: "active", external_id: "ig-business-a",
+      credentials: { instagramAccessToken: "fixture", tokenExpiresAt: new Date(Date.now() + 60_000).toISOString() },
+      settings: { authMode: "instagram_login" }, last_health_check_at: null,
+      last_health_status: null, last_health_error: null, last_outbound_at: null, last_outbound_error: null,
+    }, externalThreadId: "customer", text: "Hello" })).rejects.toThrow(/disabled/);
+  });
 });

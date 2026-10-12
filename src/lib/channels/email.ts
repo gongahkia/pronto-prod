@@ -1,10 +1,13 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { simpleParser } from "mailparser";
+import nodemailer from "nodemailer";
 import { query } from "@/lib/db";
-import { decryptChannelCredentials } from "@/lib/channels/credentials";
+import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib/channels/credentials";
+import { AmbiguousProviderAcceptanceError, ProviderSendError } from "@/lib/channels/provider-error";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel } from "@/lib/types";
 
-export type EmailProviderKind = "postmark" | "resend";
+export type EmailProviderKind = "postmark" | "resend" | "local_smtp";
 
 export type EmailHeaders = {
   messageId: string | null;
@@ -39,9 +42,7 @@ export function verifyEmailWebhookSignature(input: {
   signatureHeader: string | null;
   secret: string | undefined;
 }): boolean {
-  if (!input.secret) {
-    return process.env.NODE_ENV !== "production";
-  }
+  if (!input.secret) return false;
   if (!input.signatureHeader) {
     return false;
   }
@@ -67,9 +68,24 @@ export async function normalizeEmailPayload(
   channelId: string,
   provider: EmailProviderKind,
   payload: Record<string, unknown>,
+  supportAddress?: string,
 ): Promise<NormalizedInboundMessage[]> {
   const parsed = parseEmailPayload(provider, payload);
   if (!parsed) return [];
+
+  return normalizeParsedEmail(channelId, parsed, supportAddress);
+}
+
+export async function normalizeParsedEmail(
+  channelId: string,
+  parsed: ParsedEmail,
+  supportAddress?: string,
+): Promise<NormalizedInboundMessage[]> {
+  if (!safeEmailAddress(parsed.fromAddress)) return [];
+  if (supportAddress) {
+    const expected = supportAddress.toLowerCase();
+    if (![...parsed.to, ...parsed.cc].includes(expected) || parsed.fromAddress === expected) return [];
+  }
 
   if (isAutoResponder(parsed.headers, parsed.subject)) {
     return [];
@@ -84,7 +100,10 @@ export async function normalizeEmailPayload(
 
   let unsupportedMediaType: string | undefined;
   let body: string;
-  if (!text && hasAttachments) {
+  if (text && text.length > 4000) {
+    unsupportedMediaType = "email_oversize";
+    body = "[Email body exceeded the 4,000-character support limit; staff review required.]";
+  } else if (!text && hasAttachments) {
     unsupportedMediaType = "email_attachment";
     body = `[Unsupported email content: ${parsed.attachments
       .map((attachment) => attachment.name)
@@ -114,12 +133,49 @@ export async function normalizeEmailPayload(
       text: body,
       unsupportedMediaType,
       raw: {
-        provider,
+        provider: parsed.provider,
         parsed,
-        original: payload,
       },
     },
   ];
+}
+
+const MAX_LOCAL_EMAIL_BYTES = 1024 * 1024;
+export async function parseLocalRfc822(raw: Buffer): Promise<ParsedEmail> {
+  if (!raw.length || raw.length > MAX_LOCAL_EMAIL_BYTES) throw new Error("Local email exceeds the 1 MiB limit.");
+  const mail = await simpleParser(raw, { skipImageLinks: true });
+  const fromAddress = mail.from?.value[0]?.address?.toLowerCase();
+  const to = mail.to ? (Array.isArray(mail.to) ? mail.to : [mail.to]) : [];
+  const cc = mail.cc ? (Array.isArray(mail.cc) ? mail.cc : [mail.cc]) : [];
+  if (!fromAddress || !mail.date && !mail.messageId) throw new Error("Local email lacks a usable sender or identity.");
+  const header = (key: string) => {
+    const value = mail.headers.get(key);
+    return typeof value === "string" ? value : null;
+  };
+  const messageId = bracketTrim(mail.messageId ?? undefined);
+  return {
+    provider: "local_smtp",
+    providerMessageId: messageId ?? createHash("sha256").update(raw).digest("hex"),
+    rfcMessageId: messageId,
+    fromAddress, fromName: mail.from?.value[0]?.name || undefined,
+    to: to.flatMap((entry) => entry.value.map((value) => value.address?.toLowerCase()).filter((value): value is string => Boolean(value))),
+    cc: cc.flatMap((entry) => entry.value.map((value) => value.address?.toLowerCase()).filter((value): value is string => Boolean(value))),
+    subject: mail.subject ?? "", text: mail.text ?? null,
+    html: typeof mail.html === "string" ? mail.html : null,
+    attachments: mail.attachments.map((attachment) => ({
+      name: attachment.filename ?? "unnamed", contentType: attachment.contentType ?? null,
+      size: attachment.size ?? null,
+    })),
+    headers: {
+      messageId,
+      inReplyTo: bracketTrim(mail.inReplyTo ?? undefined),
+      references: (Array.isArray(mail.references) ? mail.references : mail.references ? [mail.references] : [])
+        .map((value) => bracketTrim(value)).filter((value): value is string => Boolean(value)),
+      autoSubmitted: header("auto-submitted"), precedence: header("precedence"),
+      authenticationResults: header("authentication-results"),
+      listUnsubscribe: header("list-unsubscribe"),
+    },
+  };
 }
 
 function parsePostmark(payload: Record<string, unknown>): ParsedEmail | null {
@@ -300,28 +356,21 @@ async function resolveThreadId(channelId: string, parsed: ParsedEmail): Promise<
         from conversations c
         join messages m on m.conversation_id = c.id
         where c.channel_id = $1
+          and lower(c.customer_handle) = lower($3)
           and (
             m.external_message_id = any($2::text[])
             or m.metadata->>'rfcMessageId' = any($2::text[])
-            or m.metadata->>'outgoingMessageId' = any($2::text[])
+            or trim(both '<>' from m.metadata->>'outgoingMessageId') = any($2::text[])
           )
         order by m.created_at desc
         limit 1
       `,
-      [channelId, candidates],
+      [channelId, candidates, parsed.fromAddress],
     );
     const match = result.rows[0]?.external_thread_id;
     if (match) return match;
-    return candidates[0];
   }
-  const subject = subjectKey(parsed.subject);
-  if (subject) return subject;
-  return parsed.fromAddress.toLowerCase();
-}
-
-function subjectKey(subject: string): string | null {
-  const stripped = subject.replace(/^\s*(re|fwd?|aw|sv):\s*/gi, "").trim();
-  return stripped ? stripped.toLowerCase() : null;
+  return `${parsed.fromAddress.toLowerCase()}:${parsed.rfcMessageId ?? parsed.providerMessageId}`;
 }
 
 function bracketTrim(value: string | undefined): string | null {
@@ -429,6 +478,7 @@ export async function suppressEmailAddress(input: {
 
 export async function lookupReplyThreadingHints(input: {
   channelId: string;
+  clientId: string;
   externalThreadId: string;
 }): Promise<{
   inReplyTo: string | null;
@@ -448,16 +498,15 @@ export async function lookupReplyThreadingHints(input: {
       join conversations c on c.id = m.conversation_id
       where c.channel_id = $1
         and c.external_thread_id = $2
+        and c.client_id = $3 and m.client_id = $3
         and m.sender_role = 'customer'
       order by m.created_at desc
       limit 1
     `,
-    [input.channelId, input.externalThreadId],
+    [input.channelId, input.externalThreadId, input.clientId],
   );
   const row = result.rows[0];
-  if (!row) {
-    return { inReplyTo: null, references: [], subject: null, to: input.externalThreadId };
-  }
+  if (!row?.customer_handle) throw new Error("Email conversation has no verified customer recipient.");
 
   const raw = isRecord(row.metadata) ? (row.metadata.raw as Record<string, unknown> | undefined) : undefined;
   const parsed = raw && isRecord(raw.parsed) ? (raw.parsed as ParsedEmail) : null;
@@ -468,7 +517,7 @@ export async function lookupReplyThreadingHints(input: {
     inReplyTo,
     references: inReplyTo ? Array.from(new Set([...references, inReplyTo])) : references,
     subject,
-    to: row.customer_handle ?? input.externalThreadId,
+    to: row.customer_handle,
   };
 }
 
@@ -485,19 +534,25 @@ export type EmailSendOptions = {
 export async function sendEmail(input: EmailSendOptions): Promise<{ messageId: string }> {
   const provider =
     (input.channel.credentials.provider as EmailProviderKind | undefined) ?? "postmark";
+  if (!["postmark", "resend", "local_smtp"].includes(provider)) throw new Error("Unsupported email provider.");
   const apiKey =
     (input.channel.credentials.apiKey as string | undefined) ??
-    (provider === "postmark" ? process.env.POSTMARK_API_TOKEN : process.env.RESEND_API_KEY);
+    (provider === "postmark" ? process.env.POSTMARK_API_TOKEN : provider === "resend" ? process.env.RESEND_API_KEY : undefined);
   const from =
     (input.channel.credentials.fromAddress as string | undefined) ??
-    (provider === "postmark" ? process.env.POSTMARK_FROM_ADDRESS : process.env.RESEND_FROM_ADDRESS);
+    (provider === "postmark" ? process.env.POSTMARK_FROM_ADDRESS : provider === "resend" ? process.env.RESEND_FROM_ADDRESS : undefined);
 
-  if (!apiKey || !from) {
+  if ((provider !== "local_smtp" && !apiKey) || !from) {
     throw new Error(`Email credentials missing for provider ${provider}; outbound send skipped.`);
+  }
+  if (!safeEmailAddress(from) || !safeEmailAddress(input.to) || /[\r\n]/.test(input.subject) ||
+    input.references?.some((value) => /[\r\n]/.test(value)) ||
+    (input.inReplyTo && /[\r\n]/.test(input.inReplyTo))) {
+    throw new Error("Email headers contain an invalid address or newline.");
   }
 
   if (await isEmailSuppressed({ clientId: input.channel.client_id, emailAddress: input.to })) {
-    throw new Error(`Email address ${input.to} is on the suppression list.`);
+    throw new Error("Email recipient is on the suppression list.");
   }
 
   const outboundMessageId = buildOutboundMessageId(from);
@@ -509,13 +564,36 @@ export async function sendEmail(input: EmailSendOptions): Promise<{ messageId: s
   });
   const fetchImpl = input.fetchFn ?? fetch;
 
+  if (provider === "local_smtp") {
+    if (process.env.NODE_ENV === "production" || process.env.PRONTO_LOCAL_EMAIL_ENABLED !== "1") {
+      throw new Error("Local SMTP is disabled outside the explicit development sandbox.");
+    }
+    const port = Number(process.env.PRONTO_LOCAL_SMTP_PORT ?? 1025);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid local SMTP port.");
+    const transport = nodemailer.createTransport({ host: "127.0.0.1", port, secure: false,
+      ignoreTLS: true, connectionTimeout: 3000, greetingTimeout: 3000, socketTimeout: 5000 });
+    try {
+      try { await transport.verify(); }
+      catch { throw new Error("Local SMTP sandbox was unavailable before send; safe to retry."); }
+      const sent = await transport.sendMail({ from, to: input.to, subject, text: input.text,
+        messageId: outboundMessageId, headers: headerMap });
+      if (!sent.accepted.includes(input.to)) throw new ProviderSendError("Local SMTP", 550);
+    } catch (error) {
+      if (error instanceof ProviderSendError ||
+          (error instanceof Error && error.message === "Local SMTP sandbox was unavailable before send; safe to retry."))
+        throw error;
+      throw new AmbiguousProviderAcceptanceError("Local SMTP");
+    } finally { transport.close(); }
+    return { messageId: outboundMessageId };
+  }
+
   if (provider === "postmark") {
-    const response = await fetchImpl("https://api.postmarkapp.com/email", {
+    const response = await boundedEmailFetch(fetchImpl, "https://api.postmarkapp.com/email", {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "X-Postmark-Server-Token": apiKey,
+        "X-Postmark-Server-Token": apiKey ?? "",
       },
       body: JSON.stringify({
         From: from,
@@ -527,16 +605,15 @@ export async function sendEmail(input: EmailSendOptions): Promise<{ messageId: s
       }),
     });
     if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Postmark send failed: ${response.status} ${body}`);
+      throw new ProviderSendError("Postmark", response.status);
     }
     return { messageId: outboundMessageId };
   }
 
-  const response = await fetchImpl("https://api.resend.com/emails", {
+  const response = await boundedEmailFetch(fetchImpl, "https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${apiKey ?? ""}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -548,10 +625,17 @@ export async function sendEmail(input: EmailSendOptions): Promise<{ messageId: s
     }),
   });
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Resend send failed: ${response.status} ${body}`);
+    throw new ProviderSendError("Resend", response.status);
   }
   return { messageId: outboundMessageId };
+}
+
+async function boundedEmailFetch(fetchFn: typeof fetch, url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try { return await fetchFn(url, { ...init, signal: controller.signal }); }
+  catch { throw new AmbiguousProviderAcceptanceError("Email"); }
+  finally { clearTimeout(timer); }
 }
 
 function buildOutboundMessageId(fromAddress: string): string {
@@ -597,7 +681,12 @@ export async function getEmailChannel(channelId: string): Promise<Channel | null
     "select * from channels where id = $1 and kind = 'email'",
     [channelId],
   );
-  return result.rows[0] ? decryptChannelCredentials(result.rows[0]) : null;
+  const row = result.rows[0];
+  return row && !usesLegacyPlaintextCredentials(row) ? decryptChannelCredentials(row) : null;
+}
+
+function safeEmailAddress(value: string): boolean {
+  return /^[^\s@<>\r\n]+@[^\s@<>\r\n]+\.[^\s@<>\r\n]+$/.test(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

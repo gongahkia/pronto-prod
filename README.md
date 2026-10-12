@@ -21,6 +21,11 @@ pnpm dev
 
 Open `http://127.0.0.1:3000`.
 
+For the isolated PS.Cafe Raffles City MVP with Mailpit, a guarded worker,
+sample customer emails and fake Meta providers, follow
+[the local demo runbook](docs/demos/local-mvp.md). It uses a marked
+`pronto_test` database and requires no real provider account.
+
 The client workspace has four main areas: Overview, Inbox, Manage assistant, and Settings. In Manage assistant, edits to knowledge, brand voice, and handoff rules are saved together as a draft. Test a customer question there, then publish the tested draft to make it live. Channel details have a separate save, connection check, and publish flow; activating a channel requires a successful live check.
 
 Seeded logins:

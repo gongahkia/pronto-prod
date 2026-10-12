@@ -73,6 +73,13 @@ describe("WhatsApp Graph API requests", () => {
       .rejects.toMatchObject({ retryable: false, ambiguous: true, statusCode: 500 } satisfies Partial<ProviderSendError>);
   });
 
+  it("records Meta 131031 without exposing the provider response body", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: {
+      code: 131031, message: "Restricted account: sensitive provider text" } }), { status: 403 })));
+    await expect(sendWhatsAppText({ channel: whatsappChannel(), externalThreadId: "6590000000", text: "Hello" }))
+      .rejects.toMatchObject({ statusCode: 403, providerCode: 131031, retryable: false });
+  });
+
   it("treats transport failure after send was attempted as ambiguous", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("network unavailable")));
     await expect(sendWhatsAppText({ channel: whatsappChannel(), externalThreadId: "6590000000", text: "Hello" }))

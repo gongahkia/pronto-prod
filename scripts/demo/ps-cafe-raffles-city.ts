@@ -2,11 +2,15 @@ import { getPool, vectorLiteral } from "../../src/lib/db";
 import { deterministicEmbedding } from "../../src/lib/llm/mock";
 import { chunkText } from "../../src/lib/knowledge/chunk";
 import { verifyTestDatabase } from "../test-db-safety";
+import { encryptedChannelCredentialValues } from "../../src/lib/channels/credentials";
 
 // Fixed IDs make this disposable fixture idempotent and easy to remove.
 export const PS_CAFE_DEMO_CLIENT_ID = "00000000-0000-4000-8000-00000000a101";
 export const PS_CAFE_DEMO_WHATSAPP_ID = "00000000-0000-4000-8000-00000000a102";
 export const PS_CAFE_DEMO_INSTAGRAM_ID = "00000000-0000-4000-8000-00000000a103";
+export const PS_CAFE_DEMO_EMAIL_ID = "00000000-0000-4000-8000-00000000a104";
+export const PS_CAFE_DEMO_MESSENGER_ID = "00000000-0000-4000-8000-00000000a105";
+export const PS_CAFE_DEMO_SUPPORT_ADDRESS = "support@ps-cafe-demo.test";
 export const PS_CAFE_CHOPE_OUTLET_ID = "pscaferafflescity1808psc";
 export const PS_CAFE_CHOPE_URL = "https://www.chope.co/singapore-restaurants/restaurant/ps-cafe-raffles-city";
 export const PS_CAFE_DEMO_SLUG = "ps-cafe-raffles-city-demo";
@@ -57,7 +61,8 @@ export async function setupPsCafeDemo(): Promise<void> {
     const reservedIds = await db.query<{ client_id: string }>(
       `select client_id from knowledge_sources where id = any($1::uuid[])
        union all select client_id from channels where id = any($2::uuid[])`,
-      [sourceIds, [PS_CAFE_DEMO_WHATSAPP_ID, PS_CAFE_DEMO_INSTAGRAM_ID]]);
+      [sourceIds, [PS_CAFE_DEMO_WHATSAPP_ID, PS_CAFE_DEMO_INSTAGRAM_ID,
+        PS_CAFE_DEMO_EMAIL_ID, PS_CAFE_DEMO_MESSENGER_ID]]);
     if (reservedIds.rows.some((row) => row.client_id !== PS_CAFE_DEMO_CLIENT_ID)) {
       throw new Error("Demo source or channel ID is occupied by another tenant.");
     }
@@ -123,6 +128,8 @@ export async function setupPsCafeDemo(): Promise<void> {
     for (const channel of [
       { id: PS_CAFE_DEMO_WHATSAPP_ID, kind: "whatsapp", name: "Demo WhatsApp (draft)", externalId: "ps-cafe-demo-phone" },
       { id: PS_CAFE_DEMO_INSTAGRAM_ID, kind: "instagram", name: "Demo Instagram (draft)", externalId: "ps-cafe-demo-ig" },
+      { id: PS_CAFE_DEMO_MESSENGER_ID, kind: "messenger", name: "Demo Messenger (draft)", externalId: "ps-cafe-demo-page" },
+      { id: PS_CAFE_DEMO_EMAIL_ID, kind: "email", name: "Demo customer email (local SMTP)", externalId: PS_CAFE_DEMO_SUPPORT_ADDRESS },
     ]) {
       await db.query(`insert into channels (id, client_id, kind, name, status, external_id)
         values ($1, $2, $3, $4, 'draft', $5)
@@ -130,6 +137,16 @@ export async function setupPsCafeDemo(): Promise<void> {
           external_id = excluded.external_id, updated_at = now()`,
         [channel.id, PS_CAFE_DEMO_CLIENT_ID, channel.kind, channel.name, channel.externalId]);
     }
+    const emailCredentials = encryptedChannelCredentialValues({
+      provider: "local_smtp", fromAddress: PS_CAFE_DEMO_SUPPORT_ADDRESS,
+    });
+    await db.query(`update channels set status = $6, credentials = '{}'::jsonb,
+      settings = '{"ownerEmail":"operator@ps-cafe-demo.test"}'::jsonb,
+      encrypted_credentials = $3, credentials_encryption_nonce = $4,
+      credentials_encryption_tag = $5 where id = $1 and client_id = $2`,
+      [PS_CAFE_DEMO_EMAIL_ID, PS_CAFE_DEMO_CLIENT_ID,
+        emailCredentials.encryptedCredentials, emailCredentials.nonce, emailCredentials.tag,
+        process.env.PRONTO_LOCAL_EMAIL_ENABLED === "1" ? "active" : "draft"]);
     await db.query("commit");
   } catch (error) {
     await db.query("rollback");

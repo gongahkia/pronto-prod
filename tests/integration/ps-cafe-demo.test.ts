@@ -10,8 +10,9 @@ import { FakeChopeConnector } from "../fixtures/fake-chope";
 import { createChopeBrowserConnector } from "@/lib/reservations/chope-browser";
 import { POST as whatsappPost } from "@/app/api/webhooks/whatsapp/[channelId]/route";
 import { POST as instagramPost } from "@/app/api/webhooks/instagram/[channelId]/route";
+import { POST as messengerPost } from "@/app/api/webhooks/messenger/[channelId]/route";
 import { PS_CAFE_CHOPE_OUTLET_ID, PS_CAFE_CHOPE_URL, PS_CAFE_DEMO_CLIENT_ID,
-  PS_CAFE_DEMO_WHATSAPP_ID, PS_CAFE_DEMO_INSTAGRAM_ID, psCafeDemoSources,
+  PS_CAFE_DEMO_WHATSAPP_ID, PS_CAFE_DEMO_INSTAGRAM_ID, PS_CAFE_DEMO_MESSENGER_ID, psCafeDemoSources,
   removePsCafeDemo, setupPsCafeDemo } from "../../scripts/demo/ps-cafe-raffles-city";
 
 const dbDescribe = process.env.PRONTO_RUN_DB_TESTS === "1" ? describe : describe.skip;
@@ -44,7 +45,7 @@ dbDescribe("PS.Cafe Raffles City isolated end-to-end demo", () => {
         headers: { "Content-Type": "application/json" } });
     }));
   });
-  afterEach(async () => { await removePsCafeDemo(); vi.unstubAllGlobals(); });
+  afterEach(async () => { await removePsCafeDemo(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
   afterAll(async () => { await getPool().end(); });
 
   function signedRequest(kind: "whatsapp" | "instagram", payload: unknown) {
@@ -104,6 +105,60 @@ dbDescribe("PS.Cafe Raffles City isolated end-to-end demo", () => {
     await flushRetryableOutboundMessages();
     expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/ps-cafe-demo-ig/messages"),
       expect.objectContaining({ method: "POST" }));
+  });
+
+  it("B2: direct Instagram Login uses the shared inbox and Instagram Graph send endpoint", async () => {
+    vi.stubEnv("PRONTO_INSTAGRAM_LOGIN_ENABLED", "1");
+    const credentials = encryptedChannelCredentialValues({
+      instagramAccessToken: "direct-ig-fixture", igUserId: "ps-cafe-demo-ig", appSecret: secret,
+      tokenExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+      __settingsSecrets: { verifyToken: "fixture-verify" },
+    });
+    await getPool().query(`update channels set settings = '{"authMode":"instagram_login"}'::jsonb,
+      encrypted_credentials = $2, credentials_encryption_nonce = $3,
+      credentials_encryption_tag = $4 where id = $1`,
+      [PS_CAFE_DEMO_INSTAGRAM_ID, credentials.encryptedCredentials, credentials.nonce, credentials.tag]);
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (!String(url).startsWith("https://graph.instagram.com/")) throw new Error("Unexpected direct Instagram URL");
+      return new Response(JSON.stringify({ message_id: "mid.direct-fixture" }), { status: 200 });
+    }));
+    const inbound = await send("instagram", "Do you have vegetarian options?");
+    expect(await processInboundJob({ jobId: inbound.jobId })).toMatchObject({ outcome: "answered" });
+    await flushRetryableOutboundMessages();
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining("graph.instagram.com/v25.0/ps-cafe-demo-ig/messages"),
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer direct-ig-fixture" }) }));
+  });
+
+  it("B3: Messenger Page fixture reuses the same durable RAG and outbox path", async () => {
+    const credentials = encryptedChannelCredentialValues({ pageAccessToken: "page-fixture", pageId: "ps-cafe-demo-page",
+      appSecret: secret, __settingsSecrets: { verifyToken: "fixture-verify" } });
+    await getPool().query(`update channels set status = 'active', encrypted_credentials = $2,
+      credentials_encryption_nonce = $3, credentials_encryption_tag = $4 where id = $1`,
+      [PS_CAFE_DEMO_MESSENGER_ID, credentials.encryptedCredentials, credentials.nonce, credentials.tag]);
+    const payload = { object: "page", entry: [{ id: "ps-cafe-demo-page", messaging: [{
+      sender: { id: "messenger-demo-customer" }, recipient: { id: "ps-cafe-demo-page" },
+      timestamp: Date.now(), message: { mid: randomUUID(), text: "What time do you close today?" },
+    }] }] };
+    const raw = JSON.stringify(payload);
+    const route = (body: string) => messengerPost(new Request(`http://localhost:3000/api/webhooks/messenger/${PS_CAFE_DEMO_MESSENGER_ID}`,
+      { method: "POST", body, headers: { "x-hub-signature-256":
+        `sha256=${createHmac("sha256", secret).update(body).digest("hex")}` } }),
+      { params: Promise.resolve({ channelId: PS_CAFE_DEMO_MESSENGER_ID }) });
+    expect((await route(raw)).status).toBe(200);
+    expect((await route(raw)).status).toBe(200);
+    const jobs = await getPool().query<{ id: string }>(
+      "select id from inbound_jobs where client_id = $1 and channel_id = $2", [PS_CAFE_DEMO_CLIENT_ID, PS_CAFE_DEMO_MESSENGER_ID]);
+    expect(jobs.rows).toHaveLength(1);
+    expect(await processInboundJob({ jobId: jobs.rows[0].id })).toMatchObject({ outcome: "answered" });
+    expect((await answer()).body).toContain("10:00pm");
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      expect(String(url)).not.toContain("access_token=");
+      return new Response(JSON.stringify({ message_id: "mid.messenger-sent" }), { status: 200 });
+    }));
+    await flushRetryableOutboundMessages();
+    const sent = await getPool().query<{ metadata: Record<string, unknown> }>(
+      "select metadata from outbound_messages where client_id = $1 and channel_id = $2", [PS_CAFE_DEMO_CLIENT_ID, PS_CAFE_DEMO_MESSENGER_ID]);
+    expect(sent.rows[0].metadata.providerMessageId).toBe("mid.messenger-sent");
   });
 
   it("C: fake available slot is provisional and never creates a reservation", async () => {
@@ -226,6 +281,6 @@ dbDescribe("PS.Cafe Raffles City isolated end-to-end demo", () => {
     expect(rows.rows[0].count).toBe("3");
     const channels = await getPool().query<{ count: string }>(
       "select count(*) from channels where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID]);
-    expect(channels.rows[0].count).toBe("2");
+    expect(channels.rows[0].count).toBe("4");
   });
 });

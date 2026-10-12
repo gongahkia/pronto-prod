@@ -18,8 +18,8 @@ export function assertChannelSendAllowed(
   if (channel.kind === "whatsapp" && !isSupportedMetaGraphVersion(whatsAppGraphVersion())) {
     throw new ChannelPolicyError("WhatsApp Graph API version is expired or invalid.");
   }
-  if (channel.kind === "instagram" && !isSupportedMetaGraphVersion(metaGraphVersion())) {
-    throw new ChannelPolicyError("Instagram Graph API version is expired or invalid.");
+  if ((channel.kind === "instagram" || channel.kind === "messenger") && !isSupportedMetaGraphVersion(metaGraphVersion())) {
+    throw new ChannelPolicyError("Meta Graph API version is expired or invalid.");
   }
   if (channel.kind !== "whatsapp") {
     return;

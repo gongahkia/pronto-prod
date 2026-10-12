@@ -17,6 +17,7 @@ const secretFieldNames = new Set([
   "appSecret",
   "botToken",
   "pageAccessToken",
+  "instagramAccessToken",
   "apiKey",
   "verifyToken",
   "webhookSecret",
@@ -97,6 +98,14 @@ export async function POST(request: Request) {
     form,
     scope: "credentials",
   });
+  if (status === "active" && channel.kind === "instagram" && settings.authMode === "instagram_login" &&
+      process.env.PRONTO_INSTAGRAM_LOGIN_ENABLED !== "1") {
+    return NextResponse.json({ error: "Instagram Login remains disabled until authorized test-account configuration is enabled." }, { status: 400 });
+  }
+  if (status === "active" && channel.kind === "email" && credentialValue.provider === "local_smtp" &&
+      (process.env.NODE_ENV === "production" || process.env.PRONTO_LOCAL_EMAIL_ENABLED !== "1")) {
+    return NextResponse.json({ error: "Local SMTP can only be activated in the local sandbox." }, { status: 400 });
+  }
   const protectedValues = protectChannelSettingsSecrets(settings, credentialValue,
     ["verifyToken", "webhookSecret", "eventWebhookSecret"]);
   const encryptedCredentials = encryptedChannelCredentialValues(protectedValues.credentials);

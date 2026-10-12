@@ -33,6 +33,7 @@ export type ChannelField = {
   name: string;
   label: string;
   secret?: boolean;
+  options?: string[];
 };
 
 export const channelSetupFields: Record<ChannelKind, ChannelField[]> = {
@@ -48,18 +49,22 @@ export const channelSetupFields: Record<ChannelKind, ChannelField[]> = {
   ],
   messenger: [
     { scope: "credentials", name: "pageAccessToken", label: "Page access token", secret: true },
+    { scope: "credentials", name: "pageId", label: "Facebook Page ID" },
     { scope: "credentials", name: "appSecret", label: "App secret", secret: true },
     { scope: "settings", name: "verifyToken", label: "Webhook verify token", secret: true },
   ],
   instagram: [
+    { scope: "settings", name: "authMode", label: "Instagram authentication", options: ["facebook_login", "instagram_login"] },
     { scope: "credentials", name: "pageAccessToken", label: "Page access token", secret: true },
+    { scope: "credentials", name: "instagramAccessToken", label: "Instagram Login token", secret: true },
+    { scope: "credentials", name: "tokenExpiresAt", label: "Instagram Login token expiry (ISO date)" },
     { scope: "credentials", name: "appSecret", label: "App secret", secret: true },
     { scope: "credentials", name: "igUserId", label: "Instagram user ID" },
     { scope: "credentials", name: "pageId", label: "Linked Facebook Page ID" },
     { scope: "settings", name: "verifyToken", label: "Webhook verify token", secret: true },
   ],
   email: [
-    { scope: "credentials", name: "provider", label: "Provider (postmark or resend)" },
+    { scope: "credentials", name: "provider", label: "Email provider", options: ["postmark", "resend", "local_smtp"] },
     { scope: "credentials", name: "apiKey", label: "API key", secret: true },
     { scope: "credentials", name: "fromAddress", label: "Verified sender address" },
     { scope: "settings", name: "webhookSecret", label: "Inbound webhook secret", secret: true },
@@ -94,6 +99,8 @@ export async function saveChannelDraft(input: {
     const key = `${field.scope}.${field.name}`;
     if (!(key in input.values)) continue;
     const value = input.values[key].trim();
+    if (value && field.options && !field.options.includes(value))
+      throw new Error(`Invalid ${field.label.toLowerCase()} value.`);
     if (field.secret && !value) continue;
     const target = field.scope === "settings" ? settings : credentials;
     if (value) target[field.name] = value;
@@ -175,6 +182,18 @@ export async function publishChannelDraft(input: {
     }
     if (draft.status === "active" && (draft.health_status !== "healthy" || !draft.checked_at)) {
       throw new Error("Run a successful live health check before activating the channel.");
+    }
+    if (draft.status === "active" && live.kind === "instagram" &&
+        draft.settings.authMode === "instagram_login" && process.env.PRONTO_INSTAGRAM_LOGIN_ENABLED !== "1")
+      throw new Error("Instagram Login remains disabled until authorized test-account configuration is enabled.");
+    if (draft.status === "active" && live.kind === "email" &&
+        process.env.PRONTO_LOCAL_EMAIL_ENABLED !== "1") {
+      const candidate = decryptChannelCredentials({ ...live, settings: draft.settings,
+        credentials: {}, encrypted_credentials: draft.encrypted_credentials,
+        credentials_encryption_nonce: draft.credentials_encryption_nonce,
+        credentials_encryption_tag: draft.credentials_encryption_tag });
+      if ((candidate.credentials as Record<string, unknown>).provider === "local_smtp")
+        throw new Error("Local SMTP remains disabled outside the explicit sandbox.");
     }
     await db.query(
       `update channels set status = $3, external_id = $4, settings = $5::jsonb,

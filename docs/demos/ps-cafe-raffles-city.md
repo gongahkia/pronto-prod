@@ -49,6 +49,7 @@ Run `pnpm migrate:test` first if this database has no schema.
 ```sh
 export PRONTO_TEST_DATABASE_URL=postgres://pronto_test:pronto_test@127.0.0.1:55433/pronto_test
 export DATABASE_URL="$PRONTO_TEST_DATABASE_URL"
+export PRONTO_SECRETS_KEY=local-test-secrets-key-with-more-than-32-characters
 pnpm test:db:verify
 pnpm demo:ps-cafe:setup
 pnpm demo:ps-cafe:setup # repeat to verify idempotence
@@ -57,14 +58,18 @@ pnpm demo:ps-cafe:remove
 
 The script verifies the database marker before either mutation. It upserts
 one fixed, marked tenant, three short sourced knowledge records with mock
-embeddings, one agent config, one demonstration brand-voice document and two
-**draft** Meta channels. It never creates live credentials or activates a
-channel. It refuses an occupied slug or ID that belongs to non-demo data.
+embeddings, one agent config, one demonstration brand-voice document, three
+**draft** Meta channels and one **local-only** customer support email
+channel (active only with `PRONTO_LOCAL_EMAIL_ENABLED=1`). It never creates live Meta credentials. It refuses an occupied slug
+or ID that belongs to non-demo data.
 Removal deletes only the marked demo tenant and its cascading test records.
 The demo uses the existing pgvector retrieval and agent path; it does not add
 PS.Cafe logic to the production agent.
 
 ## Local demonstration
+
+For the Mailpit, worker, email and fake-provider walkthrough, see
+[the local MVP guide](local-mvp.md).
 
 With the verified DB URL exported, run:
 
