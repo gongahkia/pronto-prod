@@ -63,7 +63,9 @@ export async function parseKnowledgeUpload(file: File): Promise<ParsedKnowledgeU
   if (extension === "pdf") {
     const parser = new PDFParse({ data: buffer });
     try {
-      const result = await parser.getText();
+      const info = await boundedPdfOperation(parser.getInfo());
+      if (info.total > 50) throw new Error("PDF exceeds the 50-page limit.");
+      const result = await boundedPdfOperation(parser.getText());
       return {
         title: titleFromFilename(file.name),
         sourceType: "upload_pdf",
@@ -82,6 +84,13 @@ export async function parseKnowledgeUpload(file: File): Promise<ParsedKnowledgeU
   throw new Error(
     "Unsupported file type. Upload PDF, DOCX, TXT, Markdown, or CSV.",
   );
+}
+
+function boundedPdfOperation<T>(operation: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  return Promise.race([operation, new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error("PDF extraction timed out after 10 seconds.")), 10_000);
+  })]).finally(() => clearTimeout(timer));
 }
 
 function extensionOf(filename: string): string {

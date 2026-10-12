@@ -103,6 +103,27 @@ export async function runAgentForMessage(input: {
     throw new Error("Agent cannot run without client and config records.");
   }
 
+  const normalizedKnowledgeQuery = normalizeKnowledgeQuery(input.customerMessage);
+  // A tenant-declared policy conflict is a review signal, not customer-facing evidence.
+  // Check before the restaurant booking path, which otherwise interprets a timing
+  // policy question as an incomplete reservation request.
+  if (normalizedKnowledgeQuery.categories.includes("reservations") &&
+      /\b(cut.?off|last.*(?:reservation|booking)|(?:earliest|start).*reserv(?:ation|e)|weekend.*(?:reservation|booking))\b/i.test(input.customerMessage)) {
+    const conflict = await query<{ id: string }>(
+      `select id from knowledge_sources where client_id = $1
+         and metadata->>'reviewStatus' ilike '%conflict%'
+         and metadata->>'archived' is distinct from 'true'
+         and jsonb_array_length(case when jsonb_typeof(metadata->'conflictingClaims') = 'array'
+           then metadata->'conflictingClaims' else '[]'::jsonb end) > 1 limit 1`, [input.clientId]);
+    if (conflict.rows[0]) {
+      const escalation = await createEscalation({ ...input, reasonCode: "knowledge_conflict",
+        reasonDetail: "Reviewed sources disagree about the reservation timing policy.", confidence: 1 });
+      await trace.finalize({ status: "escalated", reasonCode: "knowledge_conflict",
+        confidence: 1, escalationId: escalation.escalationId });
+      return escalation;
+    }
+  }
+
   if (["fnb", "restaurant", "food_and_beverage"].includes((client.vertical ?? "").toLowerCase())) {
     const booking = await assistWithRestaurantBooking({ clientId: input.clientId,
       message: input.customerMessage, businessProfile: client.business_profile ?? {},
@@ -273,7 +294,6 @@ export async function runAgentForMessage(input: {
     embeddingModel,
   });
 
-  const normalizedKnowledgeQuery = normalizeKnowledgeQuery(input.customerMessage);
   let embedding: number[];
   try {
     [embedding] = await getEmbeddingProvider(embeddingProvider).embed(

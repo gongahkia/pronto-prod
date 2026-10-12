@@ -3,7 +3,8 @@ import { listRecentErrorEvents } from "@/lib/error-tracking";
 
 type QueueCount = { status: string; count: string; oldest_at: Date | null };
 export async function getOperationsReport() {
-  const [inbound, outbound, staff, heartbeat, onboarding, pendingOnboarding, stalledInbound, errors] = await Promise.all([
+  const [inbound, outbound, staff, heartbeat, onboarding, pendingOnboarding, stalledInbound, errors,
+    sourceReviews, knowledgeReviews, scheduled] = await Promise.all([
     query<QueueCount>(
       `select status, count(*)::text as count, min(created_at) as oldest_at
        from inbound_jobs where status in ('pending','failed','processing','dead') group by status`, []),
@@ -24,13 +25,19 @@ export async function getOperationsReport() {
       `select count(*)::text as count from inbound_jobs
        where status = 'processing' and lease_expires_at < now()`, []),
     listRecentErrorEvents({ limit: 25, unacknowledgedOnly: true }),
+    query<{ count: string }>("select count(*)::text as count from knowledge_source_submissions where status in ('validation_failed','pending','approved','staged')", []),
+    query<{ count: string }>("select count(*)::text as count from knowledge_review_items where status = 'open'", []),
+    query<{ count: string }>("select count(*)::text as count from staff_notification_jobs where kind <> 'initial' and status in ('pending','failed')", []),
   ]);
   const heartbeatAt = heartbeat.rows[0]?.updated_at ?? null;
   return { inbound: inbound.rows, outbound: outbound.rows, staff: staff.rows,
     heartbeatAt, workerFresh: Boolean(heartbeatAt && Date.now() - new Date(heartbeatAt).getTime() < 60_000),
     onboarding: onboarding.rows,
     pendingOnboardingBusinesses: Number(pendingOnboarding.rows[0]?.count ?? 0),
-    stalledInbound: Number(stalledInbound.rows[0]?.count ?? 0), errors };
+    stalledInbound: Number(stalledInbound.rows[0]?.count ?? 0), errors,
+    sourceReviews: Number(sourceReviews.rows[0]?.count ?? 0),
+    knowledgeReviews: Number(knowledgeReviews.rows[0]?.count ?? 0),
+    scheduled: Number(scheduled.rows[0]?.count ?? 0) };
 }
 
 export async function getOperationsAttention(limit = 50): Promise<Array<{

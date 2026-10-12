@@ -30,7 +30,12 @@ export async function getBusinessAttention(clientId: string): Promise<AttentionI
      from escalations e join conversations c on c.id = e.conversation_id and c.client_id = e.client_id
      join channels ch on ch.id = c.channel_id and ch.client_id = e.client_id
      left join users u on u.id = e.assigned_to_user_id and u.client_id = e.client_id
-     left join staff_notification_jobs n on n.escalation_id = e.id and n.client_id = e.client_id
+     left join lateral (
+       select status from staff_notification_jobs n
+       where n.escalation_id = e.id and n.client_id = e.client_id
+       order by case n.status when 'dead' then 0 when 'uncertain' then 1
+         when 'failed' then 2 else 3 end, n.created_at desc limit 1
+     ) n on true
      where e.client_id = $1 and e.status in ('open', 'claimed')
      order by e.created_at asc limit 100`, [clientId]);
   return result.rows;
@@ -78,7 +83,7 @@ export async function getBusinessKnowledgeSources(clientId: string): Promise<Bus
     `select s.id, s.title, s.source_type, s.metadata, s.created_at,
        (select max(v.created_at) from knowledge_source_versions v
         where v.source_id = s.id and v.client_id = s.client_id) as last_reviewed_at
-     from knowledge_sources s where s.client_id = $1 order by s.title`, [clientId]);
+     from knowledge_sources s where s.client_id = $1 and coalesce(s.metadata->>'archived','false') <> 'true' order by s.title`, [clientId]);
   return result.rows;
 }
 

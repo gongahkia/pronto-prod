@@ -6,11 +6,14 @@ import { query } from "@/lib/db";
 export default async function KnowledgeConnectionsPage() {
   const actor = await requireUser("operator");
   const [knowledge, channels, integrations, staff] = await Promise.all([
-    query<{ client_id: string; name: string; refreshes: string; drafts: string; conflicts: string; suggestions: string }>(
+    query<{ client_id: string; name: string; refreshes: string; drafts: string; conflicts: string; suggestions: string;
+      submissions: string; review_items: string }>(
       `select c.id as client_id, c.name,
         (select count(*)::text from knowledge_refresh_requests r where r.client_id = c.id and r.status = 'open') as refreshes,
         (select count(*)::text from assistant_drafts d where d.client_id = c.id) as drafts,
         (select count(*)::text from knowledge_suggestions s where s.client_id = c.id and s.status in ('pending', 'approved')) as suggestions,
+        (select count(*)::text from knowledge_source_submissions s where s.client_id = c.id and s.status in ('validation_failed','pending','approved','staged')) as submissions,
+        (select count(*)::text from knowledge_review_items r where r.client_id = c.id and r.status = 'open') as review_items,
         (select count(*)::text from knowledge_sources k where k.client_id = c.id and
           (k.metadata->>'reviewStatus' ilike '%conflict%' or k.metadata->>'reviewStatus' ilike '%review%'
            or k.metadata->>'reviewStatus' ilike '%stale%')) as conflicts
@@ -35,7 +38,7 @@ export default async function KnowledgeConnectionsPage() {
       <p className="text-sm text-muted">Review facts, channel setup and authorized business-system connections.</p></header>
     <section className="ui-panel mb-5"><div className="ui-panel-header"><h2 className="font-semibold">Knowledge review</h2></div>
       {knowledge.rows.length ? <ul className="divide-y divide-line">{knowledge.rows.map((item) => <li key={item.client_id} className="flex flex-wrap justify-between gap-2 p-4 text-sm">
-        <span><strong>{item.name}</strong> · {item.suggestions} correction proposal · {item.drafts} draft · {item.refreshes} refresh request · {item.conflicts} flagged source</span>
+        <span><strong>{item.name}</strong> · {item.submissions} submitted source · {item.review_items} unanswered question · {item.suggestions} correction proposal · {item.drafts} draft · {item.refreshes} refresh request · {item.conflicts} flagged source</span>
         <Link href={`/operator/clients/${item.client_id}/knowledge`} className="text-accent">Review sources</Link>
       </li>)}</ul> : <p className="p-4 text-sm text-muted">No businesses yet.</p>}</section>
     <section className="ui-panel mb-5"><div className="ui-panel-header"><h2 className="font-semibold">Customer channels</h2></div>

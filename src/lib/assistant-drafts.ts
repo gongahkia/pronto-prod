@@ -178,7 +178,7 @@ export async function stageKnowledge(input: {
         ...(input.metadata ?? existingChange?.metadata ?? source?.metadata ?? {}),
         proposalAuthorId: input.proposalAuthorUserId ?? input.actorUserId,
         sourceReference: String(input.metadata?.sourceUrl ?? input.metadata?.sourceReference ??
-          input.metadata?.fileName ?? input.metadata?.entryMode ?? existingChange?.metadata?.sourceReference ?? source?.metadata?.sourceUrl ??
+          input.metadata?.fileName ?? input.metadata?.filename ?? input.metadata?.entryMode ?? existingChange?.metadata?.sourceReference ?? source?.metadata?.sourceUrl ??
           source?.source_type ?? input.sourceType ?? "manual_proposal"),
       },
     };
@@ -275,6 +275,30 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
     }
     for (const change of Object.values(draft.knowledge_changes)) {
       const suggestionId = change.metadata.suggestionId;
+      const submissionId = change.metadata.submissionId;
+      if (typeof submissionId === "string") {
+        const submission = await db.query<{ status: string; current_revision: number;
+          reviewed_revision: number | null; reviewed_by: string | null; target_source_id: string;
+          submitted_by: string; action: string; source_type: string; title: string; content: string;
+          content_sha256: string }>(
+          `select s.status, s.current_revision, s.reviewed_revision, s.reviewed_by,
+             s.target_source_id, s.submitted_by, s.action, s.source_type,
+             r.title, r.content, r.content_sha256
+           from knowledge_source_submissions s join knowledge_source_submission_revisions r
+             on r.submission_id = s.id and r.client_id = s.client_id and r.revision = s.current_revision
+           where s.id = $1 and s.client_id = $2 for update of s`, [submissionId, clientId]);
+        const approved = submission.rows[0];
+        if (!approved || approved.status !== "staged" || !approved.reviewed_by ||
+            approved.current_revision !== change.metadata.submissionRevision ||
+            approved.reviewed_revision !== approved.current_revision ||
+            approved.target_source_id !== change.sourceId || approved.submitted_by !== change.authorUserId ||
+            (approved.action === "archive" ? change.action !== "delete" :
+              change.action !== "upsert" || approved.title !== change.title ||
+              approved.content !== change.content || approved.source_type !== change.sourceType) ||
+            approved.content_sha256 !== change.metadata.contentSha256) {
+          throw new Error("A source submission changed after business review; publication is blocked.");
+        }
+      }
       if (typeof suggestionId === "string") {
         const suggestion = await db.query<{ status: string; current_revision: number;
           reviewed_revision: number | null; reviewed_by: string | null; target_source_id: string; created_by: string | null;
@@ -299,9 +323,21 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
         }
       }
       if (change.action === "delete") {
-        await db.query("delete from knowledge_sources where id = $1 and client_id = $2", [
-          change.sourceId, clientId,
-        ]);
+        const archived = await db.query<{ title: string; content: string; source_type: string; metadata: Record<string, unknown> }>(
+          `update knowledge_sources set metadata = metadata || '{"archived":true}'::jsonb
+           where id = $1 and client_id = $2 returning title, content, source_type, metadata`, [change.sourceId, clientId]);
+        if (archived.rows[0]) {
+          await db.query("delete from knowledge_chunks where source_id = $1 and client_id = $2", [change.sourceId, clientId]);
+          await db.query(`insert into knowledge_source_versions
+            (source_id, client_id, version_number, title, content, metadata, change_type, actor_user_id)
+            select $1, $2, coalesce(max(version_number),0)+1, $3, $4, $5::jsonb, 'archived', $6
+            from knowledge_source_versions where source_id = $1 and client_id = $2`,
+            [change.sourceId, clientId, archived.rows[0].title, archived.rows[0].content,
+              JSON.stringify(archived.rows[0].metadata), change.authorUserId ?? actorUserId]);
+        }
+        if (typeof submissionId === "string") await db.query(
+          "update knowledge_source_submissions set status = 'published', published_at = now(), updated_at = now() where id = $1 and client_id = $2",
+          [submissionId, clientId]);
         continue;
       }
       const existing = await db.query<{ id: string }>(
@@ -310,8 +346,8 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
       );
       if (existing.rowCount) {
         await db.query(
-          "update knowledge_sources set title = $3, content = $4, metadata = $5::jsonb where id = $1 and client_id = $2",
-          [change.sourceId, clientId, change.title, change.content, JSON.stringify(change.metadata)],
+          "update knowledge_sources set title = $3, content = $4, source_type = $5, metadata = $6::jsonb where id = $1 and client_id = $2",
+          [change.sourceId, clientId, change.title, change.content, change.sourceType, JSON.stringify(change.metadata)],
         );
         await db.query("delete from knowledge_chunks where source_id = $1 and client_id = $2", [
           change.sourceId, clientId,
@@ -342,7 +378,13 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
         await db.query(
           `update knowledge_suggestions set status = 'published', updated_at = now()
            where id = $1 and client_id = $2`, [suggestionId, clientId]);
+        await db.query(
+          `update knowledge_review_items set status = 'resolved', updated_at = now()
+           where suggestion_id = $1 and client_id = $2 and status = 'suggested'`, [suggestionId, clientId]);
       }
+      if (typeof submissionId === "string") await db.query(
+        "update knowledge_source_submissions set status = 'published', published_at = now(), updated_at = now() where id = $1 and client_id = $2",
+        [submissionId, clientId]);
     }
     if (draft.voice) {
       const voice = draft.voice;

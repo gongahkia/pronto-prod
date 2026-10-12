@@ -61,6 +61,13 @@ confirmation requests in PostgreSQL. No real provider routes feed staff
 commands. See [business experience](ops/business-experience.md) for the
 portal, role matrix and supported local requests.
 
+Tranche C adds reviewed source submissions for text, PDF and bounded public URL
+extraction; they stay outside active RAG until exact-revision business review,
+private assistant testing, separate assistant approval and operator publication.
+The inbound worker also records knowledge-gap/conflict review items and the
+existing staff notification worker executes version-bound timed reminders and
+backups. See [source review and timed notifications](ops/knowledge-and-reminders.md).
+
 ## Implemented and externally blocked
 
 - WhatsApp, Instagram and Messenger webhook and send paths have local fixture

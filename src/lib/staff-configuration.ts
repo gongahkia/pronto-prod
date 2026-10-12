@@ -2,6 +2,7 @@ import { recordAuditLog } from "@/lib/audit";
 import type { SessionUser } from "@/lib/auth";
 import { query, transaction, type Queryable } from "@/lib/db";
 import { requireStaffCapability } from "@/lib/staff-permissions";
+import { scheduleEscalationNotifications } from "@/lib/staff-notifications";
 
 export type StaffDestination = {
   id: string; client_id: string; kind: "email" | "whatsapp" | "telegram";
@@ -143,6 +144,9 @@ export async function saveEscalationPolicy(input: {
     await recordAuditLog({ clientId: input.clientId, actorUserId: input.actor.userId,
       action: "escalation_policy.updated", targetType: "client", targetId: input.clientId,
       metadata: { version: current + 1, hasTarget: policy.targetMinutes !== null } }, db);
+    const open = await db.query<{ id: string }>(
+      "select id from escalations where client_id = $1 and status in ('open','claimed')", [input.clientId]);
+    for (const escalation of open.rows) await scheduleEscalationNotifications(db, input.clientId, escalation.id);
     return current + 1;
   };
   return input.db ? save(input.db) : transaction(save, { isolationLevel: "serializable", retries: 2 });

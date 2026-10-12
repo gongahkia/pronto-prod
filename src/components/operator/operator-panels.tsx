@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -487,6 +488,7 @@ export function OperatorKnowledgeIngestion({ clientId }: { clientId: string }) {
         <h2 className="text-base font-semibold">Add knowledge</h2>
       </div>
       <form action="/api/operator/knowledge" method="post" encType="multipart/form-data" className="space-y-3 p-4">
+        <input type="hidden" name="requestKey" value={randomUUID()} />
         <input type="hidden" name="clientId" value={clientId} />
         <input type="hidden" name="returnTo" value={`/operator/clients/${clientId}/knowledge`} />
         <input
@@ -500,6 +502,10 @@ export function OperatorKnowledgeIngestion({ clientId }: { clientId: string }) {
           className="w-full rounded-md border border-line px-3 py-2 text-sm"
           placeholder="Paste FAQ, menu, policy, or brand content"
         />
+        <input name="sourceUrl" type="url" aria-label="Public source webpage" placeholder="https://example.com/your-page"
+          className="w-full rounded-md border border-line px-3 py-2 text-sm" />
+        <input name="description" aria-label="Source description" placeholder="What does this source cover?"
+          className="w-full rounded-md border border-line px-3 py-2 text-sm" />
         <KnowledgeFileInput />
         <PendingSubmitButton className="ui-primary-button px-4 py-2" pendingText="Adding...">
           Add source

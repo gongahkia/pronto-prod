@@ -101,6 +101,19 @@ This interface uses authenticated synthetic identities and is disabled for
 real messaging providers. See [the business experience guide](../ops/business-experience.md)
 for exact command syntax, permissions and limitations.
 
+Tranche C adds a guided source and reminder exercise at `/client/knowledge`
+and `/client/settings`. Synthetic staff may submit a text source, a selectable-
+text PDF, or a permitted public URL for review; the source stays out of active
+RAG until exact business approval and Pronto publication. The public URL
+operation itself requires a real public network request, so the deterministic
+local acceptance test uses an injected HTML/DNS fixture instead. The
+PS.Cafe 5:30pm versus 6:00pm cutoff remains disputed; asking a reservation
+timing question creates a review item and does not release the human handoff.
+The Mailpit test `pnpm test:local-mail` now also configures a synthetic
+response target and verified responder mailbox, advances scheduled jobs in
+the disposable database, and captures a reminder and backup email. See
+[source review and timed notifications](../ops/knowledge-and-reminders.md).
+
 Stop the app and worker, then run `pnpm demo:ps-cafe:remove`. The guarded
 removal deletes only the marked demo tenant. `docker compose --profile
 local-mail stop mailpit` stops the local mailbox.

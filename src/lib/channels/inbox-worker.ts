@@ -4,7 +4,8 @@ import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib
 import { getEscalationHoldingReply } from "@/lib/channels/escalation-handoff";
 import { claimInboundJob, failInboundJob, finishInboundJob, type InboundJob } from "@/lib/channels/inbox";
 import { enqueueOutboundMessage } from "@/lib/channels/outbox";
-import { enqueueStaffNotification } from "@/lib/staff-notifications";
+import { enqueueStaffNotification, isWithinStaffedHours } from "@/lib/staff-notifications";
+import { enqueueKnowledgeReviewItem } from "@/lib/knowledge/review-items";
 import { logWarn } from "@/lib/logger";
 import type { Channel, Conversation, Escalation, Message } from "@/lib/types";
 import type { ReservationConnector } from "@/lib/reservations/types";
@@ -143,7 +144,13 @@ async function queueAnswer(job: InboundJob, conversation: Conversation, answer: 
 async function queueHandoff(
   job: InboundJob, channel: Channel, conversation: Conversation, escalation: Escalation,
 ): Promise<void> {
-  const body = getEscalationHoldingReply(channel.settings);
+  const policy = await query<{ policy: { timezone: string; staffedHours: Record<string, { start: string; end: string }>;
+    outOfHoursAcknowledgement: string | null } }>(
+    "select policy from escalation_policy_versions where client_id = $1 order by version desc limit 1", [job.client_id]);
+  const configured = policy.rows[0]?.policy;
+  const body = configured?.outOfHoursAcknowledgement &&
+    !isWithinStaffedHours(new Date(), configured.timezone, configured.staffedHours)
+    ? configured.outOfHoursAcknowledgement : getEscalationHoldingReply(channel.settings);
   await transaction(async (db) => {
     await db.query(
       `insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
@@ -159,5 +166,7 @@ async function queueHandoff(
       metadata: { purpose: "escalation_holding_reply", customerMessageId: job.message_id },
     });
     await enqueueStaffNotification(db, job.client_id, escalation.id);
+    await enqueueKnowledgeReviewItem(db, { clientId: job.client_id, conversationId: conversation.id,
+      messageId: job.message_id, escalationId: escalation.id, reasonCode: escalation.reason_code });
   }, { isolationLevel: "serializable", retries: 2 });
 }

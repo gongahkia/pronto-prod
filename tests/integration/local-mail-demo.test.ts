@@ -8,6 +8,7 @@ import { ingestInboundMessages } from "@/lib/channels/inbox";
 import { processInboundJob } from "@/lib/channels/inbox-worker";
 import { flushRetryableOutboundMessages } from "@/lib/channels/outbox";
 import { flushStaffNotifications } from "@/lib/staff-notifications";
+import { saveEscalationPolicy } from "@/lib/staff-configuration";
 import { PS_CAFE_DEMO_CLIENT_ID, PS_CAFE_DEMO_EMAIL_ID, PS_CAFE_DEMO_SUPPORT_ADDRESS,
   PS_CAFE_CHOPE_URL, removePsCafeDemo, setupPsCafeDemo } from "../../scripts/demo/ps-cafe-raffles-city";
 
@@ -119,6 +120,23 @@ localMailDescribe("PS.Cafe customer support email through Mailpit", () => {
     expect(outbound.rows[0].body).not.toContain("A table appears available");
   });
 
+  it("withholds the disputed weekend cutoff and creates a source-linked review item", async () => {
+    const raw = Buffer.from(`From: customer@example.test\r\nTo: ${PS_CAFE_DEMO_SUPPORT_ADDRESS}\r\n` +
+      `Message-ID: <cutoff-${randomUUID()}@example.test>\r\nSubject: Reservation cutoff\r\n\r\n` +
+      `What is the weekend reservation cutoff?`);
+    await sendRaw(raw);
+    const job = (await getPool().query<{ id: string }>("select id from inbound_jobs where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID])).rows[0];
+    expect(await processInboundJob({ jobId: job.id })).toMatchObject({ outcome: "escalated" });
+    const review = (await getPool().query<{ reason_code: string; source_references: Array<{ conflictingClaims: unknown[] }> }>(
+      "select reason_code,source_references from knowledge_review_items where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID])).rows[0];
+    expect(review.reason_code).toBe("knowledge_conflict");
+    expect(review.source_references[0].conflictingClaims).toHaveLength(2);
+    const outbound = (await getPool().query<{ body: string }>(
+      "select body from outbound_messages where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID])).rows[0].body;
+    expect(outbound).not.toMatch(/5:30|6:00/);
+    expect((await getPool().query("select status from conversations where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID])).rows[0].status).toBe("escalated");
+  });
+
   it("escalates unsupported content, notifies the local operator, and pauses AI", async () => {
     const id = randomUUID();
     const raw = Buffer.from(`From: customer@example.test\r\nTo: ${PS_CAFE_DEMO_SUPPORT_ADDRESS}\r\n` +
@@ -141,5 +159,66 @@ localMailDescribe("PS.Cafe customer support email through Mailpit", () => {
     const count = await getPool().query<{ count: string }>(
       "select count(*) from outbound_messages where client_id = $1 and channel_id = $2", [PS_CAFE_DEMO_CLIENT_ID, PS_CAFE_DEMO_EMAIL_ID]);
     expect(count.rows[0].count).toBe("1");
+  });
+
+  it("delivers a scheduled reminder and backup to a verified local staff mailbox", async () => {
+    const destination = (await getPool().query<{ id: string }>(
+      `insert into staff_notification_destinations
+       (client_id,kind,destination,recipient_user_id,audience,verified_at,enabled,verification_evidence)
+       values ($1,'email','responder@ps-cafe-demo.test',$2,'business',now(),true,'Synthetic Mailpit identity')
+       returning id`, [PS_CAFE_DEMO_CLIENT_ID, "00000000-0000-4000-8000-00000000a301"])).rows[0];
+    await saveEscalationPolicy({ actor: { userId: "00000000-0000-4000-8000-00000000a303",
+      clientId: PS_CAFE_DEMO_CLIENT_ID, role: "client", email: "policy@ps-cafe-demo.test", name: "Demo policy manager" },
+      clientId: PS_CAFE_DEMO_CLIENT_ID, expectedVersion: 0,
+      policy: { targetMinutes: 20, timezone: "Asia/Singapore", staffedHours: {},
+        initialDestinationId: destination.id, reminderMinutes: [10], backupDestinationId: destination.id,
+        outOfHoursAcknowledgement: null } });
+    const raw = Buffer.from(`From: customer@example.test\r\nTo: ${PS_CAFE_DEMO_SUPPORT_ADDRESS}\r\n` +
+      `Message-ID: <reminder-${randomUUID()}@example.test>\r\nSubject: Help\r\n` +
+      `MIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="x"\r\n\r\n` +
+      `--x\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename="private.bin"\r\n\r\nabc\r\n--x--\r\n`);
+    await sendRaw(raw);
+    const job = (await getPool().query<{ id: string }>(
+      "select id from inbound_jobs where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID])).rows[0];
+    expect(await processInboundJob({ jobId: job.id })).toMatchObject({ outcome: "escalated" });
+    const escalation = (await getPool().query<{ id: string }>(
+      "select id from escalations where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID])).rows[0];
+    await flushStaffNotifications(1, PS_CAFE_DEMO_CLIENT_ID);
+    await getPool().query(`update staff_notification_jobs set available_at = now() - interval '1 second'
+      where escalation_id = $1 and kind <> 'initial'`, [escalation.id]);
+    vi.stubEnv("PRONTO_LOCAL_SMTP_PORT", "11025");
+    expect(await flushStaffNotifications(1, PS_CAFE_DEMO_CLIENT_ID)).toMatchObject({ attempted: 1, failed: 1 });
+    vi.stubEnv("PRONTO_LOCAL_SMTP_PORT", "1025");
+    await getPool().query(`update staff_notification_jobs set available_at = now() - interval '1 second'
+      where escalation_id = $1 and kind <> 'initial' and status = 'failed'`, [escalation.id]);
+    expect(await flushStaffNotifications(10, PS_CAFE_DEMO_CLIENT_ID)).toMatchObject({ attempted: 2, sent: 2 });
+    const captured = (await mailpitMessages()).filter((message) => message.To.some((to) =>
+      to.Address === "responder@ps-cafe-demo.test"));
+    expect(captured.some((message) => message.Subject === "Re: Pronto reminder")).toBe(true);
+    expect(captured.some((message) => message.Subject === "Re: Pronto backup escalation")).toBe(true);
+    expect((await getPool().query("select count(*)::int as n from staff_notification_jobs where escalation_id = $1 and kind <> 'initial' and status = 'sent'", [escalation.id])).rows[0].n).toBe(2);
+    expect((await getPool().query("select count(*)::int as n from staff_notification_jobs where escalation_id = $1 and kind <> 'initial' and provider_message_id is not null and transport_kind = 'email'", [escalation.id])).rows[0].n).toBe(2);
+    expect((await flushStaffNotifications(10, PS_CAFE_DEMO_CLIENT_ID)).attempted).toBe(0);
+  });
+
+  it("uses the configured out-of-hours customer acknowledgement without changing human ownership", async () => {
+    const tomorrowUtc = String((new Date().getUTCDay() + 1) % 7);
+    await saveEscalationPolicy({ actor: { userId: "00000000-0000-4000-8000-00000000a303",
+      clientId: PS_CAFE_DEMO_CLIENT_ID, role: "client", email: "policy@ps-cafe-demo.test", name: "Demo policy manager" },
+      clientId: PS_CAFE_DEMO_CLIENT_ID, expectedVersion: 0,
+      policy: { targetMinutes: null, timezone: "UTC", staffedHours: { [tomorrowUtc]: { start: "09:00", end: "17:00" } },
+        initialDestinationId: null, reminderMinutes: [], backupDestinationId: null,
+        outOfHoursAcknowledgement: "Our team will review your enquiry during staffed hours." } });
+    const raw = Buffer.from(`From: customer@example.test\r\nTo: ${PS_CAFE_DEMO_SUPPORT_ADDRESS}\r\n` +
+      `Message-ID: <outside-${randomUUID()}@example.test>\r\nSubject: Help\r\n` +
+      `MIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="x"\r\n\r\n` +
+      `--x\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename="private.bin"\r\n\r\nabc\r\n--x--\r\n`);
+    await sendRaw(raw);
+    const job = (await getPool().query<{ id: string }>("select id from inbound_jobs where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID])).rows[0];
+    expect(await processInboundJob({ jobId: job.id })).toMatchObject({ outcome: "escalated" });
+    expect((await getPool().query("select body from outbound_messages where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID])).rows[0].body)
+      .toBe("Our team will review your enquiry during staffed hours.");
+    expect((await getPool().query("select status from conversations where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID])).rows[0].status)
+      .toBe("escalated");
   });
 });

@@ -45,7 +45,7 @@ export default async function ClientKnowledgeSourcePage({
     <AppShell user={user} active="client" clientActive="assistant" workspaceName={client.name}>
       <div className="mb-5">
         <h1 className="text-xl font-semibold">Knowledge source</h1>
-        <p className="text-sm text-muted">Review and edit what Pronto can use when answering customers.</p>
+        <p className="text-sm text-muted">Propose changes for review before Pronto uses them to answer customers.</p>
       </div>
       <ClientAssistantNav active="knowledge" />
       <section className="ui-panel">
@@ -91,14 +91,14 @@ export default async function ClientKnowledgeSourcePage({
             />
           </label>
           <button className="ui-primary-button px-4 py-2">
-            Save draft changes
+            Submit revised source for review
           </button>
         </form>
 
         <form action={`/api/client/knowledge/${sourceId}`} method="post" className="border-t border-line p-4">
           <input type="hidden" name="action" value="delete" />
           <button className="rounded-md bg-danger px-4 py-2 text-sm font-semibold text-white">
-            {source ? "Stage source removal" : "Remove draft source"}
+            {source ? "Propose source archive" : "Withdraw draft source"}
           </button>
         </form>
       </section>

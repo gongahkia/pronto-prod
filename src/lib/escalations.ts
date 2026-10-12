@@ -24,12 +24,24 @@ export type OwnerNotificationResult = {
   channelKind?: Channel["kind"];
   destination?: string;
   ambiguous?: boolean;
+  providerMessageId?: string;
 };
 
 export async function notifyOwnerOfEscalation(
   escalationId: string,
   clientId?: string,
 ): Promise<OwnerNotificationResult> {
+  return notifyEscalationStaff(escalationId, clientId, "initial", null);
+}
+
+export async function notifyTimedStaffOfEscalation(escalationId: string, clientId: string,
+  kind: "reminder" | "backup", destinationId: string | null): Promise<OwnerNotificationResult> {
+  return notifyEscalationStaff(escalationId, clientId, kind, destinationId);
+}
+
+async function notifyEscalationStaff(escalationId: string, clientId: string | undefined,
+  kind: "initial" | "reminder" | "backup", destinationId: string | null): Promise<OwnerNotificationResult> {
+  if (kind !== "initial" && !destinationId) return { status: "skipped", detail: "No verified timed-notification destination configured." };
   const escalationResult = await query<EscalationNotification>(
     `
       select
@@ -81,22 +93,24 @@ export async function notifyOwnerOfEscalation(
             (d.audience = 'business' and u.role = 'client' and u.client_id = d.client_id and
              exists (select 1 from staff_permission_grants g where g.client_id = d.client_id
                and g.user_id = u.id and g.permission in ('conversation.respond','conversation.release'))))
+       and ($3::uuid is null or d.id = $3)
      order by case when d.id::text = $2 then 0 else 1 end, d.updated_at desc`,
-    [escalation.client_id, policy.rows[0]?.initial_destination_id ?? ""]);
+    [escalation.client_id, policy.rows[0]?.initial_destination_id ?? "", destinationId]);
   const verified = destinationResult.rows.map((row) => ({
     channel: channels.find((channel) => channel.kind === row.kind),
     destination: row.destination, audience: row.audience,
   })).find((row) => row.channel);
   const channelSelection = verified?.channel
     ? { channel: verified.channel, destination: verified.destination, audience: verified.audience }
-    : selectOwnerNotificationChannel(channels, escalation.business_profile);
+    : kind === "initial" ? selectOwnerNotificationChannel(channels, escalation.business_profile) : null;
   if (!channelSelection) {
-    return recordOwnerNotificationResult(escalation.id, escalation.client_id, {
+    const result: OwnerNotificationResult = {
       status: "skipped",
       detail: channelResult.rows.length
-        ? "No owner notification destination configured."
+        ? kind === "initial" ? "No owner notification destination configured." : "No verified staff notification destination configured."
         : "No active owner notification channel configured.",
-    });
+    };
+    return kind === "initial" ? recordOwnerNotificationResult(escalation.id, escalation.client_id, result) : result;
   }
   const { channel, destination } = channelSelection;
 
@@ -105,22 +119,27 @@ export async function notifyOwnerOfEscalation(
     : `/client/conversations/${escalation.conversation_id}`;
   const takeoverUrl = `${appBaseUrl()}${takeoverPath}`;
   const text = [
-    "Pronto escalation",
+    kind === "initial" ? "Pronto escalation" : kind === "reminder" ? "Pronto reminder" : "Pronto backup escalation",
     "A customer conversation needs an authorized human response.",
     `Take over: ${takeoverUrl}`,
   ].join("\n");
 
   try {
+    let providerMessageId: string | undefined;
     if (channel.kind === "email" && channel.credentials.provider === "local_smtp") {
-      await sendEmail({ channel, to: destination, subject: "Pronto escalation", text });
-    } else await sendChannelText({
-      channelId: channel.id,
-      clientId: escalation.client_id,
-      externalThreadId: destination,
-      text,
-    });
+      const sent = await sendEmail({ channel, to: destination, subject: kind === "initial" ? "Pronto escalation" :
+        kind === "reminder" ? "Pronto reminder" : "Pronto backup escalation", text });
+      providerMessageId = sent.messageId;
+    } else {
+      const sent = await sendChannelText({ channelId: channel.id, clientId: escalation.client_id,
+        externalThreadId: destination, text });
+      providerMessageId = sent?.providerMessageId;
+    }
+    const result: OwnerNotificationResult = { status: "sent", detail: "Staff notification sent.",
+      channelId: channel.id, channelKind: channel.kind, destination, providerMessageId };
+    return kind === "initial" ? recordOwnerNotificationResult(escalation.id, escalation.client_id, result) : result;
   } catch (error) {
-    return recordOwnerNotificationResult(escalation.id, escalation.client_id, {
+    const result: OwnerNotificationResult = {
       status: "failed",
       detail: errorToMessage(error),
       channelId: channel.id,
@@ -128,16 +147,9 @@ export async function notifyOwnerOfEscalation(
       destination,
       ambiguous: error instanceof AmbiguousProviderAcceptanceError ||
         (error instanceof ProviderSendError && error.ambiguous),
-    });
+    };
+    return kind === "initial" ? recordOwnerNotificationResult(escalation.id, escalation.client_id, result) : result;
   }
-
-  return recordOwnerNotificationResult(escalation.id, escalation.client_id, {
-    status: "sent",
-    detail: "Owner notification sent.",
-    channelId: channel.id,
-    channelKind: channel.kind,
-    destination,
-  });
 }
 
 function selectOwnerNotificationChannel(

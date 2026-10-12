@@ -56,7 +56,7 @@ The server derives actor and tenant from the authenticated session and rechecks 
 
 ## Escalation policy and operational limits
 
-Authorized policy managers can edit response target, staffed hours, timezone, verified destination references, reminder preference, backup destination and out-of-hours acknowledgement through the existing versioned Settings form. The target is optional and is not a guaranteed SLA. Reminder and backup settings can be stored, but scheduled reminder/backup delivery belongs to PRON-72 and is not operational here. The existing durable initial notification and secure handoff link remain active.
+Authorized policy managers can edit response target, staffed hours, timezone, verified destination references, reminder preference, backup destination and out-of-hours acknowledgement through the existing versioned Settings form. The target is optional and is not a guaranteed SLA. Tranche C now schedules verified staff reminders and backup notifications through the existing worker; see [source review and timed notifications](knowledge-and-reminders.md). The existing durable initial notification and secure handoff link remain active.
 
 `036_business_interaction.sql` adds the narrow permission, suggestion/revision tables and local command table. `037_business_interaction_user_deletion.sql` keeps history when a synthetic author/reviewer is removed. Neither migration grants existing users new authority or activates channels. Apply only with `pnpm migrate:test` after `pnpm test:db:verify` against the marked disposable database; production migration requires a separate review. The audit trail and source versions should be retained according to the deployment's data-retention policy.
 

@@ -6,6 +6,8 @@ import { getChannels } from "@/lib/dashboard";
 import { AssistantTester } from "@/components/assistant-tester";
 import { getKnowledgeRefreshRequests } from "@/lib/knowledge/refresh";
 import { listKnowledgeSuggestions } from "@/lib/knowledge/suggestions";
+import { listSourceSubmissions } from "@/lib/knowledge/submissions";
+import { describeConflictClaims, listKnowledgeReviewItems } from "@/lib/knowledge/review-items";
 import { AppShell } from "@/components/shell";
 import { KnowledgeRefreshPanel } from "@/components/knowledge-refresh-panel";
 import {
@@ -29,10 +31,11 @@ export default async function OperatorClientKnowledgePage({
     notFound();
   }
 
-  const [knowledge, refreshRequests, draft, channels, suggestions] = await Promise.all([
+  const [knowledge, refreshRequests, draft, channels, suggestions, submissions, reviewItems] = await Promise.all([
     getKnowledgeSources(client.id),
     getKnowledgeRefreshRequests(client.id),
     getAssistantDraft(client.id), getChannels(client.id), listKnowledgeSuggestions(client.id),
+    listSourceSubmissions(client.id), listKnowledgeReviewItems(client.id),
   ]);
 
   return (
@@ -42,6 +45,26 @@ export default async function OperatorClientKnowledgePage({
         description="Add and inspect the sources that ground this client's assistant."
       />
       <OperatorClientNav clientId={client.id} active="knowledge" />
+      <section className="ui-panel mb-5"><div className="ui-panel-header"><h2 className="font-semibold">Unanswered questions and source conflicts</h2></div>
+        {reviewItems.length ? <ul className="divide-y divide-line">{reviewItems.map((item) => <li key={item.id} className="p-4 text-sm">
+          <strong>{item.reason_code.replace(/_/g," ")}</strong> · {item.status}<p className="mt-1">{item.question}</p>
+          {item.source_references.map((source) => <p className="mt-1 break-words text-muted" key={source.sourceId}>{source.title} · {source.sourceUrl ?? "source link unavailable"}
+            {describeConflictClaims(source.conflictingClaims).length ? ` · Conflicting claims: ${describeConflictClaims(source.conflictingClaims).join(" / ")}` : ""}</p>)}
+          <a className="mt-2 inline-block text-accent" href={`/operator/clients/${client.id}/conversations/${item.conversation_id}`}>Open conversation</a>
+        </li>)}</ul> : <p className="p-4 text-sm text-muted">No unanswered questions awaiting review.</p>}
+      </section>
+      <section className="ui-panel mb-5"><div className="ui-panel-header"><h2 className="font-semibold">Submitted business sources</h2>
+        <p className="text-sm text-muted">Business approval is required before Pronto prepares a source for private testing.</p></div>
+        {submissions.length ? <ul className="divide-y divide-line">{submissions.map((source) =>
+          <li key={source.id} className="p-4 text-sm"><strong>{source.title}</strong> · {source.source_type.toUpperCase()} · revision {source.current_revision} · {source.status}
+            <p className="mt-1 text-muted">{source.source_url ?? String(source.metadata.filename ?? "Owner-supplied text")} · {source.action}</p>
+            {source.extraction_error ? <p className="mt-1 text-red-700">Extraction failed: {source.extraction_error}</p> : null}
+            {source.status === "approved" ? <form action="/api/operator/knowledge-submissions" method="post" className="mt-3">
+              <input type="hidden" name="clientId" value={client.id}/><input type="hidden" name="submissionId" value={source.id}/>
+              <input type="hidden" name="revision" value={source.current_revision}/>
+              <button className="ui-button px-3 py-2">Prepare reviewed source</button></form> : null}
+          </li>)}</ul> : <p className="p-4 text-sm text-muted">No submitted sources.</p>}
+      </section>
       <section className="ui-panel mb-5"><div className="ui-panel-header"><h2 className="font-semibold">Business correction proposals</h2>
         <p className="text-sm text-muted">Pronto prepares approved suggestions for a private assistant test and final revision approval.</p></div>
         {suggestions.length ? <ul className="divide-y divide-line">{suggestions.map((item) => <li key={item.id} className="p-4 text-sm">

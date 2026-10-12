@@ -93,7 +93,7 @@ export default async function ClientSettingsPage() {
               defaultValue={policy?.policy.outOfHoursAcknowledgement ?? ""}/></label>
           </div>
         </details>
-        <p className="w-full text-xs text-muted">Reminder and backup preferences are stored for review; automated reminder delivery is not enabled.</p>
+        <p className="w-full text-xs text-muted">Verified staff contacts receive configured reminders during staffed time. This target is an operating preference, not a guaranteed response time.</p>
         <button className="ui-button px-3 py-2">Save escalation policy</button></form>
         : <p className="mt-2 text-sm text-muted">A designated policy manager can change this target.</p>}
     </section>

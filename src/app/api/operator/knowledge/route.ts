@@ -1,8 +1,8 @@
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { stageKnowledge } from "@/lib/assistant-drafts";
-import { parseKnowledgeUpload } from "@/lib/knowledge/parse-upload";
+import { recordSourceExtractionFailure, submitKnowledgeSource } from "@/lib/knowledge/submissions";
+import { extractPdfSource, extractTextSource, extractUrlSource } from "@/lib/knowledge/source-extract";
 import { canAccessClient } from "@/lib/rbac";
 
 export async function POST(request: Request) {
@@ -14,6 +14,7 @@ export async function POST(request: Request) {
   const clientId = String(form.get("clientId") ?? "");
   const title = String(form.get("title") ?? "").trim();
   const manualContent = String(form.get("content") ?? "").trim();
+  const sourceUrl = String(form.get("sourceUrl") ?? "").trim();
   const upload = form.get("file");
   const returnTo = safeOperatorReturnPath(
     String(form.get("returnTo") ?? ""),
@@ -30,34 +31,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
-  let parsedUpload: Awaited<ReturnType<typeof parseKnowledgeUpload>> | null = null;
+  let extracted: Awaited<ReturnType<typeof extractTextSource>>;
   try {
-    parsedUpload =
-      upload instanceof File && upload.size > 0
-        ? await parseKnowledgeUpload(upload)
-        : null;
+    extracted = upload instanceof File && upload.size > 0 ? await extractPdfSource(upload)
+      : sourceUrl ? await extractUrlSource(sourceUrl) : await extractTextSource(manualContent);
+  } catch (error) {
+    if (title && title.length <= 200) await recordSourceExtractionFailure({ actor: user, clientId,
+      sourceType: upload instanceof File && upload.size > 0 ? "pdf" : sourceUrl ? "url" : "text",
+      title, error: errorToMessage(error) });
+    return NextResponse.json({ error: errorToMessage(error) }, { status: 400 });
+  }
+  try {
+    await submitKnowledgeSource({ actor: user, clientId, sourceType: extracted.sourceType,
+      title: title || (upload instanceof File && upload.size > 0 ? upload.name.replace(/\.pdf$/i, "") : ""),
+      description: String(form.get("description") ?? ""), content: extracted.content,
+      sourceUrl: extracted.sourceUrl, outletName: String(form.get("outletName") ?? ""), metadata: extracted.metadata,
+      requestKey: String(form.get("requestKey") ?? "") || undefined });
   } catch (error) {
     return NextResponse.json({ error: errorToMessage(error) }, { status: 400 });
   }
-  const content = parsedUpload?.content ?? manualContent;
-  const resolvedTitle = title || parsedUpload?.title || "";
-
-  if (!resolvedTitle || !content) {
-    return NextResponse.json(
-      { error: "Provide a title plus manual text or upload a supported file." },
-      { status: 400 },
-    );
-  }
-
-  await stageKnowledge({
-    clientId,
-    action: "upsert",
-    title: resolvedTitle,
-    sourceType: parsedUpload?.sourceType ?? "manual",
-    content,
-    metadata: parsedUpload?.metadata ?? { entryMode: "operator_manual" },
-    actorUserId: user.userId,
-  });
 
   return NextResponse.redirect(new URL(returnTo, request.url), 303);
 }

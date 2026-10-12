@@ -1,7 +1,8 @@
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { stageKnowledge } from "@/lib/assistant-drafts";
+import { getKnowledgeSourceForClient } from "@/lib/knowledge/manage";
+import { submitKnowledgeSource } from "@/lib/knowledge/submissions";
 
 type Context = {
   params: Promise<{ sourceId: string }>;
@@ -19,19 +20,17 @@ export async function POST(request: Request, context: Context) {
   const { sourceId } = await context.params;
   const form = await request.formData();
   const action = String(form.get("action") ?? "");
+  const existing = await getKnowledgeSourceForClient(sourceId, user.clientId);
+  if (!existing) return NextResponse.json({ error: "Business knowledge source not found." }, { status: 404 });
 
   if (action === "delete") {
     try {
-      await stageKnowledge({
-        sourceId,
-        clientId: user.clientId,
-        actorUserId: user.userId,
-        action: "delete",
-      });
+      await submitKnowledgeSource({ actor: user, clientId: user.clientId, targetSourceId: sourceId,
+        action: "archive", sourceType: "text", title: existing.title, content: "Archived after review." });
     } catch (error) {
       return knowledgeStageError(error);
     }
-    return NextResponse.redirect(new URL("/client/knowledge?staged=1", request.url), 303);
+    return NextResponse.redirect(new URL("/client/knowledge?submitted=1", request.url), 303);
   }
 
   if (action === "update") {
@@ -45,20 +44,14 @@ export async function POST(request: Request, context: Context) {
     }
 
     try {
-      await stageKnowledge({
-        sourceId,
-        clientId: user.clientId,
-        title,
-        content,
-        actorUserId: user.userId,
-        action: "upsert",
-      });
+      await submitKnowledgeSource({ actor: user, clientId: user.clientId, targetSourceId: sourceId,
+        sourceType: "text", title, content, description: "Replacement of published source." });
     } catch (error) {
       return knowledgeStageError(error);
     }
 
     return NextResponse.redirect(
-      new URL(`/client/knowledge/${sourceId}?staged=1`, request.url),
+      new URL(`/client/knowledge/${sourceId}?submitted=1`, request.url),
       303,
     );
   }

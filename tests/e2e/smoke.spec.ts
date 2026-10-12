@@ -174,6 +174,7 @@ test("PS.Cafe synthetic staff proposes knowledge and confirms a local policy com
   await page.getByRole("button", { name: "Submit suggestion" }).click();
   await expect(page.getByText("Saved for review. Customer answers have not changed.")).toBeVisible();
   await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
   await login(page, "approver@ps-cafe-demo.test", "pronto-ps-demo");
   await page.goto("/client/knowledge");
   await expect(page.getByText(suggestionTitle)).toBeVisible();
@@ -181,6 +182,7 @@ test("PS.Cafe synthetic staff proposes knowledge and confirms a local policy com
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(page.getByText(suggestionTitle)).toBeVisible();
   await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
   await login(page, "policy@ps-cafe-demo.test", "pronto-ps-demo");
   await page.goto("/client/contact-pronto");
   await page.getByRole("textbox", { name: "Your request" }).fill("Change our escalation response target to 30 minutes");
@@ -190,6 +192,33 @@ test("PS.Cafe synthetic staff proposes knowledge and confirms a local policy com
   await expect(page.getByText(/Response target saved/)).toBeVisible();
   await page.goto("/client/settings");
   await expect(page.getByText("Current: 30 minutes")).toBeVisible();
+});
+
+test("PS.Cafe staff submits a text source; only a delegated reviewer can approve its exact revision", async ({ page }) => {
+  await setupPsCafeDemo();
+  const title = `Synthetic source ${randomUUID()}`;
+  await login(page, "staff@ps-cafe-demo.test", "pronto-ps-demo");
+  await page.goto("/client/knowledge");
+  await page.getByText("Submit business information").click();
+  await page.getByRole("textbox", { name: "Source title" }).fill(title);
+  await page.getByRole("textbox", { name: "Source content" }).fill("Synthetic test policy says to ask a person for special requests.");
+  await page.getByRole("button", { name: "Submit source draft" }).click();
+  await expect(page.getByText(title)).toBeVisible();
+  await expect(page.getByText("pending", { exact: true }).last()).toBeVisible();
+  const pending = await getPool().query<{ id: string; target_source_id: string }>(
+    "select id,target_source_id from knowledge_source_submissions where client_id = $1 and status = 'pending' and id in (select submission_id from knowledge_source_submission_revisions where title = $2)",
+    [PS_CAFE_DEMO_CLIENT_ID, title]);
+  expect(pending.rows).toHaveLength(1);
+  expect((await getPool().query("select count(*)::int as n from knowledge_sources where id = $1", [pending.rows[0].target_source_id])).rows[0].n).toBe(0);
+  await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await login(page, "approver@ps-cafe-demo.test", "pronto-ps-demo");
+  await page.goto("/client/knowledge");
+  await page.getByRole("textbox", { name: `Review note for ${title}` }).fill("Synthetic source reviewed");
+  await page.locator("li").filter({ hasText: title }).getByRole("button", { name: "Approve revision" }).click();
+  expect((await getPool().query("select status,reviewed_revision from knowledge_source_submissions where id = $1", [pending.rows[0].id])).rows[0])
+    .toMatchObject({ status: "approved", reviewed_revision: 1 });
+  expect((await getPool().query("select count(*)::int as n from knowledge_sources where id = $1", [pending.rows[0].target_source_id])).rows[0].n).toBe(0);
 });
 
 test("PS.Cafe responder claims, replies and explicitly releases a local email handoff", async ({ page }) => {

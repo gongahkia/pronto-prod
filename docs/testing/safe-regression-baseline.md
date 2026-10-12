@@ -128,6 +128,12 @@ On 12 October 2026, the DB-inclusive suite passed 337 tests with 5 existing
 skips and 71.20% line coverage. Compare that only with other DB-inclusive
 runs; browser and Mailpit tests are separate commands.
 
+Tranche C uses additive migrations 038–044. Apply them only after the marked
+test DB verifier. The DB suite now includes source-revision review, conflict
+queue, archive invalidation and timed-job tests; the opt-in Mailpit suite
+captures reminder and backup SMTP messages. Public URL tests inject a guarded
+transport. See [source review and timed notifications](../ops/knowledge-and-reminders.md).
+
 ## Script effects and remaining limits
 
 | Command | Effect |
