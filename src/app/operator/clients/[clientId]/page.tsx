@@ -23,6 +23,7 @@ import {
 } from "@/components/operator/operator-nav";
 import { StatCard } from "@/components/stat-card";
 import { approvedChopeBookingLink } from "@/lib/reservations/chope";
+import { listOnboardingStages, nextOnboardingAction } from "@/lib/onboarding";
 
 type OverviewSection =
   | "workspace"
@@ -61,12 +62,14 @@ export default async function ClientOperatorPage({
     knowledge,
     escalations,
     attentionItems,
+    onboardingStages,
   ] = await Promise.all([
     getMetrics(client.id),
     getChannels(client.id),
     getKnowledgeSources(client.id),
     getOpenEscalations(client.id),
     getClientAttentionItems(client.id),
+    listOnboardingStages(client.id),
   ]);
   const [
     conversations,
@@ -86,6 +89,7 @@ export default async function ClientOperatorPage({
   const activeChannels = channels.filter((channel) => channel.status === "active").length;
   const setupChannels = channels.filter((channel) => channel.status !== "disabled").length;
   const nextActions = [
+    { href: `${basePath}/onboarding`, label: "Continue onboarding", detail: nextOnboardingAction(onboardingStages) },
     ...(knowledge.length === 0 ? [{ href: `${basePath}/knowledge`, label: "Add business knowledge", detail: "Give the assistant approved facts to answer from." }] : []),
     ...(activeChannels === 0 ? [{ href: `${basePath}/channels`, label: "Connect a customer channel", detail: "Check credentials and channel health before enabling it." }] : []),
     ...(escalations.length > 0 ? [{ href: `${basePath}/escalations`, label: `Reply to ${escalations.length} customer handoff${escalations.length === 1 ? "" : "s"}`, detail: "These conversations are waiting for a person." }] : []),

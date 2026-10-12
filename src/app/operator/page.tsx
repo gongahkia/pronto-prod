@@ -8,18 +8,32 @@ import {
 } from "@/lib/reporting";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
+import { query } from "@/lib/db";
+import { nextOnboardingAction, type OnboardingStage } from "@/lib/onboarding";
 
-export default async function OperatorPage() {
+export default async function OperatorPage({ searchParams }: {
+  searchParams?: Promise<{ q?: string }>;
+}) {
   const user = await requireUser("operator");
-  const commandCenter = await getOperatorCommandCenter();
+  const [commandCenter, stageRows, params] = await Promise.all([
+    getOperatorCommandCenter(),
+    query<OnboardingStage>("select * from onboarding_stages", []),
+    searchParams ?? Promise.resolve({ q: "" }),
+  ]);
+  const search = (params.q ?? "").trim().toLowerCase();
+  const portfolio = commandCenter.clientHealth.filter((client) =>
+    !search || `${client.name} ${client.vertical} ${client.status}`.toLowerCase().includes(search));
+  const stagesByClient = new Map<string, OnboardingStage[]>();
+  for (const stage of stageRows.rows) stagesByClient.set(stage.client_id,
+    [...(stagesByClient.get(stage.client_id) ?? []), stage]);
 
   return (
     <AppShell user={user} active="operator" operatorActive="businesses">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Clients</h1>
+          <h1 className="text-xl font-semibold">Businesses</h1>
           <p className="text-sm text-muted">
-            Portfolio health, setup state, and open triage across every client.
+            Setup progress and open customer work across businesses.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -60,13 +74,19 @@ export default async function OperatorPage() {
             <h2 className="text-base font-semibold">Client portfolio</h2>
           </div>
         </div>
+        <form action="/operator" className="flex gap-2 border-b border-line p-4">
+          <input className="ui-input min-w-0 flex-1 px-3 py-2" name="q" defaultValue={params.q ?? ""}
+            aria-label="Search businesses" placeholder="Search name, industry or status" />
+          <button className="ui-button px-3 py-2">Search</button>
+        </form>
 
         <div className="divide-y divide-line">
-          {commandCenter.clientHealth.length === 0 ? (
-            <p className="p-4 text-sm text-muted">No clients have been created.</p>
+          {portfolio.length === 0 ? (
+            <p className="p-4 text-sm text-muted">{search ? "No businesses match this search." : "No businesses have been created."}</p>
           ) : (
-            commandCenter.clientHealth.map((client) => (
-              <ClientPortfolioRow key={client.clientId} client={client} />
+            portfolio.map((client) => (
+              <ClientPortfolioRow key={client.clientId} client={client}
+                nextAction={nextOnboardingAction(stagesByClient.get(client.clientId) ?? [])} />
             ))
           )}
         </div>
@@ -75,7 +95,7 @@ export default async function OperatorPage() {
   );
 }
 
-function ClientPortfolioRow({ client }: { client: OperatorClientHealth }) {
+function ClientPortfolioRow({ client, nextAction }: { client: OperatorClientHealth; nextAction: string }) {
   return (
     <div className="p-4 hover:bg-surface-hover">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -94,6 +114,9 @@ function ClientPortfolioRow({ client }: { client: OperatorClientHealth }) {
           <p className="mt-1 text-sm text-muted">
             {client.vertical} · latest activity {formatWhen(client.latestActivityAt)}
           </p>
+          <Link href={`/operator/clients/${client.clientId}/onboarding`} className="mt-1 block text-sm text-accent">
+            Next: {nextAction}
+          </Link>
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-xs text-muted md:grid-cols-3 xl:w-[26rem] xl:grid-cols-4">
