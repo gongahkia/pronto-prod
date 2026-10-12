@@ -3,6 +3,7 @@ import { recordAuditLog } from "@/lib/audit";
 import { query, transaction, vectorLiteral, type Queryable } from "@/lib/db";
 import { chunkText } from "@/lib/knowledge/chunk";
 import { getEmbeddingProvider } from "@/lib/llm";
+import { assertConfigurationApproved } from "@/lib/managed-approvals";
 import {
   compileTriageFlowToEscalationRules,
   validateAndNormalizeTriageFlow,
@@ -22,6 +23,8 @@ export type KnowledgeDraftChange = {
 export type VoiceDraft = {
   title: string;
   content: string;
+  attributes?: Record<string, unknown>;
+  sourceNotes?: string | null;
   examples: Array<{
     customerMessage: string;
     idealResponse: string;
@@ -225,6 +228,11 @@ export async function markAssistantDraftTested(clientId: string, expectedVersion
 
 export async function publishAssistantDraft(clientId: string, actorUserId: string): Promise<number> {
   return transaction(async (db) => {
+    const actor = await db.query<{ role: string }>(
+      "select role from users where id = $1", [actorUserId]);
+    if (actor.rows[0]?.role !== "operator") {
+      throw new Error("Only a Pronto operator may publish an approved assistant draft.");
+    }
     const draftResult = await db.query<AssistantDraft>(
       "select * from assistant_drafts where client_id = $1 for update",
       [clientId],
@@ -234,6 +242,7 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
     if (!draft.tested_at) {
       throw new Error("Test the current draft before publishing it.");
     }
+    await assertConfigurationApproved(db, clientId, "assistant", clientId, String(draft.edit_version));
     if (await liveFingerprint(db, clientId) !== draft.base_fingerprint) {
       throw new DraftConflictError();
     }
@@ -282,11 +291,12 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
     if (draft.voice) {
       const voice = draft.voice;
       await db.query(
-        `insert into brand_voice_documents (client_id, title, content)
-         values ($1, $2, $3)
+        `insert into brand_voice_documents (client_id, title, content, attributes, source_notes)
+         values ($1, $2, $3, $4::jsonb, $5)
          on conflict (client_id) do update set
-           title = excluded.title, content = excluded.content, updated_at = now()`,
-        [clientId, voice.title, voice.content],
+           title = excluded.title, content = excluded.content,
+           attributes = excluded.attributes, source_notes = excluded.source_notes, updated_at = now()`,
+        [clientId, voice.title, voice.content, JSON.stringify(voice.attributes ?? {}), voice.sourceNotes ?? null],
       );
       await db.query("update clients set brand_voice = $2, updated_at = now() where id = $1", [
         clientId, voice.content,

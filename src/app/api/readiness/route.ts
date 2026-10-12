@@ -68,8 +68,6 @@ export async function GET() {
   return NextResponse.json(
     {
       status: ready ? "ready" : "not_ready",
-      checks,
-      timestamp: new Date().toISOString(),
     },
     {
       status: ready ? 200 : 503,

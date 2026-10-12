@@ -7,6 +7,7 @@ import { normalizeParsedEmail, parseLocalRfc822 } from "@/lib/channels/email";
 import { ingestInboundMessages } from "@/lib/channels/inbox";
 import { processInboundJob } from "@/lib/channels/inbox-worker";
 import { flushRetryableOutboundMessages } from "@/lib/channels/outbox";
+import { flushStaffNotifications } from "@/lib/staff-notifications";
 import { PS_CAFE_DEMO_CLIENT_ID, PS_CAFE_DEMO_EMAIL_ID, PS_CAFE_DEMO_SUPPORT_ADDRESS,
   PS_CAFE_CHOPE_URL, removePsCafeDemo, setupPsCafeDemo } from "../../scripts/demo/ps-cafe-raffles-city";
 
@@ -128,6 +129,7 @@ localMailDescribe("PS.Cafe customer support email through Mailpit", () => {
     const first = await getPool().query<{ id: string }>("select id from inbound_jobs where client_id = $1", [PS_CAFE_DEMO_CLIENT_ID]);
     expect(await processInboundJob({ jobId: first.rows[0].id })).toMatchObject({ outcome: "escalated" });
     await flushRetryableOutboundMessages();
+    await flushStaffNotifications();
     const messages = await mailpitMessages();
     expect(messages.some((message) => message.To.some((to) => to.Address === "operator@ps-cafe-demo.test"))).toBe(true);
     const followup = Buffer.from(`From: customer@example.test\r\nTo: ${PS_CAFE_DEMO_SUPPORT_ADDRESS}\r\n` +

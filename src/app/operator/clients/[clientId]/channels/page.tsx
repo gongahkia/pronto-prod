@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { channelKinds } from "@/lib/channels/catalog";
 import { getChannels, getClient } from "@/lib/dashboard";
+import { listChannelDrafts } from "@/lib/client-channel-drafts";
+import { getChannelActivationSummary, channelEvidenceKinds } from "@/lib/managed-approvals";
 import type { ChannelKind } from "@/lib/types";
 import { AppShell } from "@/components/shell";
 import {
@@ -25,6 +27,8 @@ export default async function OperatorClientChannelsPage({
   }
 
   const channels = await getChannels(client.id);
+  const drafts = await listChannelDrafts(client.id);
+  const activation = await Promise.all(channels.map((channel) => getChannelActivationSummary(client.id, channel.id)));
   const requestedChannel = Array.isArray(query.channel) ? query.channel[0] : query.channel;
   const activeChannelKind = channelKinds.includes(requestedChannel as ChannelKind)
     ? (requestedChannel as ChannelKind)
@@ -42,6 +46,33 @@ export default async function OperatorClientChannelsPage({
         channels={channels}
         activeChannelKind={activeChannelKind}
       />
+      <section className="ui-panel mt-5 p-4"><h2 className="font-semibold">Reviewed activation</h2>
+        <p className="mb-3 text-sm text-muted">Business approval and revision-bound technical evidence are required. Local tests do not count as real provider delivery.</p>
+        {channels.map((channel, index) => {
+          const state = activation[index];
+          const draft = drafts.find((item) => item.channel_id === channel.id);
+          return <div className="border-t border-line py-4 text-sm" key={channel.id}>
+            <strong>{channel.name}</strong> · {channel.status}{draft ? ` · proposed ${draft.status}` : ""}
+            <p>Business approved: {state.approval ? "yes" : "pending"} · Evidence: {state.evidence.join(", ") || "none"}</p>
+            {state.revision && channel.status !== "active" ? <>
+              <form action="/api/operator/channels/activation" method="post" className="mt-2 flex flex-wrap gap-2">
+                <input type="hidden" name="clientId" value={client.id}/><input type="hidden" name="channelId" value={channel.id}/>
+                <input type="hidden" name="revision" value={state.revision}/><input type="hidden" name="action" value="evidence"/>
+                <select className="ui-input px-2 py-1" name="checkKind" aria-label={`Evidence type for ${channel.name}`}>
+                  {channelEvidenceKinds.map((kind) => <option key={kind} value={kind}>{kind}</option>)}</select>
+                <input className="ui-input px-2 py-1" name="details" required aria-label={`Evidence details for ${channel.name}`} placeholder="Test record and outcome"/>
+                <button className="ui-button px-2 py-1">Record evidence</button>
+              </form>
+              <form action="/api/operator/channels/activation" method="post" className="mt-2">
+                <input type="hidden" name="clientId" value={client.id}/><input type="hidden" name="channelId" value={channel.id}/>
+                <input type="hidden" name="revision" value={state.revision}/>
+                <button className="ui-primary-button px-3 py-2" name="action" value={draft ? "publish_draft" : "activate"}>
+                  Activate approved channel</button>
+              </form>
+            </> : null}
+          </div>;
+        })}
+      </section>
     </AppShell>
   );
 }

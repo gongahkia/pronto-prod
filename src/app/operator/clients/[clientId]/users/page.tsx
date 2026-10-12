@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { formatDate } from "@/lib/date-format";
 import { getClient } from "@/lib/dashboard";
 import { query } from "@/lib/db";
+import { listStaffCapabilities, staffCapabilities } from "@/lib/staff-permissions";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
 import {
@@ -44,6 +45,7 @@ export default async function ClientUsersPage({
   }
   const params2 = (await searchParams) ?? {};
   const users = await listUsersForClient(clientId);
+  const grants = await listStaffCapabilities(clientId);
 
   return (
     <AppShell user={actor} active="operator">
@@ -162,6 +164,23 @@ export default async function ClientUsersPage({
             Add user
           </button>
         </form>
+      </section>
+      <section className="ui-panel mt-6 p-4">
+        <h2 className="font-semibold">Business staff permissions</h2>
+        <p className="mb-3 text-sm text-muted">New and existing client accounts have no implicit approval or activation authority. Record the business authorization before granting access.</p>
+        {users.filter((row) => row.role === "client").map((row) => <div key={row.id} className="border-t border-line py-3 text-sm">
+          <strong>{row.name}</strong> · {row.email}
+          <p className="text-xs text-muted">Granted: {grants.filter((grant) => grant.user_id === row.id).map((grant) => grant.permission).join(", ") || "none"}</p>
+          <form action={`/api/operator/clients/${clientId}/permissions`} method="post" className="mt-2 flex flex-wrap gap-2">
+            <input type="hidden" name="userId" value={row.id}/>
+            <select className="ui-input px-2 py-1" name="capability" aria-label={`Permission for ${row.name}`}>
+              {staffCapabilities.map((capability) => <option key={capability} value={capability}>{capability}</option>)}
+            </select>
+            <input className="ui-input px-2 py-1" name="evidence" required aria-label={`Authorization evidence for ${row.name}`} placeholder="Authorization record"/>
+            <button className="ui-button px-2 py-1" name="action" value="grant">Grant</button>
+            <button className="ui-button px-2 py-1" name="action" value="revoke">Revoke</button>
+          </form>
+        </div>)}
       </section>
     </AppShell>
   );

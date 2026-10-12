@@ -2,15 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(),
-  ingestKnowledgeSource: vi.fn(),
+  stageKnowledge: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
   requireUser: mocks.requireUser,
 }));
 
-vi.mock("@/lib/knowledge/ingest", () => ({
-  ingestKnowledgeSource: mocks.ingestKnowledgeSource,
+vi.mock("@/lib/assistant-drafts", () => ({
+  stageKnowledge: mocks.stageKnowledge,
 }));
 
 vi.mock("@/lib/knowledge/parse-upload", () => ({
@@ -29,7 +29,7 @@ describe("operator knowledge route", () => {
     });
   });
 
-  it("ingests manual knowledge for the submitted client", async () => {
+  it("stages manual knowledge for the submitted client", async () => {
     const form = new FormData();
     form.set("clientId", "client-1");
     form.set("title", "Menu");
@@ -51,12 +51,13 @@ describe("operator knowledge route", () => {
     expect(response.headers.get("location")).toBe(
       "http://localhost/operator/clients/client-1/knowledge",
     );
-    expect(mocks.ingestKnowledgeSource).toHaveBeenCalledWith({
+    expect(mocks.stageKnowledge).toHaveBeenCalledWith({
       clientId: "client-1",
+      action: "upsert",
       title: "Menu",
       sourceType: "manual",
       content: "Nasi Lemak Bowl is SGD 12.80.",
-      metadata: { entryMode: "manual" },
+      metadata: { entryMode: "operator_manual" },
       actorUserId: "operator-1",
     });
   });
@@ -74,6 +75,6 @@ describe("operator knowledge route", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(mocks.ingestKnowledgeSource).not.toHaveBeenCalled();
+    expect(mocks.stageKnowledge).not.toHaveBeenCalled();
   });
 });

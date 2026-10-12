@@ -8,7 +8,6 @@ import {
   compileTriageFlowToEscalationRules,
 } from "@/lib/triage-flow";
 
-const VALID_STATUS = new Set(["draft", "pilot", "live", "paused"]);
 const MIN_INITIAL_PASSWORD_LENGTH = 8;
 
 function redirectWithError(request: Request, message: string): NextResponse {
@@ -26,8 +25,7 @@ export async function POST(request: Request) {
   const name = String(form.get("name") ?? "").trim();
   const vertical = String(form.get("vertical") ?? "").trim() || "general";
   const planTier = String(form.get("planTier") ?? "").trim() || "pilot";
-  const submittedStatus = String(form.get("status") ?? "draft").trim();
-  const status = VALID_STATUS.has(submittedStatus) ? submittedStatus : "draft";
+  const status = "draft";
   const brandVoice = String(form.get("brandVoice") ?? "").trim() || defaultBrandVoice(name);
   const slug = normalizeSlug(String(form.get("slug") ?? "") || name);
   const initialUserName = String(form.get("initialUserName") ?? "").trim();
@@ -82,6 +80,11 @@ export async function POST(request: Request) {
       [name, uniqueSlug, vertical, planTier, status, brandVoice],
     );
     const createdClientId = clientResult.rows[0].id;
+    await client.query(
+      `insert into onboarding_stages (client_id, stage)
+       select $1, stage from (values ('profile'), ('communications'), ('knowledge'), ('testing'), ('activation')) s(stage)`,
+      [createdClientId],
+    );
 
     await client.query(
       `

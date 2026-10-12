@@ -41,6 +41,9 @@ export async function POST(request: Request) {
   if (!channelStatuses.includes(status as ChannelStatus)) {
     return NextResponse.json({ error: "Invalid channel status." }, { status: 400 });
   }
+  if (status === "active") {
+    return NextResponse.json({ error: "Use reviewed activation after business approval and evidence checks." }, { status: 403 });
+  }
   if (!canAccessClient(user, clientId)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }

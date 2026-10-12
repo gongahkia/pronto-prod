@@ -142,6 +142,9 @@ export function ConversationList({
                 {conversation.active_escalation_reason_code ? (
                   <Badge tone="red">{conversation.active_escalation_reason_code}</Badge>
                 ) : null}
+                {showClient && conversation.assigned_to_name ? <Badge>Assigned: {conversation.assigned_to_name}</Badge> : null}
+                {showClient && conversation.delivery_status && ["failed", "dead", "uncertain"].includes(conversation.delivery_status)
+                  ? <Badge tone="red">Delivery {conversation.delivery_status}</Badge> : null}
               </div>
               <p className="mt-1 line-clamp-2 text-sm text-muted">
                 {conversation.last_message ?? "No message yet."}

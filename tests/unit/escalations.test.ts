@@ -38,6 +38,8 @@ describe("owner escalation notifications", () => {
           }),
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 
     const result = await notifyOwnerOfEscalation("escalation-1");
@@ -47,10 +49,10 @@ describe("owner escalation notifications", () => {
       clientId: "client-1",
       externalThreadId: "6590000000",
       text: expect.stringContaining(
-        "https://example.test/operator/clients/client-1/conversations/conversation-1",
+        "https://example.test/client/conversations/conversation-1",
       ),
     });
-    expect(mocks.query.mock.calls[2][1]).toEqual([
+    expect(mocks.query.mock.calls[4][1]).toEqual([
       "escalation-1",
       "sent",
       null,
@@ -65,12 +67,14 @@ describe("owner escalation notifications", () => {
       .mockResolvedValueOnce({
         rows: [channel({ kind: "telegram", settings: {} })],
       })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 
     const result = await notifyOwnerOfEscalation("escalation-1");
 
     expect(mocks.sendChannelText).not.toHaveBeenCalled();
-    expect(mocks.query.mock.calls[2][1]).toEqual([
+    expect(mocks.query.mock.calls[4][1]).toEqual([
       "escalation-1",
       "skipped",
       "No owner notification destination configured.",
@@ -85,13 +89,15 @@ describe("owner escalation notifications", () => {
       .mockResolvedValueOnce({
         rows: [channel({ kind: "telegram", settings: { ownerChatId: "12345" } })],
       })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     mocks.sendChannelText.mockRejectedValueOnce(new Error("Telegram send failed"));
 
     const result = await notifyOwnerOfEscalation("escalation-1");
 
     expect(result.status).toBe("failed");
-    expect(mocks.query.mock.calls[2][1]).toEqual([
+    expect(mocks.query.mock.calls[4][1]).toEqual([
       "escalation-1",
       "failed",
       "Telegram send failed",

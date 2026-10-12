@@ -2,17 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(),
-  updateKnowledgeSourceForClient: vi.fn(),
-  deleteKnowledgeSourceForClient: vi.fn(),
+  stageKnowledge: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
   requireUser: mocks.requireUser,
 }));
 
-vi.mock("@/lib/knowledge/manage", () => ({
-  updateKnowledgeSourceForClient: mocks.updateKnowledgeSourceForClient,
-  deleteKnowledgeSourceForClient: mocks.deleteKnowledgeSourceForClient,
+vi.mock("@/lib/assistant-drafts", () => ({
+  stageKnowledge: mocks.stageKnowledge,
 }));
 
 import { POST } from "@/app/api/operator/knowledge/[sourceId]/route";
@@ -28,10 +26,6 @@ describe("operator knowledge source route", () => {
   });
 
   it("updates a source scoped to the submitted client", async () => {
-    mocks.updateKnowledgeSourceForClient.mockResolvedValueOnce({
-      sourceId: "source-1",
-      chunkCount: 1,
-    });
 
     const form = new FormData();
     form.set("action", "update");
@@ -45,17 +39,17 @@ describe("operator knowledge source route", () => {
     expect(response.headers.get("location")).toBe(
       "http://localhost/operator/clients/client-1/knowledge/source-1",
     );
-    expect(mocks.updateKnowledgeSourceForClient).toHaveBeenCalledWith({
+    expect(mocks.stageKnowledge).toHaveBeenCalledWith({
       sourceId: "source-1",
       clientId: "client-1",
       title: "Menu",
       content: "Kopi is SGD 2.20.",
       actorUserId: "operator-1",
+      action: "upsert",
     });
   });
 
   it("deletes a source scoped to the submitted client", async () => {
-    mocks.deleteKnowledgeSourceForClient.mockResolvedValueOnce(true);
 
     const form = new FormData();
     form.set("action", "delete");
@@ -67,15 +61,16 @@ describe("operator knowledge source route", () => {
     expect(response.headers.get("location")).toBe(
       "http://localhost/operator/clients/client-1/knowledge",
     );
-    expect(mocks.deleteKnowledgeSourceForClient).toHaveBeenCalledWith({
+    expect(mocks.stageKnowledge).toHaveBeenCalledWith({
       sourceId: "source-1",
       clientId: "client-1",
       actorUserId: "operator-1",
+      action: "delete",
     });
   });
 
   it("returns not found when update is outside the submitted client scope", async () => {
-    mocks.updateKnowledgeSourceForClient.mockResolvedValueOnce(null);
+    mocks.stageKnowledge.mockRejectedValueOnce(new Error("Knowledge source not found."));
 
     const form = new FormData();
     form.set("action", "update");

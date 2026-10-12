@@ -142,11 +142,7 @@ export default async function ClientChannelsPage({ searchParams }: { searchParam
                     <input type="hidden" name="action" value="check" />
                     <button disabled={!draft} className="ui-button px-4 py-2">Check connection</button>
                   </form>
-                  <form action={"/api/client/channels/" + selected.id} method="post">
-                    <input type="hidden" name="action" value="publish" />
-                    <button disabled={!draft || (draft.status === "active" && draft.health_status !== "healthy")}
-                      className="ui-primary-button px-4 py-2">Publish channel</button>
-                  </form>
+                  {draft ? <span className="text-sm text-muted">Pronto publishes after business approval and technical review.</span> : null}
                   {draft ? <Badge tone={draft.health_status === "healthy" ? "green" : "amber"}>
                     {draft.health_status ?? "Not checked"}
                   </Badge> : null}

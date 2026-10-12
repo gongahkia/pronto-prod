@@ -89,9 +89,13 @@ const chatThemes: Record<Exclude<ChannelKind, "email">, ChatTheme> = {
 export function AssistantTester({
   channels,
   clientName,
+  endpoint = "/api/client/assistant-test",
+  clientId,
 }: {
   channels: AssistantTesterChannel[];
   clientName: string;
+  endpoint?: string;
+  clientId?: string;
 }) {
   const router = useRouter();
   const [selectedChannelId, setSelectedChannelId] = useState(channels[0]?.id ?? "");
@@ -119,10 +123,11 @@ export function AssistantTester({
     setIsSending(true);
 
     try {
-      const response = await fetch("/api/client/assistant-test", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          clientId,
           channelId: selectedChannel.id,
           message: customerMessage.body,
           history: messages

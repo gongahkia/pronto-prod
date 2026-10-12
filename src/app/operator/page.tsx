@@ -14,7 +14,7 @@ export default async function OperatorPage() {
   const commandCenter = await getOperatorCommandCenter();
 
   return (
-    <AppShell user={user} active="operator" operatorActive="clients">
+    <AppShell user={user} active="operator" operatorActive="businesses">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Clients</h1>

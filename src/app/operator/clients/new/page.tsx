@@ -5,17 +5,10 @@ import { PendingSubmitButton } from "@/components/pending-submit-button";
 
 const PLAN_TIERS = [
   { value: "pilot", label: "Pilot (2-4 week scoped)" },
-  { value: "starter", label: "Starter (24h business-hours SLA)" },
-  { value: "growth", label: "Growth (4h business-hours SLA)" },
-  { value: "scale", label: "Scale (1h business-hours SLA)" },
+  { value: "starter", label: "Starter" },
+  { value: "growth", label: "Growth" },
+  { value: "scale", label: "Scale" },
   { value: "enterprise", label: "Enterprise (custom)" },
-];
-
-const STATUS_OPTIONS = [
-  { value: "draft", label: "Draft (no production traffic)" },
-  { value: "pilot", label: "Pilot (limited scope)" },
-  { value: "live", label: "Live" },
-  { value: "paused", label: "Paused" },
 ];
 
 export default async function NewClientPage({
@@ -27,7 +20,7 @@ export default async function NewClientPage({
   const params = (await searchParams) ?? {};
 
   return (
-    <AppShell user={user} active="operator" operatorActive="clients">
+    <AppShell user={user} active="operator" operatorActive="businesses">
       <div className="mb-5">
         <Link href="/operator" className="text-xs font-medium text-accent hover:text-accent-dark">
           Back to operator dashboard
@@ -89,20 +82,7 @@ export default async function NewClientPage({
               ))}
             </select>
           </label>
-          <label className="block text-sm font-medium">
-            Status
-            <select
-              name="status"
-              defaultValue="draft"
-              className="mt-1 w-full rounded-md border border-line px-3 py-2 outline-none focus:border-accent"
-            >
-              {STATUS_OPTIONS.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
-          </label>
+        <p className="self-end text-sm text-muted">New businesses begin in draft. Activation follows review and testing.</p>
         </div>
 
         <label className="block text-sm font-medium">

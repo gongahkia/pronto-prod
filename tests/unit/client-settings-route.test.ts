@@ -26,7 +26,7 @@ describe("client settings route", () => {
     mocks.query.mockResolvedValue({ rows: [] });
   });
 
-  it("persists owner phone and redirects to client settings", async () => {
+  it("updates the location without mutating customer-channel owner contacts", async () => {
     const form = new FormData();
     form.set("location", "North Bridge Road");
     form.set("ownerChatId", "12345");
@@ -43,24 +43,8 @@ describe("client settings route", () => {
       }),
     );
 
-    expect(mocks.query.mock.calls[0][1]).toEqual([
-      "client-1",
-      "12345",
-      "North Bridge Road",
-      "6590000000",
-    ]);
-    expect(mocks.query.mock.calls[1][1]).toEqual([
-      "client-1",
-      JSON.stringify({ ownerChatId: "12345", ownerPhone: "6590000000" }),
-    ]);
-    expect(mocks.query.mock.calls[2][1]).toEqual([
-      "client-1",
-      "user-1",
-      "client.settings.updated",
-      "client",
-      "client-1",
-      { fields: ["location", "ownerChatId", "ownerPhone"] },
-    ]);
+    expect(mocks.query.mock.calls[0][1]).toEqual(["client-1", "North Bridge Road"]);
+    expect(mocks.query.mock.calls.every(([sql]) => !String(sql).includes("update channels"))).toBe(true);
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("http://localhost/client/settings");
   });

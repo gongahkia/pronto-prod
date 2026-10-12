@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { canViewBusinessConversation } from "@/lib/staff-permissions";
 import {
   getClient,
   getConversationActionableEscalation,
@@ -20,6 +21,7 @@ export default async function ClientConversationPage({
   if (!user.clientId) {
     throw new Error("Client user is missing a client assignment.");
   }
+  if (!await canViewBusinessConversation(user, user.clientId)) notFound();
   const { conversationId } = await params;
   const [client, conversation] = await Promise.all([
     getClient(user.clientId),

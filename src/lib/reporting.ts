@@ -4,10 +4,14 @@ import type { Channel, ConversationStatus, EscalationStatus } from "@/lib/types"
 
 export type ConversationFilterInput = {
   clientId?: string;
+  businessSearch?: string;
   query?: string;
   channelKind?: string;
   status?: string;
   reasonCode?: string;
+  escalationStatus?: string;
+  assignedUserId?: string;
+  deliveryFailure?: boolean;
   from?: string;
   to?: string;
   limit?: number;
@@ -30,6 +34,9 @@ export type FilteredConversation = {
   active_escalation_id: string | null;
   active_escalation_status: EscalationStatus | null;
   active_escalation_reason_code: string | null;
+  assigned_to_user_id: string | null;
+  assigned_to_name: string | null;
+  delivery_status: string | null;
 };
 
 export type ClientDashboardAnalytics = {
@@ -102,6 +109,9 @@ export async function getFilteredConversations(
         ae.id as active_escalation_id,
         ae.status as active_escalation_status,
         ae.reason_code as active_escalation_reason_code
+        ,ae.assigned_to_user_id,
+        assignee.name as assigned_to_name,
+        delivery.status as delivery_status
       from conversations c
       join clients cl on cl.id = c.client_id
       join channels ch on ch.id = c.channel_id
@@ -113,7 +123,7 @@ export async function getFilteredConversations(
         limit 1
       ) lm on true
       left join lateral (
-        select e.id, e.status, e.reason_code
+        select e.id, e.status, e.reason_code, e.assigned_to_user_id
         from escalations e
         left join lateral (
           select status
@@ -128,6 +138,11 @@ export async function getFilteredConversations(
         order by e.created_at desc
         limit 1
       ) ae on true
+      left join users assignee on assignee.id = ae.assigned_to_user_id
+      left join lateral (
+        select status from outbound_messages where conversation_id = c.id and client_id = c.client_id
+        order by created_at desc limit 1
+      ) delivery on true
       ${filters.where.length ? `where ${filters.where.join(" and ")}` : ""}
       order by ${input.sort === "attention" ? `case
         when ae.id is not null then 0
@@ -327,10 +342,15 @@ function buildConversationFilters(input: ConversationFilterInput): SqlFilter {
   if (input.clientId) {
     where.push(`c.client_id = $${pushParam(values, input.clientId)}`);
   }
+  if (input.businessSearch?.trim()) {
+    where.push(`cl.name ilike $${pushParam(values, `%${input.businessSearch.trim()}%`)}`);
+  }
   if (input.query?.trim()) {
     const value = `%${input.query.trim()}%`;
     const param = pushParam(values, value);
     where.push(`(
+      cl.name ilike $${param}
+      or
       c.customer_name ilike $${param}
       or c.customer_handle ilike $${param}
       or lm.body ilike $${param}
@@ -347,6 +367,13 @@ function buildConversationFilters(input: ConversationFilterInput): SqlFilter {
   if (input.reasonCode?.trim()) {
     where.push(`ae.reason_code = $${pushParam(values, input.reasonCode.trim())}`);
   }
+  if (input.escalationStatus && ["open", "claimed"].includes(input.escalationStatus)) {
+    where.push(`ae.status = $${pushParam(values, input.escalationStatus)}::escalation_status`);
+  }
+  if (input.assignedUserId?.trim()) {
+    where.push(`ae.assigned_to_user_id = $${pushParam(values, input.assignedUserId.trim())}::uuid`);
+  }
+  if (input.deliveryFailure) where.push("delivery.status in ('failed', 'dead', 'uncertain')");
   if (isDateInput(input.from)) {
     where.push(`c.last_message_at >= $${pushParam(values, input.from)}::timestamptz`);
   }

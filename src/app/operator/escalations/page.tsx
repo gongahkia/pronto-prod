@@ -28,7 +28,7 @@ export default async function OperatorAllEscalationsPage({
   }
 
   return (
-    <AppShell user={user} active="operator" operatorActive="handoffs">
+    <AppShell user={user} active="operator" operatorActive="inbox">
       <div className="mb-5">
         <h1 className="text-xl font-semibold">Handoffs</h1>
         <p className="text-sm text-muted">

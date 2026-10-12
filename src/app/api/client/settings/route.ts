@@ -3,60 +3,35 @@ import { NextResponse } from "next/server";
 import { recordAuditLog } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { saveStaffDestination } from "@/lib/staff-configuration";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
   if (csrf) return csrf;
-
-  const user = await requireUser("client");
-  if (!user.clientId) {
-    return NextResponse.json({ error: "Client user has no client." }, { status: 400 });
-  }
-
+  const actor = await requireUser("client");
+  if (!actor.clientId) return NextResponse.json({ error: "Client assignment required." }, { status: 403 });
   const form = await request.formData();
-  const ownerChatId = String(form.get("ownerChatId") ?? "");
-  const ownerPhone = String(form.get("ownerPhone") ?? "");
-  const location = String(form.get("location") ?? "");
-
-  await query(
-    `
-      update clients
-      set business_profile = jsonb_set(
-        jsonb_set(
-          jsonb_set(business_profile, '{ownerChatId}', to_jsonb($2::text), true),
-          '{ownerPhone}',
-          to_jsonb($4::text),
-          true
-        ),
-        '{location}',
-        to_jsonb($3::text),
-        true
-      ),
-      updated_at = now()
-      where id = $1
-    `,
-    [user.clientId, ownerChatId, location, ownerPhone],
-  );
-
-  await query(
-    `
-      update channels
-      set settings = settings || $2::jsonb,
-          updated_at = now()
-      where client_id = $1 and kind in ('telegram', 'whatsapp')
-    `,
-    [user.clientId, JSON.stringify({ ownerChatId, ownerPhone })],
-  );
-  await recordAuditLog({
-    clientId: user.clientId,
-    actorUserId: user.userId,
-    action: "client.settings.updated",
-    targetType: "client",
-    targetId: user.clientId,
-    metadata: {
-      fields: ["location", "ownerChatId", "ownerPhone"],
-    },
-  });
-
+  const action = String(form.get("action") ?? "location");
+  if (action === "staff_destination") {
+    const kind = String(form.get("kind") ?? "");
+    if (!(["email", "whatsapp", "telegram"] as string[]).includes(kind))
+      return NextResponse.json({ error: "Invalid staff channel." }, { status: 400 });
+    try {
+      await saveStaffDestination({ actor, clientId: actor.clientId,
+        kind: kind as "email" | "whatsapp" | "telegram",
+        destination: String(form.get("destination") ?? ""), audience: "business",
+        verified: false, enabled: false });
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Could not save destination." }, { status: 403 });
+    }
+  } else if (action === "location") {
+    const location = String(form.get("location") ?? "").trim();
+    await query(
+      "update clients set business_profile = jsonb_set(business_profile, '{location}', to_jsonb($2::text), true), updated_at = now() where id = $1",
+      [actor.clientId, location]);
+    await recordAuditLog({ clientId: actor.clientId, actorUserId: actor.userId,
+      action: "client.location_updated", targetType: "client", targetId: actor.clientId,
+      metadata: { fields: ["location"] } });
+  } else return NextResponse.json({ error: "Unsupported settings action." }, { status: 400 });
   return NextResponse.redirect(new URL("/client/settings", request.url), 303);
 }

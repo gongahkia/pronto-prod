@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { canViewBusinessConversation } from "@/lib/staff-permissions";
+import { notFound } from "next/navigation";
 import { getClient } from "@/lib/dashboard";
 import {
   getClientDashboardAnalytics,
@@ -24,6 +26,7 @@ export default async function ClientInboxPage({
   if (!user.clientId) {
     throw new Error("Client user is missing a client assignment.");
   }
+  if (!await canViewBusinessConversation(user, user.clientId)) notFound();
 
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const filters = filtersFromSearchParams(resolvedSearchParams, user.clientId);

@@ -18,9 +18,7 @@ import { getMockAiStatus } from "@/lib/llm/mock-status";
 
 type ClientSection = "overview" | "inbox" | "assistant" | "settings";
 type OperatorSection =
-  | "clients"
-  | "conversations"
-  | "handoffs";
+  | "overview" | "businesses" | "inbox" | "knowledge" | "operations";
 
 type ClientSidebarItem = {
   href: string;
@@ -44,16 +42,18 @@ const clientSidebarItems: ClientSidebarItem[] = [
 ];
 
 const operatorWorkspaceItems: OperatorSidebarItem[] = [
-  { href: "/operator", label: "Clients", section: "clients", icon: UserRound },
-  { href: "/operator/conversations", label: "Conversations", section: "conversations", icon: MessageSquareText },
-  { href: "/operator/escalations", label: "Handoffs", section: "handoffs", icon: CircleAlert },
+  { href: "/operator/overview", label: "Overview", section: "overview", icon: LayoutDashboard },
+  { href: "/operator", label: "Businesses", section: "businesses", icon: UserRound },
+  { href: "/operator/conversations", label: "Inbox", section: "inbox", icon: MessageSquareText },
+  { href: "/operator/knowledge-connections", label: "Knowledge & Connections", section: "knowledge", icon: Bot },
+  { href: "/operator/operations", label: "Operations", section: "operations", icon: CircleAlert },
 ];
 
 export function AppShell({
   user,
   children,
   clientActive = "overview",
-  operatorActive = "clients",
+  operatorActive = "businesses",
   workspaceName,
 }: {
   user: SessionUser;

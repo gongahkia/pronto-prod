@@ -1,6 +1,7 @@
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
+import { hasStaffCapability } from "@/lib/staff-permissions";
 import { recordAuditLog } from "@/lib/audit";
 import {
   enqueueOutboundMessage,
@@ -46,6 +47,11 @@ export async function POST(request: Request) {
   );
   if (user.role === "client" && !user.clientId) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+  if (user.role === "client" && user.clientId &&
+      !await hasStaffCapability(user, user.clientId,
+        action === "release" ? "conversation.release" : "conversation.respond")) {
+    return NextResponse.json({ error: "This staff action has not been authorized." }, { status: 403 });
   }
 
   if (action === "bulk_claim" || action === "bulk_resolve" || action === "bulk_assign") {

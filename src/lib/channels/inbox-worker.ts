@@ -4,7 +4,7 @@ import { decryptChannelCredentials, usesLegacyPlaintextCredentials } from "@/lib
 import { getEscalationHoldingReply } from "@/lib/channels/escalation-handoff";
 import { claimInboundJob, failInboundJob, finishInboundJob, type InboundJob } from "@/lib/channels/inbox";
 import { enqueueOutboundMessage } from "@/lib/channels/outbox";
-import { notifyOwnerOfEscalation } from "@/lib/escalations";
+import { enqueueStaffNotification } from "@/lib/staff-notifications";
 import { logWarn } from "@/lib/logger";
 import type { Channel, Conversation, Escalation, Message } from "@/lib/types";
 import type { ReservationConnector } from "@/lib/reservations/types";
@@ -158,12 +158,6 @@ async function queueHandoff(
       idempotencyKey: `escalation-holding:${escalation.id}`,
       metadata: { purpose: "escalation_holding_reply", customerMessageId: job.message_id },
     });
+    await enqueueStaffNotification(db, job.client_id, escalation.id);
   }, { isolationLevel: "serializable", retries: 2 });
-  if (escalation.owner_notification_status === "pending") {
-    try {
-      await notifyOwnerOfEscalation(escalation.id, job.client_id);
-    } catch (error) {
-      logWarn("owner_notification_failed", { escalationId: escalation.id, clientId: job.client_id, error });
-    }
-  }
 }

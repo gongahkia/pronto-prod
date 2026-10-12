@@ -4,6 +4,7 @@ import { sendChannelText } from "@/lib/channels/dispatch";
 import { sendEmail } from "@/lib/channels/email";
 import { decryptChannelCredentials } from "@/lib/channels/credentials";
 import type { Channel, DeliveryStatus } from "@/lib/types";
+import { AmbiguousProviderAcceptanceError, ProviderSendError } from "@/lib/channels/provider-error";
 
 type EscalationNotification = {
   id: string;
@@ -22,6 +23,7 @@ export type OwnerNotificationResult = {
   channelId?: string;
   channelKind?: Channel["kind"];
   destination?: string;
+  ambiguous?: boolean;
 };
 
 export async function notifyOwnerOfEscalation(
@@ -66,10 +68,23 @@ export async function notifyOwnerOfEscalation(
     `,
     [escalation.client_id],
   );
-  const channelSelection = selectOwnerNotificationChannel(
-    channelResult.rows.map((channel) => decryptChannelCredentials(channel)),
-    escalation.business_profile,
-  );
+  const channels = channelResult.rows.map((channel) => decryptChannelCredentials(channel));
+  const policy = await query<{ initial_destination_id: string | null }>(
+    `select policy->>'initialDestinationId' as initial_destination_id
+     from escalation_policy_versions where client_id = $1 order by version desc limit 1`,
+    [escalation.client_id]);
+  const destinationResult = await query<{ id: string; kind: string; destination: string; audience: string }>(
+    `select id, kind, destination, audience from staff_notification_destinations
+     where client_id = $1 and enabled = true and verified_at is not null
+     order by case when id::text = $2 then 0 else 1 end, updated_at desc`,
+    [escalation.client_id, policy.rows[0]?.initial_destination_id ?? ""]);
+  const verified = destinationResult.rows.map((row) => ({
+    channel: channels.find((channel) => channel.kind === row.kind),
+    destination: row.destination, audience: row.audience,
+  })).find((row) => row.channel);
+  const channelSelection = verified?.channel
+    ? { channel: verified.channel, destination: verified.destination, audience: verified.audience }
+    : selectOwnerNotificationChannel(channels, escalation.business_profile);
   if (!channelSelection) {
     return recordOwnerNotificationResult(escalation.id, escalation.client_id, {
       status: "skipped",
@@ -80,12 +95,13 @@ export async function notifyOwnerOfEscalation(
   }
   const { channel, destination } = channelSelection;
 
-  const takeoverUrl = `${appBaseUrl()}/operator/clients/${escalation.client_id}/conversations/${escalation.conversation_id}`;
+  const takeoverPath = "audience" in channelSelection && channelSelection.audience === "operator"
+    ? `/operator/clients/${escalation.client_id}/conversations/${escalation.conversation_id}`
+    : `/client/conversations/${escalation.conversation_id}`;
+  const takeoverUrl = `${appBaseUrl()}${takeoverPath}`;
   const text = [
     "Pronto escalation",
-    `Customer: ${escalation.customer_handle ?? "unknown"}`,
-    `Question: ${escalation.customer_message}`,
-    `Reason: ${escalation.reason_code} - ${escalation.reason_detail}`,
+    "A customer conversation needs an authorized human response.",
     `Take over: ${takeoverUrl}`,
   ].join("\n");
 
@@ -105,6 +121,8 @@ export async function notifyOwnerOfEscalation(
       channelId: channel.id,
       channelKind: channel.kind,
       destination,
+      ambiguous: error instanceof AmbiguousProviderAcceptanceError ||
+        (error instanceof ProviderSendError && error.ambiguous),
     });
   }
 
@@ -120,11 +138,12 @@ export async function notifyOwnerOfEscalation(
 function selectOwnerNotificationChannel(
   channels: Channel[],
   businessProfile: Record<string, unknown>,
-): { channel: Channel; destination: string } | null {
+): { channel: Channel; destination: string; audience: "business" | "operator" } | null {
   const configured = channels
-    .map((channel) => ({ channel, destination: ownerDestination(channel) }))
+    .map((channel) => ({ channel, destination: ownerDestination(channel),
+      audience: channel.settings.ownerNotificationAudience === "operator" ? "operator" as const : "business" as const }))
     .filter(
-      (candidate): candidate is { channel: Channel; destination: string } =>
+      (candidate): candidate is { channel: Channel; destination: string; audience: "business" | "operator" } =>
         Boolean(candidate.destination),
     );
   if (!configured.length) {

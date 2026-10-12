@@ -36,17 +36,7 @@ describe("readiness route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(body.status).toBe("ready");
-    expect(body.checks).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: "AUTH_SECRET", status: "pass" }),
-        expect.objectContaining({ name: "PRONTO_SECRETS_KEY", status: "pass" }),
-        expect.objectContaining({ name: "APP_BASE_URL", status: "pass" }),
-        expect.objectContaining({ name: "PRONTO_USE_MOCK_AI", status: "pass" }),
-        expect.objectContaining({ name: "Tenant SQL gate", status: "pass" }),
-        expect.objectContaining({ name: "Database", status: "pass" }),
-        expect.objectContaining({ name: "Worker", status: "pass" }),
-      ]),
-    );
+    expect(body).toEqual({ status: "ready" });
     expect(mocks.poolQuery).toHaveBeenCalledWith("select 1");
   });
 
@@ -61,14 +51,7 @@ describe("readiness route", () => {
 
     expect(response.status).toBe(503);
     expect(body.status).toBe("not_ready");
-    expect(body.checks).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: "AUTH_SECRET", status: "fail" }),
-        expect.objectContaining({ name: "PRONTO_SECRETS_KEY", status: "fail" }),
-        expect.objectContaining({ name: "APP_BASE_URL", status: "fail" }),
-        expect.objectContaining({ name: "PRONTO_USE_MOCK_AI", status: "fail" }),
-      ]),
-    );
+    expect(body).toEqual({ status: "not_ready" });
   });
 
   it("fails production readiness when tenant SQL gate is disabled", async () => {
@@ -78,9 +61,7 @@ describe("readiness route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body.checks).toContainEqual(
-      expect.objectContaining({ name: "Tenant SQL gate", status: "fail" }),
-    );
+    expect(body).toEqual({ status: "not_ready" });
   });
 
   it("fails readiness when the database is unreachable", async () => {
@@ -90,13 +71,7 @@ describe("readiness route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body.checks).toContainEqual(
-      expect.objectContaining({
-        name: "Database",
-        status: "fail",
-        detail: "Database is unavailable.",
-      }),
-    );
+    expect(body).toEqual({ status: "not_ready" });
   });
 
   it("fails readiness when the worker has stopped heartbeating", async () => {
@@ -104,8 +79,6 @@ describe("readiness route", () => {
       ? [{ updated_at: new Date(Date.now() - 120_000) }] : [{ "?column?": 1 }] }));
     const response = await GET();
     expect(response.status).toBe(503);
-    expect((await response.json()).checks).toContainEqual(
-      expect.objectContaining({ name: "Worker", status: "fail" }),
-    );
+    expect(await response.json()).toEqual({ status: "not_ready" });
   });
 });

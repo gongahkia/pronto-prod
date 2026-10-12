@@ -53,6 +53,7 @@ export type Channel = {
   last_health_error: string | null;
   last_outbound_at: Date | null;
   last_outbound_error: string | null;
+  updated_at?: Date;
 };
 
 export type AgentConfig = {

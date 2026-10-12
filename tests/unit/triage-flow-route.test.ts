@@ -56,7 +56,7 @@ describe("triage flow routes", () => {
     expect(mocks.saveTriageFlowForClient).not.toHaveBeenCalled();
   });
 
-  it("lets an operator save a scoped client flow", async () => {
+  it("lets an operator stage a scoped client flow for review", async () => {
     mocks.requireUser.mockResolvedValueOnce({
       userId: "operator-1",
       clientId: null,
@@ -68,13 +68,13 @@ describe("triage flow routes", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.saveTriageFlowForClient).toHaveBeenCalledWith({
+    expect(mocks.stageFlow).toHaveBeenCalledWith({
       clientId: "client-1",
       actorUserId: "operator-1",
       nodes: [],
       edges: [],
-      source: "operator",
     });
+    expect(mocks.saveTriageFlowForClient).not.toHaveBeenCalled();
   });
 
   it("rejects operator saves without a client ID", async () => {

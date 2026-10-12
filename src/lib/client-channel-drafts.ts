@@ -6,6 +6,7 @@ import {
 } from "@/lib/channels/credentials";
 import { runChannelHealthCheck, type ChannelHealthResult } from "@/lib/channels/health";
 import { query, transaction } from "@/lib/db";
+import { assertChannelActivationEvidence, assertConfigurationApproved, assertOnboardingReadyForChannelActivation } from "@/lib/managed-approvals";
 import type { Channel, ChannelKind, ChannelStatus } from "@/lib/types";
 
 export type ChannelDraft = {
@@ -165,6 +166,8 @@ export async function publishChannelDraft(input: {
   actorUserId: string;
 }): Promise<void> {
   await transaction(async (db) => {
+    const actor = await db.query<{ role: string }>("select role from users where id = $1", [input.actorUserId]);
+    if (actor.rows[0]?.role !== "operator") throw new Error("Only a Pronto operator may publish channel settings.");
     const draftResult = await db.query<ChannelDraft>(
       "select * from channel_drafts where channel_id = $1 and client_id = $2 for update",
       [input.channelId, input.clientId],
@@ -182,6 +185,18 @@ export async function publishChannelDraft(input: {
     }
     if (draft.status === "active" && (draft.health_status !== "healthy" || !draft.checked_at)) {
       throw new Error("Run a successful live health check before activating the channel.");
+    }
+    if (draft.status === "active") {
+      const revision = new Date(draft.updated_at).toISOString();
+      const candidate = decryptChannelCredentials({ ...live, settings: draft.settings,
+        credentials: {}, encrypted_credentials: draft.encrypted_credentials,
+        credentials_encryption_nonce: draft.credentials_encryption_nonce,
+        credentials_encryption_tag: draft.credentials_encryption_tag });
+      const localOnly = live.kind === "email" && (candidate.credentials as Record<string, unknown>).provider === "local_smtp" &&
+        process.env.PRONTO_LOCAL_EMAIL_ENABLED === "1" && process.env.NODE_ENV !== "production";
+      await assertConfigurationApproved(db, input.clientId, "channel", input.channelId, revision);
+      await assertChannelActivationEvidence(db, input.clientId, input.channelId, revision, localOnly);
+      await assertOnboardingReadyForChannelActivation(db, input.clientId);
     }
     if (draft.status === "active" && live.kind === "instagram" &&
         draft.settings.authMode === "instagram_login" && process.env.PRONTO_INSTAGRAM_LOGIN_ENABLED !== "1")

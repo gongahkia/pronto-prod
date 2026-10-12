@@ -141,7 +141,7 @@ export async function setupPsCafeDemo(): Promise<void> {
       provider: "local_smtp", fromAddress: PS_CAFE_DEMO_SUPPORT_ADDRESS,
     });
     await db.query(`update channels set status = $6, credentials = '{}'::jsonb,
-      settings = '{"ownerEmail":"operator@ps-cafe-demo.test"}'::jsonb,
+      settings = '{"ownerEmail":"operator@ps-cafe-demo.test","ownerNotificationAudience":"operator"}'::jsonb,
       encrypted_credentials = $3, credentials_encryption_nonce = $4,
       credentials_encryption_tag = $5 where id = $1 and client_id = $2`,
       [PS_CAFE_DEMO_EMAIL_ID, PS_CAFE_DEMO_CLIENT_ID,

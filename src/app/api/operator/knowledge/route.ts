@@ -1,7 +1,7 @@
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { ingestKnowledgeSource } from "@/lib/knowledge/ingest";
+import { stageKnowledge } from "@/lib/assistant-drafts";
 import { parseKnowledgeUpload } from "@/lib/knowledge/parse-upload";
 import { canAccessClient } from "@/lib/rbac";
 
@@ -49,14 +49,13 @@ export async function POST(request: Request) {
     );
   }
 
-  await ingestKnowledgeSource({
+  await stageKnowledge({
     clientId,
+    action: "upsert",
     title: resolvedTitle,
     sourceType: parsedUpload?.sourceType ?? "manual",
     content,
-    metadata:
-      parsedUpload?.metadata ??
-      { entryMode: "manual" },
+    metadata: parsedUpload?.metadata ?? { entryMode: "operator_manual" },
     actorUserId: user.userId,
   });
 

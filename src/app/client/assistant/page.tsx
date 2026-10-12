@@ -76,11 +76,9 @@ export default async function ClientAssistantPage({
                 Test a customer question below. The test uses your draft; real customer replies still use the live version.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
-                <form action="/api/client/assistant/publish" method="post">
-                  <button className="ui-primary-button px-4 py-2" disabled={!draft.tested_at}>
-                    {draft.tested_at ? "Publish tested changes" : "Test a question to unlock publishing"}
-                  </button>
-                </form>
+                <Link href="/client/approvals" className="ui-primary-button px-4 py-2">
+                  Review approval status
+                </Link>
                 <DiscardDraftButton />
               </div>
             </section>
