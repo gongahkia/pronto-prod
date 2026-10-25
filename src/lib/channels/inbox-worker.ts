@@ -9,6 +9,10 @@ import { enqueueKnowledgeReviewItem } from "@/lib/knowledge/review-items";
 import { logWarn } from "@/lib/logger";
 import type { Channel, Conversation, Escalation, Message } from "@/lib/types";
 import type { ReservationConnector } from "@/lib/reservations/types";
+import { assertCustomerDemoEnabled, isCustomerDemoChannel } from "@/lib/customer-demo-boundary";
+import { requireRealDemoConfiguration } from "@/lib/customer-demo-ai";
+import { withAiExecutionMode, type AiExecutionMode } from "@/lib/llm/execution-mode";
+import { recordConversationOutcome } from "@/lib/conversation-actions";
 
 export async function processInboundJob(input: { jobId?: string; requestId?: string;
   reservationConnector?: ReservationConnector } = {}): Promise<
@@ -18,6 +22,7 @@ export async function processInboundJob(input: { jobId?: string; requestId?: str
   if (!job) return null;
   try {
     const outcome = await execute(job, input.requestId, input.reservationConnector);
+    await recordConversationOutcome(job.client_id, job.conversation_id, outcome);
     await finishInboundJob(job, outcome === "skipped" ? "skipped" : "completed");
     return { jobId: job.id, outcome };
   } catch (error) {
@@ -83,7 +88,17 @@ async function execute(job: InboundJob, requestId?: string,
 
   const unsupported = typeof message.metadata.unsupportedMediaType === "string"
     ? message.metadata.unsupportedMediaType : null;
-  const result = unsupported
+  let demoMode: AiExecutionMode | undefined;
+  if (channel.kind === "console") {
+    await assertCustomerDemoEnabled();
+    if (!isCustomerDemoChannel(channel)) throw new Error("Unknown customer simulator channel.");
+    const session = await query<{ ai_mode: AiExecutionMode }>(`select ai_mode from customer_demo_sessions
+      where conversation_id=$1 and client_id=$2`, [conversation.id, job.client_id]);
+    if (!session.rows[0]) throw new Error("Customer simulator session is missing.");
+    demoMode = session.rows[0].ai_mode;
+    if (demoMode === "real") await requireRealDemoConfiguration();
+  }
+  const run = () => unsupported
     ? await createEscalation({
         clientId: job.client_id, channelId: job.channel_id, conversationId: job.conversation_id,
         customerMessageId: message.id, customerMessage: message.body,
@@ -96,6 +111,7 @@ async function execute(job: InboundJob, requestId?: string,
         customerMessage: message.body, requestId, reservationConnector,
       });
 
+  const result = await (demoMode ? withAiExecutionMode(demoMode, run) : run());
   if (result.action === "answered") {
     const recorded = await query<Message>(
       `select * from messages where client_id = $1 and conversation_id = $2 and sender_role = 'agent'

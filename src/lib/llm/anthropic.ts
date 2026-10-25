@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { shouldUseMockAi } from "@/lib/env";
 import { logInfo, logWarn } from "@/lib/logger";
 import { resolveProviderApiKey } from "@/lib/llm/credentials";
 import { LlmConfigurationError } from "@/lib/llm/errors";
@@ -32,7 +33,7 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
   async generateGroundedAnswer(
     input: GenerateAnswerInput,
   ): Promise<GroundedAnswerDecision> {
-    if (process.env.PRONTO_USE_MOCK_AI === "1") {
+    if (shouldUseMockAi()) {
       logInfo("llm.generation.mocked", {
         requestId: input.requestId,
         clientId: input.clientId,

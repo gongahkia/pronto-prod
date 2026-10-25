@@ -52,15 +52,22 @@ export function approvedChopeBookingLink(profile: Record<string, unknown>): Chop
 export function parseRestaurantBookingRequest(message: string, now = new Date()):
   { date: string; time: string; partySize: number } | null {
   if (!/\b(book|reserve|reservation|table)\b/i.test(message)) return null;
-  const size = /\b(?:for|party of)\s+(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\b/i.exec(message);
-  const time = /\b(?:at|for)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i.exec(message);
+  const size = /\b(?:for|party of)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\b(?![.,]\d)/i.exec(message);
+  // "Around" preserves the requested time; it does not authorize inventing
+  // nearby slots. An unqualified hour ("at 7") remains ambiguous.
+  const time = /\b(?:at|around|for)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i.exec(message) ??
+    /\b(?:at|around|for)\s+([01]\d|2[0-3]):([0-5]\d)\b/i.exec(message);
   if (!size || !time) return null;
   const numberWords: Record<string, number> = { one: 1, two: 2, three: 3, four: 4,
-    five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+    five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+    thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
+    eighteen: 18, nineteen: 19, twenty: 20 };
   const partySize = numberWords[size[1].toLowerCase()] ?? Number(size[1]);
-  const hour = Number(time[1]) % 12 + (time[3].toLowerCase() === "pm" ? 12 : 0);
+  const meridiem = time[3]?.toLowerCase();
+  const hour = meridiem ? Number(time[1]) % 12 + (meridiem === "pm" ? 12 : 0) : Number(time[1]);
   const minute = Number(time[2] ?? 0);
-  if (partySize < 1 || partySize > 20 || Number(time[1]) < 1 || Number(time[1]) > 12 || minute > 59) return null;
+  if (partySize < 1 || partySize > 20 ||
+      (meridiem && (Number(time[1]) < 1 || Number(time[1]) > 12)) || minute > 59) return null;
   const singaporeDate = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Singapore", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(now);
@@ -119,6 +126,9 @@ export async function assistWithRestaurantBooking(input: {
     if (!fresh || availability.outletId !== link.outletId || availability.date !== request.date ||
         availability.partySize !== request.partySize || availability.timezone !== "Asia/Singapore" ||
         availability.provider !== connector.provider) return fallback;
+    if (!availability.availableSlots.every((slot) => /^([01]\d|2[0-3]):[0-5]\d$/.test(slot) &&
+        new Date(`${request.date}T${slot}:00+08:00`) > (input.now ?? new Date())) ||
+        (availability.status === "unavailable" && availability.availableSlots.length > 0)) return fallback;
     if (availability.status === "unavailable") {
       return { action: "link", reasonCode: "reservation_unavailable",
         response: `I could not find availability for ${request.partySize} on ${request.date} at ${request.time} Singapore time. You can check other times and confirm directly with ${link.url}. I cannot confirm a reservation here.` };

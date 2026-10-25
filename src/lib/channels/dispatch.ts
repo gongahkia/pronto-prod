@@ -13,6 +13,7 @@ import { sendMessengerText } from "@/lib/channels/messenger";
 import { sendInstagramText } from "@/lib/channels/instagram";
 import { lookupReplyThreadingHints, sendEmail } from "@/lib/channels/email";
 import type { Channel } from "@/lib/types";
+import { assertCustomerDemoEnabled, isCustomerDemoChannel } from "@/lib/customer-demo-boundary";
 
 export async function sendChannelText(input: {
   channelId: string;
@@ -41,6 +42,18 @@ export async function sendChannelText(input: {
     throw new Error("Meta channel credentials must be encrypted before activation.");
   }
 
+  if (channel.kind === "console") {
+    await assertCustomerDemoEnabled();
+    if (!isCustomerDemoChannel(channel)) throw new ChannelPolicyError("Unknown simulator channel.");
+    const session = await query<{ id: string }>(`select s.id from customer_demo_sessions s
+      join conversations c on c.id=s.conversation_id and c.client_id=s.client_id
+      where s.client_id=$1 and c.channel_id=$2 and c.external_thread_id=$3`,
+      [channel.client_id, channel.id, input.externalThreadId]);
+    if (!session.rows[0]) throw new ChannelPolicyError("Simulator session not found.");
+    // Delivery is the existing durable outbox becoming visible to authenticated
+    // polling. No provider function, network request or Instagram account is used.
+    return {};
+  }
   assertChannelSendAllowed(channel, input.policy);
 
   try {

@@ -1,6 +1,8 @@
 import { AnthropicProvider } from "@/lib/llm/anthropic";
 import { AzureOpenAiProvider } from "@/lib/llm/azure";
 import { LlmConfigurationError } from "@/lib/llm/errors";
+import { shouldUseMockAi } from "@/lib/env";
+import { aiExecutionMode } from "@/lib/llm/execution-mode";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import { OpenAiProvider } from "@/lib/llm/openai";
 import type {
@@ -56,7 +58,9 @@ export function normalizeProviderName(value: string | null | undefined): LlmProv
 
 export function getGenerationProvider(provider: string | null | undefined): LlmProvider {
   const normalized = normalizeProviderName(provider);
-  if (process.env.PRONTO_USE_MOCK_AI === "1" || normalized === "mock") {
+  if (aiExecutionMode() === "real" && normalized === "mock")
+    throw new LlmConfigurationError("mock", "Real demo mode requires a real generation provider.");
+  if (shouldUseMockAi() || normalized === "mock") {
     return mockProvider;
   }
   if (normalized === "azure") {
@@ -74,7 +78,9 @@ export function getGenerationProvider(provider: string | null | undefined): LlmP
 
 export function getEmbeddingProvider(provider: string | null | undefined): LlmProvider {
   const normalized = normalizeProviderName(provider);
-  if (process.env.PRONTO_USE_MOCK_AI === "1" || normalized === "mock") {
+  if (aiExecutionMode() === "real" && normalized === "mock")
+    throw new LlmConfigurationError("mock", "Real demo mode requires real embeddings.");
+  if (shouldUseMockAi() || normalized === "mock") {
     return mockProvider;
   }
   if (normalized === "azure") {

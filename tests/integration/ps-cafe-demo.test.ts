@@ -172,18 +172,21 @@ dbDescribe("PS.Cafe Raffles City isolated end-to-end demo", () => {
   });
 
   it("C2: browser connector contract reaches the WhatsApp worker through an injected read", async () => {
+    const singaporeToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Singapore",
+      year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const tomorrow = new Date(Date.parse(`${singaporeToday}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
     const reader = vi.fn(async () => ({ outletId: PS_CAFE_CHOPE_OUTLET_ID,
-      date: "2099-10-12", partySize: 2, availableSlots: ["19:00"],
+      date: tomorrow, partySize: 2, availableSlots: ["19:00"],
       timezone: "Asia/Singapore" as const, provider: "chope",
       observedAt: new Date().toISOString(), status: "available" as const }));
     const connector = createChopeBrowserConnector({ clientId: PS_CAFE_DEMO_CLIENT_ID,
       outletId: PS_CAFE_CHOPE_OUTLET_ID, listingUrl: PS_CAFE_CHOPE_URL,
       authorizedAt: "2026-10-11T00:00:00Z", scope: "demo_availability" }, reader);
-    const inbound = await send("whatsapp", "Do you have a table for two on 2099-10-12 at 7pm?");
+    const inbound = await send("whatsapp", "Hi, can I reserve a table for two tomorrow around 7pm?");
     expect(await processInboundJob({ jobId: inbound.jobId, reservationConnector: connector }))
       .toMatchObject({ outcome: "answered" });
     expect(reader).toHaveBeenCalledWith(expect.objectContaining({ clientId: PS_CAFE_DEMO_CLIENT_ID,
-      outletId: PS_CAFE_CHOPE_OUTLET_ID, partySize: 2, time: "19:00" }), expect.anything());
+      outletId: PS_CAFE_CHOPE_OUTLET_ID, date: tomorrow, partySize: 2, time: "19:00" }), expect.anything());
     expect((await answer()).body).toContain("A table appears available");
     expect((await answer()).body).toContain("This is not a booking");
   });

@@ -1,4 +1,4 @@
-import { query, transaction } from "@/lib/db";
+import { query, transaction, type Queryable } from "@/lib/db";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel, Conversation, Message } from "@/lib/types";
 
@@ -22,11 +22,12 @@ export type IngestedInbound = {
 
 const MAX_ATTEMPTS = 5;
 
-export async function ingestInboundMessage(inbound: NormalizedInboundMessage): Promise<IngestedInbound> {
+export async function ingestInboundMessage(inbound: NormalizedInboundMessage,
+  existingTransaction?: Queryable): Promise<IngestedInbound> {
   if (!inbound.externalMessageId || !inbound.externalThreadId) {
     throw new Error("Inbound provider identity is missing.");
   }
-  return transaction(async (db) => {
+  const ingest = async (db: Queryable) => {
     const channelResult = await db.query<Channel>(
       "select * from channels where id = $1 and kind = $2 for share",
       [inbound.channelId, inbound.channelKind],
@@ -72,7 +73,9 @@ export async function ingestInboundMessage(inbound: NormalizedInboundMessage): P
       duplicate: !inserted.rows[0], jobId: job.rows[0].id,
       conversationId: conversation.rows[0].id, messageId: message.id,
     };
-  }, { isolationLevel: "serializable", retries: 2 });
+  };
+  return existingTransaction ? ingest(existingTransaction) :
+    transaction(ingest, { isolationLevel: "serializable", retries: 2 });
 }
 
 export async function ingestInboundMessages(messages: NormalizedInboundMessage[]): Promise<{

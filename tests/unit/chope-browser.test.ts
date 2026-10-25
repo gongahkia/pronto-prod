@@ -56,6 +56,14 @@ describe("Chope browser availability boundary", () => {
     expect(parseChopeTimeOptions([{ value: "unexpected", text: "unexpected",
       disabled: false }])).toEqual({ status: "error", slots: [] });
     expect(parseChopeTimeOptions([])).toEqual({ status: "error", slots: [] });
+    expect(parseChopeTimeOptions([
+      { value: "Not Available", text: "Not Available", disabled: false },
+      { value: "7:00pm", text: "7:00pm", disabled: false },
+    ])).toEqual({ status: "error", slots: [] });
+    expect(parseChopeTimeOptions([
+      { value: "7:00pm", text: "7:00pm", disabled: true },
+      { value: "", text: "Select time", disabled: false },
+    ])).toEqual({ status: "error", slots: [] });
   });
 
   it("checks tenant, outlet and parameters before the injected read; keeps writes unsupported", async () => {
@@ -75,5 +83,12 @@ describe("Chope browser availability boundary", () => {
     expect(await connector.createReservation({ ...request, customerName: "Test",
       customerContact: "test@example.invalid", customerConfirmed: true,
       idempotencyKey: "test" })).toMatchObject({ status: "unsupported" });
+    const confirmed = { ...request, customerName: "Test", customerContact: "test@example.invalid",
+      customerConfirmed: true as const, idempotencyKey: "test", reservationId: "none" };
+    expect(await connector.getReservation(config.clientId, config.outletId, "none"))
+      .toMatchObject({ status: "unsupported" });
+    expect(await connector.updateReservation(confirmed)).toMatchObject({ status: "unsupported" });
+    expect(await connector.cancelReservation(confirmed)).toMatchObject({ status: "unsupported" });
+    expect(reader).toHaveBeenCalledTimes(1);
   });
 });

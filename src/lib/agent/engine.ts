@@ -32,6 +32,7 @@ import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
 import { appBaseUrl } from "@/lib/env";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
 import { selectModel } from "@/lib/llm/catalog";
+import { aiExecutionMode } from "@/lib/llm/execution-mode";
 import {
   buildGroundedAnswerInstructions,
   buildGroundedAnswerUserInput,
@@ -266,9 +267,9 @@ export async function runAgentForMessage(input: {
   }
 
   const responseProvider =
-    process.env.PRONTO_LLM_PROVIDER ?? config.response_provider ?? "openai";
+    aiExecutionMode() === "mock" ? "mock" : process.env.PRONTO_LLM_PROVIDER ?? config.response_provider ?? "openai";
   const embeddingProvider =
-    process.env.PRONTO_EMBEDDING_PROVIDER ?? config.embedding_provider;
+    aiExecutionMode() === "mock" ? "mock" : process.env.PRONTO_EMBEDDING_PROVIDER ?? config.embedding_provider;
   const embeddingModel =
     process.env.PRONTO_EMBEDDING_MODEL ?? config.embedding_model;
   const responseModel = selectModel({
@@ -360,6 +361,7 @@ export async function runAgentForMessage(input: {
     conversationId: input.conversationId,
     queryText: normalizedKnowledgeQuery.searchQuery,
     embeddingModel,
+    ...(aiExecutionMode() === "real" ? { embeddingProvider } : {}),
   });
   const integrationResults = await runIntegrationsForMessage({
     clientId: input.clientId,
@@ -657,6 +659,9 @@ export async function runAgentForMessage(input: {
         confidence: decision.confidence,
         reasonCode: decision.reasonCode,
         citedChunkIds: decision.citedChunkIds,
+        generationMode: aiExecutionMode() ?? (process.env.PRONTO_USE_MOCK_AI === "1" ? "mock" : "real"),
+        responseProvider: responseModel.provider,
+        responseModel: responseModel.model,
         postGenerationSelfCheck: {
           reasonCode: selfCheck.reasonCode,
           reasonDetail: selfCheck.reasonDetail,

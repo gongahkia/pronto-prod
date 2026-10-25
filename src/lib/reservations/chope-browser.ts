@@ -94,6 +94,8 @@ export function parseChopeTimeOptions(options: { value: string; text: string; di
     const hour = rawHour % 12 + (match[3].toLowerCase() === "pm" ? 12 : 0);
     slots.add(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
   }
+  // A contradictory provider fragment is unknown, never evidence of a slot.
+  if (slots.size && unavailable) return { status: "error", slots: [] };
   if (slots.size) return { status: "available", slots: [...slots].sort() };
   return unavailable ? { status: "unavailable", slots: [] } : { status: "error", slots: [] };
 }
@@ -126,18 +128,22 @@ export async function readChopeBrowserAvailability(request: ReservationRequest,
     await context.route("**/*", async (route) => {
       const call = route.request();
       const url = new URL(call.url());
+      let pathname: string;
+      try { pathname = decodeURIComponent(url.pathname); }
+      catch { await route.abort(); return; }
       const hostAllowed = url.hostname === "chope.co" || url.hostname.endsWith(".chope.co");
-      if (hostAllowed && url.protocol === "https:" && !url.port &&
-          url.hostname !== "book.chope.co" && call.method() === "GET" &&
-          !/\/booking\/|\/payment|\/checkout/i.test(url.pathname)) {
+      if (hostAllowed && url.protocol === "https:" && !url.port && !url.username && !url.password &&
+          !/^(?:book|booking)(?:v\d+)?\./i.test(url.hostname) && call.method() === "GET" &&
+          !/\/booking|\/payment|\/checkout/i.test(pathname)) {
         await route.continue();
         return;
       }
-      if (url.protocol === "https:" && !url.port && url.hostname === "www.chope.co" &&
-          url.pathname === GET_TIMES_PATH &&
+      if (url.protocol === "https:" && !url.port && !url.username && !url.password &&
+          !url.search && url.hostname === "www.chope.co" && url.pathname === GET_TIMES_PATH &&
           call.method() === "POST" && !allowedRead) {
         const fields = new URLSearchParams(call.postData() ?? "");
-        if (fields.get("rid") === request.outletId && fields.get("date") === providerDate &&
+        if (["rid", "date", "adults", "children"].every((key) => fields.getAll(key).length === 1) &&
+            fields.get("rid") === request.outletId && fields.get("date") === providerDate &&
             fields.get("adults") === String(request.partySize) && fields.get("children") === "0") {
           allowedRead = true;
           await route.continue();

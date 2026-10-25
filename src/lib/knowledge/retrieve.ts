@@ -11,6 +11,7 @@ export async function retrieveKnowledge(
     conversationId?: string;
     queryText?: string | null;
     embeddingModel?: string | null;
+    embeddingProvider?: string;
     excludeSourceIds?: string[];
   } = {},
 ): Promise<KnowledgeChunk[]> {
@@ -19,6 +20,9 @@ export async function retrieveKnowledge(
   const embeddingDimensions = embedding.length;
   const vectorDistance = vectorDistanceExpression(embeddingDimensions);
   const excluded = options.excludeSourceIds ?? [];
+  const providerIndex = (searchQuery ? 8 : 6) + (excluded.length ? 1 : 0);
+  const providerFilter = (alias = "") => options.embeddingProvider
+    ? `and ${alias}metadata->>'embeddingProvider' = $${providerIndex}` : "";
   const result = searchQuery
     ? await query<KnowledgeChunk & {
         distance: string;
@@ -46,6 +50,7 @@ export async function retrieveKnowledge(
             where client_id = $1
               and embedding_dimensions = $6
               and ($7::text is null or embedding_model = $7)
+              ${providerFilter()}
               ${excluded.length ? "and source_id <> all($8::uuid[])" : ""}
             order by ${vectorDistance}
             limit $4
@@ -66,6 +71,7 @@ export async function retrieveKnowledge(
             where kc.client_id = $1
               and kc.embedding_dimensions = $6
               and ($7::text is null or kc.embedding_model = $7)
+              ${providerFilter("kc.")}
               ${excluded.length ? "and kc.source_id <> all($8::uuid[])" : ""}
               and to_tsvector('simple', kc.content) @@ fts_query.query
             order by ts_rank_cd(to_tsvector('simple', kc.content), fts_query.query) desc
@@ -108,6 +114,7 @@ export async function retrieveKnowledge(
           embeddingDimensions,
           options.embeddingModel ?? null,
           ...(excluded.length ? [excluded] : []),
+          ...(options.embeddingProvider ? [options.embeddingProvider] : []),
         ],
       )
     : await query<KnowledgeChunk & { distance: string }>(
@@ -128,6 +135,7 @@ export async function retrieveKnowledge(
             where client_id = $1
               and embedding_dimensions = $4
               and ($5::text is null or embedding_model = $5)
+              ${providerFilter()}
               ${excluded.length ? "and source_id <> all($6::uuid[])" : ""}
           )
           select * from scored
@@ -141,6 +149,7 @@ export async function retrieveKnowledge(
           embeddingDimensions,
           options.embeddingModel ?? null,
           ...(excluded.length ? [excluded] : []),
+          ...(options.embeddingProvider ? [options.embeddingProvider] : []),
         ],
       );
 

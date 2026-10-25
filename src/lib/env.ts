@@ -1,3 +1,5 @@
+import { aiExecutionMode } from "@/lib/llm/execution-mode";
+
 export const DEFAULT_DATABASE_URL =
   "postgres://pronto:pronto@localhost:55432/pronto";
 
@@ -33,5 +35,6 @@ export function isSupportedMetaGraphVersion(version: string): boolean {
 }
 
 export function shouldUseMockAi(): boolean {
-  return process.env.PRONTO_USE_MOCK_AI === "1";
+  const mode = aiExecutionMode();
+  return mode ? mode === "mock" : process.env.PRONTO_USE_MOCK_AI === "1";
 }

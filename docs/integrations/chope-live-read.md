@@ -1,5 +1,38 @@
 # Chope demo availability reader
 
+## 25 October 2026 POC verification
+
+After the agreement owner reaffirmed the previously supplied demo authorization,
+one controlled PS.Cafe Raffles City enquiry reached this reader through a durable
+inbound job and `processInboundJob`. At **12:02:48 Singapore time**, the request
+for **26 October 2026, party of two**, observed eight selectable times:
+10:00, 10:15, 10:30, 10:45, 11:00, 11:15, 11:30 and 12:30. **19:00 was not
+among them.** These are expired observations, not current availability. Exactly
+one matching `get_times` POST was observed; no reservation was submitted. The
+agent's existing outlet-link reply was queued. This booking branch is
+deterministic and does not establish real LLM inference or automatic tenant
+activation: the controlled job used an explicitly scoped injected connector.
+
+The listing's own JavaScript writes `date`, `time`, `adults` and `children`
+query parameters. Four fresh, cookie-free listing sessions preserved the tested
+date/time/party selections, including non-default 10:15am and party size four.
+Those probes blocked additional availability POSTs and all booking submissions;
+party-of-four availability was **not** checked. This establishes current listing
+preselection behavior, not a stable published provider contract, downstream
+booking-page behavior, URL lifetime, or any hold on inventory.
+
+**POC decision gate:** exact-link product implementation remains paused pending
+Gabriel's review of these compatibility limits. No exact-link builder or new
+general-link fallback was added. The existing outlet-link behavior is preserved.
+See [the Tranche 00 report](../poc/tranche00-verification.md) for evidence,
+test results and the next implementation boundary. Do not use the dated probe
+URLs as evidence that a reservation is available.
+
+The parser now accepts “tomorrow around 7pm” and explicit 24-hour times, while
+missing or ambiguous parameters still use the existing human path. Deterministic
+tests also cover the read deadline, scope, rate limit, contradictory observations
+and rejection of booking hosts/routes and repeated or mismatched read fields.
+
 This is an **opt-in, read-only demonstration connector** using Chope's public
 restaurant listing in Chromium. On 11 October 2026, the user summarized a
 written Chope agreement as permitting demo scraping and a booking bot. The

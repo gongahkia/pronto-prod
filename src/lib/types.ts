@@ -4,6 +4,7 @@ export type ChannelKind =
   | "telegram"
   | "messenger"
   | "instagram"
+  | "console"
   | "email";
 export type ChannelStatus = "draft" | "active" | "disabled";
 export type ConversationStatus = "active" | "escalated" | "closed";
@@ -91,6 +92,9 @@ export type BrandVoiceExample = {
 };
 
 export type Conversation = {
+  ai_should_respond?: boolean | null;
+  owner_action_required?: boolean;
+  urgency?: "short_term" | "long_term" | null;
   id: string;
   client_id: string;
   channel_id: string;

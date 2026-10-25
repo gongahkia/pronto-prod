@@ -54,5 +54,7 @@ export const channelDefinitions = [
 export const channelKinds = channelDefinitions.map((channel) => channel.kind);
 
 export function channelDefinition(kind: ChannelKind): ChannelDefinition {
+  if (kind === "console") return { kind, label: "Simulated DM", iconPath: "/channel-icons/instagram.png",
+    webhookLabel: null, webhookHint: null };
   return channelDefinitions.find((channel) => channel.kind === kind) ?? channelDefinitions[0];
 }
