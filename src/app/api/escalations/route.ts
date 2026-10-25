@@ -1,6 +1,7 @@
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
+import { safeReturnTo } from "@/lib/auth-navigation";
 import { hasStaffCapability } from "@/lib/staff-permissions";
 import { recordAuditLog } from "@/lib/audit";
 import {
@@ -41,10 +42,9 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const escalationId = String(form.get("escalationId") ?? "");
   const action = String(form.get("action") ?? "");
-  const returnTo = safeReturnPath(
-    String(form.get("returnTo") ?? ""),
-    user.role === "operator" ? "/operator" : "/client",
-  );
+  const returnTo = safeReturnTo(form.get("returnTo")) ?? "/client/inbox";
+  const actionResponse = () => user.role === "operator" ? NextResponse.json({ ok: true })
+    : NextResponse.redirect(new URL(returnTo, request.url), 303);
   if (user.role === "client" && !user.clientId) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.redirect(new URL(returnTo, request.url), 303);
+    return actionResponse();
   }
 
   if (action === "claim") {
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
       );
     }, { isolationLevel: "serializable", retries: 2 });
 
-    return NextResponse.redirect(new URL(returnTo, request.url), 303);
+    return actionResponse();
   }
 
   if (action === "release") {
@@ -173,7 +173,7 @@ export async function POST(request: Request) {
         targetId: escalation.conversation_id, metadata: { escalationId: escalation.id },
       }, db);
     }, { isolationLevel: "serializable", retries: 2 });
-    return NextResponse.redirect(new URL(returnTo, request.url), 303);
+    return actionResponse();
   }
 
   if (action === "resolve") {
@@ -268,7 +268,7 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.redirect(new URL(returnTo, request.url), 303);
+    return actionResponse();
   }
 
   return NextResponse.json({ error: "Unsupported escalation action." }, { status: 400 });
@@ -316,8 +316,4 @@ async function loadOwnerReplyOutbound(
     [outboundMessageId, escalationId, clientId],
   );
   return result.rows[0] ?? null;
-}
-
-function safeReturnPath(value: string, fallback: string): string {
-  return value.startsWith("/") && !value.startsWith("//") ? value : fallback;
 }

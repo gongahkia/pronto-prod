@@ -12,5 +12,5 @@ export async function POST(request: Request, context: { params: Promise<{ errorI
   await acknowledgeErrorEvent(errorId, actor.userId);
   await recordAuditLog({ clientId: null, actorUserId: actor.userId,
     action: "error_event.acknowledged", targetType: "error_event", targetId: errorId });
-  return NextResponse.redirect(new URL("/operator/operations", request.url), 303);
+  return NextResponse.json({ ok: true });
 }

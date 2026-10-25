@@ -120,7 +120,7 @@ describe("owner escalation notifications", () => {
     expect(mocks.sendChannelText.mock.calls[0][0].text).not.toContain("Customer asked for human takeover");
   });
 
-  it("uses the operator link only for an explicitly configured operator recipient", async () => {
+  it("directs an explicitly configured operator recipient to authenticated CLI review", async () => {
     mocks.query
       .mockResolvedValueOnce({ rows: [escalation({})] })
       .mockResolvedValueOnce({ rows: [channel({ id: "wa-channel", kind: "whatsapp" })] })
@@ -129,8 +129,9 @@ describe("owner escalation notifications", () => {
       .mockResolvedValueOnce({ rows: [] });
     await notifyOwnerOfEscalation("escalation-1", "client-1");
     expect(mocks.sendChannelText).toHaveBeenCalledWith(expect.objectContaining({
-      text: expect.stringContaining("https://example.test/operator/clients/client-1/conversations/conversation-1"),
+      text: expect.stringContaining("pnpm admin inspect conversation --client-id client-1 --conversation-id conversation-1"),
     }));
+    expect(mocks.sendChannelText.mock.calls[0][0].text).not.toContain("/operator/");
   });
 });
 

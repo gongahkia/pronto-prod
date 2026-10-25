@@ -1,132 +1,55 @@
-import {
-  Bot,
-  CircleAlert,
-  Inbox,
-  LayoutDashboard,
-  LogOut,
-  MessageSquareText,
-  UserRound,
-  BookOpenText,
-  Radio,
-  Clock3,
-} from "lucide-react";
+import { Inbox, LogOut, BookOpenText, Radio, Clock3 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { MockAiBanner } from "@/components/mock-ai-banner";
-import { OperatorSidebarActions } from "@/components/operator-sidebar-actions";
 import type { SessionUser } from "@/lib/auth";
 import { getMockAiStatus } from "@/lib/llm/mock-status";
 
 type ClientSection = "attention" | "activity" | "knowledge" | "channels" |
   "overview" | "inbox" | "assistant" | "settings";
-type OperatorSection =
-  | "overview" | "businesses" | "inbox" | "knowledge" | "operations";
-
-type ClientSidebarItem = {
-  href: string;
-  label: string;
-  section: ClientSection;
-  icon: typeof Inbox;
-};
-
-type OperatorSidebarItem = {
-  href: string;
-  label: string;
-  section: OperatorSection;
-  icon: typeof Inbox;
-};
-
+type ClientSidebarItem = { href: string; label: string; section: ClientSection; icon: typeof Inbox };
 const clientSidebarItems: ClientSidebarItem[] = [
+  { href: "/client/inbox", label: "Inbox", section: "inbox", icon: Inbox },
   { href: "/client", label: "Needs Attention", section: "attention", icon: Inbox },
   { href: "/client/activity", label: "Recent Activity", section: "activity", icon: Clock3 },
   { href: "/client/knowledge", label: "Business Knowledge", section: "knowledge", icon: BookOpenText },
   { href: "/client/channels", label: "Connected Channels", section: "channels", icon: Radio },
 ];
 
-const operatorWorkspaceItems: OperatorSidebarItem[] = [
-  { href: "/operator/overview", label: "Overview", section: "overview", icon: LayoutDashboard },
-  { href: "/operator", label: "Businesses", section: "businesses", icon: UserRound },
-  { href: "/operator/conversations", label: "Inbox", section: "inbox", icon: MessageSquareText },
-  { href: "/operator/knowledge-connections", label: "Knowledge & Connections", section: "knowledge", icon: Bot },
-  { href: "/operator/operations", label: "Operations", section: "operations", icon: CircleAlert },
-];
-
-export function AppShell({
-  user,
-  children,
-  clientActive = "attention",
-  operatorActive = "businesses",
-  workspaceName,
-}: {
-  user: SessionUser;
-  children: ReactNode;
-  active: "operator" | "client";
-  clientActive?: ClientSection;
-  operatorActive?: OperatorSection;
-  workspaceName?: string;
+export function AppShell({ user, children, clientActive = "attention", workspaceName }: {
+  user: SessionUser; children: ReactNode; active: "client";
+  clientActive?: ClientSection; workspaceName?: string;
 }) {
-  const isClient = user.role === "client";
-  const mockAiStatus = getMockAiStatus();
-
-  return (
-    <>
-      <MockAiBanner status={mockAiStatus} customerDemoEnabled={process.env.PRONTO_CUSTOMER_DEMO_ENABLED === "1" && process.env.NODE_ENV !== "production"} />
-      <AutoRefresh />
-      <a href="#main-content" className="skip-link">
-        Skip to main content
-      </a>
-      <div className="min-h-screen bg-background text-foreground lg:flex">
-        {isClient ? (
-          <ClientSidebar
-            active={clientActive}
-            email={user.email}
-            workspaceName={workspaceName ?? "Client workspace"}
-          />
-        ) : (
-          <OperatorSidebar active={operatorActive} email={user.email} />
-        )}
-
-        <div className="min-w-0 flex-1">
-          <header className="border-b border-line bg-panel/95 backdrop-blur lg:hidden">
-            <div className="flex items-center justify-between px-4 py-3">
-              <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white">
-                  P
-                </span>
-                Pronto
-              </Link>
-              <div className="min-w-0 flex-1 px-3">
-                <p className="truncate text-sm font-medium">
-                  {isClient ? workspaceName ?? "Client workspace" : "Pronto HQ"}
-                </p>
-                <p className="truncate text-xs text-muted">{user.email}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <form action="/api/auth/logout" method="post">
-                  <button
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-muted hover:bg-surface-hover hover:text-link"
-                    title="Log out"
-                    aria-label="Log out"
-                  >
-                    <LogOut size={15} aria-hidden="true" />
-                  </button>
-                </form>
-              </div>
+  if (user.role !== "client") throw new Error("The business workspace requires a business account.");
+  return <>
+    <MockAiBanner status={getMockAiStatus()} customerDemoEnabled={process.env.PRONTO_CUSTOMER_DEMO_ENABLED === "1" && process.env.NODE_ENV !== "production"}/>
+    <AutoRefresh/>
+    <a href="#main-content" className="skip-link">Skip to main content</a>
+    <div className="min-h-screen bg-background text-foreground lg:flex">
+      <ClientSidebar active={clientActive} email={user.email} workspaceName={workspaceName ?? "Client workspace"}/>
+      <div className="min-w-0 flex-1">
+        <header className="border-b border-line bg-panel/95 backdrop-blur lg:hidden">
+          <div className="flex items-center justify-between px-4 py-3">
+            <Link href="/client/inbox" className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white">P</span>Pronto
+            </Link>
+            <div className="min-w-0 flex-1 px-3">
+              <p className="truncate text-sm font-medium">{workspaceName ?? "Client workspace"}</p>
+              <p className="truncate text-xs text-muted">{user.email}</p>
             </div>
-            {isClient ? (
-              <ClientMobileNav active={clientActive} />
-            ) : (
-              <OperatorMobileNav active={operatorActive} />
-            )}
-          </header>
-          <main id="main-content" className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
-            {children}
-          </main>
-        </div>
+            <form action="/api/auth/logout" method="post">
+              <button className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-muted hover:bg-surface-hover hover:text-link" title="Log out" aria-label="Log out">
+                <LogOut size={15} aria-hidden="true"/>
+              </button>
+            </form>
+          </div>
+          <ClientMobileNav active={clientActive}/>
+        </header>
+        <main id="main-content" className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6">{children}</main>
       </div>
-    </>
-  );
+    </div>
+  </>;
 }
 
 function ClientSidebar({
@@ -212,108 +135,10 @@ function ClientSidebar({
   );
 }
 
-function OperatorSidebar({
-  active,
-  email,
-}: {
-  active: OperatorSection;
-  email: string;
-}) {
-  return (
-    <aside className="sticky top-0 hidden h-screen w-[18rem] shrink-0 flex-col border-r border-sidebar-line bg-sidebar text-sidebar-foreground lg:flex">
-      <div className="flex items-center gap-2 px-4 py-4">
-        <Link
-          href="/operator"
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-base font-medium hover:bg-sidebar-active"
-        >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-xs font-bold text-sidebar">
-            P
-          </span>
-          <span className="truncate">Pronto HQ</span>
-        </Link>
-        <OperatorSidebarActions />
-      </div>
-
-      <nav className="flex-1 overflow-y-auto px-3 pb-3 text-base">
-        <div>
-          <div className="mb-2 flex items-center justify-between px-2 text-sm font-medium text-sidebar-muted">
-            <span>Workspace</span>
-          </div>
-          <div className="space-y-1">
-            {operatorWorkspaceItems.map((item) => (
-              <OperatorSidebarLink key={item.section} item={item} active={active} />
-            ))}
-          </div>
-        </div>
-      </nav>
-
-      <div className="border-t border-sidebar-line p-3">
-        <p className="truncate px-2 pb-2 text-xs text-sidebar-muted">{email}</p>
-        <form action="/api/auth/logout" method="post">
-          <button
-            className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-sm text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
-            title="Log out"
-          >
-            <LogOut size={15} aria-hidden="true" />
-            Log out
-          </button>
-        </form>
-      </div>
-    </aside>
-  );
-}
-
-function OperatorSidebarLink({
-  item,
-  active,
-}: {
-  item: OperatorSidebarItem;
-  active: OperatorSection;
-}) {
-  const Icon = item.icon;
-  const isActive = item.section === active;
-
-  return (
-    <Link
-      href={item.href}
-      aria-current={isActive ? "page" : undefined}
-      className={`flex h-9 items-center gap-2 rounded-md px-2 font-medium ${
-        isActive
-          ? "bg-sidebar-active text-sidebar-foreground"
-          : "text-sidebar-muted hover:bg-sidebar-active hover:text-sidebar-foreground"
-      }`}
-    >
-      <Icon size={16} className="shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
-    </Link>
-  );
-}
-
 function ClientMobileNav({ active }: { active: ClientSection }) {
   return (
     <nav className="flex gap-1 overflow-x-auto border-t border-line px-3 py-2 text-base">
       {clientSidebarItems.map((item) => (
-        <Link
-          key={item.section}
-          href={item.href}
-          aria-current={active === item.section ? "page" : undefined}
-          className={`shrink-0 rounded-md px-3 py-1.5 font-medium ${
-            active === item.section
-              ? "bg-surface text-link"
-              : "text-muted hover:bg-surface-hover hover:text-link"
-          }`}
-        >
-          {item.label}
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
-function OperatorMobileNav({ active }: { active: OperatorSection }) {
-  return (
-    <nav className="flex gap-1 overflow-x-auto border-t border-line px-3 py-2 text-base">
-      {operatorWorkspaceItems.map((item) => (
         <Link
           key={item.section}
           href={item.href}

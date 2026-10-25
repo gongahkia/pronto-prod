@@ -58,7 +58,11 @@ test("customer and owner share a durable conversation, independent triage, takeo
   await expect(page.getByText(/mock response/)).toBeVisible();
   const state=await(await page.request.get("/api/demo/customer")).json();
   const conversationId=state.sessions[0].conversation_id;
-  const owner=await page.context().newPage(); await owner.goto("/client/inbox?status=ai_handled");
+  const owner=await page.context().newPage(); await owner.goto("/demo/customer");
+  await owner.getByRole("link", { name: "Open business inbox", exact: true }).click();
+  await expect(owner).toHaveURL(/\/client\/inbox$/);
+  await expect(owner.getByRole("heading", { name: "Inbox", exact: true })).toBeVisible();
+  await expect(owner.getByTestId("workspace-loading")).toHaveCount(0);
   await owner.locator(`a[href="/client/conversations/${conversationId}"]`).click();
   await expect(owner).toHaveURL(new RegExp(`/client/conversations/${conversationId}$`));
   await expect(owner.getByText("AI responds: yes",{exact:true})).toBeVisible();

@@ -60,10 +60,8 @@ describe("operator client users route", () => {
       { params: Promise.resolve({ clientId: "client-1" }) },
     );
 
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toContain(
-      "/operator/clients/client-1/users",
-    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ ok: true, clientId: "client-1" });
     expect(mocks.hashPassword).toHaveBeenCalledWith("long-enough-pw");
     expect(mocks.query.mock.calls[2][1]).toEqual([
       "client-1",
@@ -77,7 +75,7 @@ describe("operator client users route", () => {
     );
   });
 
-  it("rejects short passwords with a redirect carrying the error", async () => {
+  it("rejects short passwords with an actionable JSON error", async () => {
     mocks.query.mockResolvedValueOnce({ rows: [{ id: "client-1" }] });
 
     const form = new FormData();
@@ -97,8 +95,8 @@ describe("operator client users route", () => {
       { params: Promise.resolve({ clientId: "client-1" }) },
     );
 
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toContain("error=Password+must+be+at+least+8+characters");
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: "Password must be at least 8 characters." });
     expect(mocks.hashPassword).not.toHaveBeenCalled();
   });
 
@@ -119,10 +117,8 @@ describe("operator client users route", () => {
       },
     );
 
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toContain(
-      "error=You+cannot+remove+yourself",
-    );
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: "You cannot remove yourself." });
     expect(mocks.query).not.toHaveBeenCalled();
   });
 
@@ -149,8 +145,8 @@ describe("operator client users route", () => {
       },
     );
 
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toContain("ok=Removed+old%40example.com");
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ ok: true, message: "Removed old@example.com." });
     expect(mocks.query.mock.calls[1][0]).toContain("delete from users");
     expect(mocks.recordAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({ action: "client_user.deleted" }),

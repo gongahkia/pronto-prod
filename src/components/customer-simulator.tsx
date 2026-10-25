@@ -28,7 +28,7 @@ async function demoRequest(path: string, body?: unknown) {
   return data;
 }
 
-export function CustomerSimulator() {
+export function CustomerSimulator({ businessAccess = true }: { businessAccess?: boolean }) {
   const [state, setState] = useState<State | null>(null);
   const [sessionId, setSessionId] = useState("");
   const [mode, setMode] = useState<"real" | "mock">("real");
@@ -92,6 +92,7 @@ export function CustomerSimulator() {
           <h1 className="text-xl font-semibold">Simulated Instagram DM</h1></div>
         <Link href="/client/inbox" className="ui-button px-3 py-2 text-sm">Open business inbox</Link>
       </header>
+      {!businessAccess ? <p className="mb-4 rounded-md border border-line bg-panel p-3 text-sm">The business inbox requires an authorized business staff account. Your operator session will show account-switching instructions.</p> : null}
       <p className="mb-4 text-sm text-muted">A synthetic conversation with the PS.Cafe Raffles City demo. This is not PS.Cafe’s Instagram account and sends no Instagram messages.</p>
       <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)]">
         <aside className="ui-panel space-y-4 p-4">

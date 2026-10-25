@@ -28,5 +28,5 @@ export async function POST(request: Request, context: { params: Promise<{ jobId:
     return true;
   });
   if (!outcome) return NextResponse.json({ error: "Dead inbound job not found." }, { status: 404 });
-  return NextResponse.redirect(new URL(`/operator/clients/${clientId}?section=workspace`, request.url), 303);
+  return NextResponse.json({ ok: true, clientId });
 }

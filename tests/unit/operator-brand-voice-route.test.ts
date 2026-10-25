@@ -32,7 +32,7 @@ describe("operator brand voice proposal route", () => {
     form.set("attributes", JSON.stringify({ formality: "casual" }));
     form.set("sourceNotes", "Founder samples");
     const response = await POST(formRequest(form));
-    expect(response.status).toBe(303);
+    expect(response.status).toBe(200);
     expect(mocks.stageVoice).toHaveBeenCalledWith({ clientId: "client-1", actorUserId: "operator-1",
       voice: { title: "North Bridge voice guide", content: "Warm and concise.",
         attributes: { formality: "casual" }, sourceNotes: "Founder samples", examples: [] } });
@@ -51,7 +51,7 @@ describe("operator brand voice proposal route", () => {
     form.set("customerMessage", "Are you open?");
     form.set("idealResponse", "Yes, until 10pm.");
     form.set("notes", "Example");
-    expect((await POST(formRequest(form))).status).toBe(303);
+    expect((await POST(formRequest(form))).status).toBe(200);
     expect(mocks.stageVoice).toHaveBeenCalledWith(expect.objectContaining({
       voice: expect.objectContaining({ examples: [{ customerMessage: "Are you open?",
         idealResponse: "Yes, until 10pm.", notes: "Example", active: true }] }),

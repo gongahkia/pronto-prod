@@ -20,6 +20,13 @@ export type IntegrationCredentialStatus = {
   updatedAt: Date;
 };
 
+// Integration keys still use the encrypted store. LLM keys are environment-only
+// and their storage-readiness flag must not disable this separate existing store.
+export function integrationCredentialEncryptionConfigured(): boolean {
+  try { validatedSecretMaterial("PRONTO_SECRETS_KEY"); return true; }
+  catch { return false; }
+}
+
 export async function upsertIntegrationCredential(input: {
   clientId: string;
   provider: IntegrationProvider;

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { canViewBusinessConversation, hasStaffCapability } from "@/lib/staff-permissions";
 import {
@@ -22,9 +22,9 @@ export default async function ClientConversationPage({
 }) {
   const user = await requireUser("client");
   if (!user.clientId) {
-    throw new Error("Client user is missing a client assignment.");
+    redirect("/access?reason=membership");
   }
-  if (!await canViewBusinessConversation(user, user.clientId)) notFound();
+  if (!await canViewBusinessConversation(user, user.clientId)) redirect("/access?reason=permission");
   const { conversationId } = await params;
   const [client, conversation] = await Promise.all([
     getClient(user.clientId),

@@ -97,9 +97,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 export async function requireUser(role?: UserRole): Promise<SessionUser> {
   const user = await getSessionUser();
-  if (!user || (role && user.role !== role)) {
-    redirect("/login");
-  }
+  if (!user) redirect(role === "client" ? "/login?next=/client/inbox" : "/login");
+  if (role && user.role !== role) redirect(role === "client"
+    ? "/access?reason=business-role" : "/access?reason=operator-role");
   enterTenantContext(user);
   return user;
 }

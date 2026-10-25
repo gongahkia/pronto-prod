@@ -8,5 +8,5 @@ export default async function CustomerDemoPage() {
   const actor = await requireUser();
   try { await assertDemoActor(actor); }
   catch (error) { if (error instanceof DemoError && error.status < 500) notFound(); throw error; }
-  return <CustomerSimulator/>;
+  return <CustomerSimulator businessAccess={actor.role === "client"}/>;
 }

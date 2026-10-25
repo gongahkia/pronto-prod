@@ -29,10 +29,7 @@ export async function POST(request: Request) {
       actorUserId: user.userId,
       notes: String(form.get("notes") ?? ""),
     });
-    return NextResponse.redirect(
-      new URL(`/operator/clients/${clientId}/knowledge`, request.url),
-      303,
-    );
+    return NextResponse.json({ ok: true, clientId });
   }
 
   if (action === "resolve") {
@@ -49,10 +46,7 @@ export async function POST(request: Request) {
     if (!updated) {
       return NextResponse.json({ error: "Refresh request not found." }, { status: 404 });
     }
-    return NextResponse.redirect(
-      new URL(`/operator/clients/${clientId}/knowledge`, request.url),
-      303,
-    );
+    return NextResponse.json({ ok: true, clientId });
   }
 
   return NextResponse.json({ error: "Unsupported action." }, { status: 400 });

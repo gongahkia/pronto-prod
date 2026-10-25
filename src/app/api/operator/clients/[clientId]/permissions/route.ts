@@ -17,5 +17,5 @@ export async function POST(request: Request, context: { params: Promise<{ client
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Permission update failed." }, { status: 403 });
   }
-  return NextResponse.redirect(new URL(`/operator/clients/${clientId}/users`, request.url), 303);
+  return NextResponse.json({ ok: true, clientId });
 }

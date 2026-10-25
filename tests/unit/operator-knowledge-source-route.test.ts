@@ -35,10 +35,8 @@ describe("operator knowledge source route", () => {
 
     const response = await POST(formRequest(form), context("source-1"));
 
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe(
-      "http://localhost/operator/clients/client-1/knowledge/source-1",
-    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
     expect(mocks.stageKnowledge).toHaveBeenCalledWith({
       sourceId: "source-1",
       clientId: "client-1",
@@ -57,10 +55,8 @@ describe("operator knowledge source route", () => {
 
     const response = await POST(formRequest(form), context("source-1"));
 
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe(
-      "http://localhost/operator/clients/client-1/knowledge",
-    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
     expect(mocks.stageKnowledge).toHaveBeenCalledWith({
       sourceId: "source-1",
       clientId: "client-1",

@@ -5,8 +5,8 @@ import { recordAuditLog } from "@/lib/audit";
 import {
   deleteIntegrationCredential,
   upsertIntegrationCredential,
+  integrationCredentialEncryptionConfigured,
 } from "@/lib/integrations/credentials";
-import { credentialEncryptionConfigured } from "@/lib/llm/credentials";
 import {
   getIntegrationDefinition,
   integrationLibrary,
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
   const requestId = requestIdFromRequest(request);
   const user = await requireUser("operator");
-  if (!credentialEncryptionConfigured()) {
+  if (!integrationCredentialEncryptionConfigured()) {
     return NextResponse.json(
       { error: "PRONTO_SECRETS_KEY is required before integration credentials can be saved." },
       { status: 400, headers: requestIdHeaders(requestId) },

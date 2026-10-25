@@ -28,10 +28,7 @@ export async function POST(request: Request, context: Context) {
   if (action === "delete") {
     try { await stageKnowledge({ sourceId, clientId, actorUserId: user.userId, action: "delete" }); }
     catch (error) { return stageError(error); }
-    return NextResponse.redirect(
-      new URL(`/operator/clients/${clientId}/knowledge`, request.url),
-      303,
-    );
+    return NextResponse.json({ ok: true, clientId });
   }
 
   if (action === "update") {
@@ -48,10 +45,7 @@ export async function POST(request: Request, context: Context) {
       actorUserId: user.userId, action: "upsert" }); }
     catch (error) { return stageError(error); }
 
-    return NextResponse.redirect(
-      new URL(`/operator/clients/${clientId}/knowledge/${sourceId}`, request.url),
-      303,
-    );
+    return NextResponse.json({ ok: true, clientId });
   }
 
   return NextResponse.json({ error: "Unsupported knowledge action." }, { status: 400 });

@@ -51,10 +51,8 @@ describe("operator knowledge route", () => {
       }),
     );
 
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe(
-      "http://localhost/operator/clients/client-1/knowledge",
-    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
     expect(mocks.submitKnowledgeSource).toHaveBeenCalledWith({
       actor: expect.objectContaining({ userId: "operator-1" }),
       clientId: "client-1",

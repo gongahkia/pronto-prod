@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { canViewBusinessConversation } from "@/lib/staff-permissions";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getClient } from "@/lib/dashboard";
 import {
   getClientDashboardAnalytics,
@@ -25,9 +25,9 @@ export default async function ClientInboxPage({
 }) {
   const user = await requireUser("client");
   if (!user.clientId) {
-    throw new Error("Client user is missing a client assignment.");
+    redirect("/access?reason=membership");
   }
-  if (!await canViewBusinessConversation(user, user.clientId)) notFound();
+  if (!await canViewBusinessConversation(user, user.clientId)) redirect("/access?reason=permission");
 
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const filters = filtersFromSearchParams(resolvedSearchParams, user.clientId);

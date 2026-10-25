@@ -114,14 +114,14 @@ async function notifyEscalationStaff(escalationId: string, clientId: string | un
   }
   const { channel, destination } = channelSelection;
 
-  const takeoverPath = "audience" in channelSelection && channelSelection.audience === "operator"
-    ? `/operator/clients/${escalation.client_id}/conversations/${escalation.conversation_id}`
-    : `/client/conversations/${escalation.conversation_id}`;
-  const takeoverUrl = `${appBaseUrl()}${takeoverPath}`;
+  const operatorAudience = "audience" in channelSelection && channelSelection.audience === "operator";
+  const reviewInstruction = operatorAudience
+    ? `Operator review: use the authenticated Pronto CLI: pnpm admin inspect conversation --client-id ${escalation.client_id} --conversation-id ${escalation.conversation_id}`
+    : `Take over: ${appBaseUrl()}/client/conversations/${escalation.conversation_id}`;
   const text = [
     kind === "initial" ? "Pronto escalation" : kind === "reminder" ? "Pronto reminder" : "Pronto backup escalation",
     "A customer conversation needs an authorized human response.",
-    `Take over: ${takeoverUrl}`,
+    reviewInstruction,
   ].join("\n");
 
   try {

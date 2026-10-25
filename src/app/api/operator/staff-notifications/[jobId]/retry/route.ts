@@ -12,5 +12,5 @@ export async function POST(request: Request, context: { params: Promise<{ jobId:
   try { await retryStaffNotification({ clientId: String(form.get("clientId") ?? ""), jobId,
     actorUserId: actor.userId, reconciliation: String(form.get("reconciliation") ?? "") }); }
   catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Retry failed." }, { status: 409 }); }
-  return NextResponse.redirect(new URL("/operator/operations", request.url), 303);
+  return NextResponse.json({ ok: true });
 }

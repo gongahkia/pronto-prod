@@ -8,6 +8,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "admin": "tsx scripts/admin.ts",
     "dev": "next dev --hostname 127.0.0.1 --port 3000",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port 3000",

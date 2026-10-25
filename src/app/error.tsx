@@ -2,10 +2,10 @@
 
 export default function ErrorPage({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   return (
     <main className="min-h-screen bg-background px-4 py-10 text-foreground">
@@ -18,7 +18,7 @@ export default function ErrorPage({
         <p className="mt-4 rounded-md bg-surface p-3 font-mono text-xs text-muted">
           error_events:{error.digest ?? "unavailable"}
         </p>
-        <button type="button" onClick={reset} className="mt-4 ui-primary-button px-4 py-2">
+        <button type="button" onClick={retry} className="mt-4 ui-primary-button px-4 py-2">
           Retry
         </button>
       </section>

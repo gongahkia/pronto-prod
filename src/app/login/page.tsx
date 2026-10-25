@@ -1,17 +1,19 @@
 import { BotMessageSquare } from "lucide-react";
 import { getSessionUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { safeReturnTo, signedInDestination } from "@/lib/auth-navigation";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
+  const params = await searchParams;
+  const returnTo = safeReturnTo(params.next);
   const user = await getSessionUser();
   if (user) {
-    redirect(user.role === "operator" ? "/operator" : "/client");
+    redirect(signedInDestination(user.role, returnTo));
   }
-  const params = await searchParams;
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface-subtle px-4 py-10 text-foreground">
       <div className="grid w-full max-w-5xl items-center gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)] lg:gap-16">
@@ -39,6 +41,7 @@ export default async function LoginPage({
             </p>
           ) : null}
           <form action="/api/auth/login" method="post" className="space-y-4">
+          {returnTo ? <input type="hidden" name="next" value={returnTo}/> : null}
           <label className="block text-sm font-medium">
             Email
             <input

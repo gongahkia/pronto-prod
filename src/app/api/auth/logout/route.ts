@@ -2,6 +2,7 @@ import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { recordAuditLog } from "@/lib/audit";
 import { getSessionUser, logout } from "@/lib/auth";
+import { safeReturnTo } from "@/lib/auth-navigation";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
@@ -19,5 +20,9 @@ export async function POST(request: Request) {
     });
   }
   await logout();
-  return NextResponse.redirect(new URL("/login", request.url), 303);
+  const destination = new URL("/login", request.url);
+  const form = await request.formData().catch(() => null);
+  const returnTo = safeReturnTo(form?.get("next"));
+  if (returnTo) destination.searchParams.set("next", returnTo);
+  return NextResponse.redirect(destination, 303);
 }

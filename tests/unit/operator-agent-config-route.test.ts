@@ -31,14 +31,14 @@ describe("operator agent config route", () => {
     mocks.stageAgentConfig.mockResolvedValue({ config: { id: "config-1" } });
   });
 
-  it("stages agent tuning for a client and redirects", async () => {
+  it("stages agent tuning for a client and returns JSON", async () => {
     const form = validForm();
     form.set("returnTo", "/operator/clients/client-1");
 
     const response = await POST(formRequest(form));
 
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("http://localhost/operator/clients/client-1");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
     expect(mocks.stageAgentConfig).toHaveBeenCalledWith({
       clientId: "client-1",
       responseProvider: "mock",
@@ -62,7 +62,7 @@ describe("operator agent config route", () => {
 
     const response = await POST(formRequest(form));
 
-    expect(response.status).toBe(303);
+    expect(response.status).toBe(200);
     expect(mocks.stageAgentConfig).toHaveBeenCalledWith(
       expect.objectContaining({
         responseProvider: "anthropic",
@@ -82,7 +82,7 @@ describe("operator agent config route", () => {
 
     const response = await POST(formRequest(form));
 
-    expect(response.status).toBe(303);
+    expect(response.status).toBe(200);
     expect(mocks.stageAgentConfig).toHaveBeenCalledWith(
       expect.objectContaining({
         responseProvider: "azure",

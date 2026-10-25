@@ -46,23 +46,25 @@ test("protected pages redirect and protected APIs reject anonymous access", asyn
   await expect(response.json()).resolves.toEqual({ error: "Unauthenticated." });
 });
 
-test("seeded operator can render the client portfolio", async ({ page }) => {
+test("seeded operator lands on account details and can inspect the protected portfolio", async ({ page }) => {
   await login(page, operatorLogin.email, operatorLogin.password);
-
-  await expect(page).toHaveURL(/\/operator$/);
-  await expect(page.getByRole("heading", { name: "Businesses" })).toBeVisible();
-  await expect(page.getByText("Client portfolio")).toBeVisible();
-  await expect(page.getByRole("link", { name: "North Bridge Nasi", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/account$/);
+  await expect(page.getByRole("heading", { name: "Your Pronto account" })).toBeVisible();
+  const response = await page.request.get("/api/operator/inspect?view=clients");
+  expect(response.status()).toBe(200);
+  expect((await response.json()).clients.some((client: { name: string }) => client.name === "North Bridge Nasi")).toBe(true);
 });
 
-test("operator workspace shows channel state, failures and Chope handoff setup", async ({ page }) => {
+test("operator inspection exposes channel state without provider credentials", async ({ page }) => {
   await login(page, operatorLogin.email, operatorLogin.password);
-  await page.getByRole("link", { name: "North Bridge Nasi", exact: true }).click();
-  await expect(page.getByText("Channels configured")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Processing and delivery attention" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Chope booking handoff" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Chope outlet ID" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Business workspace" }).getByRole("link", { name: "Integrations" })).toBeVisible();
+  await expect(page).toHaveURL(/\/account$/);
+  const portfolio = await (await page.request.get("/api/operator/inspect?view=clients")).json();
+  const client = portfolio.clients.find((client: { name: string }) => client.name === "North Bridge Nasi");
+  const response = await page.request.get(`/api/operator/inspect?view=client&clientId=${client.id}`);
+  expect(response.status()).toBe(200);
+  const details = await response.json();
+  expect(details.channels.length).toBeGreaterThan(0);
+  expect(details.channels.every((channel: Record<string, unknown>) => !("credentials" in channel))).toBe(true);
 });
 
 test("seeded client can render the overview dashboard", async ({ page }) => {
@@ -75,10 +77,11 @@ test("seeded client can render the overview dashboard", async ({ page }) => {
     await expect(page.getByRole("navigation").getByRole("link", { name: label }).first()).toBeVisible();
 });
 
-test("client account cannot open operator diagnostics", async ({ page }) => {
+test("client account cannot inspect operator diagnostics and the retired UI is unavailable", async ({ page }) => {
   await login(page, clientLogin.email, clientLogin.password);
+  expect((await page.request.get("/api/operator/inspect?view=operations")).status()).toBe(403);
   await page.goto("/operator/operations");
-  await expect(page).not.toHaveURL(/\/operator\/operations/);
+  await expect(page.getByRole("heading", { name: "This Pronto view is unavailable." })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Operations", exact: true })).toHaveCount(0);
 });
 
@@ -98,7 +101,7 @@ test("login and dashboards avoid obvious mobile horizontal overflow", async ({ p
   await expectNoHorizontalOverflow(page);
 
   await login(page, operatorLogin.email, operatorLogin.password);
-  await expect(page.getByRole("heading", { name: "Businesses" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your Pronto account" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.getByRole("button", { name: "Log out" }).click();
@@ -109,37 +112,24 @@ test("login and dashboards avoid obvious mobile horizontal overflow", async ({ p
   await expectNoHorizontalOverflow(page);
 });
 
-test("operator can navigate the five work areas and find a business", async ({ page }) => {
+test("the five retired operator destinations no longer render a dashboard", async ({ page }) => {
   await login(page, operatorLogin.email, operatorLogin.password);
-  await page.getByRole("textbox", { name: "Search businesses" }).fill("North Bridge");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page.getByRole("link", { name: "North Bridge Nasi", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Create client" }).first().click();
-  await expect(page.getByRole("heading", { name: "Create client" })).toBeVisible();
-  await expect(page.getByText("New businesses begin in draft.")).toBeVisible();
-  for (const [route, heading] of [
-    ["/operator/overview", "Overview"], ["/operator/conversations", "Inbox"],
-    ["/operator/knowledge-connections", "Knowledge & Connections"],
-    ["/operator/operations", "Operations"],
-  ]) {
+  for (const route of ["/operator", "/operator/overview", "/operator/conversations", "/operator/knowledge-connections", "/operator/operations"]) {
     await page.goto(route);
-    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "This Pronto view is unavailable." })).toBeVisible();
+    await expect(page.getByText("Pronto HQ", { exact: true })).toHaveCount(0);
   }
 });
 
-test("operator areas retain keyboard entry and mobile width", async ({ page }) => {
+test("operator account details remain usable on mobile without retired UI links", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page, operatorLogin.email, operatorLogin.password);
-  for (const route of ["/operator/overview", "/operator", "/operator/conversations",
-    "/operator/knowledge-connections", "/operator/operations"]) {
-    await page.goto(route);
-    await expectNoHorizontalOverflow(page);
-    const skip = page.getByRole("link", { name: "Skip to main content" });
-    await skip.focus();
-    await expect(skip).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/#main-content$/);
-  }
+  await expect(page.getByRole("heading", { name: "Your Pronto account" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await expect(page.locator('a[href^="/operator"]')).toHaveCount(0);
+  const inbox = page.getByRole("link", { name: "Open business inbox" });
+  await inbox.focus(); await expect(inbox).toBeFocused(); await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Business inbox access" })).toBeVisible();
 });
 
 test("business destinations remain usable by keyboard on mobile", async ({ page }) => {
@@ -243,12 +233,12 @@ test("PS.Cafe responder claims, replies and explicitly releases a local email ha
   try {
     await login(page, "staff@ps-cafe-demo.test", "pronto-ps-demo");
     await page.goto(`/client/conversations/${conversationId}`);
-    await expect(page.getByRole("heading", { name: "This Pronto view is unavailable." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Business inbox access" })).toBeVisible();
     await page.goto("/client");
     await page.getByRole("button", { name: "Log out" }).click();
     await login(page, clientLogin.email, clientLogin.password);
     await page.goto(`/client/conversations/${conversationId}`);
-    await expect(page.getByRole("heading", { name: "This Pronto view is unavailable." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Business inbox access" })).toBeVisible();
     await page.goto("/client");
     await page.getByRole("button", { name: "Log out" }).click();
     await login(page, "responder@ps-cafe-demo.test", "pronto-ps-demo");

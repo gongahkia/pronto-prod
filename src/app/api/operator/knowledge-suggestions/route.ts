@@ -16,5 +16,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Suggestion could not be prepared." },
       { status: 409 });
   }
-  return NextResponse.redirect(new URL(`/operator/clients/${clientId}/knowledge`, request.url), 303);
+  return NextResponse.json({ ok: true, clientId });
 }

@@ -38,5 +38,5 @@ export async function POST(request: Request, context: { params: Promise<{ client
       metadata: action === "clear" ? {} : { outletId, url },
     }, db);
   });
-  return NextResponse.redirect(new URL(`/operator/clients/${clientId}?section=workspace`, request.url), 303);
+  return NextResponse.json({ ok: true, clientId });
 }

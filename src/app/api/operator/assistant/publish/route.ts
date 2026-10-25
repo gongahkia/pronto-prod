@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   if (!clientId) return NextResponse.json({ error: "Business is required." }, { status: 400 });
   try {
     await publishAssistantDraft(clientId, actor.userId);
-    return NextResponse.redirect(new URL(`/operator/clients/${clientId}/knowledge`, request.url), 303);
+    return NextResponse.json({ ok: true, clientId });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Publication failed." }, { status: 409 });
   }

@@ -1,6 +1,6 @@
 # Pronto Prerelease
 
-Local prerelease app for Pronto's AI customer-service operations dashboard, slim client dashboard, smart triage, knowledge base, channel handoff, and owner escalation flows.
+Local prerelease app for Pronto's customer-service pipeline, business inbox, knowledge base, channel handoff, and owner escalation flows.
 
 ## Prerequisites
 
@@ -26,7 +26,9 @@ sample customer emails and fake Meta providers, follow
 [the local demo runbook](docs/demos/local-mvp.md). It uses a marked
 `pronto_test` database and requires no real provider account.
 
-The client workspace has four main areas: Overview, Inbox, Manage assistant, and Settings. In Manage assistant, edits to knowledge, brand voice, and handoff rules are saved together as a draft. Test a customer question there, then publish the tested draft to make it live. Channel details have a separate save, connection check, and publish flow; activating a channel requires a successful live check.
+The business workspace includes Inbox, Needs Attention, Recent Activity, Business Knowledge and Connected Channels. Open `/client/inbox` with an authorized business responder account. The development-only connected customer simulator is `/demo/customer`; see [its setup guide](docs/demos/customer-simulator.md).
+
+The old HQ operator frontend has been removed under PRON-87. Operator sign-in opens `/account`; administration uses the existing protected APIs through the [authenticated CLI](docs/ops/operator-cli.md). Business approvals, tested assistant drafts and channel activation gates remain independent. An operator login does not grant access to the business inbox.
 
 Seeded logins:
 

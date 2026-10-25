@@ -36,6 +36,21 @@ in separate tabs. Use the same authenticated responder for this local walkthroug
 Each simulator history belongs to its initiating user; authorized business staff
 see tenant conversations through the existing business inbox.
 
+**Open business inbox** targets `/client/inbox`. An operator account receives
+account-switching instructions rather than a business role or a redirect to the
+retired HQ dashboard. Use **Sign out and switch account**, then the PS.Cafe
+responder documented in the fixture guide. Sign-in returns to the inbox. Tabs in
+one browser profile share cookies; use a separate profile/private window to keep
+an operator session independent. Administration now uses the
+[authenticated CLI](../ops/operator-cli.md).
+
+The inbox loading screen explains delays and offers plain reload/sign-in links
+from the initial streamed HTML, before hydration. Once hydrated, ten/forty-second
+timers strengthen that guidance. A database failure has a dedicated retry screen
+using Next.js 16.4's server-content-refetching `retry()` API. The current
+database pool already limits connection waits to five seconds and statements to
+thirty seconds. A skeleton alone is not evidence that the inbox has loaded.
+
 Choose **Mock • deterministic test** explicitly to exercise the pipeline without
 provider credentials. Ask “What time do you close today?” for a grounded fixture
 answer. Start another conversation and ask “My order has a missing item and I

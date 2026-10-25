@@ -19,10 +19,6 @@ export async function POST(request: Request) {
   const responseModel = String(form.get("responseModel") ?? "").trim();
   const embeddingProvider = String(form.get("embeddingProvider") ?? "openai").trim();
   const embeddingModel = String(form.get("embeddingModel") ?? "").trim();
-  const returnTo = safeOperatorReturnPath(
-    String(form.get("returnTo") ?? ""),
-    clientId ? `/operator/clients/${clientId}` : "/operator",
-  );
 
   if (!clientId) {
     return NextResponse.json({ error: "clientId is required." }, { status: 400 });
@@ -103,7 +99,7 @@ export async function POST(request: Request) {
     actorUserId: user.userId,
     changeReason,
   });
-  return NextResponse.redirect(new URL(returnTo, request.url), 303);
+  return NextResponse.json({ ok: true, clientId });
 }
 
 function parseJsonObject(value: string): Record<string, unknown> {
@@ -114,9 +110,6 @@ function parseJsonObject(value: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-function safeOperatorReturnPath(value: string, fallback: string): string {
-  return value.startsWith("/operator") && !value.startsWith("//") ? value : fallback;
-}
 
 function isAllowedResponseProvider(value: string): boolean {
   return (

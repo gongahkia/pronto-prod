@@ -1,8 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
+import { safeReturnTo } from "@/lib/auth-navigation";
 
 const SESSION_COOKIE = "pronto_session";
 const PROTECTED_PREFIXES = [
+  "/account", "/access",
   "/operator",
   "/client",
   "/api/operator",
@@ -52,6 +54,8 @@ function redirectToLogin(request: NextRequest): NextResponse {
   const url = request.nextUrl.clone();
   url.pathname = "/login";
   url.search = "";
+  const next = safeReturnTo(request.nextUrl.pathname + request.nextUrl.search);
+  if (next) url.searchParams.set("next", next);
   return NextResponse.redirect(url);
 }
 

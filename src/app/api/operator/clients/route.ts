@@ -10,10 +10,8 @@ import {
 
 const MIN_INITIAL_PASSWORD_LENGTH = 8;
 
-function redirectWithError(request: Request, message: string): NextResponse {
-  const url = new URL("/operator/clients/new", request.url);
-  url.searchParams.set("error", message);
-  return NextResponse.redirect(url, 303);
+function creationError(message: string): NextResponse {
+  return NextResponse.json({ error: message }, { status: 400 });
 }
 
 export async function POST(request: Request) {
@@ -36,17 +34,16 @@ export async function POST(request: Request) {
   const allInitialUserFields = initialUserFields.every((value) => value.length > 0);
 
   if (!name) {
-    return redirectWithError(request, "Client name is required.");
+    return creationError("Client name is required.");
   }
   if (!slug) {
-    return redirectWithError(request, "Client slug is required.");
+    return creationError("Client slug is required.");
   }
   if (anyInitialUserField && !allInitialUserFields) {
-    return redirectWithError(request, "Initial user requires name, email, and password.");
+    return creationError("Initial user requires name, email, and password.");
   }
   if (allInitialUserFields && initialUserPassword.length < MIN_INITIAL_PASSWORD_LENGTH) {
-    return redirectWithError(
-      request,
+    return creationError(
       `Initial user password must be at least ${MIN_INITIAL_PASSWORD_LENGTH} characters.`,
     );
   }
@@ -184,10 +181,10 @@ export async function POST(request: Request) {
   });
 
   if (typeof clientId !== "string") {
-    return redirectWithError(request, clientId.error);
+    return creationError(clientId.error);
   }
 
-  return NextResponse.redirect(new URL(`/operator/clients/${clientId}`, request.url), 303);
+  return NextResponse.json({ ok: true, clientId });
 }
 
 class ClientCreationError extends Error {

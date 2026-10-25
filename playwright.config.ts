@@ -4,7 +4,9 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  timeout: 30_000,
+  // Local Next development compilation can exceed 30s on a shared WSL host.
+  // Individual loading/error tests keep their own bounded assertions.
+  timeout: 60_000,
   expect: {
     timeout: 10_000,
   },

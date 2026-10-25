@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       confirmSlug,
       actorUserId: user.userId,
     });
-    return NextResponse.redirect(new URL("/operator", request.url), 303);
+    return NextResponse.json({ ok: true, clientId });
   }
 
   return NextResponse.json({ error: "Unsupported offboarding action." }, { status: 400 });

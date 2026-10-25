@@ -16,10 +16,6 @@ export async function POST(request: Request) {
   const manualContent = String(form.get("content") ?? "").trim();
   const sourceUrl = String(form.get("sourceUrl") ?? "").trim();
   const upload = form.get("file");
-  const returnTo = safeOperatorReturnPath(
-    String(form.get("returnTo") ?? ""),
-    `/operator/clients/${clientId}/knowledge`,
-  );
 
   if (!clientId) {
     return NextResponse.json(
@@ -51,12 +47,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: errorToMessage(error) }, { status: 400 });
   }
 
-  return NextResponse.redirect(new URL(returnTo, request.url), 303);
+  return NextResponse.json({ ok: true, clientId });
 }
 
-function safeOperatorReturnPath(value: string, fallback: string): string {
-  return value.startsWith("/operator") && !value.startsWith("//") ? value : fallback;
-}
 
 function errorToMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

@@ -31,5 +31,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Activation failed." }, { status: 409 });
   }
-  return NextResponse.redirect(new URL(`/operator/clients/${clientId}/channels`, request.url), 303);
+  return NextResponse.json({ ok: true, clientId });
 }

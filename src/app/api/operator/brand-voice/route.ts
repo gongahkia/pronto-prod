@@ -54,5 +54,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not stage voice." }, { status: 400 });
   }
-  return NextResponse.redirect(new URL(`/operator/clients/${clientId}?section=voice`, request.url), 303);
+  return NextResponse.json({ ok: true, clientId });
 }

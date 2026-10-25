@@ -11,15 +11,12 @@ const VALID_ROLES = new Set(["client", "operator"]);
 
 type Context = { params: Promise<{ clientId: string }> };
 
-function redirectWithMessage(
-  request: Request,
+function userActionResult(
   clientId: string,
   key: "error" | "ok",
   message: string,
 ): NextResponse {
-  const url = new URL(`/operator/clients/${clientId}/users`, request.url);
-  url.searchParams.set(key, message);
-  return NextResponse.redirect(url, 303);
+  return NextResponse.json({ clientId, [key === "error" ? "error" : "message"]: message, ok: key === "ok" }, { status: key === "error" ? 400 : 200 });
 }
 
 export async function POST(request: Request, context: Context) {
@@ -47,19 +44,17 @@ export async function POST(request: Request, context: Context) {
   const role = String(form.get("role") ?? "client").trim();
 
   if (!VALID_ROLES.has(role)) {
-    return redirectWithMessage(request, clientId, "error", "Invalid role.");
+    return userActionResult(clientId, "error", "Invalid role.");
   }
   if (!name || !email || !password) {
-    return redirectWithMessage(
-      request,
+    return userActionResult(
       clientId,
       "error",
       "Name, email, and password are all required.",
     );
   }
   if (password.length < MIN_PASSWORD_LENGTH) {
-    return redirectWithMessage(
-      request,
+    return userActionResult(
       clientId,
       "error",
       `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
@@ -71,8 +66,7 @@ export async function POST(request: Request, context: Context) {
     [email],
   );
   if (existing.rows[0]) {
-    return redirectWithMessage(
-      request,
+    return userActionResult(
       clientId,
       "error",
       "Email is already in use.",
@@ -96,8 +90,7 @@ export async function POST(request: Request, context: Context) {
     metadata: { email, name, role },
   });
 
-  return redirectWithMessage(
-    request,
+  return userActionResult(
     clientId,
     "ok",
     `Added ${email}.`,

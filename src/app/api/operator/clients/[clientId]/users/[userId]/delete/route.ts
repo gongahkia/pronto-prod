@@ -7,15 +7,12 @@ import { canAccessClient } from "@/lib/rbac";
 
 type Context = { params: Promise<{ clientId: string; userId: string }> };
 
-function redirectWithMessage(
-  request: Request,
+function userActionResult(
   clientId: string,
   key: "error" | "ok",
   message: string,
 ): NextResponse {
-  const url = new URL(`/operator/clients/${clientId}/users`, request.url);
-  url.searchParams.set(key, message);
-  return NextResponse.redirect(url, 303);
+  return NextResponse.json({ clientId, [key === "error" ? "error" : "message"]: message, ok: key === "ok" }, { status: key === "error" ? 400 : 200 });
 }
 
 export async function POST(request: Request, context: Context) {
@@ -29,7 +26,7 @@ export async function POST(request: Request, context: Context) {
   }
 
   if (userId === actor.userId) {
-    return redirectWithMessage(request, clientId, "error", "You cannot remove yourself.");
+    return userActionResult(clientId, "error", "You cannot remove yourself.");
   }
 
   const target = await query<{ id: string; email: string; role: string }>(
@@ -38,7 +35,7 @@ export async function POST(request: Request, context: Context) {
   );
   const user = target.rows[0];
   if (!user) {
-    return redirectWithMessage(request, clientId, "error", "User not found for this client.");
+    return userActionResult(clientId, "error", "User not found for this client.");
   }
 
   await query(`delete from users where id = $1`, [userId]);
@@ -52,5 +49,5 @@ export async function POST(request: Request, context: Context) {
     metadata: { email: user.email, role: user.role },
   });
 
-  return redirectWithMessage(request, clientId, "ok", `Removed ${user.email}.`);
+  return userActionResult(clientId, "ok", `Removed ${user.email}.`);
 }

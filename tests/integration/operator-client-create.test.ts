@@ -32,7 +32,8 @@ dbDescribe("canonical Pronto business creation", () => {
     const response = await POST(new Request("http://localhost/api/operator/clients", {
       method: "POST", headers: { origin: "http://localhost", host: "localhost" }, body: form,
     }));
-    expect(response.status).toBe(303);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
     const row = (await getPool().query<{ id: string; status: string }>(
       "select id, status from clients where slug = $1", [slug])).rows[0];
     createdId = row.id;

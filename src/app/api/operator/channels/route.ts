@@ -34,10 +34,6 @@ export async function POST(request: Request) {
   const clientId = String(form.get("clientId") ?? "");
   const status = String(form.get("status") ?? "draft");
   const externalId = String(form.get("externalId") ?? "");
-  const returnTo = safeOperatorReturnPath(
-    String(form.get("returnTo") ?? ""),
-    `/operator/clients/${clientId}/channels`,
-  );
   if (!channelStatuses.includes(status as ChannelStatus)) {
     return NextResponse.json({ error: "Invalid channel status." }, { status: 400 });
   }
@@ -133,7 +129,7 @@ export async function POST(request: Request) {
     await query(
       "insert into audit_logs (client_id, actor_user_id, action, target_type, target_id, metadata) values ($1, $2, 'channel.draft_saved', 'channel', $3, $4)",
       [clientId, user.userId, channelId, { proposedStatus: "active" }]);
-    return NextResponse.redirect(new URL(returnTo, request.url), 303);
+    return NextResponse.json({ ok: true, clientId });
   }
 
   await query(
@@ -168,7 +164,7 @@ export async function POST(request: Request) {
     [clientId, user.userId, channelId, { status }],
   );
 
-  return NextResponse.redirect(new URL(returnTo, request.url), 303);
+  return NextResponse.json({ ok: true, clientId });
 }
 
 function mergeStructuredFields(input: {
@@ -205,8 +201,4 @@ export function parseJsonObject(
   } catch {
     return { ok: false, error: `Channel ${fieldName} must be valid JSON.` };
   }
-}
-
-function safeOperatorReturnPath(value: string, fallback: string): string {
-  return value.startsWith("/operator") && !value.startsWith("//") ? value : fallback;
 }

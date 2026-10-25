@@ -32,5 +32,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Configuration failed." }, { status: 409 });
   }
-  return NextResponse.redirect(new URL(`/operator/clients/${clientId}/onboarding`, request.url), 303);
+  return NextResponse.json({ ok: true, clientId });
 }
