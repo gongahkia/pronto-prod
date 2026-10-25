@@ -71,6 +71,7 @@ export function ConversationFilterForm({
       >
         <option value="">All statuses</option>
         {action === "/client/inbox" ? <option value="needs_reply">Needs reply</option> : null}
+        {action === "/client/inbox" ? <><option value="pending">Pending</option><option value="ai_handled">AI-handled</option></> : null}
         <option value="active">Active</option>
         <option value="escalated">Escalated</option>
         <option value="closed">Closed</option>
@@ -136,6 +137,10 @@ export function ConversationList({
                 </p>
                 {showClient ? <Badge>{conversation.client_name}</Badge> : null}
                 <Badge>{conversation.channel_kind}</Badge>
+                {conversation.urgency ? <Badge tone={conversation.urgency === "short_term" ? "amber" : "neutral"}>
+                  {conversation.urgency === "short_term" ? "Short-term" : "Long-term"}</Badge> : null}
+                {conversation.ai_should_respond != null ? <Badge>AI responds: {conversation.ai_should_respond ? "yes" : "no"}</Badge> : null}
+                {conversation.owner_action_required ? <Badge tone="amber">Owner action required</Badge> : null}
                 <Badge tone={conversation.status === "escalated" ? "red" : "green"}>
                   {conversation.status}
                 </Badge>

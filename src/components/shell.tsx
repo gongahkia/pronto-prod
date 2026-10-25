@@ -71,7 +71,7 @@ export function AppShell({
 
   return (
     <>
-      <MockAiBanner status={mockAiStatus} />
+      <MockAiBanner status={mockAiStatus} customerDemoEnabled={process.env.PRONTO_CUSTOMER_DEMO_ENABLED === "1" && process.env.NODE_ENV !== "production"} />
       <AutoRefresh />
       <a href="#main-content" className="skip-link">
         Skip to main content

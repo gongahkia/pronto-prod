@@ -1,6 +1,6 @@
 import type { MockAiStatus } from "@/lib/llm/mock-status";
 
-export function MockAiBanner({ status }: { status: MockAiStatus }) {
+export function MockAiBanner({ status, customerDemoEnabled = false }: { status: MockAiStatus; customerDemoEnabled?: boolean }) {
   if (!status.active || !status.reason) {
     return null;
   }
@@ -15,7 +15,9 @@ export function MockAiBanner({ status }: { status: MockAiStatus }) {
       <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-medium">{previewMode ? "Response preview mode" : "AI connection needs review"}</span>
         <span>{previewMode
-          ? "Answers are simulated in this environment. Check your connection before serving customers."
+          ? customerDemoEnabled
+            ? "The default mode uses simulated answers. Customer demo conversations use their selected mode; check each reply's label."
+            : "Answers are simulated in this environment. Check your connection before serving customers."
           : "Check the model configuration before relying on automated replies."}</span>
       </div>
     </div>

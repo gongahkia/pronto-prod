@@ -134,7 +134,7 @@ export async function bulkResolveEscalations(input: {
     );
     if (updated.rowCount) {
       await client.query(
-        "update conversations set status = 'closed', last_message_at = now() where id = any($1::uuid[])",
+        "update conversations set status = 'closed', ai_should_respond=false, owner_action_required=false, last_message_at = now() where id = any($1::uuid[])",
         [updated.rows.map((row) => row.conversation_id)],
       );
     }

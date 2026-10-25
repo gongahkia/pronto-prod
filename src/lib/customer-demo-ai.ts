@@ -14,9 +14,9 @@ export function realDemoConfiguration(config: AgentConfig) {
     else if (!envApiKeyForProvider(current)) missing.push(current === "openai" ? "OPENAI_API_KEY" :
       current === "azure" ? "AZURE_OPENAI_API_KEY" : "ANTHROPIC_API_KEY");
     if (current === "azure") {
-      for (const name of ["AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_EMBEDDING_DEPLOYMENT"])
+      for (const name of ["AZURE_OPENAI_ENDPOINT", ...(embeddingProvider === "azure" ? ["AZURE_OPENAI_EMBEDDING_DEPLOYMENT"] : [])])
         if (!process.env[name]?.trim()) missing.push(name);
-      if (!process.env.AZURE_OPENAI_RESPONSE_DEPLOYMENT?.trim() && !process.env.AZURE_OPENAI_DEPLOYMENT?.trim())
+      if (provider === "azure" && !process.env.AZURE_OPENAI_RESPONSE_DEPLOYMENT?.trim() && !process.env.AZURE_OPENAI_DEPLOYMENT?.trim())
         missing.push("AZURE_OPENAI_RESPONSE_DEPLOYMENT or AZURE_OPENAI_DEPLOYMENT");
     }
   }
@@ -33,8 +33,10 @@ export async function requireRealDemoConfiguration(requireKnowledge = true) {
   const config = realDemoConfiguration(result.rows[0]);
   if (config.missing.length) throw new DemoError(`Real AI is unavailable. Configure ${config.missing.join(", ")} securely on the server.`, 503);
   if (requireKnowledge) {
-    const chunks = await query<{ count: string }>(`select count(*) from knowledge_chunks where client_id=$1
-      and metadata->>'embeddingProvider'=$2 and embedding_model=$3`,
+    const chunks = await query<{ count: string }>(`select count(*) from knowledge_chunks k
+      join knowledge_sources s on s.id=k.source_id and s.client_id=k.client_id
+      where k.client_id=$1 and k.metadata->>'embeddingProvider'=$2 and k.embedding_model=$3
+      and coalesce(s.metadata->>'archived','false')<>'true'`,
       [DEMO_CLIENT_ID, config.embeddingProvider, config.embeddingModel]);
     if (Number(chunks.rows[0]?.count ?? 0) === 0)
       throw new DemoError("Real AI knowledge is not prepared. Run the guarded demo:customer:embed command; mock vectors are not real embeddings.", 503);

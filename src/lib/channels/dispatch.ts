@@ -37,6 +37,9 @@ export async function sendChannelText(input: {
   if (channel.status !== "active") {
     throw new Error("Channel is disabled or inactive; outbound send blocked.");
   }
+  if (process.env.PRONTO_DEMO_ONLY_DELIVERY === "1" && channel.kind !== "console" &&
+      !(channel.kind === "email" && channel.credentials.provider === "local_smtp"))
+    throw new ChannelPolicyError("External provider delivery is disabled in the customer-demo sandbox.");
   if (["whatsapp", "instagram", "messenger", "email"].includes(channel.kind) &&
       usesLegacyPlaintextCredentials(channelResult.rows[0])) {
     throw new Error("Meta channel credentials must be encrypted before activation.");

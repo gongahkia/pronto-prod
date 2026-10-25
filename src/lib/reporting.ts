@@ -20,6 +20,9 @@ export type ConversationFilterInput = {
 };
 
 export type FilteredConversation = {
+  ai_should_respond?: boolean | null;
+  owner_action_required?: boolean;
+  urgency?: "short_term" | "long_term" | null;
   id: string;
   client_id: string;
   client_name: string;
@@ -102,6 +105,7 @@ export async function getFilteredConversations(
         c.customer_name,
         c.customer_handle,
         c.status,
+        c.ai_should_respond, c.owner_action_required, c.urgency,
         c.last_message_at,
         c.created_at,
         lm.body as last_message,
@@ -360,7 +364,11 @@ function buildConversationFilters(input: ConversationFilterInput): SqlFilter {
     where.push(`ch.kind = $${pushParam(values, input.channelKind)}::channel_kind`);
   }
   if (input.status === "needs_reply") {
-    where.push("ae.id is not null");
+    where.push("(ae.id is not null or c.owner_action_required)");
+  } else if (input.status === "pending") {
+    where.push("(c.owner_action_required or exists(select 1 from inbound_jobs j where j.client_id=c.client_id and j.conversation_id=c.id and j.status in ('pending','processing','failed','dead')))");
+  } else if (input.status === "ai_handled") {
+    where.push("(c.status='active' and c.ai_should_respond=true and not c.owner_action_required and ae.id is null)");
   } else if (input.status && conversationStatuses.has(input.status)) {
     where.push(`c.status = $${pushParam(values, input.status)}::conversation_status`);
   }

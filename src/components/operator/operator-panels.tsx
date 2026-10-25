@@ -291,6 +291,7 @@ type ChannelField = {
 };
 
 const channelFields: Record<ChannelKind, ChannelField[]> = {
+  console: [],
   whatsapp: [
     { scope: "credentials", name: "accessToken", label: "Access token", secret: true },
     { scope: "credentials", name: "phoneNumberId", label: "Phone number ID" },

@@ -8,6 +8,8 @@ const PROTECTED_PREFIXES = [
   "/api/operator",
   "/api/client",
   "/api/escalations",
+  "/demo",
+  "/api/demo",
 ];
 
 export function proxy(request: NextRequest) {

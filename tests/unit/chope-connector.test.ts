@@ -101,7 +101,7 @@ describe("Chope reservation capability boundary", () => {
     expect(await assistWithRestaurantBooking(input)).toMatchObject({ reasonCode: "chope_booking_link" });
     fake.failure = null;
     fake.availableSlots = ["20:00"];
-    expect(await assistWithRestaurantBooking(input)).toMatchObject({ reasonCode: "chope_booking_link" });
+    expect(await assistWithRestaurantBooking(input)).toMatchObject({ reasonCode: "reservation_available_alternatives" });
     expect(await assistWithRestaurantBooking({ ...input, connector: chopeConnector }))
       .toMatchObject({ action: "link", reasonCode: "chope_booking_link" });
   });
@@ -124,8 +124,7 @@ describe("Chope reservation capability boundary", () => {
         connector: fake });
       expect(result?.reasonCode).toBe("chope_booking_link");
       expect(result?.response).not.toContain("appears available");
-      // Exact links remain unverified. Preserve the pre-existing outlet URL;
-      // never synthesize date/time/party query parameters from a fake result.
+      // Invalid observations must never generate slot-specific links.
       expect(result?.response).toContain(profile.chopeBooking.url);
       expect(result?.response).not.toMatch(/[?&](?:date|time|adults|partySize)=/);
     }

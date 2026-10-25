@@ -21,12 +21,70 @@ party-of-four availability was **not** checked. This establishes current listing
 preselection behavior, not a stable published provider contract, downstream
 booking-page behavior, URL lifetime, or any hold on inventory.
 
-**POC decision gate:** exact-link product implementation remains paused pending
-Gabriel's review of these compatibility limits. No exact-link builder or new
-general-link fallback was added. The existing outlet-link behavior is preserved.
-See [the Tranche 00 report](../poc/tranche00-verification.md) for evidence,
-test results and the next implementation boundary. Do not use the dated probe
-URLs as evidence that a reservation is available.
+**POC decision updated, 25 October 2026:** Gabriel approved the experimentally
+observed native listing query format. The earlier Tranche 00 implementation gate
+is resolved for generating preselected listing links only. This does not establish
+official third-party support, downstream form preselection or booking authority.
+The dated [Tranche 00 report](../poc/tranche00-verification.md) remains historical
+evidence. Do not use its probe URLs or expired slots as current availability.
+
+## Experimental preselected listing links (PRON-39)
+
+`buildChopeListingLink` in `src/lib/reservations/chope.ts` accepts a verified
+tenant/provider/outlet mapping and a future Singapore-local date, `HH:mm` time and
+integer party size. It requires the connector capability
+`listingPreselection: "experimental_chope_listing_v1"`. Only the observed canonical
+`https://www.chope.co/singapore-restaurants/restaurant/<slug>` form is supported;
+other approved booking destinations keep their general-link behavior. Credentials,
+ports, query-bearing bases, fragments and encoded/path-traversal destinations are
+not accepted for preselection. The builder performs no network or reservation
+operation and makes no availability claim by itself.
+
+The generated parameters are `children=0`, `adults=<party size>`,
+`date=YYYY-MM-DD`, and `time=h:mm am/pm`, encoded with `URLSearchParams`.
+Party size currently maps to adults; a separate child-age/count breakdown is not
+supported; explicit child-group requests take the existing human path. A customer
+must check guest details and final availability on Chope.
+No cookies, session tokens or opaque booking IDs are generated. That does not
+establish an expiry guarantee or downstream behavior.
+
+The existing booking assistant now recognizes date/party availability enquiries,
+including “What timings are available tomorrow for two people?”, without
+inventing a requested time. Specific booking requests still require an explicit
+time. It uses only matching tenant/outlet/date/party/provider observations in
+Asia/Singapore that are no more than five minutes old. Slots must be well-formed,
+future local times and consistent with the reported status. Requested times absent
+from those results are not advertised as available. Up to six actual observed
+slots are shown (nearest the requested time when supplied); duplicates are removed
+and the observation timestamp, total/displayed count and limitations are disclosed.
+
+Each displayed observed slot gets an experimental listing link when supported.
+Responses include the existing verified general restaurant URL if selections are
+not retained. Set **`PRONTO_CHOPE_LISTING_LINKS_ENABLED=0`** in the worker launch
+environment to immediately disable new preselected links while retaining observed
+times and the general-link path. This switch is independent of live-read
+authorization and defaults on for the approved experimental capability. It affects
+new responses, not links already delivered. Remote compatibility changes are not
+automatically detected; the customer-visible fallback and this switch are the
+recovery paths.
+
+Unavailable observations, unsupported providers, errors, stale data and missing
+mappings do not produce apparent available slot links. Unknown/error/stale results
+use the existing general URL with a clear explanation, or human escalation when
+no verified URL exists. Existing large-group handoff rules still run before reads.
+Agent message metadata stores scoped observation provenance and experimental link
+mode. This is the existing deterministic reservation branch, not a replacement for
+genuine LLM/RAG answers to other enquiries.
+
+No new Chope network request was authorized by the product decision. The PRON-39
+implementation tests inject provider observations and use an isolated database.
+The four earlier fresh-browser listing trials remain the real preselection
+evidence; no current inventory or downstream booking-form acceptance is implied.
+Do not open the downstream `/booking/check` form without a separately established
+no-hold/read-only verification boundary. Reservation writes remain unsupported.
+
+See [the PRON-39 engineering report](../poc/chope-listing-links.md) for current
+test results and the remaining integration acceptance limits.
 
 The parser now accepts “tomorrow around 7pm” and explicit 24-hour times, while
 missing or ambiguous parameters still use the existing human path. Deterministic

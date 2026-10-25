@@ -84,6 +84,7 @@ const TRIAGE_CHANNELS: ChannelKind[] = [
 ];
 
 export const TRIAGE_CHANNEL_COPY: Record<ChannelKind, { label: string; description: string }> = {
+  console: { label: "Simulated DM", description: "Authenticated local customer simulation; no provider account." },
   whatsapp: {
     label: "Receive WhatsApp message",
     description: "Inbound WhatsApp Cloud API message from a customer phone number.",

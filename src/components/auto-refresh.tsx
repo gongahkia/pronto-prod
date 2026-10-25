@@ -8,7 +8,8 @@ export function AutoRefresh({ intervalMs = 20000 }: { intervalMs?: number }) {
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") router.refresh();
+      if (document.visibilityState === "visible" &&
+          !document.activeElement?.matches("input, textarea, select")) router.refresh();
     }, intervalMs);
     return () => window.clearInterval(id);
   }, [intervalMs, router]);

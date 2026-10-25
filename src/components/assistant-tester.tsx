@@ -43,7 +43,7 @@ type ChatTheme = {
   title: string;
 };
 
-const chatThemes: Record<Exclude<ChannelKind, "email">, ChatTheme> = {
+const chatThemes: Record<Exclude<ChannelKind, "email" | "console">, ChatTheme> = {
   whatsapp: {
     shell: "border-[#d8d0bf] bg-[#f7f1e7]",
     header: "bg-[#f7f7f7] text-[#111b21]",
@@ -243,7 +243,7 @@ function MessagingPreview({
   onDraftChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
-  const theme = chatThemes[channel.kind as Exclude<ChannelKind, "email">];
+  const theme = chatThemes[channel.kind === "console" ? "instagram" : channel.kind as Exclude<ChannelKind, "email" | "console">];
   const definition = channelDefinition(channel.kind);
 
   return (

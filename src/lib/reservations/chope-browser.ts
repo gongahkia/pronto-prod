@@ -1,5 +1,5 @@
-import type { AvailabilityResult, ReservationConnector, ReservationRequest, ReservationResult } from "@/lib/reservations/types";
-import { approvedChopeBookingLink, validateReservationRequest } from "@/lib/reservations/chope";
+import type { AvailabilityResult, ReservationAvailabilityRequest, ReservationConnector, ReservationResult } from "@/lib/reservations/types";
+import { approvedChopeBookingLink, validateAvailabilityRequest } from "@/lib/reservations/chope";
 import { logInfo, logWarn } from "@/lib/logger";
 
 const GET_TIMES_PATH = "/singapore-restaurants/categories/get_times";
@@ -47,17 +47,18 @@ export function configuredChopeBrowserConnector(clientId: string,
 }
 
 export function createChopeBrowserConnector(config: ChopeBrowserConfig,
-  read: (request: ReservationRequest, config: ChopeBrowserConfig) => Promise<AvailabilityResult> =
+  read: (request: ReservationAvailabilityRequest, config: ChopeBrowserConfig) => Promise<AvailabilityResult> =
     readChopeBrowserAvailability): ReservationConnector {
   if (!validChopeBrowserConfig(config)) throw new Error("Invalid Chope browser authorization configuration.");
   return {
     provider: "chope",
-    capabilities: { availability: true, create: false, read: false, update: false, cancel: false },
+    capabilities: { availability: true, create: false, read: false, update: false, cancel: false,
+      listingPreselection: "experimental_chope_listing_v1" },
     async getAvailability(request) {
       if (request.clientId !== config.clientId || request.outletId !== config.outletId) {
         return errorResult(request, "missing_authorization");
       }
-      if (!validateReservationRequest(request)) return errorResult(request, "invalid_request");
+      if (!validateAvailabilityRequest(request)) return errorResult(request, "invalid_request");
       return read(request, config);
     },
     async createReservation() { return unsupported; },
@@ -67,7 +68,7 @@ export function createChopeBrowserConnector(config: ChopeBrowserConfig,
   };
 }
 
-function errorResult(request: ReservationRequest, code: NonNullable<AvailabilityResult["errorCode"]>):
+function errorResult(request: ReservationAvailabilityRequest, code: NonNullable<AvailabilityResult["errorCode"]>):
   AvailabilityResult {
   return { outletId: request.outletId, date: request.date, partySize: request.partySize,
     availableSlots: [], timezone: "Asia/Singapore", provider: "chope", observedAt: null,
@@ -100,13 +101,13 @@ export function parseChopeTimeOptions(options: { value: string; text: string; di
   return unavailable ? { status: "unavailable", slots: [] } : { status: "error", slots: [] };
 }
 
-export async function readChopeBrowserAvailability(request: ReservationRequest,
+export async function readChopeBrowserAvailability(request: ReservationAvailabilityRequest,
   config: ChopeBrowserConfig): Promise<AvailabilityResult> {
   if (process.env.PRONTO_CHOPE_LIVE_READS !== "1" ||
       process.env.CHOPE_LIVE_READ_APPROVED !== "1") return errorResult(request, "missing_authorization");
   if (!validChopeBrowserConfig(config) || request.clientId !== config.clientId ||
       request.outletId !== config.outletId) return errorResult(request, "missing_authorization");
-  if (!validateReservationRequest(request)) return errorResult(request, "invalid_request");
+  if (!validateAvailabilityRequest(request)) return errorResult(request, "invalid_request");
   const now = Date.now();
   if (now < nextReadAt) return errorResult(request, "rate_limited");
   nextReadAt = now + MIN_READ_INTERVAL_MS;

@@ -78,6 +78,8 @@ async function execute(job: InboundJob, requestId?: string,
     return "escalated";
   }
 
+  // A later release applies to future enquiries, not a human-owned backlog.
+  if (message.metadata.aiPausedAtIngestion === true) return "skipped";
   const active = await query<{ id: string }>(
     `select c.id from conversations c where c.id = $1 and c.client_id = $2 and c.status = 'active'
       and not exists (select 1 from escalations e where e.conversation_id = c.id and e.client_id = c.client_id
@@ -98,7 +100,7 @@ async function execute(job: InboundJob, requestId?: string,
     demoMode = session.rows[0].ai_mode;
     if (demoMode === "real") await requireRealDemoConfiguration();
   }
-  const run = () => unsupported
+  const run = async () => unsupported
     ? await createEscalation({
         clientId: job.client_id, channelId: job.channel_id, conversationId: job.conversation_id,
         customerMessageId: message.id, customerMessage: message.body,

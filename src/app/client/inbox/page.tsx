@@ -16,6 +16,7 @@ import {
   pageFromSearchParams,
 } from "@/components/reporting-panels";
 import { Badge } from "@/components/badge";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 export default async function ClientInboxPage({
   searchParams,
@@ -46,6 +47,7 @@ export default async function ClientInboxPage({
 
   return (
     <AppShell user={user} active="client" clientActive="inbox" workspaceName={client.name}>
+      <AutoRefresh intervalMs={3000}/>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Inbox</h1>
@@ -56,12 +58,16 @@ export default async function ClientInboxPage({
         <Badge tone={analytics.actionableEscalations ? "amber" : "green"}>
           {analytics.actionableEscalations} need reply
         </Badge>
+        {user.clientId === "00000000-0000-4000-8000-00000000a101" && process.env.PRONTO_CUSTOMER_DEMO_ENABLED === "1"
+          ? <Link href="/demo/customer" className="text-sm text-accent">Open customer simulator</Link> : null}
       </div>
 
       <section className="ui-panel">
         <div className="ui-panel-header">
           <div className="flex flex-wrap gap-2">
             <QuickFilter href="/client/inbox" label="All" active={!filters.status} />
+            <QuickFilter href="/client/inbox?status=pending" label="Pending" active={filters.status === "pending"}/>
+            <QuickFilter href="/client/inbox?status=ai_handled" label="AI-handled" active={filters.status === "ai_handled"}/>
             <QuickFilter
               href="/client/inbox?status=needs_reply"
               label="Needs reply"
@@ -74,7 +80,7 @@ export default async function ClientInboxPage({
             />
             <QuickFilter
               href="/client/inbox?status=closed"
-              label="Closed"
+              label="Resolved"
               active={filters.status === "closed"}
             />
           </div>

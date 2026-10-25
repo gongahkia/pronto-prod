@@ -46,6 +46,8 @@ export function ChannelConversationThread({
                     {formatDate(message.created_at)}
                   </time>
                 </div>
+                {message.sender_role === "agent" && ["real", "mock"].includes(String(message.metadata.generationMode)) &&
+                  <p className="mt-1 text-xs text-muted">{message.metadata.generationMode === "real" ? "Real model response" : "Mock response"}</p>}
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.body}</p>
               </li>
             );

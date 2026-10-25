@@ -78,6 +78,15 @@ describe("Chope browser reader with a simulated browser transport", () => {
     expect(fixture.browser.close).toHaveBeenCalledOnce();
   });
 
+  it("reads date/party availability without fabricating a preferred time", async () => {
+    const fixture = browserFixture();
+    const { readChopeBrowserAvailability } = await import("@/lib/reservations/chope-browser");
+    expect(await readChopeBrowserAvailability({ ...request, time: undefined }, config))
+      .toMatchObject({ status: "available", availableSlots: ["19:00"] });
+    expect(fixture.page.goto).toHaveBeenCalledWith(config.listingUrl, expect.anything());
+    expect(fixture.browser.close).toHaveBeenCalledOnce();
+  });
+
   it.each([
     [{ unavailable: true }, "unavailable", undefined],
     [{ malformed: true }, "error", "unexpected_response"],

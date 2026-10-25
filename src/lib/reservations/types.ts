@@ -4,6 +4,8 @@ export type ReservationCapabilities = {
   read: boolean;
   update: boolean;
   cancel: boolean;
+  // Internal compatibility label, not an official provider guarantee.
+  listingPreselection?: "experimental_chope_listing_v1";
 };
 
 export type ReservationRequest = {
@@ -13,6 +15,14 @@ export type ReservationRequest = {
   time: string;
   partySize: number;
 };
+
+// A date/party availability enquiry need not invent a preferred booking time.
+export type ReservationAvailabilityRequest = Omit<ReservationRequest, "time"> & { time?: string };
+
+export type ReservationBookingLinkResult =
+  | { status: "preselected"; provider: "chope"; outletId: string; url: string;
+      compatibility: "experimental_chope_listing_v1"; downstreamPreselection: "unverified" }
+  | { status: "unsupported" | "invalid"; reasonCode: string };
 
 export type ConfirmedReservationRequest = ReservationRequest & {
   customerName: string;
@@ -41,7 +51,7 @@ export type ReservationResult =
 export interface ReservationConnector {
   readonly provider: string;
   readonly capabilities: ReservationCapabilities;
-  getAvailability(request: ReservationRequest): Promise<AvailabilityResult>;
+  getAvailability(request: ReservationAvailabilityRequest): Promise<AvailabilityResult>;
   createReservation(request: ConfirmedReservationRequest): Promise<ReservationResult>;
   getReservation(clientId: string, outletId: string, reservationId: string): Promise<ReservationResult>;
   updateReservation(request: ConfirmedReservationRequest & { reservationId: string }): Promise<ReservationResult>;

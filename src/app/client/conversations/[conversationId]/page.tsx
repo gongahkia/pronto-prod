@@ -11,6 +11,9 @@ import {
 import { AppShell } from "@/components/shell";
 import { ConversationTriagePanel } from "@/components/conversation-triage-panel";
 import { ConversationReviewPanel } from "@/components/conversation-review-panel";
+import { ConversationClassificationPanel } from "@/components/conversation-classification-panel";
+import { getEscalationPolicy } from "@/lib/staff-configuration";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 export default async function ClientConversationPage({
   params,
@@ -40,9 +43,11 @@ export default async function ClientConversationPage({
   ]);
 
   const returnTo = `/client/conversations/${conversation.id}`;
+  const policy = await getEscalationPolicy(user.clientId);
 
   return (
     <AppShell user={user} active="client" clientActive="inbox" workspaceName={client.name}>
+      <AutoRefresh intervalMs={3000}/>
       <div className="mb-5">
         <Link href="/client/inbox" className="text-xs font-medium text-accent hover:text-accent-dark">
           Back to inbox
@@ -56,8 +61,9 @@ export default async function ClientConversationPage({
       </div>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <ConversationReviewPanel conversation={conversation} messages={messages} />
-        <ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo}
-          canRespond={canRespond} canRelease={canRelease} />
+        <div><ConversationClassificationPanel conversation={conversation} canRespond={canRespond} policy={policy?.policy ?? null}/>
+          <ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo}
+            canRespond={canRespond} canRelease={canRelease} /></div>
       </div>
     </AppShell>
   );

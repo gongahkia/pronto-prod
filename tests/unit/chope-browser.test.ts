@@ -23,7 +23,8 @@ describe("Chope browser availability boundary", () => {
     expect(configuredChopeBrowserConnector(config.clientId, profile)).toBeNull();
     process.env.CHOPE_LIVE_READ_APPROVED = "1";
     expect(configuredChopeBrowserConnector(config.clientId, profile)?.capabilities)
-      .toEqual({ availability: true, create: false, read: false, update: false, cancel: false });
+      .toEqual({ availability: true, create: false, read: false, update: false, cancel: false,
+        listingPreselection: "experimental_chope_listing_v1" });
     expect(configuredChopeBrowserConnector(config.clientId, { ...profile,
       chopeAvailability: { ...profile.chopeAvailability, enabled: false } })).toBeNull();
     expect(configuredChopeBrowserConnector(config.clientId, { ...profile,

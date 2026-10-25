@@ -52,6 +52,7 @@ export async function ingestInboundMessage(inbound: NormalizedInboundMessage,
        on conflict (channel_id, external_message_id) do nothing returning *`,
       [conversation.rows[0].id, channel.client_id, channel.id, inbound.externalMessageId,
         inbound.text, { raw: inbound.raw, channelKind: inbound.channelKind,
+          aiPausedAtIngestion: conversation.rows[0].status !== "active",
           providerOccurredAt: inbound.occurredAt ?? null,
           unsupportedMediaType: inbound.unsupportedMediaType ?? null }],
     );

@@ -164,7 +164,7 @@ export async function POST(request: Request) {
       );
       if (open.rows[0]) throw new Error("Another human handoff is still open.");
       await db.query(
-        "update conversations set status = 'active', last_message_at = now() where id = $1 and client_id = $2",
+        "update conversations set status = 'active', ai_should_respond=true, owner_action_required=false, last_message_at = now() where id = $1 and client_id = $2",
         [escalation.conversation_id, escalation.client_id],
       );
       await recordAuditLog({
@@ -235,7 +235,7 @@ export async function POST(request: Request) {
       }
 
       await client.query(
-        "update conversations set status = 'closed', last_message_at = now() where id = $1 and client_id = $2",
+        "update conversations set status = 'closed', ai_should_respond=false, owner_action_required=false, last_message_at = now() where id = $1 and client_id = $2",
         [escalation.conversation_id, escalation.client_id],
       );
       await client.query(

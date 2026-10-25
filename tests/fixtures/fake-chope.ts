@@ -1,8 +1,8 @@
 import type {
-  ConfirmedReservationRequest, ReservationConnector, ReservationRequest,
+  ConfirmedReservationRequest, ReservationAvailabilityRequest, ReservationConnector,
   ReservationResult, ReservationAvailability, AvailabilityResult,
 } from "@/lib/reservations/types";
-import { validateReservationRequest } from "@/lib/reservations/chope";
+import { validateAvailabilityRequest, validateReservationRequest } from "@/lib/reservations/chope";
 
 export class FakeChopeConnector implements ReservationConnector {
   readonly provider = "chope-fake";
@@ -22,12 +22,12 @@ export class FakeChopeConnector implements ReservationConnector {
     this.allowedOutletId = outletId;
   }
 
-  async getAvailability(request: ReservationRequest): Promise<AvailabilityResult> {
+  async getAvailability(request: ReservationAvailabilityRequest): Promise<AvailabilityResult> {
     this.assertScope(request);
-    const valid = validateReservationRequest(request, this.now());
+    const valid = validateAvailabilityRequest(request, this.now());
     const status = !valid || this.failure ? "error" : this.availability;
     return { outletId: request.outletId, date: request.date, partySize: request.partySize,
-      availableSlots: status === "available" ? (this.availableSlots ?? [request.time]) : [],
+      availableSlots: status === "available" ? (this.availableSlots ?? (request.time ? [request.time] : [])) : [],
       timezone: "Asia/Singapore", provider: this.provider,
       observedAt: new Date(this.now().getTime() - this.observationAgeMs).toISOString(),
       status, ...(!valid ? { errorCode: "invalid_request" as const } :

@@ -134,13 +134,13 @@ export async function runAgentForMessage(input: {
       if (booking.action === "link" && booking.response) {
         const recorded = await recordDirectAgentAnswer(input, {
           answer: booking.response, confidence: 1, reasonCode: booking.reasonCode,
-          metadata: { policy: "verified_booking_link" },
+          metadata: { policy: "verified_booking_link", ...booking.metadata },
         });
         trace.addStep("booking_link_handoff");
         await trace.finalize({ status: "answered", reasonCode: booking.reasonCode,
           confidence: 1, agentMessageId: recorded.agentMessageId });
         return { action: "answered", responseText: booking.response,
-          reasonCode: booking.reasonCode, reasonDetail: "Customer referred to an operator-verified Chope outlet link.",
+          reasonCode: booking.reasonCode, reasonDetail: booking.reasonDetail ?? "Customer referred to an operator-verified Chope outlet link.",
           confidence: 1, citedChunks: [], agentMessageId: recorded.agentMessageId, csatUrl: recorded.csatUrl };
       }
       const escalation = await createEscalation({
@@ -742,8 +742,11 @@ export async function createEscalation(input: {
     );
     if (!customerMessage.rows[0]) throw new Error("Escalation customer message was not found.");
     await client.query(
-      "update conversations set status = 'escalated', last_message_at = now() where id = $1 and client_id = $2",
-      [input.conversationId, input.clientId],
+      `update conversations set status = 'escalated', last_message_at = now(), ai_should_respond=false,
+       owner_action_required=true, urgency=coalesce(urgency,
+         case when $3='urgent_or_negative_sentiment' then 'short_term' else 'long_term' end)
+       where id = $1 and client_id = $2`,
+      [input.conversationId, input.clientId, input.reasonCode],
     );
 
     const existing = await client.query<{ id: string }>(
