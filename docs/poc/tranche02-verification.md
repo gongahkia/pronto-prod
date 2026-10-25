@@ -1,12 +1,13 @@
 # Tranche 02 — business inbox recovery and operator frontend retirement
 
 Date: 25 October 2026 (Asia/Singapore). Evidence is from the current repository
-and local application, not Jira completion states. No Jira/Confluence updates,
-commits, staging, deployment, real Meta sends, Chope requests or bookings occurred.
+and local application, not Jira completion states. This agent performed no
+Jira/Confluence updates, commits, staging, deployment, real Meta sends, Chope
+requests or bookings. External Git activity near completion is recorded below.
 
 ## Executive result
 
-**Local implementation: PASS, subject to the final verification results below.**
+**Local implementation: PASS.**
 The connected mock-mode customer/business workflow is operational. Operator
 administration has an authenticated CLI/API replacement; the obsolete HQ pages
 were removed after essential CLI acceptance passed. Genuine external LLM
@@ -17,7 +18,8 @@ acceptance and Windows-side browser acceptance remain separate, unverified gates
 - Entry branch: `main`; HEAD: `2e9ea8aec9cb14e1436398c331c8f690d6bdb055`.
 - Entry worktree: clean, with zero staged, modified or untracked files. Earlier
   reports of a heavily modified worktree were historical; their code was present
-  in this HEAD. No concurrent editor of this checkout was observed.
+  in this HEAD. No concurrent editor was observed during entry inspection; an
+  external commit was detected near completion.
 - Runtime: Node 24.21.0, pnpm 10.33.0, Next.js 16.4.0, React 19.2.4, TypeScript 5.9.3.
 - Migration inventory still ends at `045_customer_simulator_and_triage.sql`.
   No migrations, schema changes, dependency installation or lockfile changes
@@ -25,7 +27,16 @@ acceptance and Windows-side browser acceptance remain separate, unverified gates
 - Existing Chope integration/experimental links, agent engine and migration
   history were preserved. The existing modular monolith, pgvector retrieval,
   inbox/outbox and separate worker remain the implementation boundaries.
-- Final worktree counts: **PENDING**. All changes are unstaged and intentional.
+- Implementation delta from entry: **53 modified files, 25 deleted files and 15
+  new files**. The deletions are 19 operator pages and six operator-only components.
+- While the final report was being completed, an external commit advanced HEAD to
+  **`edceea03dbce17c03b4572e5976f7895ef5d2dae`** and included those 93 paths. This
+  agent did not stage or create that commit and did not undo/rewrite it. Byte-level
+  comparison of current `src`/`scripts` with the guarded build copy found no source
+  content differences.
+- **Final worktree: only `docs/poc/tranche02-verification.md` is modified**, containing
+  the completed results in place of the earlier draft. Zero staged or untracked
+  files remain. The external commit and all existing work are preserved.
 
 ## Business Inbox Navigation and Loading Investigation
 
@@ -116,7 +127,7 @@ filesystem editing access.
 | Failed client navigation | Deliberately aborted RSC fetch falls back to full document navigation and renders the inbox |
 | Refresh/mobile/keyboard | Covered by retained and updated Playwright acceptance |
 
-The main-stack walkthrough recorded zero page/console errors. Final evidence
+The final main-stack walkthrough recorded zero page/console errors and 315 successful frontend asset requests with no asset HTTP failures. The worker heartbeat was fresh; health/readiness and Mailpit returned HTTP 200. Its persisted conversation is `/client/conversations/60a1eacb-a065-4f69-acfd-264d702f8786`. Final evidence
 files and conversation IDs are recorded under `/tmp/pronto-tranche02`; no cookies,
 authorization headers, credential values or unrestricted prompt payloads are in
 this report. Initial request cancellations caused by intentionally leaving a page
@@ -186,12 +197,44 @@ point at the retired HQ UI. Source scanning found no active legacy UI navigation
 the proxy's legacy `/operator` prefix is only a protection rule, not a link/page.
 
 The final CLI test also passed encrypted storage/removal of a synthetic integration key; it
-does not call an external provider. Existing model/embedding configuration and
+does not call an external provider. This exposed an existing administrative API
+defect: it used the LLM-only helper that permanently reports database key storage
+disabled, incorrectly rejecting integration credential writes. The corrected
+check reuses the existing integration encryption key validation. LLM credential
+resolution remains environment-only. Existing model/embedding configuration and
 provider opt-ins remain the only route to genuine inference.
 
 ## Verification commands and results
 
-**PENDING final checks.** Results below must be updated after completion.
+| Executed command | Actual result |
+|---|---|
+| `pnpm test --maxWorkers=2` | **409 passed, 93 skipped, 0 failed** |
+| `/tmp/pronto-tranche00/test-run pnpm test:db --maxWorkers=2` | **494 passed, 8 skipped, 0 failed** |
+| `/tmp/pronto-tranche00/test-run pnpm test:local-mail` | **8 passed, 0 failed**; real loopback SMTP/Mailpit |
+| `pnpm lint` | PASS |
+| `pnpm exec next typegen` then `pnpm typecheck` | PASS; regenerated stale route validators after page removal |
+| Guarded copy: `PRONTO_TRANCHE_WORKDIR=/var/tmp/pronto-tranche02-app /tmp/pronto-tranche00/test-run env APP_BASE_URL=http://localhost:3001 PRONTO_TEST_ALLOW_BUILD_IPC=1 NODE_OPTIONS=--import=./tests/setup/network-guard.mjs pnpm build` | PASS; compiled successfully, TypeScript and route generation completed |
+| `/tmp/pronto-tranche02/e2e tests/e2e/operator-cli.spec.ts` **before UI removal** | **1 passed** |
+| Latest full `/tmp/pronto-tranche02/e2e` | **25 passed, 1 failed**; sole remaining failure was a new cross-tenant test fixture missing required `brand_voice`, before its assertions ran |
+| Corrected `/tmp/pronto-tranche02/e2e tests/e2e/business-access.spec.ts --grep 'another business conversation'` | **1 passed**; actual authorized cross-tenant read and takeover rejection verified |
+| Final extended `/tmp/pronto-tranche02/e2e tests/e2e/operator-cli.spec.ts` | **1 passed**, including encrypted integration credential save/removal after the readiness fix |
+| `pnpm exec vitest run tests/unit/operator-inspect.test.ts --maxWorkers=1` | **3 passed**, final inspection-module regression |
+| `TMPDIR=/var/tmp node /tmp/pronto-tranche02/runtime.cjs` | PASS on persistent localhost:3000; real rendered inbox and complete mock/customer/human round trip; zero browser errors |
+| `git diff --check` | PASS |
+
+**All 26 distinct browser scenarios have passed across the last full run and the
+corrected targeted rerun. This is not a claim that one invocation reported 26/26.**
+The final CLI extension passed separately. Unit/DB counts increased by 22 from
+PRON-39's last report (387/472 passed): 15 navigation validation cases, two loading/
+error cases, three administrative access cases and two independent encryption-
+readiness cases. Browser coverage added eight access/recovery cases and one CLI
+case. Existing operator UI expectations were replaced with retirement/API
+assertions; existing backend test coverage was retained.
+
+The ordinary suite skips DB integration; the DB suite leaves eight opt-in local
+mail tests skipped, which were separately run successfully. None of these counts
+establish live model or Meta/Chope acceptance. Earlier failed diagnostic runs are
+not substituted for current results.
 
 Regression safety: `/tmp/pronto-tranche00/test-run pnpm test:db:verify` verified
 the owned loopback `pronto_test` database on 55434 using explicit matching URLs,
@@ -210,7 +253,9 @@ adjusted only in that owned copy from port 3000 to 3001.
 Initial runs are retained as diagnostics. They exposed the `reset()` refetch bug,
 pre-hydration loading behavior, cold-compilation timeouts, a test-lock idle
 timeout, a missing staff-command test opt-in and incomplete new test fixture
-fields. Those were corrected. A previous negative test also relied on a seed
+fields. A DB integration test still expected the removed 303 redirect and was
+updated to assert JSON success while retaining its draft/onboarding assertions;
+the full DB suite then passed. Those issues were corrected. A previous negative test also relied on a seed
 user lacking conversation capabilities; the dedicated cross-tenant test now uses
 an actually authorized responder. Intentional network/DB failures produce expected
 sanitized console/server errors during those cases. They are not counted as
@@ -234,7 +279,7 @@ successful-provider evidence.
 
 PRON-86: connected mock customer/business acceptance is verified; genuine LLM
 acceptance remains incomplete. PRON-87: frontend retirement and essential local
-CLI/API replacement are implemented and locally accepted, subject to final checks.
+CLI/API replacement are implemented and locally accepted.
 No Jira status was changed. Hosting, real Instagram sends, Eatigo/Oddle, recaps
 and further Chope live verification were not begun. This is not production
 readiness or a claim of complete security/audit compliance.
@@ -246,6 +291,10 @@ using PostgreSQL/pgvector and a separate durable inbox/outbox worker. On 25 Octo
 2026 the checkout began clean on main at
 `2e9ea8aec9cb14e1436398c331c8f690d6bdb055`, with migrations through 045. Prior
 Tranche 00/01/experimental Chope changes were already present and preserved.
+An external commit near completion advanced HEAD to
+`edceea03dbce17c03b4572e5976f7895ef5d2dae`, including the implementation. Codex did
+not create/stage that commit. Current source matches the tested copy; only the
+completed verification report remains modified.
 
 The simulated customer UI is `/demo/customer`, and the business inbox is
 `/client/inbox`. They share actual persisted conversations. A PS.Cafe demo
@@ -283,3 +332,143 @@ is consistent with a DevTools workspace mapping of the advertised Linux path,
 not established as an application exception. Chope read/link behavior, LLM/RAG
 policy enforcement and provider activation boundaries were preserved. No external
 provider acceptance, production readiness or complete audit ledger is claimed.
+
+
+## Final acceptance and handover status
+
+- **LOCAL APP: PASS** — web/API, database, worker and Mailpit remain running in
+  `pronto-local`. Only the separately owned regression cluster on 55434 was stopped.
+- **BUSINESS INBOX: VERIFIED LOCALLY** — actual content and the complete connected
+  mock/customer/business workflow passed, including role switching and retry.
+- **PRON-86: PARTIAL** — local connected POC accepted; genuine LLM acceptance still blocked.
+- **PRON-87: LOCALLY ACCEPTED** — obsolete UI removed; essential authenticated CLI/API operations verified; no Jira update performed.
+- **WINDOWS ORIGINAL SYMPTOM: UNVERIFIED** — the user reported customer-page access;
+  independently automated browser checks were inside WSL. The exact original
+  Windows skeleton/DevTools-profile cause was not reproduced.
+- **GIT WORKTREE: CHANGED — REPORT ONLY** — the 93-path implementation was
+  committed externally to `edceea0`; only this completed report is now modified.
+  This agent made no commit, staged change, reset, cleanup or history rewrite.
+
+Final verification for the standalone handover: 409 unit tests passed with 93
+skipped; DB-inclusive 494 passed with eight skipped; local-mail eight passed;
+all 26 distinct browser cases passed across the latest full/targeted runs, with
+CLI credential lifecycle rechecked separately. Lint, generated route types,
+typecheck and guarded build passed. The persistent-stack final walkthrough had
+315 successful asset requests, no page/console errors, fresh worker heartbeat and
+HTTP-200 health/readiness. These results apply to local mock inference, not real
+provider acceptance.
+
+To rerun regression tests after this session's test-cluster stop, first start
+only the known owned cluster and verify its identity again:
+
+```sh
+pg_ctl -D /tmp/pronto-tranche00/pgdata -l /tmp/pronto-tranche02/logs/test-postgres.log -w start
+/tmp/pronto-tranche00/test-run pnpm test:db:verify
+```
+
+Never substitute the persisted demonstration database or infer disposability from
+its port. Runtime walkthrough and screenshots are in `/tmp/pronto-tranche02`;
+this report is also copied to `/tmp/pronto-tranche02-verification.md`.
+
+## Worktree path inventory
+
+The following snapshot records the implementation delta **before the external
+commit**, not the final worktree. `D` denotes authorized frontend retirement and
+`??` new implementation/tests/documentation. Final status is only:
+` M docs/poc/tranche02-verification.md`.
+
+```text
+ M README.md
+ M docs/demos/customer-simulator.md
+ M package.json
+ M playwright.config.ts
+ M src/app/api/auth/login/route.ts
+ M src/app/api/auth/logout/route.ts
+ M src/app/api/escalations/route.ts
+ M src/app/api/operator/agent-config/route.ts
+ M src/app/api/operator/assistant/publish/route.ts
+ M src/app/api/operator/brand-voice/route.ts
+ M src/app/api/operator/channel-health/route.ts
+ M src/app/api/operator/channels/activation/route.ts
+ M src/app/api/operator/channels/route.ts
+ M src/app/api/operator/clients/[clientId]/chope-link/route.ts
+ M src/app/api/operator/clients/[clientId]/permissions/route.ts
+ M src/app/api/operator/clients/[clientId]/users/[userId]/delete/route.ts
+ M src/app/api/operator/clients/[clientId]/users/route.ts
+ M src/app/api/operator/clients/route.ts
+ M src/app/api/operator/errors/[errorId]/acknowledge/route.ts
+ M src/app/api/operator/inbound-jobs/[jobId]/retry/route.ts
+ M src/app/api/operator/integrations/route.ts
+ M src/app/api/operator/knowledge-refresh/route.ts
+ M src/app/api/operator/knowledge-submissions/route.ts
+ M src/app/api/operator/knowledge-suggestions/route.ts
+ M src/app/api/operator/knowledge/[sourceId]/route.ts
+ M src/app/api/operator/knowledge/route.ts
+ M src/app/api/operator/offboarding/route.ts
+ M src/app/api/operator/onboarding/route.ts
+ M src/app/api/operator/staff-configuration/route.ts
+ M src/app/api/operator/staff-notifications/[jobId]/retry/route.ts
+ M src/app/client/conversations/[conversationId]/page.tsx
+ M src/app/client/inbox/page.tsx
+ M src/app/demo/customer/page.tsx
+ M src/app/error.tsx
+ M src/app/loading.tsx
+ M src/app/login/page.tsx
+ D src/app/operator/clients/[clientId]/channels/page.tsx
+ D src/app/operator/clients/[clientId]/conversations/[conversationId]/page.tsx
+ D src/app/operator/clients/[clientId]/conversations/page.tsx
+ D src/app/operator/clients/[clientId]/escalations/page.tsx
+ D src/app/operator/clients/[clientId]/flows/page.tsx
+ D src/app/operator/clients/[clientId]/integrations/page.tsx
+ D src/app/operator/clients/[clientId]/knowledge/[sourceId]/page.tsx
+ D src/app/operator/clients/[clientId]/knowledge/page.tsx
+ D src/app/operator/clients/[clientId]/offboarding/page.tsx
+ D src/app/operator/clients/[clientId]/onboarding/page.tsx
+ D src/app/operator/clients/[clientId]/page.tsx
+ D src/app/operator/clients/[clientId]/users/page.tsx
+ D src/app/operator/clients/new/page.tsx
+ D src/app/operator/conversations/page.tsx
+ D src/app/operator/escalations/page.tsx
+ D src/app/operator/knowledge-connections/page.tsx
+ D src/app/operator/operations/page.tsx
+ D src/app/operator/overview/page.tsx
+ D src/app/operator/page.tsx
+ M src/app/page.tsx
+ D src/components/agent-config-panels.tsx
+ M src/components/customer-simulator.tsx
+ D src/components/integrations-panel.tsx
+ D src/components/local-release-panels.tsx
+ D src/components/operator-sidebar-actions.tsx
+ D src/components/operator/operator-nav.tsx
+ D src/components/operator/operator-panels.tsx
+ M src/components/shell.tsx
+ M src/lib/auth.ts
+ M src/lib/escalations.ts
+ M src/lib/integrations/credentials.ts
+ M src/proxy.ts
+ M tests/e2e/customer-simulator.spec.ts
+ M tests/e2e/smoke.spec.ts
+ M tests/integration/operator-client-create.test.ts
+ M tests/unit/escalation-route.test.ts
+ M tests/unit/escalations.test.ts
+ M tests/unit/operator-agent-config-route.test.ts
+ M tests/unit/operator-brand-voice-route.test.ts
+ M tests/unit/operator-client-users-route.test.ts
+ M tests/unit/operator-knowledge-route.test.ts
+ M tests/unit/operator-knowledge-source-route.test.ts
+?? docs/ops/operator-cli.md
+?? docs/poc/tranche02-verification.md
+?? scripts/admin.ts
+?? src/app/access/page.tsx
+?? src/app/account/page.tsx
+?? src/app/api/operator/inspect/route.ts
+?? src/app/client/error.tsx
+?? src/components/account-access.tsx
+?? src/lib/auth-navigation.ts
+?? tests/e2e/business-access.spec.ts
+?? tests/e2e/operator-cli.spec.ts
+?? tests/unit/auth-navigation.test.ts
+?? tests/unit/integration-credential-readiness.test.ts
+?? tests/unit/operator-inspect.test.ts
+?? tests/unit/workspace-recovery.test.tsx
+```
