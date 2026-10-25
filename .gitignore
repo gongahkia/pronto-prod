@@ -50,3 +50,4 @@ next-env.d.ts
 /output
 /.playwright-cli
 CLAUDE.md
+AGENTS.md
