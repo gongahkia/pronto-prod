@@ -1,0 +1,14 @@
+{
+  "runtimeDirectory": "/private/pronto-remote",
+  "buildDirectory": "/private/pronto-production-build",
+  "environmentFile": "/private/pronto-remote/environment.json",
+  "providerEnvFile": "/private/pronto-server.env",
+  "allowedEmailsFile": "/private/pronto-remote/allowed-emails.json",
+  "cloudflared": "/private/pronto-remote/cloudflared-2026.10.3",
+  "tlsKeyFile": "/private/pronto-remote/localhost-key.pem",
+  "tlsCertFile": "/private/pronto-remote/localhost-cert.pem",
+  "webPort": 3003,
+  "gatewayPort": 3004,
+  "httpsPort": 3002,
+  "metricsPort": 20250
+}

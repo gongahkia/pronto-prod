@@ -6,7 +6,7 @@ import { approveConfiguration } from "@/lib/managed-approvals";
 import { markAssistantDraftTested, publishAssistantDraft } from "@/lib/assistant-drafts";
 import { submitKnowledgeSource, reviewSourceSubmission, stageApprovedSourceSubmission, listSourceSubmissions, recordSourceExtractionFailure } from "@/lib/knowledge/submissions";
 import { setStaffCapability } from "@/lib/staff-permissions";
-import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
+import { retrieveKnowledge, retrieveKnowledgeText } from "@/lib/knowledge/retrieve";
 import { deterministicEmbedding } from "@/lib/llm/mock";
 import { getBusinessAttention } from "@/lib/business-portal";
 import { enqueueStaffNotification, flushStaffNotifications, markExpiredStaffNotificationsUncertain } from "@/lib/staff-notifications";
@@ -74,7 +74,9 @@ dbDescribe("Tranche C source review, knowledge feedback and timed escalation", (
       expectedRevision: 1, decision: "approve", note: "Synthetic menu reviewed" });
     await expect(stageApprovedSourceSubmission({ actor: staff, clientId: first, submissionId: submitted.id,
       expectedRevision: 1 })).rejects.toThrow("Pronto operator");
+    expect(await retrieveKnowledgeText(first,"vegetarian OR pasta")).toEqual([]);
     await publishSource(submitted.id, 1);
+    expect((await retrieveKnowledgeText(first,"vegetarian OR pasta"))[0].metadata).toMatchObject({sourceVersion:1,approvalEvidence:"business_review"});
     const source = (await getPool().query<{ id: string }>(
       "select id from knowledge_sources where client_id = $1 and content like '%Vegetarian pasta%'", [first])).rows[0];
     expect(source.id).toBeTruthy();
@@ -98,6 +100,7 @@ dbDescribe("Tranche C source review, knowledge feedback and timed escalation", (
     await publishSource(archived.id, 1);
     expect(await retrieveKnowledge(first, deterministicEmbedding("vegetarian pasta"), 5,
       { queryText: "vegetarian pasta" })).toEqual([]);
+    expect(await retrieveKnowledgeText(first,"vegetarian OR pasta")).toEqual([]);
     expect((await getPool().query("select metadata->>'archived' as archived from knowledge_sources where id = $1", [source.id])).rows[0].archived).toBe("true");
     expect((await getPool().query("select change_type from knowledge_source_versions where source_id = $1 order by version_number desc limit 1", [source.id])).rows[0].change_type).toBe("archived");
   });

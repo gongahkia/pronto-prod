@@ -49,7 +49,8 @@ export function ChannelConversationThread({
                 {message.sender_role === "agent" && ["real", "mock"].includes(String(message.metadata.generationMode)) &&
                   <p className="mt-1 text-xs text-muted">{message.metadata.generationMode === "real" ? "Real model response" : "Mock response"}
                     {typeof message.metadata.responseProvider === "string" && typeof message.metadata.responseModel === "string"
-                      ? ` · ${message.metadata.responseProvider} / ${message.metadata.responseModel}` : ""}</p>}
+                      ? ` · ${message.metadata.responseProvider} / ${message.metadata.responseModel}` : ""}
+                    {message.metadata.retrievalMode === "local_text" ? " · local PostgreSQL text retrieval" : ""}</p>}
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.body}</p>
               </li>
             );

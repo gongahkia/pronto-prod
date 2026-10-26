@@ -5,7 +5,7 @@ import { recordAuditLog } from "@/lib/audit";
 import { ingestInboundMessage } from "@/lib/channels/inbox";
 import { assertCustomerDemoEnabled, DEMO_CHANNEL_ID, DEMO_CLIENT_ID, DEMO_SLUG, DemoError } from "@/lib/customer-demo-boundary";
 import { requireRealDemoConfiguration, profileForDemoChoice, storedDemoProfile, demoModelAvailability } from "@/lib/customer-demo-ai";
-import { demoModelChoice, type DemoAiProfile } from "@/lib/llm/demo-models";
+import { DEFAULT_DEMO_MODEL, demoModelChoice, type DemoAiProfile } from "@/lib/llm/demo-models";
 import { protectedDemoConfiguration, protectedDemoDeployment } from "@/lib/deployment-profile";
 import type { AiExecutionMode } from "@/lib/llm/execution-mode";
 
@@ -24,11 +24,12 @@ export async function assertDemoActor(actor: SessionUser, db: Queryable = { quer
 
 export async function createDemoSession(actor: SessionUser, mode: AiExecutionMode, selection?: unknown) {
   await assertDemoActor(actor);
-  const choice = selection ?? (mode === "mock" ? "mock" : "configured");
+  const choice = selection ?? (mode === "mock" ? "mock" : DEFAULT_DEMO_MODEL);
   if (!demoModelChoice(choice) || (mode === "mock") !== (choice === "mock")) throw new DemoError("Choose a supported demo model and matching mode.");
   const configuration = mode === "real" ? await requireRealDemoConfiguration(true, profileForDemoChoice(choice)) : undefined;
   const snapshot = configuration ? { provider: configuration.provider, model: configuration.model,
-    embeddingProvider: configuration.embeddingProvider, embeddingModel: configuration.embeddingModel } : null;
+    embeddingProvider: configuration.embeddingProvider, embeddingModel: configuration.embeddingModel,
+    ...(configuration.retrievalMode ? { retrievalMode: configuration.retrievalMode } : {}) } : null;
   return transaction(async db => {
     await db.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [`customer-demo:${actor.userId}`]);
     const count = await db.query<{ count: string }>(`select count(*) from customer_demo_sessions
@@ -120,8 +121,8 @@ export async function getDemoState(actor: SessionUser, sessionId?: string) {
     where client_id=$1 and user_id=$2 order by created_at desc limit 20`, [DEMO_CLIENT_ID, actor.userId]);
   let realAi: { available: boolean; detail: string; provider?: string; model?: string };
   try {
-    const config = await requireRealDemoConfiguration();
-    realAi = { available: true, detail: "Configured; inference has not yet been verified.", provider: config.provider, model: config.model };
+    const config = await requireRealDemoConfiguration(true, profileForDemoChoice(DEFAULT_DEMO_MODEL));
+    realAi = { available: true, detail: "Configured. Actual inference is labelled on each delivered reply.", provider: config.provider, model: config.model };
   } catch (error) { realAi = { available: false, detail: error instanceof DemoError ? error.message : "Real AI configuration could not be checked." }; }
   const modelChoices = await demoModelAvailability();
   if (!sessionId) return { now: new Date().toISOString(), sessions: sessions.rows, realAi, modelChoices, session: null, messages: [], job: null, providerError: false, providerFailureCode: null };

@@ -44,8 +44,8 @@ export default async function ClientConversationPage({
   ]);
 
   const returnTo = `/client/conversations/${conversation.id}`;
-  const selection = await query<{ provider: string | null; model: string | null }>(`select
-    ai_configuration->>'provider' as provider,ai_configuration->>'model' as model from customer_demo_sessions
+  const selection = await query<{ provider: string | null; model: string | null; retrieval_mode: string | null }>(`select
+    ai_configuration->>'provider' as provider,ai_configuration->>'model' as model,ai_configuration->>'retrievalMode' as retrieval_mode from customer_demo_sessions
     where client_id=$1 and conversation_id=$2`, [user.clientId,conversation.id]);
   const policy = await getEscalationPolicy(user.clientId);
 
@@ -63,6 +63,7 @@ export default async function ClientConversationPage({
           Review this thread and reply when Pronto needs help.
         </p>
         {selection.rows[0]?.provider && <p className="mt-1 text-xs text-muted">Selected model: {selection.rows[0].provider} / {selection.rows[0].model}. Actual generation is labelled on each reply.</p>}
+        {selection.rows[0]?.retrieval_mode === "local_text" && <p className="mt-1 text-xs text-muted">Retrieval: local PostgreSQL text; no embeddings.</p>}
       </div>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <ConversationReviewPanel conversation={conversation} messages={messages} />

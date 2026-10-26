@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send, RefreshCw, MessageCircle } from "lucide-react";
-import { demoModelChoices, demoModelChoice, type DemoModelChoice, type DemoAiProfile } from "@/lib/llm/demo-models";
+import { DEFAULT_DEMO_MODEL, demoModelChoices, demoModelChoice, type DemoModelChoice, type DemoAiProfile } from "@/lib/llm/demo-models";
 
 type State = {
   now: string;
@@ -35,7 +35,7 @@ async function demoRequest(path: string, body?: unknown) {
 export function CustomerSimulator({ businessAccess = true }: { businessAccess?: boolean }) {
   const [state, setState] = useState<State | null>(null);
   const [sessionId, setSessionId] = useState("");
-  const [choice, setChoice] = useState<DemoModelChoice>("gemini-flash");
+  const [choice, setChoice] = useState<DemoModelChoice>(DEFAULT_DEMO_MODEL);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -111,7 +111,7 @@ export function CustomerSimulator({ businessAccess = true }: { businessAccess?: 
             <strong>{choice === "mock" ? "Mock test mode" : availability.available ? "Real AI configured" : "Real AI unavailable"}</strong>
             <p className="mt-1 break-words text-muted">{availability.detail}</p>
           </div>}
-          <p className="text-xs text-muted">Use public restaurant facts and synthetic enquiries only. Gemini free-tier inputs may be used to improve Google products.</p>
+          <p className="text-xs text-muted">Use public restaurant facts and synthetic enquiries only. Groq uses local approved text retrieval; no embedding service is required.</p>
           <nav aria-label="Your simulated conversations"><p className="mb-2 text-xs font-semibold text-muted">Your conversation history</p>
             {state?.sessions.map((session, index) => <button key={session.id} disabled={loading || sending} className={`mb-2 block w-full rounded-md border px-3 py-2 text-left text-sm ${sessionId === session.id ? "border-accent bg-accent-soft" : "border-line"}`}
               onClick={() => { ++requestVersion.current; retry.current = null; setText(""); setState(null); setSessionId(session.id); }}>
@@ -126,6 +126,7 @@ export function CustomerSimulator({ businessAccess = true }: { businessAccess?: 
           {state?.session && <div className="border-b border-line bg-surface px-4 py-2 text-xs">
             {state.session.ai_mode === "mock" ? "Mock AI — deterministic test responses" : "Real AI requested — policy replies and handoffs may run before generation"}
             {state.session.ai_configuration && <span className="ml-2">Selected: {state.session.ai_configuration.provider} · {state.session.ai_configuration.model}</span>}
+            {state.session.ai_configuration?.retrievalMode === "local_text" && <span className="ml-2">Retrieval: local PostgreSQL text</span>}
             <span className="ml-2">{humanOwned ? "AI paused for your team" : "AI owns this conversation"}</span></div>}
           <div className="max-h-[32rem] flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite" aria-label="Message history">
             {!state?.session ? <div className="mx-auto mt-16 max-w-xs text-center text-sm text-muted"><MessageCircle className="mx-auto mb-3"/>

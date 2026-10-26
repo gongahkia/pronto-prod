@@ -93,7 +93,7 @@ dbDescribe("authenticated simulator through the existing durable backend", () =>
     await expect(createDemoSession({ ...actor, clientId: randomUUID() }, "mock")).rejects.toThrow(/Forbidden/);
     await getPool().query("delete from users where id=$1", [PS_CAFE_DEMO_ORDINARY_STAFF_ID]);
     await expect(createDemoSession(ordinary, "mock")).rejects.toThrow(/not authorized/);
-    await expect(createDemoSession(actor, "real")).rejects.toThrow(/OPENAI_API_KEY/);
+    await expect(createDemoSession(actor, "real", "configured")).rejects.toThrow(/OPENAI_API_KEY/);
     expect((await getDemoState(actor)).sessions).toHaveLength(1);
     vi.stubEnv("NODE_ENV", "production"); await expect(getDemoState(actor)).rejects.toThrow(/disabled/);
   });
@@ -133,14 +133,14 @@ dbDescribe("authenticated simulator through the existing durable backend", () =>
         reasonCode: "grounded_answer", reasonDetail: "Stubbed provider transport; not genuine inference.",
         citedChunkIds: [input.retrievedChunks[0].id] };
     });
-    const session = await createDemoSession(actor, "real"); const inbound = await send(session.id);
+    const session = await createDemoSession(actor, "real", "configured"); const inbound = await send(session.id);
     expect(await processInboundJob({ jobId: inbound.jobId })).toMatchObject({ outcome: "answered" });
     await flushRetryableOutboundMessages();
     expect((await getDemoState(actor, session.id)).messages[1]).toMatchObject({ generation_mode: "real" });
     expect(embedding).toHaveBeenCalledOnce(); expect(generation).toHaveBeenCalledOnce();
     expect(shouldUseMockAi()).toBe(true);
     generation.mockRejectedValueOnce(new Error("Synthetic provider timeout"));
-    const failed = await createDemoSession(actor, "real"); const failedJob = await send(failed.id);
+    const failed = await createDemoSession(actor, "real", "configured"); const failedJob = await send(failed.id);
     expect(await processInboundJob({ jobId: failedJob.jobId })).toMatchObject({ outcome: "escalated" });
     await flushRetryableOutboundMessages();
     const failureState = await getDemoState(actor, failed.id);

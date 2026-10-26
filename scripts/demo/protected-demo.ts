@@ -76,6 +76,19 @@ try {
   else if(command!=="verify" && command!=="preflight") throw new Error("Use verify, bootstrap PRIVATE_JSON, embed-gemini, or preflight.");
   if(command==="preflight") {
     const db=getPool(); const settings=protectedDemoConfiguration();
+    const tenant=await db.query<{safe:boolean}>(`select count(*)=1 and bool_and(id=$1 and slug=$2
+      and business_profile->>'demoSeed'='ps-cafe-raffles-city-v1'
+      and business_profile->>'approvedByRestaurant'='false') as safe from clients`,[DEMO_CLIENT_ID,DEMO_SLUG]);
+    if(!tenant.rows[0]?.safe) throw new Error("Only the exact unofficial synthetic demo tenant may be present.");
+    const unsafe=await db.query<{count:number}>(`select (
+      (select count(*) from users where (role='client' and client_id is distinct from $1::uuid)
+        or (role='operator' and client_id is not null) or email !~ '\\.(test|invalid)$')+
+      (select count(*) from conversations where client_id<>$1 or channel_id<>$2
+        or customer_handle is null or customer_handle not like 'demo:%')+
+      (select count(*) from knowledge_sources where client_id<>$1 or source_type<>'curated_demo'
+        or metadata->>'demoSeed' is distinct from 'true' or metadata->>'approvedByRestaurant' is distinct from 'false')
+      )::int as count`,[DEMO_CLIENT_ID,DEMO_CHANNEL_ID]);
+    if(unsafe.rows[0].count) throw new Error("Protected demo contains identities, conversations or knowledge outside its synthetic boundary.");
     const users=await db.query<{id:string}>("select id from users");
     if(users.rows.some(user=>!settings.allowedUserIds.includes(user.id)) ||
       settings.allowedUserIds.some(id=>!users.rows.some(user=>user.id===id))) throw new Error("Demo account allowlist does not match persisted accounts.");
@@ -84,7 +97,7 @@ try {
       channels.rows[0].kind!=="console" || channels.rows[0].settings.transport!=="customer_simulator") throw new Error("Only the exact synthetic console channel may be active.");
     const integrations=await db.query<{count:number}>("select count(*)::int as count from integration_credentials");
     if(integrations.rows[0].count) throw new Error("Protected POC must not contain external integration credentials.");
-    for(const choice of ["gemini-flash","groq-oss"]) await requireRealDemoConfiguration(true,profileForDemoChoice(choice));
+    await requireRealDemoConfiguration(true,profileForDemoChoice("groq-oss"));
   }
   console.log("Protected demo command completed; no credentials or conversation contents printed.");
 } catch { console.error("Protected demo command failed. Check identity, private input, migrations and server-only configuration; no data was reset."); process.exitCode=1; }

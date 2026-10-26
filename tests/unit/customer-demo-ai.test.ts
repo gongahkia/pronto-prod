@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { shouldUseMockAi } from "@/lib/env";
 import { withAiExecutionMode, aiExecutionMode } from "@/lib/llm/execution-mode";
 import { getGenerationProvider, getEmbeddingProvider } from "@/lib/llm";
-import { realDemoConfiguration } from "@/lib/customer-demo-ai";
+import { profileForDemoChoice, realDemoConfiguration, storedDemoProfile } from "@/lib/customer-demo-ai";
 import type { AgentConfig } from "@/lib/types";
 
 const config = { response_provider: "openai", response_model: "gpt-5.5",
@@ -10,6 +10,19 @@ const config = { response_provider: "openai", response_model: "gpt-5.5",
 afterEach(() => vi.unstubAllEnvs());
 
 describe("explicit customer demo AI mode", () => {
+  it("Groq local retrieval needs only the Groq key plus explicit free-tier/testing approval", () => {
+    vi.stubEnv("GROQ_API_KEY", "synthetic-test-key");
+    vi.stubEnv("PRONTO_DEMO_REAL_AI_APPROVED", "1");vi.stubEnv("PRONTO_GROQ_FREE_TIER_CONFIRMED", "1");
+    for (const key of ["GEMINI_API_KEY","OPENAI_API_KEY","AZURE_OPENAI_API_KEY","ANTHROPIC_API_KEY"])
+      vi.stubEnv(key, "");
+    vi.stubEnv("PRONTO_EMBEDDING_PROVIDER", "gemini");
+    const profile = profileForDemoChoice("groq-oss")!;
+    expect(realDemoConfiguration(config, profile)).toMatchObject({provider:"groq",model:"openai/gpt-oss-20b",
+      embeddingProvider:"none",embeddingModel:"none",retrievalMode:"local_text",missing:[]});
+    expect(storedDemoProfile({ai_selection:"groq-oss",ai_configuration:profile})).toEqual(profile);
+    expect(() => storedDemoProfile({ai_selection:"groq-oss",ai_configuration:{...profile,embeddingProvider:"gemini"}})).toThrow(/stored/);
+    expect(realDemoConfiguration(config, profileForDemoChoice("gemini-flash")).missing).toContain("GEMINI_API_KEY");
+  });
   it("names missing variables without returning credential values", () => {
     vi.stubEnv("OPENAI_API_KEY", "");
     expect(realDemoConfiguration(config).missing).toContain("OPENAI_API_KEY");

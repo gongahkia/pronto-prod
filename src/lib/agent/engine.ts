@@ -27,7 +27,7 @@ import {
   agentTimeoutMs,
 } from "@/lib/agent/runtime-limits";
 import { estimateTokens } from "@/lib/knowledge/chunk";
-import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
+import { retrieveKnowledge, retrieveKnowledgeText } from "@/lib/knowledge/retrieve";
 import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
 import { appBaseUrl } from "@/lib/env";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
@@ -266,6 +266,7 @@ export async function runAgentForMessage(input: {
     return escalation;
   }
 
+  const localTextRetrieval = aiExecutionProfile()?.retrievalMode === "local_text";
   const responseProvider =
     aiExecutionMode() === "mock" ? "mock" : aiExecutionProfile()?.provider ?? process.env.PRONTO_LLM_PROVIDER ?? config.response_provider ?? "openai";
   const embeddingProvider =
@@ -288,83 +289,96 @@ export async function runAgentForMessage(input: {
     responseModel: responseModel.model,
     embeddingProvider,
     embeddingModel,
+    retrievalMode: localTextRetrieval ? "local_text" : "hybrid_vector",
   });
   trace.addStep("provider_selected", {
     responseProvider: responseModel.provider,
     responseModel: responseModel.model,
     embeddingProvider,
     embeddingModel,
+    retrievalMode: localTextRetrieval ? "local_text" : "hybrid_vector",
   });
 
-  let embedding: number[];
-  try {
-    [embedding] = await getEmbeddingProvider(embeddingProvider).embed(
-      [normalizedKnowledgeQuery.embeddingText],
-      embeddingModel,
-      {
+  let staticChunks: KnowledgeChunk[];
+  if (localTextRetrieval) {
+    staticChunks = await retrieveKnowledgeText(input.clientId, normalizedKnowledgeQuery.searchQuery, 5, {
+      requestId: input.requestId, conversationId: input.conversationId,
+    });
+    trace.addStep("local_text_retrieval", { mode: "local_text", embeddingCalls: 0,
+      sources: staticChunks.map(chunk => ({ chunkId: chunk.id, sourceId: chunk.source_id,
+        version: chunk.metadata.sourceVersion ?? null, contentHash: chunk.metadata.sourceContentHash,
+        approvalEvidence: chunk.metadata.approvalEvidence })) });
+  } else {
+    let embedding: number[];
+    try {
+      [embedding] = await getEmbeddingProvider(embeddingProvider).embed(
+        [normalizedKnowledgeQuery.embeddingText],
+        embeddingModel,
+        {
+          requestId: input.requestId,
+          clientId: input.clientId,
+          conversationId: input.conversationId,
+          operation: "embedding",
+          embeddingTask: "query",
+        },
+      );
+    } catch (error) {
+      const errorMessage = providerErrorMessage(error);
+      logWarn("agent.embedding_provider_failed", {
         requestId: input.requestId,
         clientId: input.clientId,
+        channelId: input.channelId,
         conversationId: input.conversationId,
-        operation: "embedding",
-        embeddingTask: "query",
-      },
-    );
-  } catch (error) {
-    const errorMessage = providerErrorMessage(error);
-    logWarn("agent.embedding_provider_failed", {
-      requestId: input.requestId,
+        embeddingProvider,
+        embeddingModel,
+        error: errorMessage,
+      });
+      trace.addStep("embedding_provider_failed", {
+        embeddingProvider,
+        embeddingModel,
+        errorMessage,
+      });
+      const escalation = await createEscalation({
+        ...input,
+        reasonCode: "provider_error",
+        reasonDetail: `Embedding provider failed before retrieval: ${errorMessage}`,
+        confidence: 0,
+      });
+      await trace.finalize({
+        status: "escalated",
+        reasonCode: "provider_error",
+        confidence: 0,
+        responseProvider: responseModel.provider,
+        responseModel: responseModel.model,
+        embeddingProvider,
+        embeddingModel,
+        escalationId: escalation.escalationId,
+        errorMessage,
+      });
+      return escalation;
+    }
+    await safeRecordUsage({
       clientId: input.clientId,
-      channelId: input.channelId,
       conversationId: input.conversationId,
-      embeddingProvider,
-      embeddingModel,
-      error: errorMessage,
+      channelId: input.channelId,
+      provider: embeddingProvider,
+      model: embeddingModel,
+      operation: "embedding",
+      estimate: estimateEmbeddingCost(normalizedKnowledgeQuery.embeddingText),
+      metadata: {
+        requestId: input.requestId,
+        customerMessageId: input.customerMessageId,
+        normalizedKnowledgeCategories: normalizedKnowledgeQuery.categories,
+      },
     });
-    trace.addStep("embedding_provider_failed", {
-      embeddingProvider,
-      embeddingModel,
-      errorMessage,
-    });
-    const escalation = await createEscalation({
-      ...input,
-      reasonCode: "provider_error",
-      reasonDetail: `Embedding provider failed before retrieval: ${errorMessage}`,
-      confidence: 0,
-    });
-    await trace.finalize({
-      status: "escalated",
-      reasonCode: "provider_error",
-      confidence: 0,
-      responseProvider: responseModel.provider,
-      responseModel: responseModel.model,
-      embeddingProvider,
-      embeddingModel,
-      escalationId: escalation.escalationId,
-      errorMessage,
-    });
-    return escalation;
-  }
-  await safeRecordUsage({
-    clientId: input.clientId,
-    conversationId: input.conversationId,
-    channelId: input.channelId,
-    provider: embeddingProvider,
-    model: embeddingModel,
-    operation: "embedding",
-    estimate: estimateEmbeddingCost(normalizedKnowledgeQuery.embeddingText),
-    metadata: {
+    staticChunks = await retrieveKnowledge(input.clientId, embedding, 5, {
       requestId: input.requestId,
-      customerMessageId: input.customerMessageId,
-      normalizedKnowledgeCategories: normalizedKnowledgeQuery.categories,
-    },
-  });
-  const staticChunks = await retrieveKnowledge(input.clientId, embedding, 5, {
-    requestId: input.requestId,
-    conversationId: input.conversationId,
-    queryText: normalizedKnowledgeQuery.searchQuery,
-    embeddingModel,
-    ...(aiExecutionMode() === "real" ? { embeddingProvider } : {}),
-  });
+      conversationId: input.conversationId,
+      queryText: normalizedKnowledgeQuery.searchQuery,
+      embeddingModel,
+      ...(aiExecutionMode() === "real" ? { embeddingProvider } : {}),
+    });
+  }
   const integrationResults = await runIntegrationsForMessage({
     clientId: input.clientId,
     message: input.customerMessage,
@@ -557,6 +571,7 @@ export async function runAgentForMessage(input: {
       usageSource: decision.usage ? "provider" : "estimate",
       providerResponseId: decision.providerResponseId ?? null,
       modelIdentitySource: decision.actualModel ? "provider" : "configuration",
+      retrievalMode: localTextRetrieval ? "local_text" : "hybrid_vector",
     },
   });
 
@@ -668,6 +683,9 @@ export async function runAgentForMessage(input: {
         responseModel: responseModel.model,
         providerResponseId: decision.providerResponseId ?? null,
         modelIdentitySource: decision.actualModel ? "provider" : "configuration",
+        retrievalMode: localTextRetrieval ? "local_text" : "hybrid_vector",
+        sourceProvenance: localTextRetrieval ? citedChunks.map(chunk => ({ chunkId: chunk.id, sourceId: chunk.source_id,
+          version: chunk.metadata.sourceVersion ?? null, contentHash: chunk.metadata.sourceContentHash })) : undefined,
         postGenerationSelfCheck: {
           reasonCode: selfCheck.reasonCode,
           reasonDetail: selfCheck.reasonDetail,

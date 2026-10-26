@@ -39,11 +39,11 @@ async function login(page:Page){
 test("real AI mode shows missing credentials and creates no mock session",async({page})=>{
   await login(page); await page.goto("/demo/customer");
   await expect(page.getByText("Real AI unavailable",{exact:true})).toBeVisible();
-  await expect(page.getByLabel("AI mode")).toHaveValue("gemini-flash");
+  await expect(page.getByLabel("AI mode")).toHaveValue("groq-oss");
   const response=page.waitForResponse(response=>response.url().endsWith("/api/demo/customer") && response.request().method()==="POST");
   await page.getByRole("button",{name:"New conversation",exact:true}).click();
   expect((await response).status()).toBe(503);
-  await expect(page.getByRole("alert").filter({hasText:"GEMINI_API_KEY"})).toBeVisible();
+  await expect(page.getByRole("alert").filter({hasText:"GROQ_API_KEY"})).toBeVisible();
   await expect(page.getByLabel("Message PS.Cafe demo")).toBeDisabled();
 });
 

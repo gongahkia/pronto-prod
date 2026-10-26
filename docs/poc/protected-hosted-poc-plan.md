@@ -1,3 +1,6 @@
+> **Deferred, 26 October 2026:** the current PRON-88 direction is the
+> [S$0 protected WSL demonstration](../demos/remote-poc.md), not this paid plan.
+>
 > Tranche 04 update: Vercel web + separate worker preparation now exists. See
 > [the current Vercel deployment runbook](../setup/vercel-demo.md) and
 > [Tranche 04 evidence](tranche04-verification.md). This Tranche 03 plan remains

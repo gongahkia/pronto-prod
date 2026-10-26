@@ -22,9 +22,9 @@ describe("authenticated customer demo API", () => {
     expect((await POST(request({ action: "create", mode: "mock" }))).status).toBe(403);
   });
   it("surfaces real-AI configuration failure rather than creating a mock session", async () => {
-    mocks.createDemoSession.mockRejectedValue(new DemoError("Configure OPENAI_API_KEY securely on the server.", 503));
+    mocks.createDemoSession.mockRejectedValue(new DemoError("Configure GROQ_API_KEY securely on the server.", 503));
     const response = await POST(request({ action: "create", mode: "real" }));
-    expect(response.status).toBe(503); expect(await response.json()).toEqual({ error: "Configure OPENAI_API_KEY securely on the server." });
+    expect(response.status).toBe(503); expect(await response.json()).toEqual({ error: "Configure GROQ_API_KEY securely on the server." });
     expect(mocks.createDemoSession).toHaveBeenCalledWith(expect.anything(), "real");
   });
   it("passes only bounded synthetic send fields and reports malformed requests", async () => {

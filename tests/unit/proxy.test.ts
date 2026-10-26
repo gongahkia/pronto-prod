@@ -9,11 +9,14 @@ describe("proxy", () => {
 
   it("redirects protected page routes without a session cookie", () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_BASE_URL", "https://approved.trycloudflare.com");
 
-    const response = proxy(new NextRequest("http://localhost/operator"));
+    const response = proxy(new NextRequest("http://localhost/operator", {
+      headers: { "x-forwarded-host": "attacker.invalid", "x-forwarded-proto": "http" },
+    }));
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost/login");
+    expect(response.headers.get("location")).toBe("https://approved.trycloudflare.com/login");
     expect(response.headers.get("X-Frame-Options")).toBe("DENY");
     expect(response.headers.get("Strict-Transport-Security")).toBe(
       "max-age=63072000; includeSubDomains; preload",

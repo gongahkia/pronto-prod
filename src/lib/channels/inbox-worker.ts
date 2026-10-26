@@ -104,7 +104,8 @@ async function execute(job: InboundJob, requestId?: string,
     demoMode = session.rows[0].ai_mode;
     const configuration = demoMode === "real" ? await requireRealDemoConfiguration(true, storedDemoProfile(session.rows[0])) : undefined;
     demoProfile = { mode: demoMode, syntheticDemo: true, ...(configuration ? { provider: configuration.provider,
-      model: configuration.model, embeddingProvider: configuration.embeddingProvider, embeddingModel: configuration.embeddingModel } : {}) };
+      model: configuration.model, embeddingProvider: configuration.embeddingProvider, embeddingModel: configuration.embeddingModel,
+      ...(configuration.retrievalMode ? { retrievalMode: configuration.retrievalMode } : {}) } : {}) };
   }
   const run = async () => unsupported
     ? await createEscalation({

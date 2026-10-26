@@ -1,5 +1,9 @@
 # Protected Vercel demonstration deployment
 
+> **Deferred, 26 October 2026:** PRON-88 now uses the existing WSL host and a
+> [S$0 protected temporary tunnel](../demos/remote-poc.md). Do not execute this
+> paid-cloud plan without new explicit hosting/budget approval.
+
 Prepared 25–26 October 2026. **No deployment, paid plan or cloud resource has been
 created.** Obtain Gabriel's hosting, network-policy and budget approval before
 executing the cloud steps below. This is an unofficial, synthetic PS.Cafe Raffles
@@ -85,7 +89,7 @@ Sources checked 25–26 October 2026: [Vercel pricing](https://vercel.com/pricin
 
 1. Approve the vendor accounts, spending ceiling, user regions, protection method,
    database network policy and synthetic-only data policy. Confirm free API
-   account status in Google AI Studio/Groq Console separately; application flags
+   account status in Groq Console for this POC; Google AI Studio is optional; application flags
    are attestations, not billing verification.
 2. Create a dedicated empty managed PostgreSQL database and enable pgvector. Do
    not reuse production, the local persistent demo, or a regression database.
@@ -118,13 +122,15 @@ Sources checked 25–26 October 2026: [Vercel pricing](https://vercel.com/pricin
    Keith's Vercel identity; Pronto sign-in remains independently required. Use
    stable `APP_BASE_URL` per isolated environment. Authentication redirects pin
    that HTTPS origin, so temporary preview domains need their own reviewed config.
-8. Run the Mock acceptance below before adding API keys. Then configure
-   `GEMINI_API_KEY`, `GROQ_API_KEY`, `PRONTO_DEMO_REAL_AI_APPROVED=1` and the two
-   verified free-tier attestation flags in web, worker and the embedding process.
-   Run `pnpm demo:protected embed-gemini` once for current published demo facts.
-   No paid Batch API is used. Run `pnpm demo:protected preflight` and restart web
-   and worker with matching settings. Preflight intentionally fails without both
-   providers and current real embeddings; Mock operation remains independent.
+8. Run the Mock acceptance below before adding the Groq key. Configure only
+   `GROQ_API_KEY`, `PRONTO_DEMO_REAL_AI_APPROVED=1` and
+   `PRONTO_GROQ_FREE_TIER_CONFIRMED=1` in web and worker after checking account
+   eligibility/Free billing. Groq uses local approved PostgreSQL text retrieval:
+   **no Gemini key or embedding-preparation command is needed**. Run
+   `pnpm demo:protected preflight` and restart both processes with matching settings.
+   Preflight now requires Groq plus approved published text, not both providers or
+   a vector index. Mock operation stays independent. Gemini embedding preparation
+   is retained solely for optional future Gemini conversations.
 
 Web may use the provider's pooled endpoint with TLS verification; worker and
 migrations can use the direct endpoint. Do not run test suites, local fixture
@@ -155,8 +161,8 @@ demo. No offsite log-export service is created here.
 Browser acceptance: anonymous rejection, authorized responder sign-in, actual
 customer/inbox rendering, Mock persisted round trip, takeover (no automated reply),
 manual response, explicit release, refresh, separate operator rejection and 429
-login limit. Then execute the same substantive public knowledge enquiry in two
-new conversations, Gemini and Groq independently. Require actual provider response
+login limit. Then execute one substantive public knowledge enquiry in a new Groq
+conversation using local text retrieval. Require actual provider response
 ID/model/token usage, current tenant source citations, `real` metadata and the
 same delivered answer in both UIs. Mock/stubbed calls, booking invitations and
 configuration indicators do not satisfy real-AI acceptance. Check 429/provider

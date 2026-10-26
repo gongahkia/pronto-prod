@@ -6,11 +6,14 @@ import type { AgentConfig } from "@/lib/types";
 import { demoModelChoice, demoModelChoices, GEMINI_EMBEDDING_MODEL, GEMINI_EMBEDDING_PROFILE,
   type DemoAiProfile } from "@/lib/llm/demo-models";
 import { freeProviderRequirements } from "@/lib/llm/free-providers";
+import { hasApprovedTextKnowledge } from "@/lib/knowledge/retrieve";
 
 export function profileForDemoChoice(value: unknown): DemoAiProfile | undefined {
   const choice = demoModelChoice(value);
   if (!choice) throw new DemoError("Choose a supported demo model.");
   if (choice.id === "configured" || choice.id === "mock") return undefined;
+  if (choice.id === "groq-oss") return { provider: "groq", model: choice.model,
+    embeddingProvider: "none", embeddingModel: "none", retrievalMode: "local_text" };
   return { provider: choice.provider, model: choice.model, embeddingProvider: "gemini", embeddingModel: GEMINI_EMBEDDING_MODEL };
 }
 
@@ -25,8 +28,11 @@ export function storedDemoProfile(session: { ai_selection: string; ai_configurat
 export function realDemoConfiguration(config: AgentConfig, profile?: DemoAiProfile) {
   const provider = profile?.provider ?? process.env.PRONTO_LLM_PROVIDER ?? config.response_provider;
   const embeddingProvider = profile?.embeddingProvider ?? process.env.PRONTO_EMBEDDING_PROVIDER ?? config.embedding_provider;
+  const localText = profile?.retrievalMode === "local_text" && profile.provider === "groq" &&
+    embeddingProvider === "none" && profile.embeddingModel === "none";
   const missing: string[] = [];
   for (const current of new Set([provider, embeddingProvider])) {
+    if (current === "none" && localText) continue;
     if (current === "gemini" || current === "groq") missing.push(...freeProviderRequirements(current));
     else if (!["openai", "azure", "anthropic"].includes(current))
       missing.push("a real provider (mock is not allowed)");
@@ -39,13 +45,13 @@ export function realDemoConfiguration(config: AgentConfig, profile?: DemoAiProfi
         missing.push("AZURE_OPENAI_RESPONSE_DEPLOYMENT or AZURE_OPENAI_DEPLOYMENT");
     }
   }
-  if (!["openai", "azure", "gemini"].includes(embeddingProvider)) missing.push("PRONTO_EMBEDDING_PROVIDER=openai or azure or gemini");
+  if (!localText && !["openai", "azure", "gemini"].includes(embeddingProvider)) missing.push("PRONTO_EMBEDDING_PROVIDER=openai or azure or gemini");
   const choice = selectModel({ provider, configuredModel: profile?.model ??
     (["gemini", "groq"].includes(provider) ? undefined : config.response_model), task: "agent_answer", ignoreEnvironment: Boolean(profile) });
   return { provider, model: choice.model, embeddingProvider,
     embeddingModel: profile?.embeddingModel ?? process.env.PRONTO_EMBEDDING_MODEL ??
       (embeddingProvider === "gemini" ? GEMINI_EMBEDDING_MODEL : config.embedding_model),
-    missing: [...new Set(missing)] };
+    ...(localText ? { retrievalMode: "local_text" as const } : {}), missing: [...new Set(missing)] };
 }
 
 export async function requireRealDemoConfiguration(requireKnowledge = true, profile?: DemoAiProfile) {
@@ -54,6 +60,11 @@ export async function requireRealDemoConfiguration(requireKnowledge = true, prof
   const config = realDemoConfiguration(result.rows[0], profile);
   if (config.missing.length) throw new DemoError(`Real AI is unavailable. Configure ${config.missing.join(", ")} securely on the server.`, 503);
   if (requireKnowledge) {
+    if (config.retrievalMode === "local_text") {
+      if (!await hasApprovedTextKnowledge(DEMO_CLIENT_ID))
+        throw new DemoError("No approved published demo knowledge is available for local text retrieval. Review and publish knowledge through the existing approval workflow.", 503);
+      return config;
+    }
     if (config.embeddingProvider === "gemini") {
       const prepared = await query<{ total: number; prepared: number }>(`select count(*)::int as total,
         count(e.chunk_id)::int as prepared from knowledge_chunks k
@@ -82,7 +93,7 @@ export async function demoModelAvailability() {
     if (choice.id === "mock") return { ...choice, available: true, detail: "Deterministic test; no inference provider is called." };
     try { const config = await requireRealDemoConfiguration(true, profileForDemoChoice(choice.id));
       return { ...choice, provider: config.provider, model: config.model, available: true,
-        detail: "Configured; account entitlement and external inference are not yet verified." };
+        detail: "Configured. Actual inference is labelled on each delivered reply; account billing and limits require separate verification." };
     } catch (error) { return { ...choice, available: false, detail: error instanceof DemoError ? error.message : "Model configuration could not be checked." }; }
   }));
 }

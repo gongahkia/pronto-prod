@@ -9,7 +9,7 @@ import { ProviderRequestError } from "@/lib/llm/errors";
 import { deterministicEmbedding } from "@/lib/llm/mock";
 import { processInboundJob } from "@/lib/channels/inbox-worker";
 import { flushRetryableOutboundMessages } from "@/lib/channels/outbox";
-import { retrieveKnowledge } from "@/lib/knowledge/retrieve";
+import { retrieveKnowledge, retrieveKnowledgeText } from "@/lib/knowledge/retrieve";
 import { getFilteredConversations } from "@/lib/reporting";
 import { allowLoginAttempt } from "@/lib/login-throttle";
 import { removePsCafeDemo, setupPsCafeDemo, PS_CAFE_DEMO_RESPONDER_ID } from "../../scripts/demo/ps-cafe-raffles-city";
@@ -35,18 +35,30 @@ dbDescribe("free-provider demo profiles with explicit fake inference and real is
   afterAll(async()=>{await getPool().end();});
 
   it.each([['gemini-flash','gemini','gemini-3.8-flash'],['groq-oss','groq','openai/gpt-oss-20b'],['gemini-lite','gemini','gemini-3.5-flash-lite']])("%s pins selection through worker, attribution, grounding and both persisted views",async(choice,provider,model)=>{
-    await prepareRealDemoEmbeddings("gemini");
+    if(provider === "groq") {
+      vi.stubEnv("GEMINI_API_KEY", "");vi.stubEnv("PRONTO_GEMINI_FREE_TIER_CONFIRMED","0");
+    } else await prepareRealDemoEmbeddings("gemini");
     const session=await createDemoSession(actor,"real",choice);
     vi.stubEnv("PRONTO_LLM_PROVIDER","anthropic");vi.stubEnv("OPENAI_RESPONSE_MODEL","wrong-global-model");
     const job=await sendDemoMessage(actor,{sessionId:session.id,requestId:randomUUID(),text:"What time do you close today?"});
     expect(await processInboundJob({jobId:job.jobId})).toMatchObject({outcome:"answered"});await flushRetryableOutboundMessages();
     const state=await getDemoState(actor,session.id);
-    expect(state.session?.ai_configuration).toMatchObject({provider,model,embeddingProvider:"gemini",embeddingModel:"gemini-embedding-2"});
+    expect(state.session?.ai_configuration).toMatchObject({provider,model,
+      ...(provider === "groq" ? { embeddingProvider:"none",embeddingModel:"none",retrievalMode:"local_text" }
+        : { embeddingProvider:"gemini",embeddingModel:"gemini-embedding-2" })});
     expect(state.messages[1]).toMatchObject({generation_mode:"real",response_provider:provider,response_model:model});
     const inbox=(await getFilteredConversations({clientId:DEMO_CLIENT_ID})).find(row=>row.id===session.conversationId);
     expect(inbox).toMatchObject({response_provider:provider,response_model:model,generation_mode:"real"});
     const trace=await getPool().query("select response_provider,embedding_provider,retrieval_chunk_count from agent_traces where conversation_id=$1",[session.conversationId]);
-    expect(trace.rows[0]).toMatchObject({response_provider:provider,embedding_provider:"gemini",retrieval_chunk_count:3});
+    expect(trace.rows[0]).toMatchObject({response_provider:provider,embedding_provider:provider === "groq" ? "none" : "gemini"});
+    expect(trace.rows[0].retrieval_chunk_count).toBeGreaterThan(0);
+    if(provider === "groq") {
+      expect(FreeTierProvider.prototype.embed).not.toHaveBeenCalled();
+      expect((await getPool().query("select operation from agent_usage_events where conversation_id=$1",[session.conversationId])).rows)
+        .toEqual([{operation:"generation"}]);
+      const metadata=(await getPool().query("select metadata from messages where conversation_id=$1 and sender_role='agent'",[session.conversationId])).rows[0].metadata;
+      expect(metadata).toMatchObject({retrievalMode:"local_text",sourceProvenance:expect.arrayContaining([expect.objectContaining({sourceId:expect.any(String),contentHash:expect.any(String)})])});
+    }
     expect(FreeTierProvider.prototype.generateGroundedAnswer).toHaveBeenCalledTimes(1);
   });
   it("preserves original vectors; excludes stale/archived Gemini vectors and cross-tenant lookups",async()=>{
@@ -63,7 +75,7 @@ dbDescribe("free-provider demo profiles with explicit fake inference and real is
     expect(await retrieveKnowledge(DEMO_CLIENT_ID,deterministicEmbedding("closing hours"),5,options)).toEqual([]);
   });
   it("does not switch providers or retry a quota failure",async()=>{
-    await prepareRealDemoEmbeddings("gemini");const session=await createDemoSession(actor,"real","groq-oss");
+    vi.stubEnv("GEMINI_API_KEY","");const session=await createDemoSession(actor,"real","groq-oss");
     vi.mocked(FreeTierProvider.prototype.generateGroundedAnswer).mockRejectedValue(new ProviderRequestError("groq","quota_exhausted",429));
     const job=await sendDemoMessage(actor,{sessionId:session.id,requestId:randomUUID(),text:"What time do you close?"});
     expect(await processInboundJob({jobId:job.jobId})).toMatchObject({outcome:"escalated"});
@@ -92,6 +104,35 @@ dbDescribe("free-provider demo profiles with explicit fake inference and real is
     const session=await createDemoSession(actor,"mock");const job=await sendDemoMessage(actor,{sessionId:session.id,requestId:randomUUID(),text:"What time do you close?"});
     expect(await processInboundJob({jobId:job.jobId})).toMatchObject({outcome:"answered"});
     expect(FreeTierProvider.prototype.generateGroundedAnswer).not.toHaveBeenCalled();
+  });
+  it("local text retrieval excludes unknown, unreviewed, archived, conflicted and other-tenant knowledge",async()=>{
+    expect(await retrieveKnowledgeText(DEMO_CLIENT_ID,"helicopter parking")).toEqual([]);
+    expect(await retrieveKnowledgeText(randomUUID(),"hours OR close")).toEqual([]);
+    const chunks=await retrieveKnowledgeText(DEMO_CLIENT_ID,"hours OR close");
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(chunks[0].metadata).toMatchObject({retrievalMode:"local_text",approvalEvidence:"curated_public_demo_fact",sourceContentHash:expect.stringMatching(/^[0-9a-f]{64}$/)});
+    expect(chunks.some(c=>String(c.metadata.sourceTitle).includes("reservations"))).toBe(false);
+    await getPool().query("update knowledge_sources set metadata=metadata||'{\"archived\":true}'::jsonb where client_id=$1",[DEMO_CLIENT_ID]);
+    expect(await retrieveKnowledgeText(DEMO_CLIENT_ID,"hours OR close")).toEqual([]);
+    await getPool().query("update knowledge_sources set metadata=(metadata-'archived')||'{\"reviewStatus\":\"pending\"}'::jsonb where client_id=$1",[DEMO_CLIENT_ID]);
+    expect(await retrieveKnowledgeText(DEMO_CLIENT_ID,"hours OR close")).toEqual([]);
+  });
+  it("Groq-only mode fails safely for missing answers and known conflicting policy without inference",async()=>{
+    vi.stubEnv("GEMINI_API_KEY","");
+    for(const text of ["Do you offer helicopter parking?","What is the weekend reservation cutoff?"]) {
+      const session=await createDemoSession(actor,"real");
+      const job=await sendDemoMessage(actor,{sessionId:session.id,requestId:randomUUID(),text});
+      expect(await processInboundJob({jobId:job.jobId})).toMatchObject({outcome:"escalated"});
+    }
+    expect(FreeTierProvider.prototype.embed).not.toHaveBeenCalled();
+    expect(FreeTierProvider.prototype.generateGroundedAnswer).not.toHaveBeenCalled();
+  });
+  it("Groq requires published local knowledge, not a prepared embedding index",async()=>{
+    vi.stubEnv("GEMINI_API_KEY","");
+    expect((await getDemoState(actor)).modelChoices.find(c=>c.id==="groq-oss")?.available).toBe(true);
+    expect((await getDemoState(actor)).modelChoices.find(c=>c.id==="gemini-flash")?.available).toBe(false);
+    await getPool().query("delete from knowledge_chunks where client_id=$1",[DEMO_CLIENT_ID]);
+    await expect(createDemoSession(actor,"real")).rejects.toThrow(/approved published/);
   });
   it("enforces account login limits atomically across concurrent requests without storing addresses",async()=>{
     vi.stubEnv("PRONTO_LOGIN_THROTTLE","1");const email=`${randomUUID()}@example.test`;

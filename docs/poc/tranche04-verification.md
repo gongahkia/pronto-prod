@@ -1,3 +1,7 @@
+> Current POC direction changed to Groq-only generation with local PostgreSQL
+> text retrieval. See [the Groq-only verification](groq-only-verification.md).
+> This dual-provider tranche report remains historical evidence.
+
 # Tranche 04 — dual free-tier providers and Vercel demo preparation
 
 Evidence collected 25–26 October 2026 against the actual uncommitted worktree.
