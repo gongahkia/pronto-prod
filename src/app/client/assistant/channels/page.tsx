@@ -9,5 +9,5 @@ export default async function ClientChannelsPage({ searchParams }: {
   for (const key of ["channel", "saved", "checked"] as const) if (params[key]) query.set(key, params[key]!);
   if (params.published) query.set("channelPublished", params.published);
   if (params.error) query.set("channelError", params.error);
-  redirect(`/client/knowledge${query.size ? `?${query}` : ""}#channels`);
+  redirect(`/client/knowledge/channels${query.size ? `?${query}` : ""}`);
 }

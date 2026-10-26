@@ -61,7 +61,7 @@ dbDescribe("client assistant drafts in PostgreSQL", () => {
     await getPool().end();
   });
 
-  it("keeps knowledge and voice in draft until the tested revision is published", async () => {
+  it("keeps knowledge and voice in draft until the approved revision is published", async () => {
     const sourceId = await stageKnowledge({
       clientId, actorUserId, action: "upsert", title: "Opening hours",
       content: "We open every Sunday from 10am to 10pm.",

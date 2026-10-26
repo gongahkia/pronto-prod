@@ -79,7 +79,7 @@ dbDescribe("business portal suggestions and local staff interaction", () => {
       suggestionId, expectedRevision: 2 });
     await expect(publishAssistantDraft(first, operator.userId)).rejects.toThrow("business approval");
     await approveConfiguration({ actor: approver, clientId: first, kind: "assistant", targetId: first,
-      revision: String(draftVersion), evidence: "Reviewed tested assistant revision" });
+      revision: String(draftVersion), evidence: "Reviewed assistant revision" });
     await expect(publishAssistantDraft(first, responder.userId)).rejects.toThrow("Pronto operator");
     await publishAssistantDraft(first, operator.userId);
     const source = (await getPool().query<{ id: string; content: string }>(

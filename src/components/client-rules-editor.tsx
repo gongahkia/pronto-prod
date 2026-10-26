@@ -139,7 +139,7 @@ export function ClientRulesEditor({ initialFlow, initialVersion = 0, embedded = 
         <button type="button" className="ui-primary-button px-4 py-2" disabled={saving || !editor.dirty} onClick={save}>
           {saving ? "Saving..." : "Save rules draft"}
         </button>
-        {editor.dirty && <><button type="button" className="ui-button px-3 py-2" onClick={editor.reset}>Discard edits</button><span className="text-xs text-warning">Unsaved changes</span></>}
+        {editor.dirty && <><button type="button" className="ui-button px-3 py-2" onClick={() => { editor.reset(); setStatus(""); }}>Discard edits</button><span className="text-xs text-warning">Unsaved changes</span></>}
         <Link href="/client/approvals" className="text-sm text-accent">Review saved changes</Link>
         <span role="status" className="text-sm text-muted">{status}</span>
       </div>

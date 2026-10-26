@@ -27,5 +27,5 @@ export async function POST(request: Request) {
     action: "channel.client_created", targetType: "channel", targetId: result.rows[0].id,
     metadata: { kind },
   });
-  return NextResponse.redirect(publicAppUrl(`/client/knowledge?channel=${result.rows[0].id}#channels`, request.url), 303);
+  return NextResponse.redirect(publicAppUrl(`/client/knowledge/channels?channel=${result.rows[0].id}`, request.url), 303);
 }

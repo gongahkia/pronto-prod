@@ -1,6 +1,6 @@
 import { query, transaction } from "@/lib/db";
 import type { BrandVoiceDocument, BrandVoiceExample, Client } from "@/lib/types";
-import { VOICE_EXAMPLE_LIMIT } from "@/lib/voice-style";
+import { compileVoiceStyle, VOICE_EXAMPLE_LIMIT, type VoiceStyle } from "@/lib/voice-style";
 
 export type BrandVoiceProfile = {
   document: BrandVoiceDocument | null;
@@ -259,38 +259,14 @@ export function buildBrandVoiceDraft(input: {
 } {
   const text = input.sourceText.trim();
   const lowered = text.toLowerCase();
-  const traits = [
-    lowered.includes("friendly") || lowered.includes("warm") ? "warm" : "practical",
-    lowered.includes("quick") || lowered.includes("short") || lowered.includes("concise")
-      ? "concise"
-      : "clear",
-    lowered.includes("singlish") || lowered.includes("lah") || lowered.includes("can")
-      ? "Singapore-aware"
-      : "plain-English",
-  ];
-  const bannedPhrases = [
-    "as an AI language model",
-    "I guarantee",
-    "I have processed",
-    "I have cancelled",
-    "I have refunded",
-  ];
-
+  const style: VoiceStyle = {
+    tone: /friendly|warm/.test(lowered) ? "warm" : "courteous",
+    length: /quick|short|concise/.test(lowered) ? "concise" : "balanced",
+  };
   return {
-    title: `${input.clientName} brand voice guide`,
-    content: [
-      `${input.clientName} should sound ${traits.join(", ")}.`,
-      "Keep replies short, factual, and grounded in approved business sources.",
-      "Use light local phrasing only when it is natural for the customer's wording.",
-      "Do not over-promise, admit fault, process refunds, mutate bookings, or imply human identity.",
-      "If the source material is missing or the request needs owner judgement, say the team will check and escalate.",
-    ].join("\n"),
-    attributes: {
-      formality: "casual-professional",
-      energy: traits.includes("warm") ? "warm" : "practical",
-      vocabulary: traits,
-      bannedPhrases,
-    },
-    sourceNotes: `Drafted from ${Math.min(text.length, 5000)} characters of operator-provided brand samples.`,
+    title: `${input.clientName} reply style`,
+    content: compileVoiceStyle(style),
+    attributes: { style },
+    sourceNotes: `Prepared from ${Math.min(text.length, 5000)} characters of operator-provided style samples.`,
   };
 }

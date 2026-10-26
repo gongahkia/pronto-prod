@@ -44,14 +44,16 @@ export function ClientVoiceEditor({ initialVoice, initialVersion = 0, embedded =
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm font-medium">Tone
-          <select className="ui-input mt-1 w-full px-3 py-2" value={style.tone}
+          <select className="ui-input mt-1 w-full px-3 py-2" value={voice.attributes?.style ? style.tone : ""}
             onChange={event => updateStyle({ ...style, tone: event.target.value as VoiceStyle["tone"] })}>
+            <option value="" disabled>Choose a tone</option>
             {Object.entries(voiceTones).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
           </select>
         </label>
         <label className="block text-sm font-medium">Reply length
-          <select className="ui-input mt-1 w-full px-3 py-2" value={style.length}
+          <select className="ui-input mt-1 w-full px-3 py-2" value={voice.attributes?.style ? style.length : ""}
             onChange={event => updateStyle({ ...style, length: event.target.value as VoiceStyle["length"] })}>
+            <option value="" disabled>Choose a reply length</option>
             {Object.entries(voiceLengths).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
           </select>
         </label>
@@ -92,7 +94,7 @@ export function ClientVoiceEditor({ initialVoice, initialVersion = 0, embedded =
     </section>
     <div className="flex flex-wrap items-center gap-3">
       <button type="button" className="ui-primary-button px-4 py-2" disabled={!editor.dirty || saving} onClick={save}>{saving ? "Saving…" : "Save style draft"}</button>
-      {editor.dirty && <><button type="button" className="ui-button px-3 py-2" onClick={editor.reset}>Discard edits</button><span className="text-xs text-warning">Unsaved changes</span></>}
+      {editor.dirty && <><button type="button" className="ui-button px-3 py-2" onClick={() => { editor.reset(); setStatus(""); }}>Discard edits</button><span className="text-xs text-warning">Unsaved changes</span></>}
       <Link href="/client/approvals" className="text-sm text-accent">Review saved changes</Link>
     </div>
     <p role="status" className="text-sm leading-6 text-muted">{status}</p>

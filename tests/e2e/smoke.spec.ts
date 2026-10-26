@@ -94,6 +94,15 @@ test("retired assistant entry opens knowledge without a private preview", async 
   await expect(page.getByRole("navigation", { name: "Assistant setup" })).toHaveCount(0);
   for (const name of ["Knowledge", "Channels", "Brand voice", "Handoff rules"])
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+  for (const [name, path] of [["Channels", "channels"], ["Brand voice", "brand-voice"], ["Handoff rules", "handoff-rules"]]) {
+    const card = page.getByRole("link", { name: `View ${name.toLowerCase()} details`, exact: true });
+    await expect(card.locator("summary, form, input, select, textarea")).toHaveCount(0);
+    await card.click();
+    await expect(page).toHaveURL(new RegExp(`/client/knowledge/${path}$`));
+    await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Back to business knowledge", exact: true }).click();
+    await expect(page).toHaveURL(/\/client\/knowledge$/);
+  }
 });
 
 test("login and dashboards avoid obvious mobile horizontal overflow", async ({ page }) => {

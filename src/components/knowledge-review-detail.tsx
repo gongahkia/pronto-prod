@@ -44,7 +44,7 @@ export function KnowledgeReviewDetail({ review, source, user, canApprove }: {
         beforeLabel={source ? "Current document" : "No existing document"} afterLabel={isSubmission && review.item.action === "archive" ? "Proposed archive" : "Submitted revision"}/>
     </section>}
     {item.status === "pending" && canApprove && <section className="ui-panel p-5"><h2 className="mb-2 font-semibold">Review this revision</h2>
-      <p className="mb-4 text-sm text-muted">Approval applies to this revision. Customer answers change after testing and publication.</p>
+      <p className="mb-4 text-sm text-muted">Approval applies to this revision. Customer answers change after approval and publication.</p>
       <KnowledgeForm action={action}>
         <input type="hidden" name={idField} value={item.id}/><input type="hidden" name="revision" value={item.current_revision}/>
         <label className="text-sm font-medium">Review note<textarea name="note" required maxLength={1000} rows={3} className="ui-input mt-1 block w-full px-3 py-2 font-normal"/></label>
