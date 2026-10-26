@@ -19,14 +19,9 @@ vi.mock("@/lib/db", () => ({
   transaction: mocks.transaction,
 }));
 
-vi.mock("@/lib/agent/guardrails", () => ({
+vi.mock("@/lib/agent/guardrails", async original => ({
+  ...await original<typeof import("@/lib/agent/guardrails")>(),
   evaluateAiDisclosure: mocks.disclosure,
-  evaluatePreGenerationGuardrails: () => ({
-    shouldEscalate: false,
-    reasonCode: "in_scope",
-    reasonDetail: "In scope.",
-    confidence: 1,
-  }),
   evaluateRetrievalConfidence: () => ({
     shouldEscalate: false,
     reasonCode: "grounded_answer",
@@ -245,6 +240,20 @@ describe("agent engine provider failures", () => {
       "The model's actual reply.", expect.objectContaining({ responseProvider: "openai", providerResponseId: "response-1" }),
     ]));
   });
+  it.each(["What is your refund policy?", "My order is missing an item and I want a refund."])("lets the model triage a business enquiry: %s", async customerMessage => {
+    mocks.embed.mockResolvedValue([[0.1]]);
+    mocks.generateGroundedAnswer.mockResolvedValue({ action: "escalate", answer: null, confidence: 0.9,
+      reasonCode: "model_requires_staff", reasonDetail: "This request needs staff authority.", citedChunkIds: [] });
+    expect(await runAgentForMessage({ ...agentInput(), customerMessage })).toMatchObject({ action: "escalated", reasonCode: "model_requires_staff" });
+    expect(mocks.generateGroundedAnswer).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the critical-issue check before model triage", async () => {
+    expect(await runAgentForMessage({ ...agentInput(), customerMessage: "I want a refund after a severe allergy reaction." }))
+      .toMatchObject({ action: "escalated", reasonCode: "medical_or_legal" });
+    expect(mocks.generateGroundedAnswer).not.toHaveBeenCalled();
+  });
+
 });
 
 function agentInput() {

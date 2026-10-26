@@ -78,7 +78,6 @@ describe("model-driven handoff intake", () => {
     { answer: "Your refund has been processed.", citedChunkIds: [source.id] },
     { answer: question, citedChunkIds: ["invented-source"] },
     { answer: null, citedChunkIds: [] },
-    { answer: "Our team will review this.", citedChunkIds: [] },
     { answer: "What is the weather forecast?", citedChunkIds: [] },
   ])("rejects an unsupported intake response: %j", async decision => {
     mocks.generate.mockResolvedValue({ action: "escalate", confidence: 0.9, ...decision });
@@ -92,6 +91,12 @@ describe("model-driven handoff intake", () => {
       : original(sql));
     expect(await run()).toBeNull();
     expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({handoffAskForDetails:false}));
+  });
+
+  it("allows an acknowledgement when the model needs no more details", async () => {
+    mocks.generate.mockResolvedValue({ action: "escalate", answer: "Our team will review this enquiry.",
+      confidence: 0.9, citedChunkIds: [], providerResponseId: "acknowledgement" });
+    expect(await run()).toMatchObject({ body: "Our team will review this enquiry.", metadata: { generationMode: "real" } });
   });
 
   it("returns no generated reply without retrying a failed model", async () => {

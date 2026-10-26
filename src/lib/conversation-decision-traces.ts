@@ -6,6 +6,8 @@ export async function getConversationDecisionTraces(clientId: string, conversati
     select m.id as message_id, m.body, m.created_at, coalesce(m.metadata->>'aiPausedAtIngestion'='true',false) as ai_paused,
       t.id as trace_id, t.status, t.reason_code, e.reason_detail, coalesce(t.retrieval_chunk_count,0) as retrieval_chunk_count,
       t.cited_chunk_ids, t.steps,
+      sources.items as sources, usage.provider as model_provider, usage.model as model_name,
+      reply.metadata->>'responseProvider' as intake_provider, reply.metadata->>'responseModel' as intake_model,
       exists(select 1 from agent_usage_events usage where usage.client_id=m.client_id and usage.conversation_id=m.conversation_id
         and usage.operation='generation' and usage.metadata->>'customerMessageId'=m.id::text
         and coalesce(usage.metadata->>'purpose','')<>'handoff_intake') as model_ran,
@@ -16,6 +18,18 @@ export async function getConversationDecisionTraces(clientId: string, conversati
     left join lateral (select * from agent_traces trace where trace.client_id=m.client_id
       and trace.conversation_id=m.conversation_id and trace.customer_message_id=m.id order by trace.created_at desc limit 1) t on true
     left join escalations e on e.id=t.escalation_id and e.client_id=m.client_id
+    left join lateral (select u.provider,u.model from agent_usage_events u where u.client_id=m.client_id
+      and u.conversation_id=m.conversation_id and u.operation='generation' and u.metadata->>'customerMessageId'=m.id::text
+      and coalesce(u.metadata->>'purpose','')<>'handoff_intake' order by u.created_at desc limit 1) usage on true
+    left join lateral (
+      select jsonb_agg(jsonb_build_object('chunkId',score->>'id','sourceId',s.id,
+        'title',coalesce(s.title,'Source no longer available'),
+        'url',coalesce(s.metadata->>'sourceUrl',s.metadata->>'sourceReference'),
+        'excerpt',left(k.content,500),'version',null,'snapshot',false)) as items
+      from jsonb_array_elements(coalesce(t.retrieval_chunk_scores,'[]'::jsonb)) score
+      left join knowledge_chunks k on k.id::text=score->>'id' and k.client_id=m.client_id
+      left join knowledge_sources s on s.id=k.source_id and s.client_id=m.client_id
+    ) sources on true
     left join lateral (select a.body,a.metadata,a.id from messages a where a.client_id=m.client_id and a.conversation_id=m.conversation_id
       and a.sender_role='agent' and a.metadata->>'customerMessageId'=m.id::text order by a.created_at desc limit 1) reply on true
     left join lateral (select o.status from outbound_messages o where o.client_id=m.client_id and o.conversation_id=m.conversation_id

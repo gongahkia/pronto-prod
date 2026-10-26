@@ -404,6 +404,10 @@ export async function runAgentForMessage(input: {
     integrationResults,
   );
   const chunks = [...integrationChunks, ...staticChunks];
+  trace.addStep("knowledge_context", { sources: chunks.map(chunk => ({ chunkId: chunk.id,
+    sourceId: chunk.source_id, title: typeof chunk.metadata.sourceTitle === "string" ? chunk.metadata.sourceTitle : null,
+    url: typeof chunk.metadata.sourceUrl === "string" ? chunk.metadata.sourceUrl : null,
+    excerpt: chunk.content.slice(0, 500), version: chunk.metadata.sourceVersion ?? null, snapshot: true })) });
   const retrievalThreshold = Number(config.retrieval_threshold);
   const retrievalCheck = evaluateRetrievalConfidence(
     chunks[0]?.score,
@@ -634,7 +638,7 @@ export async function runAgentForMessage(input: {
     return escalation;
   }
 
-  trace.addStep("self_check_passed", { reasonCode: selfCheck.reasonCode, reasonDetail: selfCheck.reasonDetail });
+  if (decision.action === "answer") trace.addStep("self_check_passed", { reasonCode: selfCheck.reasonCode, reasonDetail: selfCheck.reasonDetail });
 
   if (decision.action === "escalate" || !decision.answer || (!citedChunks.length && !generationInput.conversationalTurn)) {
     logInfo("agent.model_decision_escalated", {

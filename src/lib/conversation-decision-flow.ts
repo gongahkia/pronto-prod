@@ -4,6 +4,13 @@ export type DecisionStep = {
   description: string;
   kind: "message" | "rule" | "knowledge" | "model" | "check" | "outcome" | "delivery";
   tone: "neutral" | "success" | "attention";
+  modelLabel?: string;
+  sources?: DecisionSource[];
+};
+
+export type DecisionSource = {
+  chunkId: string; sourceId: string | null; title: string; url: string | null;
+  excerpt: string | null; version: number | null; cited: boolean; snapshot: boolean;
 };
 
 export type ConversationDecision = {
@@ -31,9 +38,18 @@ export type DecisionRecord = {
   handoff_intake: boolean;
   delivery_status: string | null;
   job_status: string | null;
+  sources?: Omit<DecisionSource, "cited">[] | null;
+  model_provider?: string | null;
+  model_name?: string | null;
+  intake_provider?: string | null;
+  intake_model?: string | null;
 };
 
-const humanize = (text: string) => text.replaceAll("_", " ");
+const humanize = (text: string) => text.replace(/_/g, " ");
+const modelLabel = (provider?: string | null, model?: string | null) => {
+  const names: Record<string, string> = { groq: "Groq", gemini: "Gemini", openai: "OpenAI", azure: "Azure OpenAI", anthropic: "Anthropic" };
+  return [provider ? names[provider] ?? provider : null, model].filter(Boolean).join(" · ") || undefined;
+};
 
 export function buildConversationDecision(record: DecisionRecord): ConversationDecision {
   const steps: DecisionStep[] = [];
@@ -43,6 +59,13 @@ export function buildConversationDecision(record: DecisionRecord): ConversationD
   const events = record.steps ?? [];
   const rule = events.find(step => step.label === "pre_generation_escalated");
   const model = events.find(step => step.label === "model_decision");
+  const context = events.find(step => step.label === "knowledge_context")?.detail?.sources;
+  const snapshot = Array.isArray(context) ? context.filter((value): value is Omit<DecisionSource, "cited"> =>
+    value != null && typeof value === "object" && typeof value.chunkId === "string") : [];
+  const cited = new Set(record.cited_chunk_ids ?? []);
+  const sources = (snapshot.length ? snapshot : record.sources ?? []).map(source => ({ ...source,
+    title: source.title || record.sources?.find(fallback => fallback.chunkId === source.chunkId)?.title || "Source no longer available",
+    cited: cited.has(source.chunkId) }));
 
   if (record.ai_paused && !record.trace_id) {
     add("Assistant paused", "Your team already owns this conversation. This message was saved for staff without another AI reply.", "rule", "attention");
@@ -58,11 +81,13 @@ export function buildConversationDecision(record: DecisionRecord): ConversationD
     }
     if (record.retrieval_chunk_count > 0 || events.some(step => step.label === "retrieval_evaluated")) {
       add("Business knowledge retrieved", `${record.retrieval_chunk_count} approved source ${record.retrieval_chunk_count === 1 ? "chunk" : "chunks"} supplied for this enquiry. ${record.cited_chunk_ids?.length ?? 0} cited in the decision.`, "knowledge");
+      steps[steps.length - 1].sources = sources;
     }
     if (model || record.model_ran) {
       const explanation = typeof model?.detail?.reasonDetail === "string" ? model.detail.reasonDetail : record.reason_detail;
       add("Model decision", explanation ?? `Recorded result: ${humanize(record.reason_code ?? record.status ?? "decision")}. No detailed explanation was saved for this older turn.`,
         "model", record.status === "escalated" ? "attention" : "success");
+      steps[steps.length - 1].modelLabel = modelLabel(record.model_provider, record.model_name);
     }
     const check = events.find(step => step.label === "self_check_passed" || step.label === "self_check_escalated");
     if (check) add(check.label === "self_check_passed" ? "Reply checks passed" : "Reply checks requested review",
@@ -75,6 +100,7 @@ export function buildConversationDecision(record: DecisionRecord): ConversationD
   }
   if (record.handoff_intake && record.reply_body) {
     add("Model wrote handoff reply", record.reply_body, "model");
+    steps[steps.length - 1].modelLabel = modelLabel(record.intake_provider, record.intake_model);
   }
   if (record.delivery_status) {
     add(record.delivery_status === "sent" ? "Reply delivered" : "Reply delivery",
