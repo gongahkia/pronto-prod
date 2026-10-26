@@ -32,7 +32,7 @@ async function demoRequest(path: string, body?: unknown) {
   return data;
 }
 
-export function CustomerSimulator({ businessAccess = true }: { businessAccess?: boolean }) {
+export function CustomerSimulator() {
   const [state, setState] = useState<State | null>(null);
   const [sessionId, setSessionId] = useState("");
   const [choice, setChoice] = useState<DemoModelChoice>(DEFAULT_DEMO_MODEL);
@@ -97,21 +97,17 @@ export function CustomerSimulator({ businessAccess = true }: { businessAccess?: 
           <h1 className="text-xl font-semibold">Simulated Instagram DM</h1></div>
         <Link href="/client/inbox" className="ui-button px-3 py-2 text-sm">Open business inbox</Link>
       </header>
-      {!businessAccess ? <p className="mb-4 rounded-md border border-line bg-panel p-3 text-sm">The business inbox requires an authorized business staff account. Your operator session will show account-switching instructions.</p> : null}
-      <p className="mb-4 text-sm text-muted">A synthetic conversation with the PS.Cafe Raffles City demo. This is not PS.Cafe’s Instagram account and sends no Instagram messages.</p>
       <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)]">
         <aside className="ui-panel space-y-4 p-4">
           <label className="block text-sm font-medium">AI mode
             <select aria-label="AI mode" className="ui-input mt-2 w-full px-3 py-2" value={choice} onChange={event => setChoice(event.target.value as DemoModelChoice)}>
               {demoModelChoices.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
             </select></label>
-          <p className="text-xs text-muted">This selection applies to a new conversation. Existing conversations keep their model.</p>
           <button className="ui-primary-button w-full px-3 py-2 text-sm" disabled={loading || sending} onClick={() => void start()}>{loading ? "Starting…" : "New conversation"}</button>
           {availability && <div className="rounded-md border border-line p-3 text-xs">
             <strong>{choice === "mock" ? "Mock test mode" : availability.available ? "Real AI configured" : "Real AI unavailable"}</strong>
             <p className="mt-1 break-words text-muted">{availability.detail}</p>
           </div>}
-          <p className="text-xs text-muted">Use public restaurant facts and synthetic enquiries only. Groq uses local approved text retrieval; no embedding service is required.</p>
           <nav aria-label="Your simulated conversations"><p className="mb-2 text-xs font-semibold text-muted">Your conversation history</p>
             {state?.sessions.map((session, index) => <button key={session.id} disabled={loading || sending} className={`mb-2 block w-full rounded-md border px-3 py-2 text-left text-sm ${sessionId === session.id ? "border-accent bg-accent-soft" : "border-line"}`}
               onClick={() => { ++requestVersion.current; retry.current = null; setText(""); setState(null); setSessionId(session.id); }}>
