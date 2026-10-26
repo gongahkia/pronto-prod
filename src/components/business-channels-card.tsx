@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { MessageCircle, Plus } from "lucide-react";
-import { BusinessKnowledgeCard } from "@/components/business-knowledge-card";
+import { Plus } from "lucide-react";
 import { Badge } from "@/components/badge";
 import { channelDefinition, channelDefinitions } from "@/lib/channels/catalog";
 import { decryptChannelCredentials } from "@/lib/channels/credentials";
@@ -29,7 +28,7 @@ export function BusinessChannelsDetail({ channels, drafts, params }: {
         {params.checked && <p role="status" className="text-sm text-muted">Connection check: {params.checked}.</p>}
         {params.channelPublished && <p role="status" className="text-sm text-success">Channel changes are live.</p>}
         {selected && <div>
-          <h3 className="mb-3 font-medium">{selected.kind === "console" ? "Customer chat" : selected.name}</h3>
+          <h3 className="mb-3 font-medium">{channelDisplayName(selected)}</h3>
           <form key={selected.id} action={`/api/client/channels/${selected.id}`} method="post" className="space-y-3">
             <input type="hidden" name="action" value="save"/>
             <label className="block text-sm">Desired status<select name="status" defaultValue={draft?.status ?? selected.status} className="ui-input mt-1 w-full px-3 py-2">
@@ -84,21 +83,14 @@ function ChannelList({ channels, drafts, selectedId }: { channels: Channel[]; dr
     </Link></li>)}</ul> : <p className="p-5 text-sm text-muted">No customer channels added.</p>;
 }
 
+function channelDisplayName(channel: Channel) {
+  return channel.kind === "console" ? "Customer chat" : channel.name.replace(/^Demo\s+/i, "").replace(/\s*\(draft\)$/i, "");
+}
+
 function ChannelRow({ channel, pending }: { channel: Channel; pending: boolean }) {
-  const label = channel.kind === "console" ? "Customer chat" : channel.name.replace(/^Demo\s+/i, "").replace(/\s*\(draft\)$/i, "");
+  const label = channelDisplayName(channel);
   return <><Image src={channelDefinition(channel.kind).iconPath} alt="" width={20} height={20}/>
     <span className="min-w-0 flex-1"><span className="block truncate">{label}</span>
       {channel.kind !== "console" && label !== channelDefinition(channel.kind).label && <span className="mt-0.5 block text-xs text-muted">{channelDefinition(channel.kind).label}</span>}</span>
     <Badge tone={pending ? "amber" : channel.status === "active" ? "green" : "neutral"}>{pending ? "Unpublished draft" : channel.status === "active" ? "Active" : channel.status === "draft" ? "Setup needed" : "Disabled"}</Badge></>;
-}
-
-export function BusinessChannelsCard({ channels, drafts }: { channels: Channel[]; drafts: ChannelDraft[] }) {
-  return <BusinessKnowledgeCard id="channels" href="/client/knowledge/channels" title="Channels"
-    icon={<MessageCircle size={20} className="text-accent" aria-hidden="true"/>}
-    status={<span className="text-xs text-muted">{channels.filter(channel => channel.status === "active").length} active</span>}
-    description="Where customers can reach your business." action="View connections">
-    {channels.length ? <ul className="divide-y divide-line border-t border-line">{channels.map(channel =>
-      <li key={channel.id} className="flex items-center gap-3 px-5 py-3 text-sm"><ChannelRow channel={channel} pending={drafts.some(draft => draft.channel_id === channel.id)}/></li>)}</ul>
-      : <p className="px-5 pb-5 text-sm text-muted">No customer channels added.</p>}
-  </BusinessKnowledgeCard>;
 }

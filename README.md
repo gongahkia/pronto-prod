@@ -1,4 +1,4 @@
-# Pronto Prerelease
+# Pronto AI
 
 Local prerelease app for Pronto's customer-service pipeline, business inbox, knowledge base, channel handoff, and owner escalation flows.
 
@@ -26,7 +26,17 @@ sample customer emails and fake Meta providers, follow
 [the local demo runbook](docs/demos/local-mvp.md). It uses a marked
 `pronto_test` database and requires no real provider account.
 
-The business workspace has two destinations: Inbox and Business Knowledge. Inbox includes attention filters and recent conversation updates. Business Knowledge contains cards for knowledge sources, channels, brand voice and handoff rules. Click Channels, Brand voice or Handoff rules to open its dedicated detail page and controls; use the back arrow to return to the overview. Open `/client/inbox` with an authorized business responder account. The development-only connected customer simulator is `/demo/customer`; see [its setup guide](docs/demos/customer-simulator.md).
+The business workspace has three destinations: Inbox, Business Knowledge and Insights. Inbox includes attention filters and recent conversation updates. Business Knowledge contains full-width cards for knowledge sources, brand voice and handoff rules. Brand voice and Handoff rules open dedicated detail pages; use the back arrow to return. The Channels overview card is removed; its existing protected backend and detail route remain available. Open `/client/inbox` with an authorized business responder account. The authenticated customer simulator is `/demo/customer`; see [its setup guide](docs/demos/customer-simulator.md).
+
+Brand voice keeps the tone and length presets and adds an editable custom brand prompt. Selecting a preset preserves custom text; **Use presets as prompt** explicitly replaces it. Saving preserves the exact custom text in the draft, within the displayed limit. Existing exact-revision business approval and operator publication gates still apply before customer replies change.
+
+Insights at `/client/analytics` measures real conversation activity and automatically generates a genuine model synthesis on first visit or changed conversation data. Saved PostgreSQL snapshots avoid repeating inference for unchanged data. Topic clusters, customer sentiment, recommendations and knowledge opportunities link back to the sampled conversations. The analysis uses up to 40 recent conversations with bounded history; it does not invent satisfaction scores or billing rates.
+
+Click the business name/logo to open **Workspace & usage**. It separates delivered Pronto replies from model calls and internal planning/intake/analytics, reports provider tokens separately from estimates, and exports CSV from the top right. Provider-reported reasoning tokens are a subset of output tokens, not an extra charge to add again; missing reasoning detail remains unknown. Billing rates are not configured.
+
+In the enabled synthetic POC, **Feedback** on business pages and customer chat opens private page comments. Choose **Pin a comment**, click an interface element, and post a note; reviewers can reply, locate the element, resolve or reopen the thread. Comments, author and page anchors persist in PostgreSQL and are shared only within the authenticated demo workspace. This does not send a customer message. Pins use page/element anchors and can need relocation after a substantial layout change.
+
+See [verification evidence and UI checks](docs/poc/insights-feedback-verification.md) for the model, persistence, permission and responsive checks behind these changes.
 
 Restaurant booking enquiries in the real-model path can check Chope and return a booking link with the requested date, time and party size. PostgreSQL stores availability observations and a shared cache; the worker refreshes recently requested combinations hourly and enquiries require observations no older than five minutes before claiming availability. See [Chope setup, scheduling and storage](docs/integrations/chope-live-read.md) for the required flags, tenant mapping, Chromium and worker setup.
 
@@ -38,6 +48,8 @@ PS.Cafe demo login, created by [the local demo setup](docs/demos/local-mvp.md):
 - Password: `pronto-ps-demo`
 
 Sign in at `/login`. This account can use both the customer chat at `/demo/customer` and the business inbox at `/client/inbox`.
+
+These published fixture credentials are **local only**. An internet-hosted POC uses separately bootstrapped synthetic accounts and private strong passwords.
 
 Other seeded logins:
 
@@ -59,6 +71,8 @@ Use pnpm outbox:retry after testing failed WhatsApp/Telegram/Instagram/Email own
 The example environment uses real inference with `PRONTO_USE_MOCK_AI=0`. Customer conversations require an available configured model; unavailable choices remain visible and disabled. Groq uses approved local text retrieval with no embedding service. Optional OpenAI, Azure and Anthropic adapters remain available for separately configured deployments. Azure embeddings require `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` and `PRONTO_EMBEDDING_PROVIDER=azure`. Internal automated tests can explicitly enable mock AI; the customer API rejects mock conversations.
 
 Live WhatsApp, Instagram, Messenger, Telegram, and Email testing requires real channel credentials plus a public HTTPS tunnel set as APP_BASE_URL. See docs/channels/webhook-setup.md and docs/setup/staging-env.md.
+
+The intended independent S$0 POC is Render Free + Neon Free + the existing Groq Free account. Read [the feasibility evidence, queue changes and deployment acceptance plan](docs/poc/render-neon-free-assessment.md) before deployment. The proposed web-only image and Free Blueprint are review artifacts; request-driven durable processing and cloud restart acceptance are still required. No cloud resource was created. The temporary [laptop tunnel](docs/demos/remote-poc.md) remains a separate running arrangement.
 
 Smart-triage JSON supports per-channel overrides under decision nodes, so clients can tune WhatsApp messages, Telegram bot messages, Instagram DMs, Messenger messages, and email differently.
 

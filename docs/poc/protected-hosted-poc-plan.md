@@ -1,5 +1,4 @@
-> **Deferred, 26 October 2026:** the current PRON-88 direction is the
-> [S$0 protected WSL demonstration](../demos/remote-poc.md), not this paid plan.
+> **Superseded target, 26 October 2026:** use the [independent S$0 Render + Neon assessment](render-neon-free-assessment.md). The [protected WSL demonstration](../demos/remote-poc.md) remains operational as a temporary arrangement. This paid plan is historical and does not authorize paid services.
 >
 > Tranche 04 update: Vercel web + separate worker preparation now exists. See
 > [the current Vercel deployment runbook](../setup/vercel-demo.md) and

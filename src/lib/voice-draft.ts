@@ -20,8 +20,9 @@ export function normalizeVoiceDraft(value: unknown) {
     const style = z.object({ tone: z.enum(Object.keys(voiceTones) as [keyof typeof voiceTones, ...Array<keyof typeof voiceTones>]),
       length: z.enum(Object.keys(voiceLengths) as [keyof typeof voiceLengths, ...Array<keyof typeof voiceLengths>]) }).strict().safeParse(voice.attributes.style);
     if (!style.success) throw new Error("Choose a supported tone and reply length.");
-    voice.content = compileVoiceStyle(style.data);
+    if (voice.attributes.promptMode !== "custom") voice.content = compileVoiceStyle(style.data);
     voice.attributes = { ...voice.attributes, demoDefault: false };
   }
+  if (voice.attributes?.promptMode === "custom") voice.attributes = { ...voice.attributes, demoDefault: false };
   return voice;
 }

@@ -240,12 +240,13 @@ export class OpenAiProvider implements LlmProvider {
 }
 
 function tokenUsage(
-  usage: { input_tokens: number; output_tokens: number } | undefined,
-): { inputTokens: number; outputTokens: number } | undefined {
+  usage: { input_tokens: number; output_tokens: number; output_tokens_details?: { reasoning_tokens?: number } } | undefined,
+): { inputTokens: number; outputTokens: number; reasoningTokens?: number } | undefined {
   if (!usage) return undefined;
   return {
     inputTokens: usage.input_tokens,
     outputTokens: usage.output_tokens,
+    ...(usage.output_tokens_details?.reasoning_tokens !== undefined ? { reasoningTokens: usage.output_tokens_details.reasoning_tokens } : {}),
   };
 }
 

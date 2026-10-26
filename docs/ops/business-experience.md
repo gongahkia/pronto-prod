@@ -1,18 +1,22 @@
 # Business experience (Tranche B)
 
-Pronto's operator console remains the primary management workspace. The business portal is a secure fallback for human handoff, review and preferences. Customers do not need Pronto accounts. The PS.Cafe Raffles City tenant is an internal demonstration, not an official restaurant account.
+Pronto's business workspace handles conversations, knowledge, reply preferences and Insights. Operator administration uses protected APIs and the authenticated CLI; the former operator frontend has been removed. Real customers do not need Pronto accounts; the synthetic customer simulator requires an invited demo account. The PS.Cafe Raffles City tenant is an internal demonstration, not an official restaurant account.
 
 ## Business navigation
 
 | Destination | Route | Purpose |
 |---|---|---|
 | Inbox | `/client/inbox` | All conversations, needs-reply and resolved filters, attention-first or most-recent sorting. Claim, reply and release through the existing thread. |
-| Business Knowledge | `/client/knowledge` | Four summary cards: knowledge sources, customer channels, brand voice and handoff policies. Source import and correction actions open dialogs from the Knowledge card header. |
-| Channels | `/client/knowledge/channels` | Channel list and connection settings, with the selected channel preserved after saves and checks. |
-| Brand voice | `/client/knowledge/brand-voice` | Current or saved reply style, tone and length controls, and style examples. |
+| Business Knowledge | `/client/knowledge` | Three full-width cards: knowledge sources, brand voice and handoff policies. Source import and correction actions open dialogs from the Knowledge card header. |
+| Insights | `/client/analytics` | Measured conversation activity, automatic saved model synthesis, topic/sentiment filters and linked evidence. |
+| Brand voice | `/client/knowledge/brand-voice` | Current or saved reply style, editable custom brand prompt, tone and length presets, and style examples. |
 | Handoff rules | `/client/knowledge/handoff-rules` | Current or saved handoff policy and its editing controls. |
 
-`/client` opens Inbox for responders; `/client/activity` redirects to its most-recent view. The sidebar and mobile navigation contain only Inbox and Business Knowledge. Channels, Brand voice and Handoff rules are clickable summary cards that open their own detail pages, each with a back arrow to Business Knowledge. Their controls no longer expand on the overview. The former assistant setup tab row is removed. `/client/assistant` redirects to Business Knowledge; its former voice, rules and channels subpages redirect to the corresponding detail page. Save and connection-check forms stay on the relevant detail page. Approval and conversation deep links remain available within their workflows. Connected Channels, Contact Pronto and Settings pages have been removed. The workspace uses light mode. A notification link requires sign-in and tenant-scoped conversation access. Channel secrets remain masked in the connection editor; raw jobs and provider diagnostics stay in the operator console.
+`/client` opens Inbox for responders; `/client/activity` redirects to its most-recent view. The sidebar and mobile navigation contain Inbox, Business Knowledge and Insights. Brand voice and Handoff rules open their own detail pages, each with a back arrow to Business Knowledge. Their controls no longer expand on the overview. The Channels overview card is removed; the existing `/client/knowledge/channels` detail route and protected connection APIs remain available for administration. The former assistant setup tab row is removed. `/client/assistant` redirects to Business Knowledge; its former voice, rules and channels subpages redirect to the corresponding detail page. Approval and conversation deep links remain available within their workflows. The workspace uses light mode. A notification link requires sign-in and tenant-scoped conversation access. Channel secrets remain masked in the connection editor.
+
+Click the workspace logo/name to inspect UTC monthly usage or export CSV from the top right. Delivered replies, model calls and internal work are distinct measurements. Provider tokens and estimates remain separate; reasoning detail is included within output where reported. No client pricing has been invented.
+
+The enabled synthetic POC also has authenticated page/element feedback, replies and resolve/reopen controls. PostgreSQL stores threads and authors separately from customer messages; no external notification is sent. Anchors are best-effort DOM locations, not screenshots or a collaborative document editor.
 
 ## Capabilities
 
@@ -71,7 +75,7 @@ Follow [safe regression baseline](../testing/safe-regression-baseline.md) for th
 
 ## Reply style and team handoff
 
-Brand Voice controls tone, reply length and example wording. The editor compiles the selected style into a bounded style reference for the real model. Business facts remain in approved Knowledge; Handoff rules describe when the model should involve staff and pause AI replies. Style examples do not authorize actions or provide evidence for facts. Select up to four examples, with up to twenty saved; character limits are displayed in the editor and validated on the server. The prompt budget can reduce the examples included.
+Brand Voice controls tone, reply length, an exact custom brand prompt and example wording. Preset selection does not overwrite custom text; **Use presets as prompt** explicitly compiles the selected controls into the editable prompt. The server preserves custom-mode text exactly within the 1,600-character limit and supplies it as a bounded style reference for the real model. Business facts remain in approved Knowledge; Handoff rules describe when the model should involve staff and pause AI replies. Style examples do not authorize actions or provide evidence for facts. Select up to four examples, with up to twenty saved; character limits are displayed in the editor and validated on the server. The prompt budget can reduce the examples included.
 
 Each card labels the settings as in use, prototype default or unpublished draft. Saving a draft does not change customer replies; use Review saved changes for the existing exact-revision approval and operator publication flow. The former Test & publish section, private preview UI/API, duplicate preview engine and tested marker have been removed. Test model output through the real customer conversation route instead.
 

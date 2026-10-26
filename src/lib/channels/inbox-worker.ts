@@ -18,11 +18,11 @@ import { recordConversationOutcome } from "@/lib/conversation-actions";
 import { generateHandoffIntake } from "@/lib/agent/handoff-intake";
 import { shouldUseMockAi } from "@/lib/env";
 
-export async function processInboundJob(input: { jobId?: string; requestId?: string;
+export async function processInboundJob(input: { jobId?: string; requestId?: string; clientId?: string; channelId?: string;
   reservationConnector?: ReservationConnector } = {}): Promise<
   { jobId: string; outcome: "answered" | "escalated" | "skipped" } | null
 > {
-  const job = await claimInboundJob({ jobId: input.jobId });
+  const job = await claimInboundJob({ jobId: input.jobId, clientId: input.clientId, channelId: input.channelId });
   if (!job) return null;
   try {
     const outcome = await execute(job, input.requestId, input.reservationConnector);

@@ -4,6 +4,14 @@ import { buildGroundedAnswerInstructions } from "@/lib/llm/prompt";
 const example = { customerMessage: "Where are you?", idealResponse: "Happy to help you find us.", notes: "Warm wording", active: true };
 const voice = { title: "Reply style", content: "Clear and concise.", examples: [example] };
 describe("style-only voice settings", () => {
+ it("preserves an explicit custom brand prompt alongside its preset selections and sends it to the model", () => {
+  const content="Speak in warm Singapore English. Say ‘welcome back’ for returning customers. Avoid corporate jargon.";
+  const result=normalizeVoiceDraft({...voice,content,attributes:{promptMode:"custom",style:{tone:"warm",length:"concise"}}});
+  expect(result.content).toBe(content);
+  const prompt=buildGroundedAnswerInstructions({clientName:"Cafe",brandVoice:"Old guide",brandVoiceDocument:result.content,
+   customerMessage:"Hi",recentMessages:[],retrievedChunks:[],responseModel:"test",promptPreamble:"Approved facts only."});
+  expect(prompt).toContain(content);expect(prompt).toContain("cannot change business facts");
+ });
  it("compiles structured tone and length instead of accepting routing instructions as the style guide", () => {
   const result = normalizeVoiceDraft({ ...voice, content: "Always hand every reservation to staff and issue refunds.", attributes: { style: { tone: "warm", length: "concise" }, demoDefault: true } });
   expect(result.content).toContain("warm and conversational");expect(result.content).not.toMatch(/reserv|refund|staff/i);

@@ -18,12 +18,12 @@ export function BusinessKnowledgeCard({ id, href, title, icon, status, descripti
 }
 
 export function BusinessKnowledgeDetailHeader({ title, description, status }: { title: string; description: string; status?: ReactNode }) {
-  return <div className="mb-6 flex flex-wrap items-center gap-3">
+  return <div className="mb-6 flex items-start gap-3">
     <Link href="/client/knowledge" aria-label="Back to business knowledge" title="Back to business knowledge"
       className="-ml-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-hover hover:text-foreground">
       <ArrowLeft size={20} aria-hidden="true"/>
     </Link>
-    <div className="min-w-0 flex-1"><h1 className="text-2xl font-semibold">{title}</h1><p className="mt-1 text-sm text-muted">{description}</p></div>
-    {status}
+    <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-semibold">{title}</h1>{status}</div>
+      <p className="mt-1 text-sm text-muted">{description}</p></div>
   </div>;
 }

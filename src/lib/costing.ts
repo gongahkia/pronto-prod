@@ -7,6 +7,7 @@ export type UsageCostEstimate = {
   inputTokens: number;
   outputTokens: number;
   estimatedCostUsd: number;
+  reasoningTokens?: number;
 };
 
 const usdPerMillionByLabel: Record<
@@ -35,12 +36,14 @@ export function estimateGenerationCost(input: {
 export function estimateGenerationCostFromTokens(input: {
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens?: number;
   costLabel: CostLabel;
 }): UsageCostEstimate {
   const rates = usdPerMillionByLabel[input.costLabel];
   return {
     inputTokens: input.inputTokens,
     outputTokens: input.outputTokens,
+    ...(input.reasoningTokens !== undefined ? { reasoningTokens: input.reasoningTokens } : {}),
     estimatedCostUsd:
       (input.inputTokens / 1_000_000) * rates.input +
       (input.outputTokens / 1_000_000) * rates.output,
@@ -95,7 +98,7 @@ export async function recordAgentUsageEvent(input: {
       input.estimate.inputTokens,
       input.estimate.outputTokens,
       input.estimate.estimatedCostUsd,
-      input.metadata ?? {},
+      { ...input.metadata, ...(input.estimate.reasoningTokens !== undefined ? { reasoningTokens: input.estimate.reasoningTokens } : {}) },
     ],
   );
 }

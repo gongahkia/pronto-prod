@@ -25,7 +25,7 @@ export function freeProviderRequirements(provider: "gemini" | "groq"): string[] 
     ...(process.env.PRONTO_DEMO_REAL_AI_APPROVED !== "1" ? ["PRONTO_DEMO_REAL_AI_APPROVED=1"] : []),
     ...(process.env[tier] !== "1" ? [`${tier}=1 after checking the account's free tier`] : [])];
 }
-function credentials(provider: "gemini" | "groq", clientId?: string): string {
+export function freeProviderApiKey(provider: "gemini" | "groq", clientId?: string): string {
   const missing = freeProviderRequirements(provider);
   if (missing.length) throw new LlmConfigurationError(provider, missing.join(", "));
   if (!aiExecutionProfile()?.syntheticDemo || clientId !== "00000000-0000-4000-8000-00000000a101")
@@ -38,7 +38,7 @@ export class FreeTierProvider implements LlmProvider {
   async generateGroundedAnswer(input: GenerateAnswerInput): Promise<GroundedAnswerDecision> {
     if (!demoModelChoices.some(choice => choice.provider === this.provider && choice.model === input.responseModel))
       throw new LlmConfigurationError(this.provider, "The requested model is not in the verified POC allowlist.");
-    const apiKey = credentials(this.provider, input.clientId);
+    const apiKey = freeProviderApiKey(this.provider, input.clientId);
     const client = new OpenAI({ apiKey, maxRetries: 0, timeout: input.timeoutMs ?? 25_000,
       baseURL: this.provider === "gemini" ? "https://generativelanguage.googleapis.com/v1beta/openai/" : "https://api.groq.com/openai/v1/" });
     try {
@@ -67,14 +67,15 @@ export class FreeTierProvider implements LlmProvider {
         providerRequestId: response.id });
       return { ...decision, providerResponseId: response.id, actualModel: response.model.replace(/^models\//, ""),
         ...(response.usage ? { usage: { inputTokens: response.usage.prompt_tokens,
-        outputTokens: response.usage.completion_tokens } } : {}) };
+        outputTokens: response.usage.completion_tokens,
+        ...(response.usage.completion_tokens_details?.reasoning_tokens !== undefined ? { reasoningTokens: response.usage.completion_tokens_details.reasoning_tokens } : {}) } } : {}) };
     } catch (error) { throw normalizeProviderError(this.provider, error); }
   }
 
   async embed(texts: string[], model: string, context: LlmCallContext = {}): Promise<number[][]> {
     if (this.provider !== "gemini" || model !== GEMINI_EMBEDDING_MODEL)
       throw new LlmConfigurationError(this.provider, "Use Gemini gemini-embedding-2 for this POC's embeddings.");
-    const key = credentials("gemini", context.clientId);
+    const key = freeProviderApiKey("gemini", context.clientId);
     if (!texts.length || texts.length > 32 || texts.some(text => !text.trim() || text.length > 16000))
       throw new LlmConfigurationError("gemini", "Embedding input exceeds the bounded synthetic batch.");
     const vectors: number[][] = [];

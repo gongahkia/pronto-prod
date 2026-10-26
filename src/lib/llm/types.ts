@@ -15,6 +15,7 @@ export type GroundedAnswerDecision = {
 export type LlmTokenUsage = {
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens?: number;
 };
 
 export type GenerateAnswerInput = {

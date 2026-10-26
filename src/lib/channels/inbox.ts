@@ -92,12 +92,14 @@ export async function ingestInboundMessages(messages: NormalizedInboundMessage[]
   return { ok: true, accepted: messages.length, duplicates, jobIds };
 }
 
-export async function claimInboundJob(input: { jobId?: string; leaseSeconds?: number } = {}): Promise<InboundJob | null> {
+export async function claimInboundJob(input: { jobId?: string; leaseSeconds?: number; clientId?: string; channelId?: string } = {}): Promise<InboundJob | null> {
   const leaseSeconds = Math.min(Math.max(input.leaseSeconds ?? 120, 10), 900);
   const result = await query<InboundJob>(
     `with candidate as (
        select j.id from inbound_jobs j
        where ($1::uuid is null or j.id = $1::uuid)
+         and ($4::uuid is null or j.client_id = $4::uuid)
+         and ($5::uuid is null or j.channel_id = $5::uuid)
          and j.attempt_count < $2
          and ((j.status in ('pending', 'failed') and j.available_at <= now())
               or (j.status = 'processing' and j.lease_expires_at <= now()))
@@ -113,7 +115,7 @@ export async function claimInboundJob(input: { jobId?: string; leaseSeconds?: nu
      update inbound_jobs j set status = 'processing', attempt_count = attempt_count + 1,
        lease_expires_at = now() + make_interval(secs => $3::int), updated_at = now()
      from candidate where j.id = candidate.id returning j.*`,
-    [input.jobId ?? null, MAX_ATTEMPTS, leaseSeconds],
+    [input.jobId ?? null, MAX_ATTEMPTS, leaseSeconds, input.clientId ?? null, input.channelId ?? null],
   );
   return result.rows[0] ?? null;
 }

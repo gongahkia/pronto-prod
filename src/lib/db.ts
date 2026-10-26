@@ -27,6 +27,9 @@ export function getPool(): Pool {
       query_timeout: 35_000,
       idle_in_transaction_session_timeout: 30_000,
     });
+    // An idle Neon connection can disappear on compute suspension/restart.
+    // pg removes that client; handle the event without terminating the process.
+    globalForPool.prontoPool.on('error',error=>logWarn('db.idle_client_error',{error}));
     if (process.env.VERCEL === "1") attachDatabasePool(globalForPool.prontoPool);
   }
 
@@ -168,11 +171,11 @@ function tenantSqlGateEnabled(): boolean {
 }
 
 function mentionsClientScopedTable(sql: string): boolean {
-  return /\b(from|join|update|into|delete from)\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|knowledge_suggestions|knowledge_suggestion_revisions|staff_command_requests|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests|reservation_availability_cache|reservation_availability_observations)\b/.test(sql);
+  return /\b(from|join|update|into|delete from)\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|knowledge_suggestions|knowledge_suggestion_revisions|staff_command_requests|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests|reservation_availability_cache|reservation_availability_observations|client_insight_snapshots|demo_feedback_threads|demo_feedback_comments|demo_processing_status)\b/.test(sql);
 }
 
 function isTenantInsert(sql: string): boolean {
-  return /\binsert\s+into\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|knowledge_suggestions|knowledge_suggestion_revisions|staff_command_requests|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests|reservation_availability_cache|reservation_availability_observations)\b/.test(sql);
+  return /\binsert\s+into\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|knowledge_suggestions|knowledge_suggestion_revisions|staff_command_requests|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests|reservation_availability_cache|reservation_availability_observations|client_insight_snapshots|demo_feedback_threads|demo_feedback_comments|demo_processing_status)\b/.test(sql);
 }
 
 function hasBoundClientIdInsertValue(
@@ -181,7 +184,7 @@ function hasBoundClientIdInsertValue(
   clientId: string,
 ): boolean {
   const match = sql.match(
-    /\binsert\s+into\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|knowledge_suggestions|knowledge_suggestion_revisions|staff_command_requests|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests|reservation_availability_cache|reservation_availability_observations)\s*\(([^)]*)\)\s*values\s*/,
+    /\binsert\s+into\s+(messages|conversations|escalations|channels|knowledge_sources|knowledge_chunks|knowledge_suggestions|knowledge_suggestion_revisions|staff_command_requests|agent_configs|agent_usage_events|agent_traces|audit_logs|metric_events|brand_voice_documents|brand_voice_examples|csat_responses|outbound_messages|integration_credentials|knowledge_refresh_requests|reservation_availability_cache|reservation_availability_observations|client_insight_snapshots|demo_feedback_threads|demo_feedback_comments|demo_processing_status)\s*\(([^)]*)\)\s*values\s*/,
   );
   if (!match) {
     return false;

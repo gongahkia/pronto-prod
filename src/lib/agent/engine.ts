@@ -602,6 +602,7 @@ export async function runAgentForMessage(input: {
       ? estimateGenerationCostFromTokens({
           inputTokens: decision.usage.inputTokens,
           outputTokens: decision.usage.outputTokens,
+          reasoningTokens: decision.usage.reasoningTokens,
           costLabel: generationCostLabel,
         })
       : estimateGenerationCost({

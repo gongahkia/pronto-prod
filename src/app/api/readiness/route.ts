@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { appBaseUrl, shouldUseMockAi } from "@/lib/env";
 import { getPool } from "@/lib/db";
-import { protectedDemoDeployment } from "@/lib/deployment-profile";
+import { protectedDemoDeployment,requestDrivenDemoProcessing } from "@/lib/deployment-profile";
+import {getDemoProcessingStatus} from '@/lib/demo-processing-status';
 import { assertCustomerDemoEnabled } from "@/lib/customer-demo-boundary";
 
 type ReadinessCheck = {
@@ -58,6 +59,10 @@ export async function GET() {
   }
   if (checks.at(-1)?.status === "pass") {
     try {
+      if(requestDrivenDemoProcessing()){
+        const state=await getDemoProcessingStatus();
+        checks.push({name:'Request processing',status:state.stopped?'fail':'pass',detail:state.stopped?'Saved demo work requires a retry.':'Authenticated request processing is configured; no continuous worker is expected.'});
+      }else{
       const worker = await getPool().query<{ updated_at: Date }>(
         "select updated_at from worker_heartbeats where name = 'inbound-outbound'",
       );
@@ -65,6 +70,7 @@ export async function GET() {
       const fresh = Boolean(heartbeat && Date.now() - new Date(heartbeat).getTime() < 60_000);
       checks.push({ name: "Worker", status: fresh ? "pass" : "fail",
         detail: fresh ? "Inbound and outbound worker is running." : "Worker heartbeat is missing or stale." });
+      }
     } catch {
       checks.push({ name: "Worker", status: "fail", detail: "Worker heartbeat is unavailable." });
     }

@@ -1,0 +1,45 @@
+import {NextResponse} from 'next/server';
+import {getSessionUser} from '@/lib/auth';
+import {enterTenantContext} from '@/lib/tenant-context';
+import {assertDemoActor} from '@/lib/customer-demo';
+import {DEMO_CLIENT_ID,DemoError} from '@/lib/customer-demo-boundary';
+import {query,transaction} from '@/lib/db';
+import {assertSameOrigin} from '@/lib/http/csrf';
+import {feedbackMutation,feedbackPath} from '@/lib/feedback/schema';
+import type {FeedbackThread} from '@/lib/feedback/types';
+async function actor(){const user=await getSessionUser();if(!user)throw new DemoError('Sign in to leave prototype feedback.',401);enterTenantContext(user);await assertDemoActor(user);return user;}
+function failure(error:unknown){return NextResponse.json({error:error instanceof DemoError?error.message:'Could not save prototype feedback.'},{status:error instanceof DemoError?error.status:500});}
+export async function GET(request:Request){
+ try{await actor();const parsed=feedbackPath.safeParse(new URL(request.url).searchParams.get('path'));
+  if(!parsed.success)return NextResponse.json({error:'Choose a valid prototype page.'},{status:400});
+  const result=await query<FeedbackThread>(`select t.id,t.page_path,t.anchor,t.status,t.created_at,t.updated_at,
+   (select coalesce(jsonb_agg(row_to_json(c) order by c.created_at,c.id),'[]'::jsonb) from
+    (select id,author_user_id,author_name,body,created_at from demo_feedback_comments where client_id=t.client_id and thread_id=t.id order by created_at desc,id desc limit 50)c) comments
+   from demo_feedback_threads t where t.client_id=$1 and t.page_path=$2 order by t.updated_at desc,t.id desc limit 100`,[DEMO_CLIENT_ID,parsed.data]);
+  return NextResponse.json({threads:result.rows},{headers:{'Cache-Control':'private, no-store'}});
+ }catch(e){return failure(e);}
+}
+export async function POST(request:Request){
+ const csrf=assertSameOrigin(request);if(csrf)return csrf;
+ try{const user=await actor();const raw=await request.text();
+  if(Buffer.byteLength(raw)>16384)return NextResponse.json({error:'Feedback request is too large.'},{status:413});
+  let body:unknown;try{body=JSON.parse(raw);}catch{body=null;}
+  const parsed=feedbackMutation.safeParse(body);
+  if(!parsed.success)return NextResponse.json({error:'Add a comment of up to 3,000 characters on a valid page.'},{status:400});
+  const input=parsed.data;
+  const id=await transaction(async db=>{
+   let threadId:string;
+   if(input.action==='create'){
+    const row=await db.query<{id:string}>(`insert into demo_feedback_threads(client_id,page_path,anchor,created_by_user_id) values($1,$2,$3,$4) returning id`,[DEMO_CLIENT_ID,input.path,input.anchor,user.userId]);threadId=row.rows[0].id;
+   }else{
+    const found=await db.query<{id:string}>(`select id from demo_feedback_threads where client_id=$1 and id=$2 for update`,[DEMO_CLIENT_ID,input.threadId]);
+    if(!found.rows[0])throw new DemoError('Feedback thread not found.',404);threadId=found.rows[0].id;
+   }
+   if(input.action==='status')await db.query(`update demo_feedback_threads set status=$3,updated_at=now() where client_id=$1 and id=$2`,[DEMO_CLIENT_ID,threadId,input.status]);
+   else{
+    await db.query(`insert into demo_feedback_comments(client_id,thread_id,author_user_id,author_name,body) values($1,$2,$3,$4,$5)`,[DEMO_CLIENT_ID,threadId,user.userId,user.name,input.body]);
+    await db.query(`update demo_feedback_threads set updated_at=now() where client_id=$1 and id=$2`,[DEMO_CLIENT_ID,threadId]);
+   }return threadId;
+  });return NextResponse.json({id});
+ }catch(e){return failure(e);}
+}

@@ -1,16 +1,21 @@
-import { Inbox, LogOut, BookOpenText } from "lucide-react";
+import { Inbox, LogOut, BookOpenText, ChartNoAxesCombined } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import type { SessionUser } from "@/lib/auth";
 import { DEMO_CLIENT_ID } from "@/lib/customer-demo-boundary";
 import { PsCafeLogo } from "@/components/ps-cafe-logo";
+import { WorkspaceMenu } from "@/components/workspace-menu";
+import { DemoFeedback } from "@/components/demo-feedback";
+import {DemoQueuePump} from '@/components/demo-queue-pump';
+import {requestDrivenDemoProcessing} from '@/lib/deployment-profile';
 
-type ClientSection = "knowledge" | "inbox" | "assistant";
+type ClientSection = "knowledge" | "inbox" | "assistant" | "analytics";
 type ClientSidebarItem = { href: string; label: string; section: ClientSection; icon: typeof Inbox };
 const clientSidebarItems: ClientSidebarItem[] = [
   { href: "/client/inbox", label: "Inbox", section: "inbox", icon: Inbox },
   { href: "/client/knowledge", label: "Business Knowledge", section: "knowledge", icon: BookOpenText },
+  { href: "/client/analytics", label: "Insights", section: "analytics", icon: ChartNoAxesCombined },
 ];
 
 export function AppShell({ user, children, clientActive = "inbox", workspaceName }: {
@@ -23,19 +28,20 @@ export function AppShell({ user, children, clientActive = "inbox", workspaceName
     : workspaceName ?? "Client workspace";
   return <>
     <AutoRefresh/>
+    {psCafe&&requestDrivenDemoProcessing()&&<DemoQueuePump/>}
     <a href="#main-content" className="skip-link">Skip to main content</a>
     <div className="min-h-screen bg-background text-foreground lg:flex">
       <ClientSidebar active={clientActive} email={user.email} workspaceName={displayName} psCafe={psCafe}/>
       <div className="min-w-0 flex-1">
         <header className="border-b border-line bg-panel/95 backdrop-blur lg:hidden">
           <div className="flex items-center justify-between px-4 py-3">
-            <Link href="/client/inbox" className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <WorkspaceMenu name={displayName} email={user.email} className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold text-foreground">
               {psCafe ? <PsCafeLogo/> : <><span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white">P</span>Pronto</>}
-            </Link>
-            <div className="min-w-0 flex-1 px-3">
-              <p className="truncate text-sm font-medium">{displayName}</p>
-              <p className="truncate text-xs text-muted">{user.email}</p>
-            </div>
+            <span className="min-w-0 flex-1 px-1">
+              <span className="block truncate text-sm font-medium">{displayName}</span>
+              <span className="block truncate text-xs text-muted">{user.email}</span>
+            </span>
+            </WorkspaceMenu>
             <form action="/api/auth/logout" method="post">
               <button className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-muted hover:bg-surface-hover hover:text-link" title="Log out" aria-label="Log out">
                 <LogOut size={15} aria-hidden="true"/>
@@ -47,6 +53,7 @@ export function AppShell({ user, children, clientActive = "inbox", workspaceName
         <main id="main-content" className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 lg:py-6">{children}</main>
       </div>
     </div>
+    {psCafe && process.env.PRONTO_CUSTOMER_DEMO_ENABLED === "1" && <DemoFeedback/>}
   </>;
 }
 
@@ -71,15 +78,13 @@ function ClientSidebar({
   return (
     <aside className="sticky top-0 hidden h-screen w-[18rem] shrink-0 flex-col border-r border-sidebar-line bg-sidebar text-sidebar-foreground lg:flex">
       <div className="flex items-center gap-2 px-4 py-4">
-        <Link
-          href="/client/inbox"
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-base font-medium hover:bg-sidebar-active"
-        >
+        <WorkspaceMenu name={workspaceName} email={email}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left text-base font-medium hover:bg-sidebar-active">
           {psCafe ? <PsCafeLogo/> : <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-xs font-bold text-sidebar">
             {initials || "P"}
           </span>}
           <span className="truncate">{workspaceName}</span>
-        </Link>
+        </WorkspaceMenu>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pb-3 text-base">
@@ -130,13 +135,13 @@ function ClientSidebar({
 
 function ClientMobileNav({ active }: { active: ClientSection }) {
   return (
-    <nav className="flex gap-1 overflow-x-auto border-t border-line px-3 py-2 text-base">
+    <nav className="grid grid-cols-3 gap-1 border-t border-line px-3 py-2 text-sm">
       {clientSidebarItems.map((item) => (
         <Link
           key={item.section}
           href={item.href}
           aria-current={(active === "assistant" ? "knowledge" : active) === item.section ? "page" : undefined}
-          className={`shrink-0 rounded-md px-3 py-1.5 font-medium ${
+          className={`flex items-center justify-center rounded-md px-2 py-1.5 text-center font-medium ${
             (active === "assistant" ? "knowledge" : active) === item.section
               ? "bg-surface text-link"
               : "text-muted hover:bg-surface-hover hover:text-link"

@@ -8,6 +8,7 @@ import {
 import { mergeEscalationHoldingReply } from "@/lib/channels/escalation-handoff";
 import { query } from "@/lib/db";
 import { assertSameOrigin } from "@/lib/http/csrf";
+import { parseJsonObject } from "@/lib/channels/form-input";
 import { canAccessClient } from "@/lib/rbac";
 import type { ChannelKind, ChannelStatus } from "@/lib/types";
 
@@ -186,19 +187,4 @@ function mergeStructuredFields(input: {
     next[field] = text;
   }
   return next;
-}
-
-export function parseJsonObject(
-  value: string,
-  fieldName: string,
-): { ok: true; value: Record<string, unknown> } | { ok: false; error: string } {
-  try {
-    const parsed = JSON.parse(value);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return { ok: false, error: `Channel ${fieldName} must be a JSON object.` };
-    }
-    return { ok: true, value: parsed as Record<string, unknown> };
-  } catch {
-    return { ok: false, error: `Channel ${fieldName} must be valid JSON.` };
-  }
 }

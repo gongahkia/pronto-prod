@@ -6,7 +6,7 @@ import { ingestInboundMessage } from "@/lib/channels/inbox";
 import { assertCustomerDemoEnabled, DEMO_CHANNEL_ID, DEMO_CLIENT_ID, DEMO_SLUG, DemoError } from "@/lib/customer-demo-boundary";
 import { requireRealDemoConfiguration, profileForDemoChoice, storedDemoProfile, demoModelAvailability } from "@/lib/customer-demo-ai";
 import { DEFAULT_DEMO_MODEL, demoModelChoice, type DemoAiProfile } from "@/lib/llm/demo-models";
-import { protectedDemoConfiguration, protectedDemoDeployment } from "@/lib/deployment-profile";
+import { protectedDemoConfiguration, protectedDemoDeployment, requestDrivenDemoProcessing } from "@/lib/deployment-profile";
 import type { AiExecutionMode } from "@/lib/llm/execution-mode";
 
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -113,7 +113,15 @@ export async function retryDemoProcessing(actor: SessionUser, sessionId: string)
       lease_expires_at=null, last_error=null, updated_at=now() where client_id=$1 and conversation_id=$2 and status='dead'
       and id=(select id from inbound_jobs where client_id=$1 and conversation_id=$2 order by sequence desc limit 1)
       returning id`, [DEMO_CLIENT_ID, session.conversation_id]);
-    if (!retried.rowCount) throw new DemoError("Only a stopped job can be retried. Processing jobs keep their existing lease.", 409);
+    let retriedDelivery=0;
+    if(requestDrivenDemoProcessing()){
+      const delivery=await db.query(`update outbound_messages set status='pending',attempt_count=0,last_error=null,updated_at=now()
+        where client_id=$1 and conversation_id=$2 and channel_id=$3 and status='dead'
+        and metadata->>'customerMessageId'=(select message_id::text from inbound_jobs where client_id=$1 and conversation_id=$2 order by sequence desc limit 1)
+        returning id`,[DEMO_CLIENT_ID,session.conversation_id,DEMO_CHANNEL_ID]);
+      retriedDelivery=delivery.rowCount??0;
+    }
+    if (!retried.rowCount&&!retriedDelivery) throw new DemoError("Only a stopped job can be retried. Processing jobs keep their existing lease.", 409);
     await recordAuditLog({ clientId: DEMO_CLIENT_ID, actorUserId: actor.userId, action: "demo.processing_retried",
       targetType: "conversation", targetId: session.conversation_id }, db);
   });

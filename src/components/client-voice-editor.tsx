@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { VoiceDraft } from "@/lib/assistant-drafts";
 import { useDraftEditor } from "@/components/use-draft-editor";
 import { compileVoiceStyle, voiceStyleFromAttributes, voiceTones, voiceLengths, VOICE_EXAMPLE_LIMIT, VOICE_SAVED_EXAMPLE_LIMIT,
   VOICE_EXAMPLE_QUESTION_MAX_LENGTH, VOICE_EXAMPLE_REPLY_MAX_LENGTH, VOICE_EXAMPLE_NOTES_MAX_LENGTH, type VoiceStyle } from "@/lib/voice-style";
+import { VOICE_GUIDE_MAX_LENGTH } from "@/lib/voice-style";
 
 export function ClientVoiceEditor({ initialVoice, initialVersion = 0, embedded = false }: {
   initialVoice: VoiceDraft; initialVersion?: number; embedded?: boolean;
 }) {
   const router = useRouter();
+  const promptId = useId();
   const editor = useDraftEditor(initialVoice, initialVersion);
   const voice = editor.value;
   const [status, setStatus] = useState("");
@@ -20,7 +22,7 @@ export function ClientVoiceEditor({ initialVoice, initialVersion = 0, embedded =
   const selected = voice.examples.filter(example => example.active).length;
 
   function updateStyle(next: VoiceStyle) {
-    editor.setValue({ ...voice, content: compileVoiceStyle(next), attributes: { ...voice.attributes, style: next } });
+    editor.setValue({ ...voice, attributes: { ...voice.attributes, style: next, promptMode: "custom" } });
   }
   async function save() {
     setSaving(true); setStatus("");
@@ -58,8 +60,17 @@ export function ClientVoiceEditor({ initialVoice, initialVersion = 0, embedded =
           </select>
         </label>
       </div>
-      {!voice.attributes?.style && <p className="text-xs leading-5 text-muted">The existing guide stays in use. Choose a tone or length to replace it with these style settings.</p>}
-      <p className="rounded-md bg-surface p-3 text-sm leading-6">{voice.attributes?.style ? compileVoiceStyle(style) : voice.content}</p>
+      <div className="flex flex-wrap items-center gap-3"><button type="button" disabled={!voice.attributes?.style}
+        className="ui-button px-3 py-2 text-sm" onClick={() => editor.setValue({ ...voice, content: compileVoiceStyle(style), attributes: { ...voice.attributes, style, promptMode: "custom" } })}>Use presets as prompt</button>
+        <p className="text-xs text-muted">Replaces the prompt below with the selected tone and length.</p></div>
+      <div><label htmlFor={promptId} className="block text-sm font-medium">Custom brand prompt</label>
+        <textarea className="ui-input mt-2 w-full px-3 py-3 font-mono text-sm font-normal leading-6" rows={7}
+          id={promptId} aria-describedby={`${promptId}-help`}
+          maxLength={VOICE_GUIDE_MAX_LENGTH} value={voice.content}
+          onChange={event => editor.setValue({ ...voice, content: event.target.value, attributes: { ...voice.attributes, promptMode: "custom" } })}
+          placeholder="Describe how your business speaks: preferred language, phrasing, greetings, formality and words to avoid."/>
+        <span id={`${promptId}-help`} className="mt-1 flex flex-wrap justify-between gap-2 text-xs font-normal text-muted"><span>Saved exactly as written for the model’s brand voice instructions. Knowledge and handoff policies still apply.</span><span>{voice.content.length}/{VOICE_GUIDE_MAX_LENGTH}</span></span>
+      </div>
     </div>
     <section className={embedded ? "border-t border-line pt-5" : "ui-panel p-5"}>
       <div className="flex flex-wrap items-center justify-between gap-3">

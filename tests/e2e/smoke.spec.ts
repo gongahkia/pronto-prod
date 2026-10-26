@@ -73,7 +73,7 @@ test("seeded client can render the overview dashboard", async ({ page }) => {
   await expect(page).toHaveURL(/\/client\/inbox$/);
   await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Needs attention",exact:true })).toBeVisible();
-  for (const label of ["Inbox", "Business Knowledge"])
+  for (const label of ["Inbox", "Business Knowledge", "Insights"])
     await expect(page.getByRole("navigation").getByRole("link", { name: label }).first()).toBeVisible();
 });
 
@@ -92,9 +92,9 @@ test("retired assistant entry opens knowledge without a private preview", async 
   await expect(page.getByRole("heading", { name: "Test & publish" })).toHaveCount(0);
   expect((await page.request.post("/api/client/assistant-test")).status()).toBe(404);
   await expect(page.getByRole("navigation", { name: "Assistant setup" })).toHaveCount(0);
-  for (const name of ["Knowledge", "Channels", "Brand voice", "Handoff rules"])
+  for (const name of ["Knowledge", "Brand voice", "Handoff rules"])
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
-  for (const [name, path] of [["Channels", "channels"], ["Brand voice", "brand-voice"], ["Handoff rules", "handoff-rules"]]) {
+  for (const [name, path] of [["Brand voice", "brand-voice"], ["Handoff rules", "handoff-rules"]]) {
     const card = page.getByRole("link", { name: `View ${name.toLowerCase()} details`, exact: true });
     await expect(card.locator("summary, form, input, select, textarea")).toHaveCount(0);
     await card.click();

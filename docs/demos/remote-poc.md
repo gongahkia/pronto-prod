@@ -1,5 +1,7 @@
 # S$0 temporary protected POC — PRON-88
 
+> The intended independent cloud replacement is now assessed in [Render Free + Neon Free](../poc/render-neon-free-assessment.md). It has not been deployed. This existing tunnel was preserved; its operating instructions below still apply, including the laptop dependency.
+
 26 October 2026. The paid Vercel/Render/Neon plan is **deferred**. This short-lived
 synthetic demonstration runs on the existing WSL host. No cloud compute/database,
 domain, subscription, payment method or billing upgrade was created.

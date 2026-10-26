@@ -5,6 +5,7 @@ import { ArrowLeft, Send, RefreshCw, MessageCircle } from "lucide-react";
 import { PsCafeLogo } from "@/components/ps-cafe-logo";
 import { MessageText } from "@/components/message-text";
 import { DEFAULT_DEMO_MODEL, demoModelChoices, type DemoModelChoice, type DemoAiProfile } from "@/lib/llm/demo-models";
+import {DEMO_MESSAGE_QUEUED} from '@/components/demo-queue-pump';
 
 const customerModelChoices = demoModelChoices.filter(option => option.id !== "mock" && option.id !== "configured");
 
@@ -72,18 +73,19 @@ export function CustomerSimulator() {
     retry.current = pending; setSending(true); setError("");
     try {
       await demoRequest("/api/demo/customer", { action: "send", ...pending });
+      window.dispatchEvent(new Event(DEMO_MESSAGE_QUEUED));
       retry.current = null; setText(""); await load();
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Send failed. Retry uses the same message ID."); }
     finally { setSending(false); }
   };
   const retryProcessing = async () => {
     setSending(true); setError("");
-    try { await demoRequest("/api/demo/customer", { action: "retry", sessionId }); await load(); }
+    try { await demoRequest("/api/demo/customer", { action: "retry", sessionId }); window.dispatchEvent(new Event(DEMO_MESSAGE_QUEUED));await load(); }
     catch (failure) { setError(failure instanceof Error ? failure.message : "Retry failed."); }
     finally { setSending(false); }
   };
   const processing = state?.job && ["pending", "processing", "failed"].includes(state.job.status);
-  const deliveryPending = state?.job?.status === "completed" && ["pending", "sending"].includes(state.job.delivery_status ?? "");
+  const deliveryPending = state?.job?.status === "completed" && ["pending", "sending","failed"].includes(state.job.delivery_status ?? "");
   const delayed = processing && Date.parse(state!.now) - Date.parse(state!.job!.created_at) > 120_000;
   const humanOwned = state?.session && state.session.status !== "active";
   const availability = state?.modelChoices?.find(option => option.id === choice);
@@ -139,7 +141,7 @@ export function CustomerSimulator() {
                 <p className="whitespace-pre-wrap break-words leading-6"><MessageText text={message.body} fromCustomer={message.sender === "customer"}/></p>
               </div></div>)}
             {(processing || deliveryPending) && <p role="status" className="text-sm text-muted">{delayed ? "Our reply is taking longer than expected. Your message is saved; please check back shortly." : "PS.Cafe is replying…"}</p>}
-            {state?.job?.status === "dead" && <div role="alert" className="text-sm text-danger">We couldn’t process your message. Your message is saved.
+            {(state?.job?.status === "dead"||state?.job?.delivery_status==='dead') && <div role="alert" className="text-sm text-danger">We couldn’t complete your reply. Your message is saved.
               <button className="ml-2 underline" disabled={sending} onClick={() => void retryProcessing()}>Try again</button></div>}
             {["failed", "uncertain"].includes(state?.job?.delivery_status ?? "") &&
               <p role="alert" className="text-sm text-danger">Your message is saved, but the reply has not been delivered. Refresh status or ask the business team to review delivery.</p>}

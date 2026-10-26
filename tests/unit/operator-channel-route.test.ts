@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseJsonObject } from "@/app/api/operator/channels/route";
+import { parseJsonObject } from "@/lib/channels/form-input";
 
 describe("operator channel form parsing", () => {
   it("accepts JSON objects", () => {

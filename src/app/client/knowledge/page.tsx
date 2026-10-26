@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { getChannels } from "@/lib/dashboard";
 import { getBusinessReplySettings } from "@/lib/knowledge/reply-settings";
-import { listChannelDrafts } from "@/lib/client-channel-drafts";
 import { AppShell } from "@/components/shell";
 import { KnowledgeInformationCard } from "@/components/knowledge-information-card";
-import { BusinessChannelsCard, type KnowledgeChannelParams } from "@/components/business-channels-card";
+import type { KnowledgeChannelParams } from "@/components/business-channels-card";
 import { BrandVoiceCard, HandoffRulesCard } from "@/components/business-reply-settings";
 
 type PageSearch = KnowledgeChannelParams & { updated?: string; staged?: string; submitted?: string;
@@ -23,9 +21,7 @@ export default async function ClientKnowledgePage({ searchParams }: { searchPara
     for (const key of ["channel", "saved", "checked", "channelPublished", "channelError"] as const) if (params[key]) query.set(key, params[key]!);
     redirect(`/client/knowledge/channels${query.size ? `?${query}` : ""}`);
   }
-  const [settings, channels, channelDrafts] = await Promise.all([
-    getBusinessReplySettings(user.clientId), getChannels(user.clientId), listChannelDrafts(user.clientId),
-  ]);
+  const settings = await getBusinessReplySettings(user.clientId);
   return <AppShell user={user} active="client" clientActive="knowledge" workspaceName={settings.client.name}>
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-semibold">Business Knowledge</h1>
       <p className="mt-1 text-sm text-muted">Manage what Pronto knows, how it replies and when your team steps in.</p></div>
@@ -36,7 +32,7 @@ export default async function ClientKnowledgePage({ searchParams }: { searchPara
       ? "The live assistant changed. Review the latest settings before editing again." : params.error}</p>}
     <div className="space-y-5">
       <KnowledgeInformationCard client={settings.client}/>
-      <div className="grid items-start gap-5 lg:grid-cols-2"><BusinessChannelsCard channels={channels} drafts={channelDrafts}/><BrandVoiceCard settings={settings}/></div>
+      <BrandVoiceCard settings={settings}/>
       <HandoffRulesCard settings={settings}/>
     </div>
   </AppShell>;

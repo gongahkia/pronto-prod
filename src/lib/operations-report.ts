@@ -1,5 +1,7 @@
 import { query } from "@/lib/db";
 import { listRecentErrorEvents } from "@/lib/error-tracking";
+import {requestDrivenDemoProcessing} from '@/lib/deployment-profile';
+import {getDemoProcessingStatus} from '@/lib/demo-processing-status';
 
 type QueueCount = { status: string; count: string; oldest_at: Date | null };
 export async function getOperationsReport() {
@@ -31,6 +33,8 @@ export async function getOperationsReport() {
   ]);
   const heartbeatAt = heartbeat.rows[0]?.updated_at ?? null;
   return { inbound: inbound.rows, outbound: outbound.rows, staff: staff.rows,
+    processingMode:requestDrivenDemoProcessing()?'request':'worker',
+    requestProcessing:requestDrivenDemoProcessing()?await getDemoProcessingStatus():null,
     heartbeatAt, workerFresh: Boolean(heartbeatAt && Date.now() - new Date(heartbeatAt).getTime() < 60_000),
     onboarding: onboarding.rows,
     pendingOnboardingBusinesses: Number(pendingOnboarding.rows[0]?.count ?? 0),
