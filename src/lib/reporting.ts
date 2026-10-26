@@ -203,7 +203,7 @@ export async function getClientDashboardAnalytics(
             count(*) as conversations,
             count(*) filter (where status = 'escalated') as escalated
           from conversations
-          where client_id = $1
+          where client_id = $1 and deleted_at is null
         `,
         [clientId],
       ),
@@ -211,6 +211,7 @@ export async function getClientDashboardAnalytics(
         `
           select count(*)
           from escalations e
+          join conversations c on c.id = e.conversation_id and c.client_id = e.client_id and c.deleted_at is null
           left join lateral (
             select status
             from outbound_messages
@@ -228,6 +229,7 @@ export async function getClientDashboardAnalytics(
         `
           select avg(extract(epoch from (first_response.created_at - customer.created_at)))::text as seconds
           from messages customer
+          join conversations c on c.id = customer.conversation_id and c.client_id = customer.client_id and c.deleted_at is null
           join lateral (
             select created_at
             from messages
@@ -243,9 +245,10 @@ export async function getClientDashboardAnalytics(
       ),
       query<{ average: string | null; count: string }>(
         `
-          select avg(score)::text as average, count(*) as count
-          from csat_responses
-          where client_id = $1
+          select avg(r.score)::text as average, count(*) as count
+          from csat_responses r
+          join conversations c on c.id = r.conversation_id and c.client_id = r.client_id and c.deleted_at is null
+          where r.client_id = $1
         `,
         [clientId],
       ),
@@ -367,7 +370,7 @@ export async function getOperatorCommandCenter(): Promise<OperatorCommandCenter>
 }
 
 function buildConversationFilters(input: ConversationFilterInput): SqlFilter {
-  const where: string[] = [];
+  const where: string[] = ["c.deleted_at is null"];
   const values: unknown[] = [];
 
   if (input.clientId) {

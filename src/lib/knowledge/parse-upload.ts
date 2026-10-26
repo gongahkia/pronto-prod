@@ -1,6 +1,7 @@
 import "server-only";
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
+import { readableHtmlText } from "@/lib/knowledge/html-text";
 
 export const MAX_KNOWLEDGE_UPLOAD_BYTES = 8 * 1024 * 1024;
 
@@ -26,6 +27,11 @@ export async function parseKnowledgeUpload(file: File): Promise<ParsedKnowledgeU
     mimeType: file.type || "application/octet-stream",
     sizeBytes: file.size,
   };
+
+  if (extension === "html" || extension === "htm") {
+    return { title: titleFromFilename(file.name), sourceType: "upload_html",
+      content: readableHtmlText(buffer.toString("utf8")), metadata: { ...baseMetadata, parser: "html_text" } };
+  }
 
   if (extension === "txt" || extension === "md" || extension === "markdown") {
     return {
@@ -82,7 +88,7 @@ export async function parseKnowledgeUpload(file: File): Promise<ParsedKnowledgeU
   }
 
   throw new Error(
-    "Unsupported file type. Upload PDF, DOCX, TXT, Markdown, or CSV.",
+    "Unsupported file type. Upload PDF, DOCX, HTML, TXT, Markdown, or CSV.",
   );
 }
 

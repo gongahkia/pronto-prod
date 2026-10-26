@@ -42,6 +42,8 @@ export type GenerateAnswerInput = {
   conversationalTurn?: boolean;
   escalationRules?: Record<string, unknown>;
   channelKind?: string;
+  reservationExtraction?: { now: string; calendar: string[] };
+  reservationContext?: boolean;
 };
 
 export type LlmCallContext = {

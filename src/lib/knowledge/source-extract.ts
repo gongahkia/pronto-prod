@@ -5,6 +5,7 @@ import http from "node:http";
 import https from "node:https";
 import { isIP } from "node:net";
 import { parseKnowledgeUpload, MAX_KNOWLEDGE_UPLOAD_BYTES } from "@/lib/knowledge/parse-upload";
+import { readableHtmlText } from "@/lib/knowledge/html-text";
 
 const MAX_PAGE_BYTES = 1_000_000;
 const MAX_TEXT_CHARS = 200_000;
@@ -31,6 +32,22 @@ export async function extractPdfSource(file: File): Promise<ExtractedSource> {
   if (parsed.content.length > MAX_TEXT_CHARS) throw new Error("Extracted PDF text exceeds the 200,000-character limit.");
   return { sourceType: "pdf", content: parsed.content,
     metadata: { ...parsed.metadata, fileSha256: createHash("sha256").update(bytes).digest("hex") } };
+}
+
+export async function extractFileSource(file: File): Promise<ExtractedSource> {
+  if (file.name.toLowerCase().endsWith(".pdf")) return extractPdfSource(file);
+  const parsed = await parseKnowledgeUpload(file);
+  const content = parsed.content.trim();
+  if (!content) throw new Error("This document contains no readable text.");
+  if (content.length > MAX_TEXT_CHARS) throw new Error("Extracted document text exceeds the 200,000-character limit.");
+  return { sourceType: "text", content, metadata: { ...parsed.metadata, originalFormat: parsed.sourceType,
+    fileSha256: createHash("sha256").update(new Uint8Array(await file.arrayBuffer())).digest("hex") } };
+}
+
+export async function extractHtmlSource(html: string): Promise<ExtractedSource> {
+  if (Buffer.byteLength(html, "utf8") > MAX_PAGE_BYTES) throw new Error("HTML exceeds the 1 MB limit.");
+  const result = await extractTextSource(readableHtmlText(html));
+  return { ...result, metadata: { extraction: "html_text" } };
 }
 
 export type ResolvedAddress = { address: string; family: 4 };
@@ -70,7 +87,7 @@ export async function extractUrlSource(value: string, options: {
     if (!/^text\/html(?:\s*;|$)/.test(type)) throw new Error("Source URL must return HTML.");
     if (response.body.length > MAX_PAGE_BYTES) throw new Error("Source page exceeds the 1 MB limit.");
     const html = response.body.toString("utf8");
-    const content = readableText(html);
+    const content = readableHtmlText(html);
     if (content.length < 30) throw new Error("Source page has too little readable text.");
     if (content.length > MAX_TEXT_CHARS) throw new Error("Source page has too much readable text.");
     return { sourceType: "url", content, sourceUrl: original,
@@ -128,13 +145,4 @@ function withDeadline<T>(promise: Promise<T>, ms: number, message: string): Prom
   return Promise.race([promise, new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => reject(new Error(message)), ms);
   })]).finally(() => clearTimeout(timer));
-}
-function readableText(html: string): string {
-  return html.replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<(script|style|noscript|svg|nav|footer|header)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ")
-    .replace(/<\/(p|div|h[1-6]|li|tr|br)>/gi, "\n")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&(?:nbsp|amp|lt|gt|quot|#39);/g, (entity) =>
-      ({ "&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'" })[entity] ?? " ")
-    .replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
 }

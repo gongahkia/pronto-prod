@@ -1,6 +1,8 @@
 import { query, transaction } from "@/lib/db";
 import { assistWithRestaurantBooking } from "@/lib/reservations/chope";
 import { configuredChopeBrowserConnector } from "@/lib/reservations/chope-browser";
+import { mayNeedReservationContext, prepareReservationContext, reservationReplyError, type ReservationModelContext } from "@/lib/reservations/model-context";
+import { plainMessageText } from "@/lib/message-text";
 import {
   evaluateAiDisclosure,
   evaluatePreGenerationGuardrails,
@@ -403,7 +405,32 @@ export async function runAgentForMessage(input: {
     input.clientId,
     integrationResults,
   );
-  const chunks = [...integrationChunks, ...staticChunks];
+  let reservationContext: ReservationModelContext | null = null;
+  let reservationPlanningError: unknown;
+  const recentMessages = [...recentMessagesResult.rows].reverse().map(message => ({ senderRole: message.sender_role, body: message.body }));
+  if (requireModelReply && ["fnb", "restaurant", "food_and_beverage"].includes((client.vertical ?? "").toLowerCase()) &&
+      mayNeedReservationContext(input.customerMessage, recentMessages)) {
+    try {
+      reservationContext = await prepareReservationContext({
+        generation: { ...input, clientName: client.name, brandVoice: client.brand_voice, promptPreamble: config.prompt_preamble,
+          recentMessages, retrievedChunks: [], responseModel: responseModel.model, timeoutMs: agentTimeoutMs() },
+        provider: getGenerationProvider(responseModel.provider), profile: client.business_profile ?? {},
+        connector: input.reservationConnector ?? configuredChopeBrowserConnector(input.clientId, client.business_profile ?? {}),
+        onExtraction: async decision => {
+          trace.addStep("reservation_query_inferred", { provider: responseModel.provider, model: responseModel.model,
+            providerResponseId: decision.providerResponseId ?? null, reasonDetail: decision.reasonDetail });
+          await safeRecordUsage({ clientId: input.clientId, conversationId: input.conversationId, channelId: input.channelId,
+            provider: responseModel.provider, model: responseModel.model, operation: "generation",
+            estimate: decision.usage ? estimateGenerationCostFromTokens({ ...decision.usage, costLabel: responseModel.costLabel })
+              : estimateGenerationCost({ inputText: input.customerMessage, outputText: JSON.stringify(decision), costLabel: responseModel.costLabel }),
+            metadata: { purpose: "reservation_query", customerMessageId: input.customerMessageId,
+              providerResponseId: decision.providerResponseId ?? null, usageSource: decision.usage ? "provider" : "estimate" } });
+        },
+      });
+      if (reservationContext) trace.addStep("chope_availability_checked", reservationContext.metadata);
+    } catch (error) { reservationPlanningError = error; }
+  }
+  const chunks = [...(reservationContext ? [reservationContext.chunk] : []), ...integrationChunks, ...staticChunks];
   trace.addStep("knowledge_context", { sources: chunks.map(chunk => ({ chunkId: chunk.id,
     sourceId: chunk.source_id, title: typeof chunk.metadata.sourceTitle === "string" ? chunk.metadata.sourceTitle : null,
     url: typeof chunk.metadata.sourceUrl === "string" ? chunk.metadata.sourceUrl : null,
@@ -502,10 +529,7 @@ export async function runAgentForMessage(input: {
     })),
     promptPreamble: config.prompt_preamble,
     customerMessage: input.customerMessage,
-    recentMessages: recentMessagesResult.rows.reverse().map((message) => ({
-      senderRole: message.sender_role,
-      body: message.body,
-    })),
+    recentMessages,
     retrievedChunks: chunks,
     responseModel: responseModel.model,
     maxOutputTokens: agentMaxOutputTokens(),
@@ -514,15 +538,16 @@ export async function runAgentForMessage(input: {
     conversationalTurn: requireModelReply && (smallTalkGreeting.shouldAnswer || aiDisclosure.shouldDisclose),
     escalationRules: config.escalation_rules,
     channelKind: input.channelKind,
+    reservationContext: !!reservationContext,
   };
 
   let decision: GroundedAnswerDecision | undefined;
   const generationProvider = responseModel.provider;
   const generationModel = responseModel.model;
   const generationCostLabel = responseModel.costLabel;
-  let providerError: unknown;
+  let providerError: unknown = reservationPlanningError;
   try {
-    decision = await getGenerationProvider(responseModel.provider).generateGroundedAnswer({
+    if (!providerError) decision = await getGenerationProvider(responseModel.provider).generateGroundedAnswer({
       ...generationInput,
       responseModel: responseModel.model,
     });
@@ -559,6 +584,9 @@ export async function runAgentForMessage(input: {
     return escalation;
   }
 
+  // Normalize formatting before validation, persistence and outbound delivery.
+  const originalAnswer = decision.answer;
+  if (decision.answer) decision = { ...decision, answer: plainMessageText(decision.answer) };
   const citedChunks = chunks.filter((chunk) =>
     decision.citedChunkIds.includes(chunk.id),
   );
@@ -594,12 +622,16 @@ export async function runAgentForMessage(input: {
 
   trace.addStep("model_decision", { action: decision.action, reasonCode: decision.reasonCode,
     reasonDetail: decision.reasonDetail, confidence: decision.confidence, citedChunkCount: decision.citedChunkIds.length });
-  const selfCheck = evaluatePostGenerationSelfCheck({
+  let selfCheck = evaluatePostGenerationSelfCheck({
     decision,
     retrievedChunks: chunks,
     ...(generationInput.conversationalTurn ? { operationalContext:
       `Business identity: ${client.name}. Role: AI assistant. Scope: greet and welcome customers; help with enquiries; direct customers to our team when needed.` } : {}),
   });
+  if (selfCheck.passed && decision.action === "answer" && decision.answer && reservationContext) {
+    const error = reservationReplyError(decision.answer, reservationContext);
+    if (error) selfCheck = { passed: false, reasonCode: "post_check_reservation_evidence", reasonDetail: error, confidence: 1 };
+  }
   if (!selfCheck.passed) {
     logInfo("agent.self_check_escalated", {
       requestId: input.requestId,
@@ -716,6 +748,8 @@ export async function runAgentForMessage(input: {
         },
         csatUrl,
         customerMessageId: input.customerMessageId,
+        ...(originalAnswer !== decision.answer ? { providerAnswerBeforeFormatting: originalAnswer } : {}),
+        ...(reservationContext ? { reservation: reservationContext.metadata } : {}),
       },
     ],
   );

@@ -6,7 +6,6 @@ import { getAssistantDraft, getAssistantRevision, type VoiceDraft } from "@/lib/
 import { getBrandVoiceProfile } from "@/lib/brand-voice";
 import { getTriageFlowForClient } from "@/lib/triage-flow-store";
 import { listChannelDrafts } from "@/lib/client-channel-drafts";
-import { hasStaffCapability } from "@/lib/staff-permissions";
 import { AppShell } from "@/components/shell";
 import { Badge } from "@/components/badge";
 import { KnowledgeInformationCard } from "@/components/knowledge-information-card";
@@ -21,10 +20,10 @@ type PageSearch = KnowledgeChannelParams & { updated?: string; staged?: string; 
 export default async function ClientKnowledgePage({ searchParams }: { searchParams?: Promise<PageSearch> }) {
   const user = await requireUser("client");
   if (!user.clientId) throw new Error("Business assignment required.");
-  const [client, channels, channelDrafts, profile, liveFlow, draft, publication, canApprove, params] = await Promise.all([
+  const [client, channels, channelDrafts, profile, liveFlow, draft, publication, params] = await Promise.all([
     getClient(user.clientId), getChannels(user.clientId), listChannelDrafts(user.clientId), getBrandVoiceProfile(user.clientId),
     getTriageFlowForClient(user.clientId), getAssistantDraft(user.clientId), getAssistantRevision(user.clientId),
-    hasStaffCapability(user, user.clientId, "knowledge.approve"), searchParams ?? Promise.resolve({} as PageSearch),
+    searchParams ?? Promise.resolve({} as PageSearch),
   ]);
   if (!client) throw new Error("Business not found.");
   const voice: VoiceDraft = draft?.voice ?? { title: profile.document?.title ?? "Brand voice guide",
@@ -45,7 +44,7 @@ export default async function ClientKnowledgePage({ searchParams }: { searchPara
     {params.error && <p role="alert" className="mb-4 rounded-md bg-danger-bg p-3 text-sm text-danger">{params.error === "conflict"
       ? "The live assistant changed. Review the latest settings before editing again." : params.error}</p>}
     <div className="space-y-5">
-      <KnowledgeInformationCard user={user} client={client} canApprove={canApprove} showReviews={Boolean(params.updated || params.staged || params.submitted)}/>
+      <KnowledgeInformationCard client={client}/>
       <div className="grid items-start gap-5 lg:grid-cols-2">
         <BusinessChannelsCard channels={channels} drafts={channelDrafts} params={params}/>
         <section id="brand-voice" className="ui-panel scroll-mt-6 overflow-hidden" aria-labelledby="brand-voice-heading">

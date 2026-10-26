@@ -121,8 +121,9 @@ export async function retryDemoProcessing(actor: SessionUser, sessionId: string)
 
 export async function getDemoState(actor: SessionUser, sessionId?: string) {
   await assertDemoActor(actor);
-  const sessions = await query(`select id,conversation_id,ai_mode,ai_selection,ai_configuration,created_at from customer_demo_sessions
-    where client_id=$1 and user_id=$2 order by created_at desc limit 20`, [DEMO_CLIENT_ID, actor.userId]);
+  const sessions = await query(`select s.id,s.conversation_id,s.ai_mode,s.ai_selection,s.ai_configuration,s.created_at from customer_demo_sessions s
+    join conversations c on c.id=s.conversation_id and c.client_id=s.client_id and c.deleted_at is null
+    where s.client_id=$1 and s.user_id=$2 order by s.created_at desc limit 20`, [DEMO_CLIENT_ID, actor.userId]);
   let realAi: { available: boolean; detail: string; provider?: string; model?: string };
   try {
     const config = await requireRealDemoConfiguration(true, profileForDemoChoice(DEFAULT_DEMO_MODEL));

@@ -166,7 +166,7 @@ type BookingAssistance = { action: "link" | "escalate"; response?: string; reaso
 const MAX_OBSERVATION_AGE_MS = 5 * 60_000;
 const MAX_DISPLAYED_SLOTS = 6;
 
-function invalidObservation(result: AvailabilityResult, request: ReservationAvailabilityRequest,
+export function invalidObservation(result: AvailabilityResult, request: ReservationAvailabilityRequest,
   provider: string, now: Date): "stale" | "unexpected_response" | null {
   if (!result || result.outletId !== request.outletId || result.date !== request.date ||
       result.partySize !== request.partySize || result.timezone !== "Asia/Singapore" ||

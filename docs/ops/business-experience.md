@@ -7,7 +7,7 @@ Pronto's operator console remains the primary management workspace. The business
 | Destination | Route | Purpose |
 |---|---|---|
 | Inbox | `/client/inbox` | All conversations, needs-reply and resolved filters, attention-first or most-recent sorting. Claim, reply and release through the existing thread. |
-| Business Knowledge | `/client/knowledge` | Five cards: knowledge sources and reviews, customer channels, brand voice, handoff rules, and testing and publication. Editors expand within their card. |
+| Business Knowledge | `/client/knowledge` | Five cards: knowledge sources, customer channels, brand voice, handoff rules, and testing and publication. Source import and correction actions open dialogs from the Knowledge card header; the other editors expand within their card. |
 
 `/client` opens Inbox for responders; `/client/activity` redirects to its most-recent view. The sidebar and mobile navigation contain only Inbox and Business Knowledge. The former assistant setup tab row is removed. `/client/assistant`, `/client/assistant/voice`, `/client/assistant/rules` and `/client/assistant/channels` redirect to the matching card on Business Knowledge. Save and connection-check forms return to that card. Approval and conversation deep links remain available within their workflows. Connected Channels, Contact Pronto and Settings pages have been removed. The workspace uses light mode. A notification link requires sign-in and tenant-scoped conversation access. Channel secrets remain masked in the connection editor; raw jobs and provider diagnostics stay in the operator console.
 
@@ -27,6 +27,10 @@ Grants are tenant-scoped in `staff_permission_grants`; migration 036 adds `escal
 All privileged writes are checked server-side. Revoking a grant prevents a pending local command from confirming. A public customer message, displayed sender name or claimed email address is never an authorized staff identity.
 
 ## Knowledge correction lifecycle
+
+The source list combines published documents with pending imports and proposed facts. Updates to an existing source appear on that source's detail page, with links to their exact review revision. There is no separate Changes and reviews section. New sources, extraction failures and unanswered questions remain reachable from the same list. `/client/knowledge/reviews/{submission|suggestion|question}/{id}` requires a signed-in business account and loads only records for its tenant; approval controls require `knowledge.approve` and the API rechecks that capability and revision.
+
+Opening a conflicting source shows its recorded statements and original references immediately. The comparison labels both statements unverified; it does not choose a correct value. Proposed updates show a line comparison between the current document and the submitted revision. Source text is read-only by default, with revision and archive proposals available below it.
 
 1. Any signed-in business member proposes a title, answer/policy, reason, optional existing source, source reference and outlet. A request key deduplicates retries. The proposal and its revisions live in `knowledge_suggestions` and `knowledge_suggestion_revisions`, not active RAG sources.
 2. A `knowledge.approve` business member approves, rejects or requests a revision of the exact pending revision with a review note. A new revision clears the old review. Cross-tenant and stale-revision requests fail.

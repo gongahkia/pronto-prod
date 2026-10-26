@@ -10,6 +10,7 @@ import { channelDefinition, channelDefinitions } from "@/lib/channels/catalog";
 import { Badge } from "@/components/badge";
 import { StatCard } from "@/components/stat-card";
 import { formatDateTime } from "@/lib/date-format";
+import { plainMessageText } from "@/lib/message-text";
 
 export function ClientAnalyticsCards({
   analytics,
@@ -131,7 +132,7 @@ export function ConversationList({
                   ? <Badge tone="red">Delivery {conversation.delivery_status}</Badge> : null}
               </div>
               <p className="mt-1 line-clamp-2 text-sm text-muted">
-                {conversation.last_message ?? "No message yet."}
+                {conversation.last_message ? conversation.last_sender_role === "customer" ? conversation.last_message : plainMessageText(conversation.last_message) : "No message yet."}
               </p>
             </div>
             <span className="flex shrink-0 items-center gap-4 sm:flex-col sm:items-end sm:gap-2">

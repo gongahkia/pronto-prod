@@ -16,13 +16,13 @@ export type SourceSubmission = {
   created_at: Date; updated_at: Date;
 };
 
-export async function listSourceSubmissions(clientId: string): Promise<SourceSubmission[]> {
+export async function listSourceSubmissions(clientId: string, submissionId?: string): Promise<SourceSubmission[]> {
   const result = await query<SourceSubmission>(
     `select s.*, r.title, r.description, r.outlet_name, r.content, r.content_sha256,
        r.source_url, r.metadata from knowledge_source_submissions s
      join knowledge_source_submission_revisions r on r.client_id = s.client_id
        and r.submission_id = s.id and r.revision = s.current_revision
-     where s.client_id = $1 order by s.updated_at desc limit 100`, [clientId]);
+     where s.client_id = $1 ${submissionId ? "and s.id = $2" : ""} order by s.updated_at desc limit 100`, submissionId ? [clientId, submissionId] : [clientId]);
   return result.rows;
 }
 

@@ -4,6 +4,7 @@ import { processInboundJob } from "../src/lib/channels/inbox-worker";
 import { getPool } from "../src/lib/db";
 import { redactErrorMessage } from "../src/lib/logger";
 import { flushStaffNotifications, markExpiredStaffNotificationsUncertain } from "../src/lib/staff-notifications";
+import { refreshDueChopeAvailability } from "../src/lib/reservations/availability-cache";
 
 const intervalMs = positiveNumber("PRONTO_WORKER_OUTBOX_INTERVAL_MS", 15_000);
 const batchLimit = positiveNumber("PRONTO_WORKER_OUTBOX_LIMIT", 25);
@@ -46,6 +47,7 @@ async function main() {
         console.log(JSON.stringify({ event: "worker.outbox_flushed", ...result }));
       }
       await flushStaffNotifications(batchLimit);
+      await refreshDueChopeAvailability();
       await getPool().query(
         `insert into worker_heartbeats (name, updated_at) values ('inbound-outbound', now())
          on conflict (name) do update set updated_at = now()`,

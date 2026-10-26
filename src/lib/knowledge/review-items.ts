@@ -48,10 +48,10 @@ export async function enqueueKnowledgeReviewItem(db: Queryable, input: {
       message.rows[0].body.slice(0, 4000), JSON.stringify(references)]);
 }
 
-export async function listKnowledgeReviewItems(clientId: string): Promise<KnowledgeReviewItem[]> {
+export async function listKnowledgeReviewItems(clientId: string, reviewId?: string): Promise<KnowledgeReviewItem[]> {
   const result = await query<KnowledgeReviewItem>(
-    `select * from knowledge_review_items where client_id = $1 order by
-      case when status = 'open' then 0 else 1 end, created_at desc limit 100`, [clientId]);
+    `select * from knowledge_review_items where client_id = $1 ${reviewId ? "and id = $2" : ""} order by
+      case when status = 'open' then 0 else 1 end, created_at desc limit 100`, reviewId ? [clientId, reviewId] : [clientId]);
   return result.rows;
 }
 

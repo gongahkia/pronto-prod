@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { reviewSourceSubmission, submitKnowledgeSource } from "@/lib/knowledge/submissions";
-import { extractPdfSource, extractTextSource, extractUrlSource } from "@/lib/knowledge/source-extract";
+import { extractFileSource, extractTextSource, extractUrlSource } from "@/lib/knowledge/source-extract";
 
 export async function POST(request: Request) {
   const csrf = assertSameOrigin(request);
@@ -23,8 +23,11 @@ export async function POST(request: Request) {
       const sourceType = String(form.get("sourceType"));
       const sourceAction = String(form.get("sourceAction"));
       const upload = form.get("file");
+      if (sourceAction !== "archive" && sourceType === "pdf" && !(upload instanceof File && upload.size > 0))
+        throw new Error("Upload a replacement PDF.");
       const extracted = sourceAction === "archive" ? await extractTextSource("Archived after review.")
-        : sourceType === "pdf" ? await extractPdfSource(upload as File)
+        : upload instanceof File && upload.size > 0 ? await extractFileSource(upload)
+        : sourceType === "pdf" ? await extractFileSource(upload as File)
         : sourceType === "url" ? await extractUrlSource(String(form.get("sourceUrl") ?? ""))
         : await extractTextSource(String(form.get("content") ?? ""));
       await submitKnowledgeSource({ actor, clientId: actor.clientId, submissionId,

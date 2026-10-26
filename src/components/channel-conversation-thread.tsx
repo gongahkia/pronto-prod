@@ -6,6 +6,7 @@ import type { ClientConversationTriage } from "@/lib/dashboard";
 import type { Message } from "@/lib/types";
 import { Badge } from "@/components/badge";
 import { ChatHistory } from "@/components/chat-history";
+import { MessageText } from "@/components/message-text";
 
 export function ChannelConversationThread({
   conversation,
@@ -49,7 +50,7 @@ export function ChannelConversationThread({
                   ? "rounded-tl-md border border-line bg-surface"
                   : "rounded-tr-md bg-accent text-white"}`}>
                   <p className="mb-1 text-xs font-semibold opacity-75">{sender}</p>
-                  <p className="whitespace-pre-wrap break-words text-sm leading-6">{message.body}</p>
+                  <p className="whitespace-pre-wrap break-words text-sm leading-6"><MessageText text={message.body} fromCustomer={fromCustomer} /></p>
                   <time dateTime={new Date(message.created_at).toISOString()} className="mt-2 block text-right text-[11px] opacity-70">
                     {formatDateTime(message.created_at)}
                   </time>

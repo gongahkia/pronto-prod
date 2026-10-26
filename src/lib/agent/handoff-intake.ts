@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { plainMessageText } from "@/lib/message-text";
 import { shouldUseMockAi } from "@/lib/env";
 import { getPromptBrandVoiceProfile } from "@/lib/brand-voice";
 import { retrieveKnowledge, retrieveKnowledgeText } from "@/lib/knowledge/retrieve";
@@ -98,7 +99,8 @@ async function generate(input: Parameters<typeof generateHandoffIntake>[0]): Pro
     handoffAskForDetails: askForDetails,
     escalationRules: config.escalation_rules, channelKind: input.channel.kind,
   };
-  const decision = await getGenerationProvider(selected.provider).generateGroundedAnswer(generationInput);
+  const generated = await getGenerationProvider(selected.provider).generateGroundedAnswer(generationInput);
+  const decision = { ...generated, answer: generated.answer ? plainMessageText(generated.answer) : null };
   const prompt = `${buildGroundedAnswerInstructions(generationInput)}\n${buildGroundedAnswerUserInput(generationInput)}`;
   await recordUsage({ clientId, conversationId, channelId: input.channel.id, provider: selected.provider, model: selected.model,
     operation: "generation", estimate: decision.usage ? estimateGenerationCostFromTokens({ ...decision.usage, costLabel: selected.costLabel })

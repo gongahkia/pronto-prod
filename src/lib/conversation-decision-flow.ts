@@ -79,6 +79,17 @@ export function buildConversationDecision(record: DecisionRecord): ConversationD
     } else if (events.some(step => step.label === "pre_generation_passed")) {
       add("Initial checks passed", "The enquiry continued to knowledge retrieval and model triage.", "check", "success");
     }
+    const reservation = events.find(step => step.label === "chope_availability_checked")?.detail;
+    if (reservation) {
+      const request = reservation.request as { date?: string; time?: string; partySize?: number } | undefined;
+      add("Chope availability checked", [
+        request?.date ? `${request.partySize ?? "?"} guests · ${request.date}${request.time ? ` · ${request.time}` : ""} SGT.` : "Booking details are incomplete.",
+        reservation.status === "available" || reservation.status === "unavailable"
+          ? `Observed ${reservation.status} at ${String(reservation.observedAt)}${reservation.cacheHit ? " (cached observation)" : ""}.`
+          : "Current availability could not be verified. No available time is inferred.",
+        "The customer completes the booking on Chope.",
+      ].join(" "), "knowledge", reservation.status === "available" ? "success" : "neutral");
+    }
     if (record.retrieval_chunk_count > 0 || events.some(step => step.label === "retrieval_evaluated")) {
       add("Business knowledge retrieved", `${record.retrieval_chunk_count} approved source ${record.retrieval_chunk_count === 1 ? "chunk" : "chunks"} supplied for this enquiry. ${record.cited_chunk_ids?.length ?? 0} cited in the decision.`, "knowledge");
       steps[steps.length - 1].sources = sources;

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send, RefreshCw, MessageCircle } from "lucide-react";
 import { PsCafeLogo } from "@/components/ps-cafe-logo";
+import { MessageText } from "@/components/message-text";
 import { DEFAULT_DEMO_MODEL, demoModelChoices, type DemoModelChoice, type DemoAiProfile } from "@/lib/llm/demo-models";
 
 const customerModelChoices = demoModelChoices.filter(option => option.id !== "mock" && option.id !== "configured");
@@ -19,12 +20,6 @@ type State = {
   providerError: boolean;
   providerFailureCode: string | null;
 };
-
-function MessageText({ text }: { text: string }) {
-  return <>{text.split(/(https?:\/\/[^\s]+)/g).map((part, index) => /^https?:\/\//.test(part)
-    ? <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="break-all underline">{part}</a>
-    : <span key={index}>{part}</span>)}</>;
-}
 
 async function demoRequest(path: string, body?: unknown) {
   const response = await fetch(path, { ...(body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
@@ -141,7 +136,7 @@ export function CustomerSimulator() {
             {state?.messages.map(message => <div key={message.id} className={`flex ${message.sender === "customer" ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm ${message.sender === "customer" ? "bg-accent text-white" : "border border-line bg-surface"}`}>
                 <p className="mb-1 text-xs opacity-75">{message.sender === "customer" ? "You" : message.sender === "human" ? "Our team" : "PS.Cafe assistant"}</p>
-                <p className="whitespace-pre-wrap break-words leading-6"><MessageText text={message.body}/></p>
+                <p className="whitespace-pre-wrap break-words leading-6"><MessageText text={message.body} fromCustomer={message.sender === "customer"}/></p>
               </div></div>)}
             {(processing || deliveryPending) && <p role="status" className="text-sm text-muted">{delayed ? "Our reply is taking longer than expected. Your message is saved; please check back shortly." : "PS.Cafe is replying…"}</p>}
             {state?.job?.status === "dead" && <div role="alert" className="text-sm text-danger">We couldn’t process your message. Your message is saved.

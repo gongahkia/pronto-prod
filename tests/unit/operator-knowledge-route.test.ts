@@ -18,7 +18,7 @@ vi.mock("@/lib/knowledge/parse-upload", () => ({
 }));
 vi.mock("@/lib/knowledge/source-extract", () => ({
   extractTextSource: async (content: string) => ({ sourceType: "text", content, metadata: { extraction: "plain_text" } }),
-  extractPdfSource: vi.fn(), extractUrlSource: vi.fn(),
+  extractFileSource: vi.fn(), extractHtmlSource: vi.fn(), extractUrlSource: vi.fn(),
 }));
 
 import { POST } from "@/app/api/operator/knowledge/route";

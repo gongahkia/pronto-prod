@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { canViewBusinessConversation, hasStaffCapability } from "@/lib/staff-permissions";
@@ -51,16 +52,19 @@ export default async function ClientConversationPage({
   return (
     <AppShell user={user} active="client" clientActive="inbox" workspaceName={client.name}>
       <AutoRefresh intervalMs={3000}/>
-      <div className="mb-5">
-        <Link href="/client/inbox" className="text-xs font-medium text-accent hover:text-accent-dark">
-          Back to inbox
+      <div className="mb-5 flex items-center gap-3">
+        <Link href="/client/inbox" aria-label="Back to inbox" title="Back to inbox"
+          className="-ml-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+          <ArrowLeft size={20} aria-hidden="true"/>
         </Link>
-        <h1 className="mt-1.5 text-xl font-semibold">
-          {conversation.customer_name ?? conversation.customer_handle ?? "Customer conversation"}
-        </h1>
-        <p className="text-sm text-muted">
-          Review this thread and reply when Pronto needs help.
-        </p>
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold">
+            {conversation.customer_name ?? conversation.customer_handle ?? "Customer conversation"}
+          </h1>
+          <p className="text-sm text-muted">
+            Review this thread and reply when Pronto needs help.
+          </p>
+        </div>
       </div>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <ConversationTabs decisions={decisions}><ConversationReviewPanel conversation={conversation} messages={messages}

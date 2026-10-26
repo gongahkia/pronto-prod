@@ -15,7 +15,7 @@ export type KnowledgeSuggestion = {
   outlet_name: string | null; author_name: string | null; reviewer_name: string | null;
 };
 
-export async function listKnowledgeSuggestions(clientId: string): Promise<KnowledgeSuggestion[]> {
+export async function listKnowledgeSuggestions(clientId: string, suggestionId?: string): Promise<KnowledgeSuggestion[]> {
   const result = await query<KnowledgeSuggestion>(
     `select s.*, r.title, r.content, r.reason, r.source_reference, r.outlet_name,
       author.name as author_name, reviewer.name as reviewer_name
@@ -24,7 +24,7 @@ export async function listKnowledgeSuggestions(clientId: string): Promise<Knowle
        and r.client_id = s.client_id
      left join users author on author.id = s.created_by
      left join users reviewer on reviewer.id = s.reviewed_by
-     where s.client_id = $1 order by s.updated_at desc limit 100`, [clientId]);
+     where s.client_id = $1 ${suggestionId ? "and s.id = $2" : ""} order by s.updated_at desc limit 100`, suggestionId ? [clientId, suggestionId] : [clientId]);
   return result.rows;
 }
 

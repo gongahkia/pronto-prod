@@ -1,9 +1,31 @@
+// @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
-import { extractPdfSource, extractTextSource, extractUrlSource, isPublicIpv4 } from "@/lib/knowledge/source-extract";
+import { readFileSync } from "node:fs";
+import { extractFileSource, extractHtmlSource, extractPdfSource, extractTextSource, extractUrlSource, isPublicIpv4 } from "@/lib/knowledge/source-extract";
 import { computeStaffedDue, isWithinStaffedHours } from "@/lib/staff-notifications";
 import { textPdf } from "../fixtures/text-pdf";
 
 describe("reviewed source extraction and staffed clocks", () => {
+  it("extracts Word documents, HTML files and structured text with filename provenance", async () => {
+    const word = new File([readFileSync(new URL("../fixtures/menu.docx", import.meta.url))], "menu.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+    const docx = await extractFileSource(word);
+    expect(docx).toMatchObject({ sourceType: "text", content: "Our menu includes vegetarian pasta and fresh iced tea.", metadata: { filename: "menu.docx", parser: "mammoth", originalFormat: "upload_docx" } });
+    const html = await extractFileSource(new File(['<html><head><title>Not body content</title></head><body><script>alert("never run")</script><h1>Menu &amp; drinks</h1><p>Tea costs &#x24;5.<br>Hot &amp; iced.</p></body></html>'], "menu.html", { type: "text/html" }));
+    expect(html.content).toContain("Menu & drinks\nTea costs $5.\nHot & iced.");
+    expect(html.content).not.toMatch(/alert|Not body content|<script>/);
+    expect(html.metadata).toMatchObject({ filename: "menu.html", parser: "html_text", fileSha256: expect.any(String) });
+    const csv = await extractFileSource(new File(["Item,Price\nTea,5"], "menu.csv", { type: "text/csv" }));
+    expect(csv.content).toContain("Item: Tea; Price: 5");
+    await expect(extractFileSource(new File(["x"], "old-format.doc"))).rejects.toThrow("Unsupported file type");
+    await expect(extractFileSource(new File(["<script>no readable content</script>"], "empty.html"))).rejects.toThrow("no readable text");
+  });
+
+  it("normalizes pasted HTML and applies document size limits", async () => {
+    expect((await extractHtmlSource("<p>Opening hours: 10am &ndash; 10pm</p>")).content).toBe("Opening hours: 10am – 10pm");
+    await expect(extractHtmlSource("x".repeat(1_000_001))).rejects.toThrow("1 MB");
+    await expect(extractFileSource(new File(["x".repeat(200_001)], "hours.txt"))).rejects.toThrow("200,000");
+    await expect(extractFileSource(new File([new Uint8Array(8 * 1024 * 1024 + 1)], "menu.docx"))).rejects.toThrow("8 MB");
+  });
   it("accepts bounded text and rejects malformed/scanned PDFs", async () => {
     expect((await extractTextSource("  Opening hours are 10am to 8pm.  ")).content).toBe("Opening hours are 10am to 8pm.");
     await expect(extractTextSource(" ")).rejects.toThrow("Source text");

@@ -72,13 +72,13 @@ export function ClientRulesEditor({ initialFlow, embedded = false }: { initialFl
         const node = flow.nodes.find((item) => item.data.decisionKey === decision.decisionKey);
         if (!node) return null;
         return (
-          <details key={decision.decisionKey} className={embedded ? "group border-b border-line pb-4" : "group ui-panel p-5"}>
+          <details key={decision.decisionKey} className={embedded ? "group/rule border-b border-line pb-4" : "group/rule ui-panel p-5"}>
             <summary className="flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
               <div>
                 <h3 className="font-semibold">{decision.label}</h3>
                 <p className="mt-1 text-sm text-muted">{decision.description}</p>
               </div>
-              <span className="flex shrink-0 items-center gap-2 text-xs text-muted">{node.data.enabled !== false ? "On" : "Off"}<ChevronDown size={16} className="transition-transform group-open:rotate-180" aria-hidden="true"/></span>
+              <span className="flex shrink-0 items-center gap-2 text-xs text-muted">{node.data.enabled !== false ? "On" : "Off"}<ChevronDown size={16} className="transition-transform group-open/rule:rotate-180" aria-hidden="true"/></span>
             </summary>
               <label className="mt-4 flex items-center gap-2 text-sm font-medium">
                 <input type="checkbox" checked={node.data.enabled !== false}
