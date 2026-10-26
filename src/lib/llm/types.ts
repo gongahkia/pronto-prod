@@ -8,6 +8,8 @@ export type GroundedAnswerDecision = {
   reasonDetail: string;
   citedChunkIds: string[];
   usage?: LlmTokenUsage;
+  providerResponseId?: string;
+  actualModel?: string;
 };
 
 export type LlmTokenUsage = {
@@ -42,6 +44,7 @@ export type LlmCallContext = {
   clientId?: string;
   conversationId?: string;
   operation?: "embedding" | "generation" | "provider_test";
+  embeddingTask?: "document" | "query";
 };
 
 export type LlmProvider = {

@@ -1,3 +1,4 @@
+import { publicAppUrl } from "@/lib/http/redirect";
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: errorToMessage(error) }, { status: 400 });
   }
-  return NextResponse.redirect(new URL("/client/knowledge?submitted=1", request.url), 303);
+  return NextResponse.redirect(publicAppUrl("/client/knowledge?submitted=1", request.url), 303);
 }
 
 function errorToMessage(error: unknown): string {

@@ -4,9 +4,12 @@ import { setupCustomerSimulator, prepareRealDemoEmbeddings } from "../../src/lib
 
 try {
   await verifyTestDatabase();
+  if (process.argv.includes("--provider") && process.argv[process.argv.indexOf("--provider") + 1] !== "gemini")
+    throw new Error("Only --provider gemini is supported; no provider fallback is allowed.");
   if (process.argv[2] === "setup") { await setupCustomerSimulator(); console.log("Authenticated customer simulator prepared."); }
   else if (process.argv[2] === "embed" && process.env.PRONTO_DEMO_REAL_AI_APPROVED === "1")
-    console.log(JSON.stringify(await prepareRealDemoEmbeddings()));
+    console.log(JSON.stringify(await prepareRealDemoEmbeddings(process.argv.includes("--provider") &&
+      process.argv[process.argv.indexOf("--provider") + 1] === "gemini" ? "gemini" : undefined)));
   else throw new Error("Use setup, or explicitly opt in to embed with PRONTO_DEMO_REAL_AI_APPROVED=1. Embedding calls may incur provider charges.");
 } catch (error) {
   // Configuration errors name variables, never their values or provider payloads.

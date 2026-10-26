@@ -1,3 +1,4 @@
+import { publicAppUrl } from "@/lib/http/redirect";
 import { NextResponse } from "next/server";
 import { recordAuditLog } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
@@ -26,5 +27,5 @@ export async function POST(request: Request) {
     action: "channel.client_created", targetType: "channel", targetId: result.rows[0].id,
     metadata: { kind },
   });
-  return NextResponse.redirect(new URL(`/client/assistant/channels?channel=${result.rows[0].id}`, request.url), 303);
+  return NextResponse.redirect(publicAppUrl(`/client/assistant/channels?channel=${result.rows[0].id}`, request.url), 303);
 }

@@ -3,15 +3,19 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send, RefreshCw, MessageCircle } from "lucide-react";
+import { demoModelChoices, demoModelChoice, type DemoModelChoice, type DemoAiProfile } from "@/lib/llm/demo-models";
 
 type State = {
   now: string;
-  sessions: { id: string; conversation_id: string; ai_mode: "real" | "mock"; created_at: string }[];
+  sessions: { id: string; conversation_id: string; ai_mode: "real" | "mock"; ai_selection: string; ai_configuration: DemoAiProfile | null; created_at: string }[];
+  modelChoices: { id: string; available: boolean; detail: string }[];
   realAi: { available: boolean; detail: string; provider?: string; model?: string };
-  session: { id: string; conversation_id: string; ai_mode: "real" | "mock"; status: string } | null;
-  messages: { id: string; body: string; sender: string; created_at: string; generation_mode: string | null }[];
+  session: { id: string; conversation_id: string; ai_mode: "real" | "mock"; ai_selection: string; ai_configuration: DemoAiProfile | null; status: string } | null;
+  messages: { id: string; body: string; sender: string; created_at: string; generation_mode: string | null;
+    response_provider: string | null; response_model: string | null }[];
   job: { status: string; created_at: string; delivery_status?: string | null } | null;
   providerError: boolean;
+  providerFailureCode: string | null;
 };
 
 function MessageText({ text }: { text: string }) {
@@ -31,7 +35,7 @@ async function demoRequest(path: string, body?: unknown) {
 export function CustomerSimulator({ businessAccess = true }: { businessAccess?: boolean }) {
   const [state, setState] = useState<State | null>(null);
   const [sessionId, setSessionId] = useState("");
-  const [mode, setMode] = useState<"real" | "mock">("real");
+  const [choice, setChoice] = useState<DemoModelChoice>("gemini-flash");
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -58,7 +62,7 @@ export function CustomerSimulator({ businessAccess = true }: { businessAccess?: 
     if (loading || sending) return;
     setLoading(true); setError("");
     try {
-      const session = await demoRequest("/api/demo/customer", { action: "create", mode });
+      const session = await demoRequest("/api/demo/customer", { action: "create", mode: choice === "mock" ? "mock" : "real", choice });
       ++requestVersion.current;
       retry.current = null; setText(""); setSessionId(session.id); setState(null);
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Could not start a conversation."); }
@@ -85,6 +89,7 @@ export function CustomerSimulator({ businessAccess = true }: { businessAccess?: 
   const deliveryPending = state?.job?.status === "completed" && ["pending", "sending"].includes(state.job.delivery_status ?? "");
   const delayed = processing && Date.parse(state!.now) - Date.parse(state!.job!.created_at) > 120_000;
   const humanOwned = state?.session && state.session.status !== "active";
+  const availability = state?.modelChoices?.find(option => option.id === choice);
   return <main className="min-h-screen bg-surface px-3 py-5 text-foreground sm:px-6">
     <div className="mx-auto max-w-5xl">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -97,19 +102,20 @@ export function CustomerSimulator({ businessAccess = true }: { businessAccess?: 
       <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)]">
         <aside className="ui-panel space-y-4 p-4">
           <label className="block text-sm font-medium">AI mode
-            <select aria-label="AI mode" className="ui-input mt-2 w-full px-3 py-2" value={mode} onChange={event => setMode(event.target.value as "real" | "mock")}>
-              <option value="real">Real AI</option><option value="mock">Mock • deterministic test</option>
+            <select aria-label="AI mode" className="ui-input mt-2 w-full px-3 py-2" value={choice} onChange={event => setChoice(event.target.value as DemoModelChoice)}>
+              {demoModelChoices.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
             </select></label>
+          <p className="text-xs text-muted">This selection applies to a new conversation. Existing conversations keep their model.</p>
           <button className="ui-primary-button w-full px-3 py-2 text-sm" disabled={loading || sending} onClick={() => void start()}>{loading ? "Starting…" : "New conversation"}</button>
-          {state?.realAi && <div className="rounded-md border border-line p-3 text-xs">
-            <strong>Real AI {state.realAi.available ? "configured" : "unavailable"}</strong>
-            <p className="mt-1 break-words text-muted">{state.realAi.detail}</p>
-            {state.realAi.provider && <p className="mt-1">{state.realAi.provider} · {state.realAi.model}</p>}
+          {availability && <div className="rounded-md border border-line p-3 text-xs">
+            <strong>{choice === "mock" ? "Mock test mode" : availability.available ? "Real AI configured" : "Real AI unavailable"}</strong>
+            <p className="mt-1 break-words text-muted">{availability.detail}</p>
           </div>}
+          <p className="text-xs text-muted">Use public restaurant facts and synthetic enquiries only. Gemini free-tier inputs may be used to improve Google products.</p>
           <nav aria-label="Your simulated conversations"><p className="mb-2 text-xs font-semibold text-muted">Your conversation history</p>
             {state?.sessions.map((session, index) => <button key={session.id} disabled={loading || sending} className={`mb-2 block w-full rounded-md border px-3 py-2 text-left text-sm ${sessionId === session.id ? "border-accent bg-accent-soft" : "border-line"}`}
               onClick={() => { ++requestVersion.current; retry.current = null; setText(""); setState(null); setSessionId(session.id); }}>
-              Conversation {state.sessions.length - index}<span className="block text-xs text-muted">{session.ai_mode === "mock" ? "Mock test" : "Real AI requested"}</span></button>)}
+              Conversation {state.sessions.length - index}<span className="block text-xs text-muted">{demoModelChoice(session.ai_selection)?.label ?? "Configured real AI"}</span></button>)}
           </nav>
         </aside>
         <section aria-label="Customer chat" className="ui-panel flex min-h-[34rem] min-w-0 flex-col overflow-hidden">
@@ -119,6 +125,7 @@ export function CustomerSimulator({ businessAccess = true }: { businessAccess?: 
           </div>
           {state?.session && <div className="border-b border-line bg-surface px-4 py-2 text-xs">
             {state.session.ai_mode === "mock" ? "Mock AI — deterministic test responses" : "Real AI requested — policy replies and handoffs may run before generation"}
+            {state.session.ai_configuration && <span className="ml-2">Selected: {state.session.ai_configuration.provider} · {state.session.ai_configuration.model}</span>}
             <span className="ml-2">{humanOwned ? "AI paused for your team" : "AI owns this conversation"}</span></div>}
           <div className="max-h-[32rem] flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite" aria-label="Message history">
             {!state?.session ? <div className="mx-auto mt-16 max-w-xs text-center text-sm text-muted"><MessageCircle className="mx-auto mb-3"/>
@@ -126,7 +133,8 @@ export function CustomerSimulator({ businessAccess = true }: { businessAccess?: 
             {state?.messages.map(message => <div key={message.id} className={`flex ${message.sender === "customer" ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm ${message.sender === "customer" ? "bg-accent text-white" : "border border-line bg-surface"}`}>
                 <p className="mb-1 text-xs opacity-75">{message.sender === "customer" ? "You" : message.sender === "human" ? "Business team" : "Pronto assistant"}
-                  {message.generation_mode === "real" ? " · real model response" : message.generation_mode === "mock" ? " · mock response" : ""}</p>
+                  {message.generation_mode === "real" ? " · real model response" : message.generation_mode === "mock" ? " · mock response" : ""}
+                  {message.response_provider && <span> · {message.response_provider} / {message.response_model}</span>}</p>
                 <p className="whitespace-pre-wrap break-words leading-6"><MessageText text={message.body}/></p>
               </div></div>)}
             {(processing || deliveryPending) && <p role="status" className="text-sm text-muted">{delayed ? "Processing is taking longer than expected. Check status; your message is already saved." : "Pronto is processing your message…"}</p>}
@@ -135,6 +143,7 @@ export function CustomerSimulator({ businessAccess = true }: { businessAccess?: 
             {["failed", "uncertain"].includes(state?.job?.delivery_status ?? "") &&
               <p role="alert" className="text-sm text-danger">Your message is saved, but the reply has not been delivered. Refresh status or ask the business team to review delivery.</p>}
             {state?.providerError && <p role="alert" className="text-sm text-danger">The real AI provider could not answer. The enquiry was handed to the team; no mock answer was substituted.</p>}
+            {state?.providerFailureCode === "quota_exhausted" && <p role="alert" className="text-sm text-danger">Quota for the selected provider is exhausted. No automatic retry or provider switch was made. You can explicitly select another model and start a new conversation.</p>}
             {humanOwned && <p className="rounded-md bg-warning-bg p-3 text-sm">{state?.session?.status === "closed" ? "Your team resolved this conversation. AI stays paused until an authorized release." : "A person is handling this conversation. Further messages are saved and AI stays paused."}</p>}
             <div ref={end}/>
           </div>

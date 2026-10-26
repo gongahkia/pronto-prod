@@ -5,6 +5,7 @@ import { assertDemoActor, createDemoSession, getDemoState, sendDemoMessage, retr
 import { DemoError } from "@/lib/customer-demo-boundary";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 async function handle(request: Request, mutate: boolean) {
   if (mutate) { const csrf = assertSameOrigin(request); if (csrf) return csrf; }
@@ -19,8 +20,11 @@ async function handle(request: Request, mutate: boolean) {
     let body: Record<string, unknown>;
     try { body = JSON.parse(raw); } catch { throw new DemoError("Invalid request."); }
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new DemoError("Invalid request.");
-    if (body.action === "create" && (body.mode === "real" || body.mode === "mock"))
-      return NextResponse.json(await createDemoSession(actor, body.mode), { status: 201 });
+    if (body.action === "create" && (body.mode === "real" || body.mode === "mock")) {
+      if (Object.keys(body).some(key => !["action","mode","choice"].includes(key))) throw new DemoError("Only allowlisted demo model choices are accepted.");
+      return NextResponse.json(body.choice === undefined ? await createDemoSession(actor, body.mode)
+        : await createDemoSession(actor, body.mode, body.choice), { status: 201 });
+    }
     if (body.action === "send" && typeof body.sessionId === "string" && typeof body.requestId === "string" && typeof body.text === "string")
       return NextResponse.json(await sendDemoMessage(actor, { sessionId: body.sessionId, requestId: body.requestId, text: body.text }), { status: 202 });
     if (body.action === "retry" && typeof body.sessionId === "string") {

@@ -1,6 +1,7 @@
 import { query, vectorLiteral } from "@/lib/db";
 import { logInfo } from "@/lib/logger";
 import type { KnowledgeChunk } from "@/lib/types";
+import { GEMINI_EMBEDDING_PROFILE } from "@/lib/llm/demo-models";
 
 export async function retrieveKnowledge(
   clientId: string,
@@ -18,6 +19,18 @@ export async function retrieveKnowledge(
   const searchQuery = options.queryText?.trim();
   const candidateLimit = Math.max(limit * 4, 20);
   const embeddingDimensions = embedding.length;
+  if (options.embeddingProvider === "gemini" && embeddingDimensions !== 1536)
+    throw new Error("The Gemini demo retrieval profile requires 1536 dimensions.");
+  // Same hybrid retrieval and tenant predicates; a separate index preserves all
+  // existing vectors. Content hashes invalidate embeddings after publication edits.
+  const chunkRelation = options.embeddingProvider === "gemini" ? `(select k.id,k.source_id,k.client_id,
+    k.chunk_index,k.content,k.token_estimate,e.model as embedding_model,1536 as embedding_dimensions,
+    k.metadata || jsonb_build_object('embeddingProvider','gemini') as metadata,e.embedding
+    from knowledge_chunks k join customer_demo_embeddings e on e.chunk_id=k.id and e.client_id=k.client_id
+    join knowledge_sources s on s.id=k.source_id and s.client_id=k.client_id
+    where k.client_id=$1 and e.profile='${GEMINI_EMBEDDING_PROFILE}'
+      and e.content_hash=encode(sha256(convert_to(k.content,'UTF8')),'hex')
+      and coalesce(s.metadata->>'archived','false')<>'true')` : "knowledge_chunks";
   const vectorDistance = vectorDistanceExpression(embeddingDimensions);
   const excluded = options.excludeSourceIds ?? [];
   const providerIndex = (searchQuery ? 8 : 6) + (excluded.length ? 1 : 0);
@@ -46,7 +59,7 @@ export async function retrieveKnowledge(
               embedding_dimensions,
               metadata,
               ${vectorDistance} as distance
-            from knowledge_chunks
+            from ${chunkRelation} kc
             where client_id = $1
               and embedding_dimensions = $6
               and ($7::text is null or embedding_model = $7)
@@ -67,7 +80,7 @@ export async function retrieveKnowledge(
               kc.embedding_dimensions,
               kc.metadata,
               ${vectorDistance.split("embedding").join("kc.embedding")} as distance
-            from knowledge_chunks kc, fts_query
+            from ${chunkRelation} kc, fts_query
             where kc.client_id = $1
               and kc.embedding_dimensions = $6
               and ($7::text is null or kc.embedding_model = $7)
@@ -131,7 +144,7 @@ export async function retrieveKnowledge(
               embedding_dimensions,
               metadata,
               ${vectorDistance} as distance
-            from knowledge_chunks
+            from ${chunkRelation} kc
             where client_id = $1
               and embedding_dimensions = $4
               and ($5::text is null or embedding_model = $5)

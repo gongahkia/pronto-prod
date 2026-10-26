@@ -33,6 +33,13 @@ describe("authenticated customer demo API", () => {
     expect((await POST(request({ text: "x".repeat(17000) }))).status).toBe(413);
     expect((await POST(request({ action: "activate_instagram" }))).status).toBe(400);
   });
+  it("does not accept client supplied models/endpoints and forwards only the selected choice",async()=>{
+    expect((await POST(request({action:"create",mode:"real",choice:"gemini-flash",model:"paid",baseUrl:"https://evil.invalid"}))).status).toBe(400);
+    expect(mocks.createDemoSession).not.toHaveBeenCalled();
+    mocks.createDemoSession.mockResolvedValue({id:"synthetic"});
+    expect((await POST(request({action:"create",mode:"real",choice:"groq-oss"}))).status).toBe(201);
+    expect(mocks.createDemoSession).toHaveBeenCalledWith(expect.anything(),"real","groq-oss");
+  });
   it("does not return internal failures or raw provider payloads", async () => {
     mocks.getDemoState.mockRejectedValue(new Error("private provider payload"));
     const response = await GET(new Request("http://localhost:3000/api/demo/customer"));

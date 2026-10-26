@@ -5,6 +5,7 @@ import { CustomerSimulator } from "@/components/customer-simulator";
 
 const id="00000000-0000-4000-8000-000000000001";
 const state = { now: "2026-10-25T05:00:00Z", sessions: [{ id, conversation_id: id, ai_mode: "mock", created_at: "2026-10-25T04:00:00Z" }],
+  modelChoices: [{id:"gemini-flash",available:false,detail:"Configure GEMINI_API_KEY securely on the server."}],
   realAi: { available: false, detail: "Real AI is unavailable. Configure OPENAI_API_KEY securely on the server." },
   session: null as null | { id: string; conversation_id: string; ai_mode: string; status: string }, messages: [] as unknown[], job: null as unknown, providerError:false };
 const response = (value: unknown, status=200) => Promise.resolve(new Response(JSON.stringify(value), { status,headers:{"Content-Type":"application/json"} }));
@@ -16,7 +17,7 @@ describe("customer simulator states", () => {
       ? response({error:"Configure OPENAI_API_KEY securely on the server."},503) : response(state));
     vi.stubGlobal("fetch",fetcher); render(<CustomerSimulator/>);
     await screen.findByText("Real AI unavailable");
-    expect((screen.getByLabelText("AI mode") as HTMLSelectElement).value).toBe("real");
+    expect((screen.getByLabelText("AI mode") as HTMLSelectElement).value).toBe("gemini-flash");
     await userEvent.click(screen.getByRole("button",{name:"New conversation"}));
     await screen.findByRole("alert");
     expect(JSON.parse(String(fetcher.mock.calls.find(call=>call[1]?.method==="POST")?.[1]?.body))).toMatchObject({mode:"real"});
@@ -79,5 +80,16 @@ describe("customer simulator states", () => {
     render(<CustomerSimulator/>); await userEvent.click(await screen.findByRole("button",{name:/Conversation 1/}));
     await screen.findByText(/reply has not been delivered/);
     expect(screen.queryByText(/Pronto assistant/)).toBeNull();
+  });
+  it("renders selected and actual model metadata from an explicit injected UI fixture",async()=>{
+    const snapshot={...state,session:{id,conversation_id:id,ai_mode:"real",status:"active",ai_selection:"groq-oss",
+      ai_configuration:{provider:"groq",model:"openai/gpt-oss-20b",embeddingProvider:"gemini",embeddingModel:"gemini-embedding-2"}},
+      messages:[{id:"fixture",body:"Injected UI fixture, not external inference.",sender:"business",created_at:state.now,
+        generation_mode:"real",response_provider:"groq",response_model:"openai/gpt-oss-20b"}]};
+    vi.stubGlobal("fetch",vi.fn((url:string)=>response(url.includes("sessionId")?snapshot:state)));
+    render(<CustomerSimulator/>);await userEvent.click(await screen.findByRole("button",{name:/Conversation 1/}));
+    await screen.findByText(/Selected: groq/);expect(screen.getByText(/real model response/)).toBeTruthy();
+    expect(screen.getByText(/groq \/ openai\/gpt-oss-20b/)).toBeTruthy();
+    expect((screen.getByLabelText("AI mode") as HTMLSelectElement).value).toBe("gemini-flash");
   });
 });

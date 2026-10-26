@@ -130,3 +130,14 @@ The guarded Playwright CLI acceptance test uses a fresh synthetic business in th
 marked disposable database, separate business authentication and local-SMTP-only
 channel evidence. It proves local administrative reachability and gate behavior;
 it does not establish real-provider activation or production readiness.
+
+
+## Protected Vercel access
+
+Pronto operator authentication remains required behind Vercel account protection.
+If an approved deployment requires an automation bypass, configure server-only
+`PRONTO_VERCEL_PROTECTION_BYPASS` and pin the exact HTTPS origin in
+`PRONTO_VERCEL_PROTECTION_ORIGIN` in the private CLI environment. The CLI sends
+this platform header only to that origin and never follows redirects. It does
+not grant any Pronto capability. Always pass the same `--base-url` to login,
+inspect, request and logout. See [the hosted runbook](../setup/vercel-demo.md).

@@ -5,6 +5,7 @@ import { shouldUseMockAi } from "@/lib/env";
 import { aiExecutionMode } from "@/lib/llm/execution-mode";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import { OpenAiProvider } from "@/lib/llm/openai";
+import { FreeTierProvider } from "@/lib/llm/free-providers";
 import type {
   GenerateAnswerInput,
   GroundedAnswerDecision,
@@ -12,7 +13,7 @@ import type {
   LlmProvider,
 } from "@/lib/llm/types";
 
-export type LlmProviderName = "mock" | "openai" | "azure" | "anthropic";
+export type LlmProviderName = "mock" | "openai" | "azure" | "anthropic" | "gemini" | "groq";
 
 class MockProvider implements LlmProvider {
   async generateGroundedAnswer(
@@ -30,6 +31,8 @@ const mockProvider = new MockProvider();
 const openAiProvider = new OpenAiProvider();
 const azureOpenAiProvider = new AzureOpenAiProvider();
 const anthropicProvider = new AnthropicProvider();
+const geminiProvider = new FreeTierProvider("gemini");
+const groqProvider = new FreeTierProvider("groq");
 
 class UnsupportedEmbeddingProvider implements LlmProvider {
   constructor(private readonly provider: string) {}
@@ -50,7 +53,7 @@ class UnsupportedEmbeddingProvider implements LlmProvider {
 }
 
 export function normalizeProviderName(value: string | null | undefined): LlmProviderName {
-  if (value === "anthropic" || value === "azure" || value === "openai" || value === "mock") {
+  if (value === "anthropic" || value === "azure" || value === "openai" || value === "mock" || value === "gemini" || value === "groq") {
     return value;
   }
   return "openai";
@@ -63,6 +66,8 @@ export function getGenerationProvider(provider: string | null | undefined): LlmP
   if (shouldUseMockAi() || normalized === "mock") {
     return mockProvider;
   }
+  if (normalized === "gemini") return geminiProvider;
+  if (normalized === "groq") return groqProvider;
   if (normalized === "azure") {
     return azureOpenAiProvider;
   }
@@ -83,6 +88,8 @@ export function getEmbeddingProvider(provider: string | null | undefined): LlmPr
   if (shouldUseMockAi() || normalized === "mock") {
     return mockProvider;
   }
+  if (normalized === "gemini") return geminiProvider;
+  if (normalized === "groq") return new UnsupportedEmbeddingProvider(normalized);
   if (normalized === "azure") {
     return azureOpenAiProvider;
   }

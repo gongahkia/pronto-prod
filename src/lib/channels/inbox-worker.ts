@@ -10,8 +10,10 @@ import { logWarn } from "@/lib/logger";
 import type { Channel, Conversation, Escalation, Message } from "@/lib/types";
 import type { ReservationConnector } from "@/lib/reservations/types";
 import { assertCustomerDemoEnabled, isCustomerDemoChannel } from "@/lib/customer-demo-boundary";
-import { requireRealDemoConfiguration } from "@/lib/customer-demo-ai";
-import { withAiExecutionMode, type AiExecutionMode } from "@/lib/llm/execution-mode";
+import { requireRealDemoConfiguration, storedDemoProfile } from "@/lib/customer-demo-ai";
+import { withAiExecutionProfile, type AiExecutionMode, type AiExecutionProfile } from "@/lib/llm/execution-mode";
+import type { DemoAiProfile } from "@/lib/llm/demo-models";
+import { protectedDemoDeployment } from "@/lib/deployment-profile";
 import { recordConversationOutcome } from "@/lib/conversation-actions";
 
 export async function processInboundJob(input: { jobId?: string; requestId?: string;
@@ -55,6 +57,7 @@ async function execute(job: InboundJob, requestId?: string,
     throw new Error("Meta channel credentials must be encrypted before processing.");
   }
   const channel = decryptChannelCredentials(channelRow);
+  if (protectedDemoDeployment() && !isCustomerDemoChannel(channel)) return "skipped";
   if (channel.kind === "email" && channel.credentials.provider === "local_smtp" &&
       (process.env.NODE_ENV === "production" || process.env.PRONTO_LOCAL_EMAIL_ENABLED !== "1")) return "skipped";
 
@@ -91,14 +94,17 @@ async function execute(job: InboundJob, requestId?: string,
   const unsupported = typeof message.metadata.unsupportedMediaType === "string"
     ? message.metadata.unsupportedMediaType : null;
   let demoMode: AiExecutionMode | undefined;
+  let demoProfile: AiExecutionProfile | undefined;
   if (channel.kind === "console") {
     await assertCustomerDemoEnabled();
     if (!isCustomerDemoChannel(channel)) throw new Error("Unknown customer simulator channel.");
-    const session = await query<{ ai_mode: AiExecutionMode }>(`select ai_mode from customer_demo_sessions
+    const session = await query<{ ai_mode: AiExecutionMode; ai_selection: string; ai_configuration: DemoAiProfile | null }>(`select ai_mode,ai_selection,ai_configuration from customer_demo_sessions
       where conversation_id=$1 and client_id=$2`, [conversation.id, job.client_id]);
     if (!session.rows[0]) throw new Error("Customer simulator session is missing.");
     demoMode = session.rows[0].ai_mode;
-    if (demoMode === "real") await requireRealDemoConfiguration();
+    const configuration = demoMode === "real" ? await requireRealDemoConfiguration(true, storedDemoProfile(session.rows[0])) : undefined;
+    demoProfile = { mode: demoMode, syntheticDemo: true, ...(configuration ? { provider: configuration.provider,
+      model: configuration.model, embeddingProvider: configuration.embeddingProvider, embeddingModel: configuration.embeddingModel } : {}) };
   }
   const run = async () => unsupported
     ? await createEscalation({
@@ -113,7 +119,7 @@ async function execute(job: InboundJob, requestId?: string,
         customerMessage: message.body, requestId, reservationConnector,
       });
 
-  const result = await (demoMode ? withAiExecutionMode(demoMode, run) : run());
+  const result = await (demoProfile ? withAiExecutionProfile(demoProfile, run) : run());
   if (result.action === "answered") {
     const recorded = await query<Message>(
       `select * from messages where client_id = $1 and conversation_id = $2 and sender_role = 'agent'

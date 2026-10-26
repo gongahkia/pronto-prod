@@ -2,6 +2,8 @@ import { Pool, type QueryResult, type QueryResultRow } from "pg";
 import { databaseUrl } from "@/lib/env";
 import { logWarn } from "@/lib/logger";
 import { getTenantContext } from "@/lib/tenant-context";
+import { attachDatabasePool } from "@vercel/functions";
+import { protectedDemoDeployment } from "@/lib/deployment-profile";
 
 type GlobalWithPool = typeof globalThis & {
   prontoPool?: Pool;
@@ -19,17 +21,34 @@ const globalForPool = globalThis as GlobalWithPool;
 export function getPool(): Pool {
   if (!globalForPool.prontoPool) {
     globalForPool.prontoPool = new Pool({
-      connectionString: databaseUrl(),
-      max: 10,
-      idleTimeoutMillis: 30_000,
+      ...databaseConnectionOptions(),
       connectionTimeoutMillis: 5_000,
       statement_timeout: 30_000,
       query_timeout: 35_000,
       idle_in_transaction_session_timeout: 30_000,
     });
+    if (process.env.VERCEL === "1") attachDatabasePool(globalForPool.prontoPool);
   }
 
   return globalForPool.prontoPool;
+}
+
+export function databaseConnectionOptions() {
+  const vercel = process.env.VERCEL === "1";
+  const requested = Number(process.env.PRONTO_DB_POOL_MAX);
+  const max = Number.isInteger(requested) && requested >= 1 && requested <= 20 ? requested : vercel ? 2 : 10;
+  let connectionString = databaseUrl();
+  let ssl: { rejectUnauthorized: true; ca?: string } | undefined;
+  if (protectedDemoDeployment()) {
+    const url = new URL(connectionString);
+    if (["disable","no-verify","allow","prefer"].includes(url.searchParams.get("sslmode") ?? ""))
+      throw new Error("Protected demo database TLS verification cannot be disabled.");
+    // pg URL ssl parameters override the SSL object; enforce verification here.
+    for (const name of ["sslmode","sslcert","sslkey","sslrootcert"]) url.searchParams.delete(name);
+    connectionString = url.toString();
+    ssl = { rejectUnauthorized: true, ...(process.env.PRONTO_DATABASE_CA ? { ca: process.env.PRONTO_DATABASE_CA } : {}) };
+  }
+  return { connectionString, max, min: 0, idleTimeoutMillis: vercel ? 5000 : 30000, ...(ssl ? { ssl } : {}) };
 }
 
 export async function query<T extends QueryResultRow = QueryResultRow>(

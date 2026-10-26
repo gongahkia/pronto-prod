@@ -39,12 +39,32 @@ async function login(page:Page){
 test("real AI mode shows missing credentials and creates no mock session",async({page})=>{
   await login(page); await page.goto("/demo/customer");
   await expect(page.getByText("Real AI unavailable",{exact:true})).toBeVisible();
-  await expect(page.getByLabel("AI mode")).toHaveValue("real");
+  await expect(page.getByLabel("AI mode")).toHaveValue("gemini-flash");
   const response=page.waitForResponse(response=>response.url().endsWith("/api/demo/customer") && response.request().method()==="POST");
   await page.getByRole("button",{name:"New conversation",exact:true}).click();
   expect((await response).status()).toBe(503);
-  await expect(page.getByRole("alert").filter({hasText:"OPENAI_API_KEY"})).toBeVisible();
+  await expect(page.getByRole("alert").filter({hasText:"GEMINI_API_KEY"})).toBeVisible();
   await expect(page.getByLabel("Message PS.Cafe demo")).toBeDisabled();
+});
+
+test("model choices are explicit, server allowlisted and do not rewrite an existing Mock conversation",async({page})=>{
+  await login(page);await page.goto("/demo/customer");
+  const mode=page.getByLabel("AI mode");
+  for(const choice of ["gemini-flash","groq-oss","gemini-lite"]){
+    await mode.selectOption(choice);
+    const pending=page.waitForResponse(r=>r.url().endsWith("/api/demo/customer")&&r.request().method()==="POST");
+    await page.getByRole("button",{name:"New conversation",exact:true}).click();expect((await pending).status()).toBe(503);
+    await expect(page.getByLabel("Message PS.Cafe demo")).toBeDisabled();
+  }
+  expect((await page.request.post("/api/demo/customer",{headers:{origin:new URL(page.url()).origin},
+    data:{action:"create",mode:"real",choice:"arbitrary-paid-model"}})).status()).toBe(400);
+  await mode.selectOption("mock");await page.getByRole("button",{name:"New conversation",exact:true}).click();
+  await expect(page.getByLabel("Message PS.Cafe demo")).toBeEnabled();
+  const before=await(await page.request.get("/api/demo/customer")).json();
+  await mode.selectOption("groq-oss");await page.getByRole("button",{name:"Refresh status",exact:true}).click();
+  await expect(page.getByText("Mock AI — deterministic test responses",{exact:false})).toBeVisible();
+  const after=await(await page.request.get("/api/demo/customer")).json();
+  expect(after.sessions[0]).toMatchObject({id:before.sessions[0].id,ai_mode:"mock",ai_selection:"mock"});
 });
 
 test("customer and owner share a durable conversation, independent triage, takeover, reply and release",async({page})=>{

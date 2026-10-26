@@ -6,6 +6,7 @@ import { homedir } from "node:os";
 import { parseArgs } from "node:util";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
+import { deploymentAccessHeaders } from "../src/lib/deployment-access";
 
 type Session = { origin: string; cookie: string; expiresAt: number };
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
@@ -74,7 +75,7 @@ async function main() {
   const sessionPath = values["session-file"] ?? join(homedir(), ".local/state/pronto", `operator-${createHash("sha256").update(origin).digest("hex").slice(0,16)}.json`);
   const send = (path: string, cookie?: string, body?: BodyInit, json = false, method = body ? "POST" : "GET") => fetch(origin + path, {
     method, redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(45_000),
-    headers: { Origin: origin, ...(cookie ? { Cookie: cookie } : {}), ...(json ? { "Content-Type": "application/json" } : {}) }, body,
+    headers: { ...deploymentAccessHeaders(origin), Origin: origin, ...(cookie ? { Cookie: cookie } : {}), ...(json ? { "Content-Type": "application/json" } : {}) }, body,
   });
   if (command === "login") {
     const input = await credentials();

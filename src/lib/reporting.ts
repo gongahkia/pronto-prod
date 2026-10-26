@@ -20,6 +20,11 @@ export type ConversationFilterInput = {
 };
 
 export type FilteredConversation = {
+  response_provider?: string | null;
+  response_model?: string | null;
+  generation_mode?: string | null;
+  selected_provider?: string | null;
+  selected_model?: string | null;
   ai_should_respond?: boolean | null;
   owner_action_required?: boolean;
   urgency?: "short_term" | "long_term" | null;
@@ -116,9 +121,19 @@ export async function getFilteredConversations(
         ,ae.assigned_to_user_id,
         assignee.name as assigned_to_name,
         delivery.status as delivery_status
+        ,model_message.provider as response_provider,model_message.model as response_model,
+        model_message.mode as generation_mode
+        ,ds.ai_configuration->>'provider' as selected_provider,ds.ai_configuration->>'model' as selected_model
       from conversations c
       join clients cl on cl.id = c.client_id
       join channels ch on ch.id = c.channel_id
+      left join customer_demo_sessions ds on ds.conversation_id=c.id and ds.client_id=c.client_id
+      left join lateral (
+        select metadata->>'responseProvider' as provider,metadata->>'responseModel' as model,
+          metadata->>'generationMode' as mode from messages
+        where conversation_id=c.id and client_id=c.client_id and sender_role='agent'
+          and metadata->>'generationMode' in ('real','mock') order by created_at desc,id desc limit 1
+      ) model_message on true
       left join lateral (
         select body, sender_role
         from messages

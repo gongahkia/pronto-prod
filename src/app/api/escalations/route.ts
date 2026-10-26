@@ -1,3 +1,4 @@
+import { publicAppUrl } from "@/lib/http/redirect";
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
   const action = String(form.get("action") ?? "");
   const returnTo = safeReturnTo(form.get("returnTo")) ?? "/client/inbox";
   const actionResponse = () => user.role === "operator" ? NextResponse.json({ ok: true })
-    : NextResponse.redirect(new URL(returnTo, request.url), 303);
+    : NextResponse.redirect(publicAppUrl(returnTo, request.url), 303);
   if (user.role === "client" && !user.clientId) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }

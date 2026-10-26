@@ -1,7 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { publicAppUrl } from "@/lib/http/redirect";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { safeReturnTo, signedInDestination } from "@/lib/auth-navigation";
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("account navigation boundaries", () => {
+  it("uses the configured production HTTPS origin behind a reverse proxy", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_BASE_URL", "https://demo.example.test");
+    expect(publicAppUrl("/demo/customer", "http://internal:3000/login").href)
+      .toBe("https://demo.example.test/demo/customer");
+    expect(() => publicAppUrl("https://attacker.invalid", "http://internal/login")).toThrow();
+  });
+  it("rejects unsafe production origins and preserves development ports", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_BASE_URL", "http://demo.example.test");
+    expect(() => publicAppUrl("/login", "http://internal/login")).toThrow(/HTTPS/);
+    vi.stubEnv("NODE_ENV", "development");
+    expect(publicAppUrl("/login", "http://localhost:3001/auth").origin).toBe("http://localhost:3001");
+  });
   it.each(["/client/inbox", "/client/conversations/123-abc", "/demo/customer", "/client/inbox?status=pending"])("retains local application destination %s", path => {
     expect(safeReturnTo(path)).toBe(path);
   });

@@ -1,3 +1,4 @@
+import { publicAppUrl } from "@/lib/http/redirect";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { checkChannelDraft, publishChannelDraft, saveChannelDraft } from "@/lib/client-channel-drafts";
@@ -26,19 +27,19 @@ export async function POST(request: Request, context: { params: Promise<{ channe
         externalId: String(form.get("externalId") ?? "").trim() || null,
         values,
       });
-      return NextResponse.redirect(new URL(`${back}&saved=1`, request.url), 303);
+      return NextResponse.redirect(publicAppUrl(`${back}&saved=1`, request.url), 303);
     }
     if (action === "check") {
       const result = await checkChannelDraft(user.clientId, channelId);
-      return NextResponse.redirect(new URL(`${back}&checked=${result.status}`, request.url), 303);
+      return NextResponse.redirect(publicAppUrl(`${back}&checked=${result.status}`, request.url), 303);
     }
     if (action === "publish") {
       await publishChannelDraft({ clientId: user.clientId, channelId, actorUserId: user.userId });
-      return NextResponse.redirect(new URL(`${back}&published=1`, request.url), 303);
+      return NextResponse.redirect(publicAppUrl(`${back}&published=1`, request.url), 303);
     }
     throw new Error("Unsupported channel action.");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Channel action failed.";
-    return NextResponse.redirect(new URL(`${back}&error=${encodeURIComponent(message)}`, request.url), 303);
+    return NextResponse.redirect(publicAppUrl(`${back}&error=${encodeURIComponent(message)}`, request.url), 303);
   }
 }

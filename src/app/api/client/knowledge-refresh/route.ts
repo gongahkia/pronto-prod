@@ -1,3 +1,4 @@
+import { publicAppUrl } from "@/lib/http/redirect";
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
       actorUserId: user.userId,
       notes: String(form.get("notes") ?? ""),
     });
-    return NextResponse.redirect(new URL("/client/knowledge", request.url), 303);
+    return NextResponse.redirect(publicAppUrl("/client/knowledge", request.url), 303);
   }
 
   if (action === "resolve") {
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     if (!updated) {
       return NextResponse.json({ error: "Refresh request not found." }, { status: 404 });
     }
-    return NextResponse.redirect(new URL("/client/knowledge", request.url), 303);
+    return NextResponse.redirect(publicAppUrl("/client/knowledge", request.url), 303);
   }
 
   return NextResponse.json({ error: "Unsupported action." }, { status: 400 });

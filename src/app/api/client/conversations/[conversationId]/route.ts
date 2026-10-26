@@ -1,3 +1,4 @@
+import { publicAppUrl } from "@/lib/http/redirect";
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { assertSameOrigin } from "@/lib/http/csrf";
@@ -27,5 +28,5 @@ export async function POST(request: Request, context: { params: Promise<{ conver
     return NextResponse.json({ error: error instanceof DemoError ? error.message : "Conversation update failed." },
       { status: error instanceof DemoError ? error.status : 409 });
   }
-  return NextResponse.redirect(new URL(`/client/conversations/${conversationId}`, request.url), 303);
+  return NextResponse.redirect(publicAppUrl(`/client/conversations/${conversationId}`, request.url), 303);
 }

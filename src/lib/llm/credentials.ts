@@ -6,6 +6,8 @@ export type ProviderCredentialStatus = {
 
 export async function listProviderCredentialStatuses(): Promise<ProviderCredentialStatus[]> {
   return [
+    { provider: "gemini", hasCredential: Boolean(envApiKeyForProvider("gemini")), updatedAt: null },
+    { provider: "groq", hasCredential: Boolean(envApiKeyForProvider("groq")), updatedAt: null },
     {
       provider: "openai",
       hasCredential: Boolean(envApiKeyForProvider("openai")),
@@ -35,6 +37,8 @@ export async function resolveProviderApiKey(
 }
 
 export function envApiKeyForProvider(provider: string | null | undefined): string | null {
+  if (provider === "gemini") return process.env.GEMINI_API_KEY?.trim() || null;
+  if (provider === "groq") return process.env.GROQ_API_KEY?.trim() || null;
   if (provider === "openai") {
     return process.env.OPENAI_API_KEY?.trim() || null;
   }

@@ -4,6 +4,10 @@ import { requireRealDemoConfiguration } from "@/lib/customer-demo-ai";
 import { getEmbeddingProvider } from "@/lib/llm";
 import { withAiExecutionMode } from "@/lib/llm/execution-mode";
 import { recordAuditLog } from "@/lib/audit";
+import { createHash } from "node:crypto";
+import { withAiExecutionProfile } from "@/lib/llm/execution-mode";
+import { profileForDemoChoice } from "@/lib/customer-demo-ai";
+import { GEMINI_EMBEDDING_PROFILE } from "@/lib/llm/demo-models";
 
 export async function setupCustomerSimulator() {
   await assertCustomerDemoEnabled();
@@ -22,19 +26,36 @@ export async function setupCustomerSimulator() {
   });
 }
 
-export async function prepareRealDemoEmbeddings() {
+export async function prepareRealDemoEmbeddings(provider?: "gemini") {
   await assertCustomerDemoEnabled();
-  const config = await requireRealDemoConfiguration(false);
+  const config = await requireRealDemoConfiguration(false, provider === "gemini" ? profileForDemoChoice("gemini-flash") : undefined);
   const chunks = await query<{ id: string; content: string; source_id: string }>(`select k.id,k.content,k.source_id
     from knowledge_chunks k join knowledge_sources s on s.id=k.source_id and s.client_id=k.client_id
     where k.client_id=$1 and coalesce(s.metadata->>'archived','false')<>'true' order by k.id`, [DEMO_CLIENT_ID]);
   if (!chunks.rows.length) throw new DemoError("No published demo knowledge chunks exist.");
-  const vectors = await withAiExecutionMode("real", () => getEmbeddingProvider(config.embeddingProvider)
-    .embed(chunks.rows.map(row => row.content), config.embeddingModel, { clientId: DEMO_CLIENT_ID, operation: "embedding" }));
+  const embed = () => getEmbeddingProvider(config.embeddingProvider)
+    .embed(chunks.rows.map(row => row.content), config.embeddingModel, { clientId: DEMO_CLIENT_ID, operation: "embedding", embeddingTask: "document" });
+  const vectors = config.embeddingProvider === "gemini"
+    ? await withAiExecutionProfile({ mode: "real", syntheticDemo: true }, embed)
+    : await withAiExecutionMode("real", embed);
   if (vectors.length !== chunks.rows.length || vectors.some(vector => ![1536, 3072].includes(vector.length) || vector.some(value => !Number.isFinite(value))))
     throw new DemoError("Provider returned invalid embedding dimensions.");
   await transaction(async db => {
     for (const [index, chunk] of chunks.rows.entries()) {
+      if (config.embeddingProvider === "gemini") {
+        if (vectors[index].length !== 1536) throw new DemoError("Gemini embedding dimensions do not match the demo profile.");
+        const inserted = await db.query(`insert into customer_demo_embeddings
+          (chunk_id,client_id,profile,content_hash,embedding)
+          select k.id,k.client_id,$4,$5,$6::vector from knowledge_chunks k
+          join knowledge_sources s on s.id=k.source_id and s.client_id=k.client_id
+          where k.id=$1 and k.client_id=$2 and k.content=$3 and coalesce(s.metadata->>'archived','false')<>'true'
+          on conflict(chunk_id) do update set embedding=excluded.embedding,content_hash=excluded.content_hash,
+            profile=excluded.profile,prepared_at=now() returning chunk_id`,
+          [chunk.id, DEMO_CLIENT_ID, chunk.content, GEMINI_EMBEDDING_PROFILE,
+            createHash("sha256").update(chunk.content).digest("hex"), vectorLiteral(vectors[index])]);
+        if (!inserted.rowCount) throw new DemoError("Published knowledge changed during embedding preparation. Retry against the current revision.");
+        continue;
+      }
       const updated = await db.query(`update knowledge_chunks k set embedding=$4::vector, embedding_model=$5,
         embedding_dimensions=$6, metadata=k.metadata || jsonb_build_object('embeddingProvider',$7::text)
         where k.id=$1 and k.client_id=$2 and k.content=$3 and exists(select 1 from knowledge_sources s

@@ -1,5 +1,6 @@
 import { query, type Queryable } from "@/lib/db";
 import type { Channel } from "@/lib/types";
+import { protectedDemoConfiguration, protectedDemoDeployment } from "@/lib/deployment-profile";
 
 export const DEMO_CLIENT_ID = "00000000-0000-4000-8000-00000000a101";
 export const DEMO_CHANNEL_ID = "00000000-0000-4000-8000-00000000a106";
@@ -10,6 +11,15 @@ export class DemoError extends Error {
 }
 
 export async function assertCustomerDemoEnabled(db: Queryable = { query }): Promise<void> {
+  if (protectedDemoDeployment()) {
+    let settings: ReturnType<typeof protectedDemoConfiguration>;
+    try { settings = protectedDemoConfiguration(); }
+    catch { throw new DemoError("The protected customer demo is not safely configured.", 503); }
+    const identity = await db.query<{ safe: boolean }>(`select
+      shobj_description(oid,'pg_database')=$1 as safe from pg_database where datname=current_database()`, [settings.marker]);
+    if (!identity.rows[0]?.safe) throw new DemoError("Protected demo database identity verification failed.", 503);
+    return;
+  }
   if (process.env.PRONTO_CUSTOMER_DEMO_ENABLED !== "1" || process.env.NODE_ENV === "production")
     throw new DemoError("The authenticated local customer simulator is disabled.", 404);
   try {

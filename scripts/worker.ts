@@ -27,7 +27,7 @@ async function main() {
     const startedAt = Date.now();
     try {
       await expireExhaustedInboundLeases();
-      for (let index = 0; index < inboundLimit; index += 1) {
+      for (let index = 0; index < inboundLimit && !shuttingDown; index += 1) {
         try {
           const job = await processInboundJob({ requestId: `worker-${startedAt}` });
           if (!job) break;

@@ -137,6 +137,8 @@ export function ConversationList({
                 </p>
                 {showClient ? <Badge>{conversation.client_name}</Badge> : null}
                 <Badge>{conversation.channel_kind}</Badge>
+                {conversation.response_provider && <Badge>{conversation.generation_mode === "mock" ? "Mock" : "Real"}: {conversation.response_provider} / {conversation.response_model}</Badge>}
+                {!conversation.response_provider && conversation.selected_provider && <Badge>Selected: {conversation.selected_provider} / {conversation.selected_model}</Badge>}
                 {conversation.urgency ? <Badge tone={conversation.urgency === "short_term" ? "amber" : "neutral"}>
                   {conversation.urgency === "short_term" ? "Short-term" : "Long-term"}</Badge> : null}
                 {conversation.ai_should_respond != null ? <Badge>AI responds: {conversation.ai_should_respond ? "yes" : "no"}</Badge> : null}

@@ -25,6 +25,16 @@ describe("owner escalation notifications", () => {
     vi.clearAllMocks();
   });
 
+  it("blocks staff delivery before selecting any transport in the protected demo", async () => {
+    vi.stubEnv("PRONTO_DEPLOYMENT_PROFILE", "protected-demo");
+    try {
+      expect(await notifyOwnerOfEscalation("synthetic-escalation", "synthetic-tenant"))
+        .toMatchObject({ status: "skipped", detail: expect.stringContaining("disabled") });
+      expect(mocks.query).not.toHaveBeenCalled();
+      expect(mocks.sendChannelText).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); }
+  });
+
   it("marks owner notifications as sent only after a configured send succeeds", async () => {
     mocks.query
       .mockResolvedValueOnce({ rows: [escalation({ notificationPreference: "whatsapp" })] })

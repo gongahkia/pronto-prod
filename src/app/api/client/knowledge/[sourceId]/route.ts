@@ -1,3 +1,4 @@
+import { publicAppUrl } from "@/lib/http/redirect";
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
@@ -30,7 +31,7 @@ export async function POST(request: Request, context: Context) {
     } catch (error) {
       return knowledgeStageError(error);
     }
-    return NextResponse.redirect(new URL("/client/knowledge?submitted=1", request.url), 303);
+    return NextResponse.redirect(publicAppUrl("/client/knowledge?submitted=1", request.url), 303);
   }
 
   if (action === "update") {
@@ -51,7 +52,7 @@ export async function POST(request: Request, context: Context) {
     }
 
     return NextResponse.redirect(
-      new URL(`/client/knowledge/${sourceId}?submitted=1`, request.url),
+      publicAppUrl(`/client/knowledge/${sourceId}?submitted=1`, request.url),
       303,
     );
   }

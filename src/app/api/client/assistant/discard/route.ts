@@ -1,3 +1,4 @@
+import { publicAppUrl } from "@/lib/http/redirect";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { discardAssistantDraft } from "@/lib/assistant-drafts";
@@ -9,5 +10,5 @@ export async function POST(request: Request) {
   const user = await requireUser("client");
   if (!user.clientId) return NextResponse.json({ error: "Client workspace missing." }, { status: 400 });
   await discardAssistantDraft(user.clientId, user.userId);
-  return NextResponse.redirect(new URL("/client/assistant", request.url), 303);
+  return NextResponse.redirect(publicAppUrl("/client/assistant", request.url), 303);
 }

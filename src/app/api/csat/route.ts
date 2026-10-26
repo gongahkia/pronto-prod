@@ -1,3 +1,4 @@
+import { publicAppUrl } from "@/lib/http/redirect";
 import { NextResponse } from "next/server";
 import { recordCsatResponse } from "@/lib/csat";
 import { assertSameOrigin } from "@/lib/http/csrf";
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.redirect(
-    new URL(`/csat/${conversationId}?submitted=1`, request.url),
+    publicAppUrl(`/csat/${conversationId}?submitted=1`, request.url),
     303,
   );
 }

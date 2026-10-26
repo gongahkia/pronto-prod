@@ -8,7 +8,15 @@ export type ModelChoice = {
   costLabel: "low" | "standard" | "premium";
 };
 
-const modelCatalog: Record<"openai" | "azure" | "anthropic", Record<LlmTask, ModelChoice>> = {
+const modelCatalog: Record<Exclude<LlmProviderName, "mock">, Record<LlmTask, ModelChoice>> = {
+  gemini: {
+    agent_answer: { provider: "gemini", model: "gemini-3.8-flash", costLabel: "low" },
+    routing: { provider: "gemini", model: "gemini-3.5-flash-lite", costLabel: "low" },
+  },
+  groq: {
+    agent_answer: { provider: "groq", model: "openai/gpt-oss-20b", costLabel: "low" },
+    routing: { provider: "groq", model: "openai/gpt-oss-20b", costLabel: "low" },
+  },
   openai: {
     agent_answer: { provider: "openai", model: "gpt-5.5", costLabel: "standard" },
     routing: { provider: "openai", model: "gpt-5.4-mini", costLabel: "low" },
@@ -27,13 +35,14 @@ export function selectModel(input: {
   provider: string | null | undefined;
   configuredModel?: string | null;
   task: LlmTask;
+  ignoreEnvironment?: boolean;
 }): ModelChoice {
   const provider = normalizeProviderName(input.provider);
   if (provider === "mock") {
     return { provider: "mock", model: "mock", costLabel: "low" };
   }
 
-  const envModel = envResponseModel(provider);
+  const envModel = input.ignoreEnvironment ? undefined : envResponseModel(provider);
   const catalogChoice = modelCatalog[provider];
   const choice = catalogChoice[input.task];
 
@@ -44,6 +53,7 @@ export function selectModel(input: {
 }
 
 function envResponseModel(provider: Exclude<LlmProviderName, "mock">): string | undefined {
+  if (provider === "gemini" || provider === "groq") return undefined;
   if (provider === "anthropic") {
     return process.env.ANTHROPIC_RESPONSE_MODEL?.trim() || undefined;
   }

@@ -19,7 +19,7 @@ describe("explicit customer demo AI mode", () => {
   });
   it("requires a supported real embedding provider and Azure deployment configuration", () => {
     vi.stubEnv("PRONTO_EMBEDDING_PROVIDER", "anthropic");
-    expect(realDemoConfiguration(config).missing).toContain("PRONTO_EMBEDDING_PROVIDER=openai or azure");
+    expect(realDemoConfiguration(config).missing).toContain("PRONTO_EMBEDDING_PROVIDER=openai or azure or gemini");
     vi.stubEnv("PRONTO_LLM_PROVIDER", "azure"); vi.stubEnv("PRONTO_EMBEDDING_PROVIDER", "azure");
     for (const key of ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "AZURE_OPENAI_DEPLOYMENT", "AZURE_OPENAI_RESPONSE_DEPLOYMENT"])
       vi.stubEnv(key, "");

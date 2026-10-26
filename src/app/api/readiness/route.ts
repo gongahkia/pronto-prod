@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { appBaseUrl, shouldUseMockAi } from "@/lib/env";
 import { getPool } from "@/lib/db";
+import { protectedDemoDeployment } from "@/lib/deployment-profile";
+import { assertCustomerDemoEnabled } from "@/lib/customer-demo-boundary";
 
 type ReadinessCheck = {
   name: string;
@@ -10,6 +12,10 @@ type ReadinessCheck = {
 
 export async function GET() {
   const checks: ReadinessCheck[] = [];
+  if (protectedDemoDeployment()) {
+    try { await assertCustomerDemoEnabled(); checks.push({ name: "Demo identity", status: "pass", detail: "Protected demo identity verified." }); }
+    catch { checks.push({ name: "Demo identity", status: "fail", detail: "Protected demo identity/configuration failed." }); }
+  }
 
   checks.push(secretCheck("AUTH_SECRET"));
   checks.push(secretCheck("PRONTO_SECRETS_KEY"));
@@ -26,7 +32,7 @@ export async function GET() {
   checks.push({
     name: "PRONTO_USE_MOCK_AI",
     status:
-      process.env.NODE_ENV === "production" && shouldUseMockAi() ? "fail" : "pass",
+      process.env.NODE_ENV === "production" && shouldUseMockAi() && !protectedDemoDeployment() ? "fail" : "pass",
     detail: shouldUseMockAi()
       ? "Mock AI is enabled."
       : "Mock AI override is disabled.",

@@ -1,3 +1,4 @@
+import { publicAppUrl } from "@/lib/http/redirect";
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { NextResponse } from "next/server";
 import { recordAuditLog } from "@/lib/audit";
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
     });
   }
   await logout();
-  const destination = new URL("/login", request.url);
+  const destination = publicAppUrl("/login", request.url);
   const form = await request.formData().catch(() => null);
   const returnTo = safeReturnTo(form?.get("next"));
   if (returnTo) destination.searchParams.set("next", returnTo);

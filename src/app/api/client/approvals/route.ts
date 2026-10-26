@@ -1,3 +1,4 @@
+import { publicAppUrl } from "@/lib/http/redirect";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { assertSameOrigin } from "@/lib/http/csrf";
@@ -19,5 +20,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Approval failed." }, { status: 403 });
   }
-  return NextResponse.redirect(new URL(kind === "assistant" ? "/client/knowledge" : "/client/channels", request.url), 303);
+  return NextResponse.redirect(publicAppUrl(kind === "assistant" ? "/client/knowledge" : "/client/channels", request.url), 303);
 }

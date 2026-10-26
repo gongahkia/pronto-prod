@@ -1,3 +1,8 @@
+> Tranche 04 update: Vercel web + separate worker preparation now exists. See
+> [the current Vercel deployment runbook](../setup/vercel-demo.md) and
+> [Tranche 04 evidence](tranche04-verification.md). This Tranche 03 plan remains
+> a historical comparison; it is not evidence of cloud deployment.
+
 # PRON-88 — protected hosted POC deployment plan
 
 Prepared 25 October 2026. **Planning only: no resources created, secrets

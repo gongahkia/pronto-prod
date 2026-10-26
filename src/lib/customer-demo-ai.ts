@@ -3,13 +3,32 @@ import { selectModel } from "@/lib/llm/catalog";
 import { envApiKeyForProvider } from "@/lib/llm/credentials";
 import { DemoError, DEMO_CLIENT_ID } from "@/lib/customer-demo-boundary";
 import type { AgentConfig } from "@/lib/types";
+import { demoModelChoice, demoModelChoices, GEMINI_EMBEDDING_MODEL, GEMINI_EMBEDDING_PROFILE,
+  type DemoAiProfile } from "@/lib/llm/demo-models";
+import { freeProviderRequirements } from "@/lib/llm/free-providers";
 
-export function realDemoConfiguration(config: AgentConfig) {
-  const provider = process.env.PRONTO_LLM_PROVIDER ?? config.response_provider;
-  const embeddingProvider = process.env.PRONTO_EMBEDDING_PROVIDER ?? config.embedding_provider;
+export function profileForDemoChoice(value: unknown): DemoAiProfile | undefined {
+  const choice = demoModelChoice(value);
+  if (!choice) throw new DemoError("Choose a supported demo model.");
+  if (choice.id === "configured" || choice.id === "mock") return undefined;
+  return { provider: choice.provider, model: choice.model, embeddingProvider: "gemini", embeddingModel: GEMINI_EMBEDDING_MODEL };
+}
+
+export function storedDemoProfile(session: { ai_selection: string; ai_configuration: DemoAiProfile | null }): DemoAiProfile | undefined {
+  const expected = profileForDemoChoice(session.ai_selection);
+  if (expected && (!session.ai_configuration || Object.entries(expected).some(([key,value]) =>
+    session.ai_configuration?.[key as keyof DemoAiProfile] !== value)))
+    throw new DemoError("The stored demo model configuration is invalid. Start a new conversation.", 503);
+  return session.ai_configuration ?? expected;
+}
+
+export function realDemoConfiguration(config: AgentConfig, profile?: DemoAiProfile) {
+  const provider = profile?.provider ?? process.env.PRONTO_LLM_PROVIDER ?? config.response_provider;
+  const embeddingProvider = profile?.embeddingProvider ?? process.env.PRONTO_EMBEDDING_PROVIDER ?? config.embedding_provider;
   const missing: string[] = [];
   for (const current of new Set([provider, embeddingProvider])) {
-    if (!["openai", "azure", "anthropic"].includes(current))
+    if (current === "gemini" || current === "groq") missing.push(...freeProviderRequirements(current));
+    else if (!["openai", "azure", "anthropic"].includes(current))
       missing.push("a real provider (mock is not allowed)");
     else if (!envApiKeyForProvider(current)) missing.push(current === "openai" ? "OPENAI_API_KEY" :
       current === "azure" ? "AZURE_OPENAI_API_KEY" : "ANTHROPIC_API_KEY");
@@ -20,19 +39,33 @@ export function realDemoConfiguration(config: AgentConfig) {
         missing.push("AZURE_OPENAI_RESPONSE_DEPLOYMENT or AZURE_OPENAI_DEPLOYMENT");
     }
   }
-  if (!["openai", "azure"].includes(embeddingProvider)) missing.push("PRONTO_EMBEDDING_PROVIDER=openai or azure");
-  const choice = selectModel({ provider, configuredModel: config.response_model, task: "agent_answer" });
+  if (!["openai", "azure", "gemini"].includes(embeddingProvider)) missing.push("PRONTO_EMBEDDING_PROVIDER=openai or azure or gemini");
+  const choice = selectModel({ provider, configuredModel: profile?.model ??
+    (["gemini", "groq"].includes(provider) ? undefined : config.response_model), task: "agent_answer", ignoreEnvironment: Boolean(profile) });
   return { provider, model: choice.model, embeddingProvider,
-    embeddingModel: process.env.PRONTO_EMBEDDING_MODEL ?? config.embedding_model,
+    embeddingModel: profile?.embeddingModel ?? process.env.PRONTO_EMBEDDING_MODEL ??
+      (embeddingProvider === "gemini" ? GEMINI_EMBEDDING_MODEL : config.embedding_model),
     missing: [...new Set(missing)] };
 }
 
-export async function requireRealDemoConfiguration(requireKnowledge = true) {
+export async function requireRealDemoConfiguration(requireKnowledge = true, profile?: DemoAiProfile) {
   const result = await query<AgentConfig>("select * from agent_configs where client_id=$1", [DEMO_CLIENT_ID]);
   if (!result.rows[0]) throw new DemoError("Set up the PS.Cafe demo tenant first.", 503);
-  const config = realDemoConfiguration(result.rows[0]);
+  const config = realDemoConfiguration(result.rows[0], profile);
   if (config.missing.length) throw new DemoError(`Real AI is unavailable. Configure ${config.missing.join(", ")} securely on the server.`, 503);
   if (requireKnowledge) {
+    if (config.embeddingProvider === "gemini") {
+      const prepared = await query<{ total: number; prepared: number }>(`select count(*)::int as total,
+        count(e.chunk_id)::int as prepared from knowledge_chunks k
+        join knowledge_sources s on s.id=k.source_id and s.client_id=k.client_id
+        left join customer_demo_embeddings e on e.chunk_id=k.id and e.client_id=k.client_id
+          and e.model=$2 and e.profile=$3 and e.content_hash=encode(sha256(convert_to(k.content,'UTF8')),'hex')
+        where k.client_id=$1 and coalesce(s.metadata->>'archived','false')<>'true'`,
+        [DEMO_CLIENT_ID, config.embeddingModel, GEMINI_EMBEDDING_PROFILE]);
+      if (!prepared.rows[0]?.total || prepared.rows[0].total !== prepared.rows[0].prepared)
+        throw new DemoError("Real AI knowledge is not prepared. Run demo:customer:embed --provider gemini for current published demo knowledge.", 503);
+      return config;
+    }
     const chunks = await query<{ count: string }>(`select count(*) from knowledge_chunks k
       join knowledge_sources s on s.id=k.source_id and s.client_id=k.client_id
       where k.client_id=$1 and k.metadata->>'embeddingProvider'=$2 and k.embedding_model=$3
@@ -42,4 +75,14 @@ export async function requireRealDemoConfiguration(requireKnowledge = true) {
       throw new DemoError("Real AI knowledge is not prepared. Run the guarded demo:customer:embed command; mock vectors are not real embeddings.", 503);
   }
   return config;
+}
+
+export async function demoModelAvailability() {
+  return Promise.all(demoModelChoices.map(async choice => {
+    if (choice.id === "mock") return { ...choice, available: true, detail: "Deterministic test; no inference provider is called." };
+    try { const config = await requireRealDemoConfiguration(true, profileForDemoChoice(choice.id));
+      return { ...choice, provider: config.provider, model: config.model, available: true,
+        detail: "Configured; account entitlement and external inference are not yet verified." };
+    } catch (error) { return { ...choice, available: false, detail: error instanceof DemoError ? error.message : "Model configuration could not be checked." }; }
+  }));
 }

@@ -32,7 +32,7 @@ import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
 import { appBaseUrl } from "@/lib/env";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
 import { selectModel } from "@/lib/llm/catalog";
-import { aiExecutionMode } from "@/lib/llm/execution-mode";
+import { aiExecutionMode, aiExecutionProfile } from "@/lib/llm/execution-mode";
 import {
   buildGroundedAnswerInstructions,
   buildGroundedAnswerUserInput,
@@ -267,14 +267,15 @@ export async function runAgentForMessage(input: {
   }
 
   const responseProvider =
-    aiExecutionMode() === "mock" ? "mock" : process.env.PRONTO_LLM_PROVIDER ?? config.response_provider ?? "openai";
+    aiExecutionMode() === "mock" ? "mock" : aiExecutionProfile()?.provider ?? process.env.PRONTO_LLM_PROVIDER ?? config.response_provider ?? "openai";
   const embeddingProvider =
-    aiExecutionMode() === "mock" ? "mock" : process.env.PRONTO_EMBEDDING_PROVIDER ?? config.embedding_provider;
+    aiExecutionMode() === "mock" ? "mock" : aiExecutionProfile()?.embeddingProvider ?? process.env.PRONTO_EMBEDDING_PROVIDER ?? config.embedding_provider;
   const embeddingModel =
-    process.env.PRONTO_EMBEDDING_MODEL ?? config.embedding_model;
+    aiExecutionProfile()?.embeddingModel ?? process.env.PRONTO_EMBEDDING_MODEL ?? config.embedding_model;
   const responseModel = selectModel({
     provider: responseProvider,
-    configuredModel: config.response_model,
+    configuredModel: aiExecutionProfile()?.model ?? config.response_model,
+    ignoreEnvironment: Boolean(aiExecutionProfile()?.model),
     task: "agent_answer",
   });
 
@@ -305,6 +306,7 @@ export async function runAgentForMessage(input: {
         clientId: input.clientId,
         conversationId: input.conversationId,
         operation: "embedding",
+        embeddingTask: "query",
       },
     );
   } catch (error) {
@@ -553,6 +555,8 @@ export async function runAgentForMessage(input: {
       customerMessageId: input.customerMessageId,
       reasonCode: decision.reasonCode,
       usageSource: decision.usage ? "provider" : "estimate",
+      providerResponseId: decision.providerResponseId ?? null,
+      modelIdentitySource: decision.actualModel ? "provider" : "configuration",
     },
   });
 
@@ -662,6 +666,8 @@ export async function runAgentForMessage(input: {
         generationMode: aiExecutionMode() ?? (process.env.PRONTO_USE_MOCK_AI === "1" ? "mock" : "real"),
         responseProvider: responseModel.provider,
         responseModel: responseModel.model,
+        providerResponseId: decision.providerResponseId ?? null,
+        modelIdentitySource: decision.actualModel ? "provider" : "configuration",
         postGenerationSelfCheck: {
           reasonCode: selfCheck.reasonCode,
           reasonDetail: selfCheck.reasonDetail,

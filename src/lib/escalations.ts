@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/channels/email";
 import { decryptChannelCredentials } from "@/lib/channels/credentials";
 import type { Channel, DeliveryStatus } from "@/lib/types";
 import { AmbiguousProviderAcceptanceError, ProviderSendError } from "@/lib/channels/provider-error";
+import { protectedDemoDeployment } from "@/lib/deployment-profile";
 
 type EscalationNotification = {
   id: string;
@@ -41,6 +42,8 @@ export async function notifyTimedStaffOfEscalation(escalationId: string, clientI
 
 async function notifyEscalationStaff(escalationId: string, clientId: string | undefined,
   kind: "initial" | "reminder" | "backup", destinationId: string | null): Promise<OwnerNotificationResult> {
+  // Staff SMTP uses a direct transport, so it also needs the hosted-demo guard.
+  if (protectedDemoDeployment()) return { status: "skipped", detail: "External staff notifications are disabled in the protected synthetic demo." };
   if (kind !== "initial" && !destinationId) return { status: "skipped", detail: "No verified timed-notification destination configured." };
   const escalationResult = await query<EscalationNotification>(
     `
