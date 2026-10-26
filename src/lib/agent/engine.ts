@@ -418,7 +418,7 @@ export async function runAgentForMessage(input: {
         connector: input.reservationConnector ?? configuredChopeBrowserConnector(input.clientId, client.business_profile ?? {}),
         onExtraction: async decision => {
           trace.addStep("reservation_query_inferred", { provider: responseModel.provider, model: responseModel.model,
-            providerResponseId: decision.providerResponseId ?? null, reasonDetail: decision.reasonDetail });
+            providerResponseId: decision.providerResponseId ?? null, reasonDetail: decision.reasonDetail, extractedQuery: decision.answer });
           await safeRecordUsage({ clientId: input.clientId, conversationId: input.conversationId, channelId: input.channelId,
             provider: responseModel.provider, model: responseModel.model, operation: "generation",
             estimate: decision.usage ? estimateGenerationCostFromTokens({ ...decision.usage, costLabel: responseModel.costLabel })

@@ -6,6 +6,7 @@ import { LlmConfigurationError, normalizeProviderError, ProviderRequestError } f
 import { buildGroundedAnswerInstructions, buildGroundedAnswerUserInput } from "@/lib/llm/prompt";
 import { demoModelChoices, GEMINI_EMBEDDING_MODEL } from "@/lib/llm/demo-models";
 import { logInfo } from "@/lib/logger";
+import { parseReservationExtraction, reservationExtractionJsonSchema } from "@/lib/llm/reservation-extraction";
 import type { GenerateAnswerInput, GroundedAnswerDecision, LlmCallContext, LlmProvider } from "@/lib/llm/types";
 
 const decisionSchema = z.object({ action: z.enum(["answer", "escalate"]), answer: z.string().nullable(),
@@ -48,14 +49,15 @@ export class FreeTierProvider implements LlmProvider {
           { role: "user", content: buildGroundedAnswerUserInput(input) }],
         ...(this.provider === "gemini" ? { max_tokens: limit } : { max_completion_tokens: limit }),
         reasoning_effort: "low",
-        response_format: { type: "json_schema", json_schema: { name: "pronto_agent_decision", strict: true, schema: jsonSchema } },
+        response_format: { type: "json_schema", json_schema: { name: input.reservationExtraction ? "pronto_reservation_query" : "pronto_agent_decision", strict: true,
+          schema: input.reservationExtraction ? reservationExtractionJsonSchema : jsonSchema } },
       }, { signal: AbortSignal.timeout(input.timeoutMs ?? 25_000) });
       if (typeof response.model !== "string" || response.model.replace(/^models\//, "") !== input.responseModel)
         throw new ProviderRequestError(this.provider, "invalid_response");
       const choice = response.choices[0];
       if (!choice?.message.content || choice.finish_reason !== "stop") throw new ProviderRequestError(this.provider, "invalid_response");
       let decision: z.infer<typeof decisionSchema>;
-      try { decision = decisionSchema.parse(JSON.parse(choice.message.content)); }
+      try { decision = input.reservationExtraction ? decisionSchema.parse(parseReservationExtraction(choice.message.content)) : decisionSchema.parse(JSON.parse(choice.message.content)); }
       catch { throw new ProviderRequestError(this.provider, "invalid_response"); }
       if (decision.action === "answer" && (!decision.answer || (!decision.citedChunkIds.length && !input.conversationalTurn)))
         decision = { ...decision, action: "escalate", answer: null, reasonCode: "ungrounded_answer",

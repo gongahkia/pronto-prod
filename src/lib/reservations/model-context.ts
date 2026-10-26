@@ -20,6 +20,20 @@ export type ReservationModelContext = {
   status: string; extraction: GroundedAnswerDecision;
 };
 
+export function reservationDateError(request: ReservationQuery, message: string, now: Date): string | null {
+  if (!request.date) return null;
+  const date = new Date(`${request.date}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== request.date) return "The extracted calendar date is invalid";
+  const explicit = /\b(20\d{2}-\d{2}-\d{2})\b/.exec(message);
+  if (explicit && explicit[1] !== request.date) return `The customer explicitly supplied ${explicit[1]}, not ${request.date}`;
+  const weekday = /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i.exec(message);
+  if (weekday && new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "long" }).format(date).toLowerCase() !== weekday[1].toLowerCase())
+    return `${request.date} is not ${weekday[1]}; use the authoritative calendar`;
+  if (weekday && /\bthis\s+\w+day\b/i.test(message) && date.getTime() > now.getTime() + 7 * 86_400_000)
+    return "This weekday refers to the upcoming week, not a later week";
+  return null;
+}
+
 export function mayNeedReservationContext(message: string, recent: { senderRole: string; body: string }[]): boolean {
   const topic = /\b(book(?:ing)?|reserv(?:e|ation)|table|availability|available slots)\b/i;
   return topic.test(message) || recent.filter(row => row.senderRole === "customer").slice(-2).some(row => topic.test(row.body));
@@ -40,15 +54,30 @@ export async function prepareReservationContext(input: {
     const date = new Date(start + index * 86_400_000);
     return `${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Singapore", year: "numeric", month: "2-digit", day: "2-digit" }).format(date)} ${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Singapore", weekday: "long" }).format(date)}`;
   });
-  const extraction = await input.provider.generateGroundedAnswer({ ...input.generation,
-    conversationalTurn: true, retrievedChunks: [], maxOutputTokens: 550,
-    reservationExtraction: { now: `${localDate} ${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Singapore", timeStyle: "short" }).format(now)} SGT`, calendar } });
-  await input.onExtraction(extraction);
-  let parsed: unknown;
-  try { parsed = JSON.parse(extraction.answer ?? "null"); } catch { return null; }
-  const checked = reservationQuerySchema.safeParse(parsed);
-  if (!checked.success || extraction.action !== "answer") return null;
-  const request = checked.data;
+  let extraction: GroundedAnswerDecision | undefined;
+  let request: ReservationQuery | undefined;
+  let validationError: string | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    extraction = await input.provider.generateGroundedAnswer({ ...input.generation,
+      conversationalTurn: true, retrievedChunks: [], maxOutputTokens: 550,
+      reservationExtraction: { now: `${localDate} ${new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Singapore", timeStyle: "short" }).format(now)} SGT`, calendar, validationError } });
+    await input.onExtraction(extraction);
+    let parsed: unknown;
+    try { parsed = JSON.parse(extraction.answer ?? "null"); } catch { return null; }
+    const checked = reservationQuerySchema.safeParse(parsed);
+    if (!checked.success || extraction.action !== "answer") return null;
+    request = checked.data;
+    validationError = reservationDateError(request, input.generation.customerMessage, now) ?? undefined;
+    if (!validationError) break;
+  }
+  if (!request || !extraction) return null;
+  // A failed repair becomes a missing date, never a lookup for the wrong day.
+  if (validationError) request = { ...request, date: null };
+  // The public listing's default is adults-only when no child breakdown was
+  // supplied. A model's null is not evidence that the customer mentioned kids.
+  const customerContext = [...input.generation.recentMessages.filter(message => message.senderRole === "customer").map(message => message.body), input.generation.customerMessage].join("\n");
+  if (request.children === null && !/\b(children|child|kids?|toddlers?|infants?)\b/i.test(customerContext))
+    request = { ...request, children: 0 };
   if (["other", "staff_action"].includes(request.intent)) return null;
   const policy = input.profile.reservationPolicy as { manualHandoffPartySize?: number } | undefined;
   const groupThreshold = policy?.manualHandoffPartySize;

@@ -1,174 +1,59 @@
-# Chope demo availability reader
+# Chope availability in real-model conversations
 
-## Current real-model customer prototype (26 October 2026)
+## Current PS.Cafe prototype (26 October 2026)
 
-The current local PS.Cafe worker launches with `PRONTO_CHOPE_LIVE_READS=0` and `CHOPE_LIVE_READ_APPROVED=0`; the tenant's `business_profile.chopeAvailability.enabled` is also false. The real-model conversation path does not invoke the older deterministic booking branch, and Chope is not an integration tool in its model context. Starting the local frontend therefore does not start scraping.
+The local PS.Cafe prototype now connects real-model booking enquiries to the existing read-only Chope browser connector. Both local web and worker launch environments enable `PRONTO_CHOPE_LIVE_READS=1` and `CHOPE_LIVE_READ_APPROVED=1`; the PS.Cafe tenant's matching `business_profile.chopeAvailability` mapping is enabled. This follows the user's request to check public availability and return a useful Chope booking link.
 
-The reader below is on demand, with a 60-second minimum interval per process, rather than a recurring scraper. It returns a structured observation in memory. The standalone `pnpm chope:live-read` command prints JSON and does not write to the database. When the older booking branch is explicitly used, its observation provenance is retained in PostgreSQL `messages.metadata.reservation`, including observed time, scoped date/party size and observed/displayed slots. There is no dedicated scrape-results table, background refresh schedule or raw-HTML archive. Observations older than five minutes are rejected. The current local PS.Cafe history has no stored reservation observations.
+The selected real model extracts the date, preferred time, total party size and outlet from the current message and recent conversation. Relative weekdays use an explicit Singapore calendar. Extracted dates are validated against explicit dates and weekdays; one model repair is allowed, and a repeated mismatch becomes an unanswered date rather than a lookup for the wrong day. Missing details remain missing. The tool does not ask the model to invent availability.
 
-## 25 October 2026 POC verification
+A complete supported date/party request invokes the scoped cache/reader. Its result is supplied as a cited source to a second genuine model call, which writes the customer-facing reply. Ordinary booking referrals can be answered without a staff handoff. Existing human-owned conversations remain paused; enabling this tool does not automatically release staff ownership. Existing booking changes/cancellations, unsupported outlets or child breakdowns and configured large-group requests retain the staff path.
 
-After the agreement owner reaffirmed the previously supplied demo authorization,
-one controlled PS.Cafe Raffles City enquiry reached this reader through a durable
-inbound job and `processInboundJob`. At **12:02:48 Singapore time**, the request
-for **26 October 2026, party of two**, observed eight selectable times:
-10:00, 10:15, 10:30, 10:45, 11:00, 11:15, 11:30 and 12:30. **19:00 was not
-among them.** These are expired observations, not current availability. Exactly
-one matching `get_times` POST was observed; no reservation was submitted. The
-agent's existing outlet-link reply was queued. This booking branch is
-deterministic and does not establish real LLM inference or automatic tenant
-activation: the controlled job used an explicitly scoped injected connector.
+The generated listing URL carries `children=0`, `adults=<party size>`, `date=YYYY-MM-DD`, and `time=h:mm am/pm`, encoded with `URLSearchParams`. This is an experimentally observed listing format, not an official Chope API contract. Customers check the selections and complete/confirm on Chope. Pronto never submits a reservation or holds a table. A slot must be an actual fresh observation; a timeout, stale result or failed read can still produce the correctly prefilled link with an honest explanation that availability could not be verified.
 
-The listing's own JavaScript writes `date`, `time`, `adults` and `children`
-query parameters. Four fresh, cookie-free listing sessions preserved the tested
-date/time/party selections, including non-default 10:15am and party size four.
-Those probes blocked additional availability POSTs and all booking submissions;
-party-of-four availability was **not** checked. This establishes current listing
-preselection behavior, not a stable published provider contract, downstream
-booking-page behavior, URL lifetime, or any hold on inventory.
+## Schedule and storage
 
-**POC decision updated, 25 October 2026:** Gabriel approved the experimentally
-observed native listing query format. The earlier Tranche 00 implementation gate
-is resolved for generating preselected listing links only. This does not establish
-official third-party support, downstream form preselection or booking authority.
-The dated [Tranche 00 report](../poc/tranche00-verification.md) remains historical
-evidence. Do not use its probe URLs or expired slots as current availability.
+Run `pnpm migrate` to apply migration `048_reservation_availability.sql`, and keep `pnpm worker` (or the guarded customer-demo worker) running.
 
-## Experimental preselected listing links (PRON-39)
+- `reservation_availability_cache`: latest result, checked time, last customer request, hourly refresh due time and short refresh lease. Identity is tenant + outlet + date + party size; the preferred time is not part of the key because one read obtains the day's selectable times.
+- `reservation_availability_observations`: append-only read attempts, including successful slots and unknown/error results, with scope and timestamps. Original website HTML, diner details and booking records are not stored.
+- `reservation_provider_limits`: a shared PostgreSQL one-read-per-minute budget across web and worker processes. The browser also retains its per-process cooldown.
+- `messages.metadata.reservation`: the request, observed time/status/slots, generated links, cache provenance and extraction response ID for each successful model reply.
+- `agent_traces.steps`: the model's request extraction, Chope check and knowledge source snapshot. The conversation's Decision flow shows the check and cited source; it records explanations, not private chain-of-thought.
 
-`buildChopeListingLink` in `src/lib/reservations/chope.ts` accepts a verified
-tenant/provider/outlet mapping and a future Singapore-local date, `HH:mm` time and
-integer party size. It requires the connector capability
-`listingPreselection: "experimental_chope_listing_v1"`. Only the observed canonical
-`https://www.chope.co/singapore-restaurants/restaurant/<slug>` form is supported;
-other approved booking destinations keep their general-link behavior. Credentials,
-ports, query-bearing bases, fragments and encoded/path-traversal destinations are
-not accepted for preselection. The builder performs no network or reservation
-operation and makes no availability claim by itself.
+The worker checks for due work in its normal 15-second loop. It refreshes recently requested future date/party combinations hourly while those combinations have been requested within the last 24 hours. It does not crawl every date or party size. At most one due combination is attempted per loop, subject to the shared minute budget.
 
-The generated parameters are `children=0`, `adults=<party size>`,
-`date=YYYY-MM-DD`, and `time=h:mm am/pm`, encoded with `URLSearchParams`.
-Party size currently maps to adults; a separate child-age/count breakdown is not
-supported; explicit child-group requests take the existing human path. A customer
-must check guest details and final availability on Chope.
-No cookies, session tokens or opaque booking IDs are generated. That does not
-establish an expiry guarantee or downstream behavior.
+An interactive enquiry accepts an availability observation only when it is at most **five minutes old**, with matching tenant/outlet/date/party/provider and valid future Singapore times. An older hourly observation triggers a fresh read before an availability claim. Simultaneous requests for the same combination share a short database lease and wait for the in-flight result. Failures and shared cooldowns never turn stale slots into current availability.
 
-The existing booking assistant now recognizes date/party availability enquiries,
-including “What timings are available tomorrow for two people?”, without
-inventing a requested time. Specific booking requests still require an explicit
-time. It uses only matching tenant/outlet/date/party/provider observations in
-Asia/Singapore that are no more than five minutes old. Slots must be well-formed,
-future local times and consistent with the reported status. Requested times absent
-from those results are not advertised as available. Up to six actual observed
-slots are shown (nearest the requested time when supplied); duplicates are removed
-and the observation timestamp, total/displayed count and limitations are disclosed.
+## Runtime setup
 
-Each displayed observed slot gets an experimental listing link when supported.
-Responses include the existing verified general restaurant URL if selections are
-not retained. Set **`PRONTO_CHOPE_LISTING_LINKS_ENABLED=0`** in the worker launch
-environment to immediately disable new preselected links while retaining observed
-times and the general-link path. This switch is independent of live-read
-authorization and defaults on for the approved experimental capability. It affects
-new responses, not links already delivered. Remote compatibility changes are not
-automatically detected; the customer-visible fallback and this switch are the
-recovery paths.
+Set both flags on every process that runs inference or scheduled work:
 
-Unavailable observations, unsupported providers, errors, stale data and missing
-mappings do not produce apparent available slot links. Unknown/error/stale results
-use the existing general URL with a clear explanation, or human escalation when
-no verified URL exists. Existing large-group handoff rules still run before reads.
-Agent message metadata stores scoped observation provenance and experimental link
-mode. This is the existing deterministic reservation branch, not a replacement for
-genuine LLM/RAG answers to other enquiries.
-
-No new Chope network request was authorized by the product decision. The PRON-39
-implementation tests inject provider observations and use an isolated database.
-The four earlier fresh-browser listing trials remain the real preselection
-evidence; no current inventory or downstream booking-form acceptance is implied.
-Do not open the downstream `/booking/check` form without a separately established
-no-hold/read-only verification boundary. Reservation writes remain unsupported.
-
-See [the PRON-39 engineering report](../poc/chope-listing-links.md) for current
-test results and the remaining integration acceptance limits.
-
-The parser now accepts “tomorrow around 7pm” and explicit 24-hour times, while
-missing or ambiguous parameters still use the existing human path. Deterministic
-tests also cover the read deadline, scope, rate limit, contradictory observations
-and rejection of booking hosts/routes and repeated or mismatched read fields.
-
-This is an **opt-in, read-only demonstration connector** using Chope's public
-restaurant listing in Chromium. On 11 October 2026, the user summarized a
-written Chope agreement as permitting demo scraping and a booking bot. The
-hardcopy was not available to inspect, so exact limits, covered outlets and
-technical terms are not independently verified. Keep this disabled for normal
-operation until the agreement owner checks those terms. No Chope API contract
-or credentials have been supplied. The connector never submits a reservation.
-
-## Request boundary
-
-The browser opens a configured `https://www.chope.co/singapore-restaurants/restaurant/...`
-listing, checks its outlet ID, selects party size and date, and reads the
-site's displayed time options. It permits one POST to the listing's
-`/singapore-restaurants/categories/get_times` read endpoint for the exact
-outlet/date/party and blocks every other POST, booking check, checkout and
-payment request. It does not click **Book Now**, bypass CAPTCHA or invent
-slots. Reads have a 20-second deadline and a 60-second per-process minimum
-interval; rate limiting across multiple worker processes is not implemented.
-Only run one demo worker until a contractual rate cap and shared limiter are
-established. Results are provisional, carry an observation timestamp, and the
-agent discards them after five minutes. Failures revert to the verified outlet
-booking link or human escalation.
-
-## Explicit live smoke read
-
-Install dependencies with `pnpm install` and a Playwright Chromium binary
-with `pnpm exec playwright install chromium`. The browser may alternatively
-be selected using `PRONTO_CHOPE_CHROMIUM_PATH`. This command makes one real
-availability lookup and does **not** touch Pronto's database or book a table:
-
-```sh
-TMPDIR=/var/tmp CHOPE_LIVE_READ_APPROVED=1 PRONTO_CHOPE_LIVE_READS=1 \
-  pnpm chope:live-read demo-tenant pscaferafflescity1808psc \
-  https://www.chope.co/singapore-restaurants/restaurant/ps-cafe-raffles-city \
-  2026-10-12 19:00 2
+```dotenv
+PRONTO_CHOPE_LIVE_READS=1
+CHOPE_LIVE_READ_APPROVED=1
 ```
 
-The ordinary Docker `worker` image has no Chromium. For an authorized
-container demo, build the optional `worker-chope` target with
-`docker build --target worker-chope -t pronto-worker-chope .` and use it
-**instead of** the ordinary worker. It installs Chromium and its system
-libraries at build time. Run only one such worker until the written rate cap
-and a shared limiter are established; the current interval is per process.
+The tenant profile must contain an approved `chopeBooking` link and matching `chopeAvailability` object with `enabled: true`, `mode: "browser"`, `scope: "demo_availability"`, `outletId`, `listingUrl` and `authorizedAt`. The existing seed keeps live reading disabled by default. Enabling this specific local tenant does not change other tenants or environments.
 
-Use a future date and current outlet mapping. Without **both** opt-in flags,
-the command fails before network access. The default `pnpm test`, DB tests,
-CI and local fake-provider demos do not enable these flags or contact Chope.
-The result reports provider, date, party size, Singapore timezone, observed
-time, status and available times. A failed read exits nonzero and never
-reports fabricated availability.
+Install a Chromium binary with `pnpm exec playwright install chromium`, or set `PRONTO_CHOPE_CHROMIUM_PATH` to an installed executable. For container workers use the existing `worker-chope` Docker target, which includes Chromium and its system libraries. A deployment needs the same migration, tenant mapping, flags, browser binary and continuously running worker for hourly refreshes. Starting only the Next.js frontend does not run the schedule.
 
-On **11 October 2026 at 23:33 Singapore time**, a real read for PS.Cafe
-Raffles City (`pscaferafflescity1808psc`), **12 October 2026, party of two**,
-returned 25 selectable times, including 19:00. The browser's displayed
-options and adapter output agreed at that observation. A separate read for
-**11 October 2026 at 23:37**, after the day's service, returned no future
-slots and status `unavailable`. These observations expire; rerun the opt-in
-command for current availability. Neither read created a booking.
+Set `PRONTO_CHOPE_LISTING_LINKS_ENABLED=0` to disable new preselected URLs while retaining the general approved outlet URL. Disable either live-read flag to stop network reads; new replies then acknowledge that availability cannot be verified and direct customers to the approved link.
 
-## Tenant activation
+## Reader boundary
 
-The tenant `business_profile` must contain a matching approved `chopeBooking`
-link and `chopeAvailability` object with `enabled: true`, `mode: "browser"`,
-`scope: "demo_availability"`, `outletId`, `listingUrl` and `authorizedAt`.
-The worker additionally needs both `PRONTO_CHOPE_LIVE_READS=1` and
-`CHOPE_LIVE_READ_APPROVED=1`. The PS.Cafe demo
-seed sets `enabled: false`; use only a disposable, marked test database when
-changing it for a local demonstration. The browser adapter advertises
-availability only. Create/read/update/cancel capabilities remain false.
+The browser opens only the configured public restaurant listing, verifies its outlet ID, selects the date and party size, and reads the displayed time options. It permits one matching `get_times` availability POST for the exact outlet/date/party and blocks booking/check, checkout, payment and all other POST requests. It never clicks Book Now, follows booking hosts or bypasses CAPTCHA. Reads have a 20-second deadline. Create/read/update/cancel booking capabilities remain unsupported.
 
-Before broader activation, verify the hardcopy agreement's exact operations,
-covered outlets, authentication requirements, request ceiling, retention
-rules and test-booking procedure. Do not put the agreement or credentials in
-Git. A real booking needs separate approval for a controlled test and a
-provider-confirmed reservation reference; this tranche has no write adapter.
+Only the approved canonical listing form `https://www.chope.co/singapore-restaurants/restaurant/<slug>` supports preselection. Mismatched tenants/outlets, invalid dates, credentials, ports, fragments and noncanonical destinations are rejected. Successful observations and generated URLs still do not establish a reservation or guarantee final availability.
+
+## Standalone diagnostic
+
+This explicit diagnostic performs one authorized read and prints JSON. It intentionally does not write to the application cache/history or use the shared database limiter. Use the application conversation path to verify persistence and shared scheduling.
+
+```sh
+CHOPE_LIVE_READ_APPROVED=1 PRONTO_CHOPE_LIVE_READS=1 \
+  pnpm chope:live-read demo-tenant pscaferafflescity1808psc \
+  https://www.chope.co/singapore-restaurants/restaurant/ps-cafe-raffles-city \
+  2026-10-31 19:00 4
+```
+
+Use a future date. Automated tests mock the browser/provider transport and do not contact Chope or an inference provider. Dated observations in prior [POC reports](../poc/chope-listing-links.md) remain historical evidence and must never be presented as current inventory.

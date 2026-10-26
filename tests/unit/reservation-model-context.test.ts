@@ -65,3 +65,23 @@ describe("model-planned reservation assistance", () => {
     expect(mayNeedReservationContext("Where are you?", [])).toBe(false);
   });
 });
+
+it("repairs a model's weekday/date mismatch before any provider read and records both calls", async () => {
+  const input=setup();
+  const correct=input.provider.generateGroundedAnswer.getMockImplementation()!;
+  const good=await correct();
+  input.provider.generateGroundedAnswer.mockReset()
+    .mockResolvedValueOnce({...good,answer:JSON.stringify({...query,date:"2026-10-29"})})
+    .mockResolvedValueOnce(good);
+  const context=await prepareReservationContext(input);
+  expect(input.provider.generateGroundedAnswer).toHaveBeenCalledTimes(2);
+  expect(input.onExtraction).toHaveBeenCalledTimes(2);
+  expect(context?.metadata.request).toMatchObject({date:"2026-10-31",time:"19:00",partySize:4});
+  expect(mocks.cached).toHaveBeenCalledOnce();
+  expect(input.provider.generateGroundedAnswer.mock.calls[1][0].reservationExtraction.validationError).toContain("not Saturday");
+});
+it("does not scrape a guessed weekday when the model cannot repair its extraction", async () => {
+  const context=await prepareReservationContext(setup({date:"2026-10-29"}));
+  expect(context?.metadata.request).toMatchObject({date:null,partySize:4});
+  expect(mocks.cached).not.toHaveBeenCalled();
+});

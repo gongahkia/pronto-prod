@@ -100,3 +100,18 @@ describe("bounded Gemini and Groq adapters using injected transport",()=>{
     await expect(real(()=>new FreeTierProvider("groq").embed(["A"],"gemini-embedding-2"))).rejects.toThrow(/embeddings/);
   });
 });
+
+it("uses a native structured query schema for reservation planning and retains actual provider evidence",async()=>{
+ const query={intent:"booking",outlet:"current",date:"2026-10-31",time:"19:00",partySize:4,children:0,confidence:0.98,reasonDetail:"Customer supplied Saturday 7pm for four."};
+ const fetch=vi.fn(async()=>response({id:"actual-extraction-id",model:base.responseModel,
+   choices:[{finish_reason:"stop",message:{content:JSON.stringify(query)}}],usage:{prompt_tokens:200,completion_tokens:70}}));
+ vi.stubGlobal("fetch",fetch);
+ const result=await real(()=>new FreeTierProvider("gemini").generateGroundedAnswer({...base,conversationalTurn:true,
+  reservationExtraction:{now:"2026-10-26 15:00 SGT",calendar:["2026-10-31 Saturday"]}}));
+ expect(JSON.parse(result.answer!)).toEqual({intent:"booking",outlet:"current",date:"2026-10-31",time:"19:00",partySize:4,children:0});
+ expect(result).toMatchObject({providerResponseId:"actual-extraction-id",usage:{inputTokens:200,outputTokens:70}});
+ const [resource,options]=fetch.mock.calls[0] as unknown as [Request|string,RequestInit];
+ const body=resource instanceof Request?await resource.json():JSON.parse(String(options.body));
+ expect(body.response_format.json_schema.schema.properties.intent.enum).toContain("availability");
+ expect(body.response_format.json_schema.schema.required).toContain("date");
+});

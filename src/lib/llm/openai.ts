@@ -4,6 +4,7 @@ import { shouldUseMockAi } from "@/lib/env";
 import { logInfo, logWarn } from "@/lib/logger";
 import { resolveProviderApiKey } from "@/lib/llm/credentials";
 import { LlmConfigurationError } from "@/lib/llm/errors";
+import { parseReservationExtraction, reservationExtractionJsonSchema } from "@/lib/llm/reservation-extraction";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import {
   buildGroundedAnswerInstructions,
@@ -158,7 +159,7 @@ export class OpenAiProvider implements LlmProvider {
             type: "json_schema",
             name: "pronto_agent_decision",
             strict: true,
-            schema: {
+            schema: input.reservationExtraction ? reservationExtractionJsonSchema : {
               type: "object",
               additionalProperties: false,
               properties: {
@@ -195,7 +196,7 @@ export class OpenAiProvider implements LlmProvider {
       clearTimeout(timeout);
     }
 
-    const parsedJson = parseJsonObject(responseOutputText(response));
+    const parsedJson = input.reservationExtraction ? parseReservationExtraction(responseOutputText(response)) : parseJsonObject(responseOutputText(response));
     const parsed = answerDecisionSchema.parse(parsedJson);
 
     if (parsed.action === "answer" && (!parsed.answer || (!parsed.citedChunkIds.length && !input.conversationalTurn))) {

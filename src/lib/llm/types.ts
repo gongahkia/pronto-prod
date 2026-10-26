@@ -42,7 +42,7 @@ export type GenerateAnswerInput = {
   conversationalTurn?: boolean;
   escalationRules?: Record<string, unknown>;
   channelKind?: string;
-  reservationExtraction?: { now: string; calendar: string[] };
+  reservationExtraction?: { now: string; calendar: string[]; validationError?: string };
   reservationContext?: boolean;
 };
 

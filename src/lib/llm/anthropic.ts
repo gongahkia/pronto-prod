@@ -3,6 +3,7 @@ import { shouldUseMockAi } from "@/lib/env";
 import { logInfo, logWarn } from "@/lib/logger";
 import { resolveProviderApiKey } from "@/lib/llm/credentials";
 import { LlmConfigurationError } from "@/lib/llm/errors";
+import { parseReservationExtraction } from "@/lib/llm/reservation-extraction";
 import { mockGroundedAnswer } from "@/lib/llm/mock";
 import {
   buildGroundedAnswerInstructions,
@@ -126,7 +127,7 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
       throw new Error("Anthropic response did not include text content.");
     }
 
-    const parsed = anthropicDecisionSchema.parse(parseJsonObject(text));
+    const parsed = anthropicDecisionSchema.parse(input.reservationExtraction ? parseReservationExtraction(text) : parseJsonObject(text));
     if (parsed.action === "answer" && (!parsed.answer || (!parsed.citedChunkIds.length && !input.conversationalTurn))) {
       return {
         action: "escalate",

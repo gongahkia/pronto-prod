@@ -90,7 +90,7 @@ export async function setupPsCafeDemo(): Promise<void> {
       on conflict (id) do update set name = excluded.name, business_profile = excluded.business_profile,
         brand_voice = excluded.brand_voice, updated_at = now()`,
       [PS_CAFE_DEMO_CLIENT_ID, PS_CAFE_DEMO_SLUG, JSON.stringify(profile),
-        "Demonstration default, pending restaurant approval: concise, courteous and clear. State uncertainty and refer booking or allergy questions to staff."],
+        "Demonstration default, pending restaurant approval: concise, courteous and clear. State uncertainty and avoid promising unverified outcomes."],
     );
     await db.query(
       `insert into onboarding_stages (client_id, stage)
@@ -127,14 +127,14 @@ export async function setupPsCafeDemo(): Promise<void> {
       response_provider, embedding_provider) values ($1, $2, 0.05, 'openai', 'openai')
       on conflict (client_id) do update set prompt_preamble = excluded.prompt_preamble,
         retrieval_threshold = excluded.retrieval_threshold, updated_at = now()`,
-      [PS_CAFE_DEMO_CLIENT_ID, "Demo only. Answer from this outlet's sourced facts. Do not state a weekend/public-holiday reservation cutoff, live availability, prices, or a confirmed booking. Escalate uncertainty."],
+      [PS_CAFE_DEMO_CLIENT_ID, "Answer from this outlet's approved sourced facts and scoped tool observations. Do not invent reservation cutoffs, prices, availability or a confirmed booking. Fresh Chope observations may support an availability check and booking-link referral; customers complete and confirm on Chope. Escalate disputed policies and actions requiring staff."],
     );
     await db.query(`insert into brand_voice_documents (client_id, title, content, attributes, source_notes)
       values ($1, $2, $3, $4::jsonb, $5)
       on conflict (client_id) do update set title = excluded.title, content = excluded.content,
         attributes = excluded.attributes, source_notes = excluded.source_notes, updated_at = now()`,
       [PS_CAFE_DEMO_CLIENT_ID, "PS.Cafe demo voice (unapproved)",
-        "Concise, courteous and clear; state uncertainty and refer reservations and allergy questions to staff.",
+        "Concise, courteous and clear; state uncertainty and avoid promising unverified outcomes.",
         JSON.stringify({ demoDefault: true, approvedByRestaurant: false }),
         "Pronto demonstration default; not presented as PS.Cafe's official brand voice."],
     );
