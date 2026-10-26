@@ -237,7 +237,7 @@ export async function runAgentForMessage(input: {
     input.customerMessage,
     requireModelReply ? { ...config.escalation_rules, disabledReasonCodes: [
       ...(Array.isArray(config.escalation_rules.disabledReasonCodes) ? config.escalation_rules.disabledReasonCodes : []),
-      "complaint_or_refund", "transactional_action", "private_lookup_unverified",
+      "complaint_or_refund", "transactional_action", "urgent_or_negative_sentiment",
     ] } : config.escalation_rules,
     input.channelKind,
   );

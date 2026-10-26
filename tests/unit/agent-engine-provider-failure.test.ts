@@ -240,7 +240,7 @@ describe("agent engine provider failures", () => {
       "The model's actual reply.", expect.objectContaining({ responseProvider: "openai", providerResponseId: "response-1" }),
     ]));
   });
-  it.each(["What is your refund policy?", "My order is missing an item and I want a refund."])("lets the model triage a business enquiry: %s", async customerMessage => {
+  it.each(["What is your refund policy?", "My order is missing an item and I want a refund.", "Are you open now?"])("lets the model triage a business enquiry: %s", async customerMessage => {
     mocks.embed.mockResolvedValue([[0.1]]);
     mocks.generateGroundedAnswer.mockResolvedValue({ action: "escalate", answer: null, confidence: 0.9,
       reasonCode: "model_requires_staff", reasonDetail: "This request needs staff authority.", citedChunkIds: [] });
@@ -251,6 +251,12 @@ describe("agent engine provider failures", () => {
   it("keeps the critical-issue check before model triage", async () => {
     expect(await runAgentForMessage({ ...agentInput(), customerMessage: "I want a refund after a severe allergy reaction." }))
       .toMatchObject({ action: "escalated", reasonCode: "medical_or_legal" });
+    expect(mocks.generateGroundedAnswer).not.toHaveBeenCalled();
+  });
+
+  it("keeps customer private records behind the existing access check", async () => {
+    expect(await runAgentForMessage({ ...agentInput(), customerMessage: "Where is my order #1234?" }))
+      .toMatchObject({ action: "escalated", reasonCode: "private_lookup_unverified" });
     expect(mocks.generateGroundedAnswer).not.toHaveBeenCalled();
   });
 
