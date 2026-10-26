@@ -1,0 +1,87 @@
+export type DecisionStep = {
+  id: string;
+  title: string;
+  description: string;
+  kind: "message" | "rule" | "knowledge" | "model" | "check" | "outcome" | "delivery";
+  tone: "neutral" | "success" | "attention";
+};
+
+export type ConversationDecision = {
+  id: string;
+  message: string;
+  createdAt: string;
+  status: string;
+  steps: DecisionStep[];
+};
+
+export type DecisionRecord = {
+  message_id: string;
+  body: string;
+  created_at: Date | string;
+  ai_paused: boolean;
+  trace_id: string | null;
+  status: "answered" | "escalated" | null;
+  reason_code: string | null;
+  reason_detail: string | null;
+  retrieval_chunk_count: number;
+  cited_chunk_ids: string[] | null;
+  steps: { label: string; detail?: Record<string, unknown> }[] | null;
+  model_ran: boolean;
+  reply_body: string | null;
+  handoff_intake: boolean;
+  delivery_status: string | null;
+  job_status: string | null;
+};
+
+const humanize = (text: string) => text.replaceAll("_", " ");
+
+export function buildConversationDecision(record: DecisionRecord): ConversationDecision {
+  const steps: DecisionStep[] = [];
+  const add = (title: string, description: string, kind: DecisionStep["kind"], tone: DecisionStep["tone"] = "neutral") =>
+    steps.push({ id: `${record.message_id}-${steps.length}`, title, description, kind, tone });
+  add("Customer message", record.body, "message");
+  const events = record.steps ?? [];
+  const rule = events.find(step => step.label === "pre_generation_escalated");
+  const model = events.find(step => step.label === "model_decision");
+
+  if (record.ai_paused && !record.trace_id) {
+    add("Assistant paused", "Your team already owns this conversation. This message was saved for staff without another AI reply.", "rule", "attention");
+  } else if (!record.trace_id) {
+    add(record.job_status === "pending" || record.job_status === "processing" ? "Processing" : "No decision trace recorded",
+      record.job_status === "pending" || record.job_status === "processing" ? "The enquiry is waiting for a decision."
+        : "There is no saved decision trace for this message. No model decision is inferred here.", "outcome");
+  } else {
+    if (rule) {
+      add("Routing rule matched", record.reason_detail ?? humanize(record.reason_code ?? "staff review"), "rule", "attention");
+    } else if (events.some(step => step.label === "pre_generation_passed")) {
+      add("Initial checks passed", "The enquiry continued to knowledge retrieval and model triage.", "check", "success");
+    }
+    if (record.retrieval_chunk_count > 0 || events.some(step => step.label === "retrieval_evaluated")) {
+      add("Business knowledge retrieved", `${record.retrieval_chunk_count} approved source ${record.retrieval_chunk_count === 1 ? "chunk" : "chunks"} supplied for this enquiry. ${record.cited_chunk_ids?.length ?? 0} cited in the decision.`, "knowledge");
+    }
+    if (model || record.model_ran) {
+      const explanation = typeof model?.detail?.reasonDetail === "string" ? model.detail.reasonDetail : record.reason_detail;
+      add("Model decision", explanation ?? `Recorded result: ${humanize(record.reason_code ?? record.status ?? "decision")}. No detailed explanation was saved for this older turn.`,
+        "model", record.status === "escalated" ? "attention" : "success");
+    }
+    const check = events.find(step => step.label === "self_check_passed" || step.label === "self_check_escalated");
+    if (check) add(check.label === "self_check_passed" ? "Reply checks passed" : "Reply checks requested review",
+      typeof check.detail?.reasonDetail === "string" ? check.detail.reasonDetail : humanize(String(check.detail?.reasonCode ?? "grounding and policy checks")),
+      "check", check.label === "self_check_passed" ? "success" : "attention");
+    add(record.status === "escalated" ? "Team review required" : "Assistant handled enquiry",
+      record.status === "escalated" ? "The conversation was handed to your team. The assistant stays paused until an authorized release."
+        : "The assistant recorded a response. Future customer messages can still be handled in this chat.",
+      "outcome", record.status === "escalated" ? "attention" : "success");
+  }
+  if (record.handoff_intake && record.reply_body) {
+    add("Model wrote handoff reply", record.reply_body, "model");
+  }
+  if (record.delivery_status) {
+    add(record.delivery_status === "sent" ? "Reply delivered" : "Reply delivery",
+      record.delivery_status === "sent" ? "The recorded reply reached the customer view." : `Recorded delivery status: ${humanize(record.delivery_status)}.`,
+      "delivery", record.delivery_status === "sent" ? "success" : "attention");
+  }
+  return { id: record.message_id, message: record.body, createdAt: new Date(record.created_at).toISOString(),
+    status: record.ai_paused && !record.trace_id ? "With your team" : record.status === "answered" ? "Answered"
+      : record.status === "escalated" ? "Needs attention" : "Awaiting a decision", steps };
+}

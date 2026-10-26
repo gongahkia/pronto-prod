@@ -14,6 +14,8 @@ import { ConversationReviewPanel } from "@/components/conversation-review-panel"
 import { ConversationClassificationPanel } from "@/components/conversation-classification-panel";
 import { getEscalationPolicy } from "@/lib/staff-configuration";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { ConversationTabs } from "@/components/conversation-tabs";
+import { getConversationDecisionTraces } from "@/lib/conversation-decision-traces";
 
 export default async function ClientConversationPage({
   params,
@@ -33,9 +35,10 @@ export default async function ClientConversationPage({
   if (!client || !conversation) {
     notFound();
   }
-  const [activeEscalation, messages] = await Promise.all([
+  const [activeEscalation, messages, decisions] = await Promise.all([
     getConversationActionableEscalation({ clientId: user.clientId, conversationId }),
     getConversationMessages(conversation.id, user.clientId),
+    getConversationDecisionTraces(user.clientId, conversation.id),
   ]);
   const [canRespond, canRelease] = await Promise.all([
     hasStaffCapability(user, user.clientId, "conversation.respond"),
@@ -60,9 +63,9 @@ export default async function ClientConversationPage({
         </p>
       </div>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <ConversationReviewPanel conversation={conversation} messages={messages}
+        <ConversationTabs decisions={decisions}><ConversationReviewPanel conversation={conversation} messages={messages}
           footer={<ConversationTriagePanel escalation={activeEscalation} returnTo={returnTo}
-            canRespond={canRespond} canRelease={canRelease} />} />
+            canRespond={canRespond} canRelease={canRelease} />} /></ConversationTabs>
         <ConversationClassificationPanel conversation={conversation} canRespond={canRespond} policy={policy?.policy ?? null}/>
       </div>
     </AppShell>
