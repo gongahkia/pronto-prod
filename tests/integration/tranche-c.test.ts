@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import type { SessionUser } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 import { approveConfiguration } from "@/lib/managed-approvals";
-import { markAssistantDraftTested, publishAssistantDraft } from "@/lib/assistant-drafts";
+import { publishAssistantDraft } from "@/lib/assistant-drafts";
 import { submitKnowledgeSource, reviewSourceSubmission, stageApprovedSourceSubmission, listSourceSubmissions, recordSourceExtractionFailure } from "@/lib/knowledge/submissions";
 import { setStaffCapability } from "@/lib/staff-permissions";
 import { retrieveKnowledge, retrieveKnowledgeText } from "@/lib/knowledge/retrieve";
@@ -53,7 +53,6 @@ dbDescribe("Tranche C source review, knowledge feedback and timed escalation", (
   async function publishSource(submissionId: string, revision: number) {
     const draftVersion = await stageApprovedSourceSubmission({ actor: operator, clientId: first,
       submissionId, expectedRevision: revision });
-    await markAssistantDraftTested(first, draftVersion);
     await approveConfiguration({ actor: approver, clientId: first, kind: "assistant", targetId: first,
       revision: String(draftVersion), evidence: "Synthetic reviewed test" });
     await publishAssistantDraft(first, operator.userId);
@@ -173,7 +172,6 @@ dbDescribe("Tranche C source review, knowledge feedback and timed escalation", (
         expectedRevision: 1 });
     }
     const draft = (await getPool().query<{ edit_version: number }>("select edit_version from assistant_drafts where client_id = $1", [first])).rows[0];
-    await markAssistantDraftTested(first, draft.edit_version);
     await approveConfiguration({ actor: approver, clientId: first, kind: "assistant", targetId: first,
       revision: String(draft.edit_version), evidence: "Synthetic private review" });
     await publishAssistantDraft(first, operator.userId);
@@ -214,7 +212,6 @@ dbDescribe("Tranche C source review, knowledge feedback and timed escalation", (
       expectedRevision: 1, decision: "approve", note: "Synthetic cautious wording" });
     const draftVersion = await stageApprovedKnowledgeSuggestion({ actor: operator, clientId: first,
       suggestionId, expectedRevision: 1 });
-    await markAssistantDraftTested(first, draftVersion);
     await approveConfiguration({ actor: approver, clientId: first, kind: "assistant", targetId: first,
       revision: String(draftVersion), evidence: "Synthetic verified answer" });
     await publishAssistantDraft(first, operator.userId);

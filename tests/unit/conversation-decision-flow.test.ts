@@ -50,3 +50,9 @@ describe("recorded conversation decision flow", () => {
     expect(result.steps.at(-1)?.title).toBe("No decision trace recorded");
   });
 });
+
+it("keeps source citations attached to retrieval when a Chope tool check precedes it", () => {
+ const result=buildConversationDecision({...record,steps:[{label:"chope_availability_checked",detail:{status:"available",observedAt:"2026-10-26T07:00:00Z",request:{date:"2026-10-31",time:"19:00",partySize:4}}},{label:"retrieval_evaluated"}]});
+ expect(result.steps.find(step=>step.title==="Chope availability checked")).toMatchObject({kind:"check",tone:"success"});
+ expect(result.steps.find(step=>step.kind==="knowledge")).toMatchObject({title:"Business knowledge retrieved",sources:expect.arrayContaining([expect.objectContaining({chunkId:"hours",cited:true})])});
+});

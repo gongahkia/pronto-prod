@@ -1,5 +1,6 @@
 import { query, transaction } from "@/lib/db";
 import type { BrandVoiceDocument, BrandVoiceExample, Client } from "@/lib/types";
+import { VOICE_EXAMPLE_LIMIT } from "@/lib/voice-style";
 
 export type BrandVoiceProfile = {
   document: BrandVoiceDocument | null;
@@ -19,7 +20,7 @@ export async function getBrandVoiceProfile(
         select *
         from brand_voice_examples
         where client_id = $1
-        order by is_active desc, created_at desc
+        order by is_active desc, created_at desc, id
       `,
       [clientId],
     ),
@@ -33,7 +34,7 @@ export async function getBrandVoiceProfile(
 
 export async function getPromptBrandVoiceProfile(
   clientId: string,
-  limit = 4,
+  limit = VOICE_EXAMPLE_LIMIT,
 ): Promise<BrandVoiceProfile> {
   const [documentResult, examplesResult] = await Promise.all([
     query<BrandVoiceDocument>(
@@ -45,7 +46,7 @@ export async function getPromptBrandVoiceProfile(
         select *
         from brand_voice_examples
         where client_id = $1 and is_active = true
-        order by created_at desc
+        order by created_at desc, id
         limit $2
       `,
       [clientId, limit],
@@ -54,7 +55,7 @@ export async function getPromptBrandVoiceProfile(
 
   return {
     document: documentResult.rows[0] ?? null,
-    examples: examplesResult.rows.reverse(),
+    examples: examplesResult.rows,
   };
 }
 

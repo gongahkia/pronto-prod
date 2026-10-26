@@ -2,9 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getAssistantDraft,
-  markAssistantDraftTested,
   publishAssistantDraft,
-  retrieveDraftKnowledge,
   stageKnowledge,
   stageVoice,
 } from "@/lib/assistant-drafts";
@@ -76,11 +74,8 @@ dbDescribe("client assistant drafts in PostgreSQL", () => {
     const draft = await getAssistantDraft(clientId);
     expect(draft?.knowledge_changes[sourceId]?.title).toBe("Opening hours");
     expect((await getPool().query("select id from knowledge_sources where id = $1", [sourceId])).rowCount).toBe(0);
-    expect((await retrieveDraftKnowledge(clientId, Array(1536).fill(0.01), null, "Sunday", 5)).length).toBe(1);
     await expect(publishAssistantDraft(clientId, actorUserId)).rejects.toThrow("Pronto operator");
-    await expect(publishAssistantDraft(clientId, operatorUserId)).rejects.toThrow("Test the current draft");
 
-    await markAssistantDraftTested(clientId, draft!.edit_version);
     const approver: SessionUser = { userId: actorUserId, role: "client", clientId,
       name: "Test owner", email: `draft-test-${actorUserId}@example.com` };
     await approveConfiguration({ actor: approver,
@@ -89,10 +84,6 @@ dbDescribe("client assistant drafts in PostgreSQL", () => {
       clientId, actorUserId,
       voice: { title: "Voice guide", content: "Reply warmly and concisely.", examples: [] },
     });
-    await expect(publishAssistantDraft(clientId, operatorUserId)).rejects.toThrow("Test the current draft");
-    await markAssistantDraftTested(clientId, draft!.edit_version);
-    await expect(publishAssistantDraft(clientId, operatorUserId)).rejects.toThrow("Test the current draft");
-    await markAssistantDraftTested(clientId, (await getAssistantDraft(clientId))!.edit_version);
     await expect(publishAssistantDraft(clientId, operatorUserId)).rejects.toThrow("business approval");
     await approveConfiguration({ actor: approver,
       clientId, kind: "assistant", targetId: clientId,

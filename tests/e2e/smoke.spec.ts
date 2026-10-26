@@ -85,12 +85,12 @@ test("client account cannot inspect operator diagnostics and the retired UI is u
   await expect(page.getByRole("heading", { name: "Operations", exact: true })).toHaveCount(0);
 });
 
-test("client can follow setup to a response preview without sending a customer message", async ({ page }) => {
+test("retired assistant entry opens knowledge without a private preview", async ({ page }) => {
   await login(page, clientLogin.email, clientLogin.password);
   await page.goto("/client/assistant");
-  await expect(page).toHaveURL(/\/client\/knowledge\?section=testing#test-publish$/);
-  await expect(page.getByRole("heading", { name: "Test & publish" })).toBeVisible();
-  await expect(page.getByText("Nothing here is sent to a customer.")).toBeVisible();
+  await expect(page).toHaveURL(/\/client\/knowledge$/);
+  await expect(page.getByRole("heading", { name: "Test & publish" })).toHaveCount(0);
+  expect((await page.request.post("/api/client/assistant-test")).status()).toBe(404);
   await expect(page.getByRole("navigation", { name: "Assistant setup" })).toHaveCount(0);
   for (const name of ["Knowledge", "Channels", "Brand voice", "Handoff rules"])
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();

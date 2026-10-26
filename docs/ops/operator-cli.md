@@ -95,8 +95,7 @@ Do not retry a provider send merely because its delivery outcome is uncertain.
 | Stage approved source | `/api/operator/knowledge-submissions`: `clientId`, `submissionId`, `revision` | Exact revision needs an authorized **business** knowledge approval |
 | Stage approved correction | `/api/operator/knowledge-suggestions`: `clientId`, `suggestionId`, `revision` | Existing business reviewer identity and current revision |
 | Update/archive source | `/api/operator/knowledge/SOURCE_ID`: `clientId`, `action=update` with `title`, `content`, or `action=delete` | Creates a draft; publication approvals still apply |
-| Test draft | `/api/operator/assistant-test`, **JSON**: `clientId`, `channelId=preview` (or scoped channel ID), `message`, optional `history` | Existing private preview; marks the tested draft version; no customer send |
-| Publish assistant | `/api/operator/assistant/publish`: `clientId` | Current tested draft plus independent business approval |
+| Publish assistant | `/api/operator/assistant/publish`: `clientId` | Current draft revision plus independent business approval |
 | Channel configuration | `/api/operator/channels`: `clientId`, `channelId`, `status`, `externalId`, `settings`, `credentials` or structured fields | Existing encryption and active-channel draft gates |
 | Channel health | `/api/operator/channel-health`: `clientId`, `channelId` | Existing provider checks; do not run live checks without permission |
 | Record activation evidence | `/api/operator/channels/activation`: `clientId`, `channelId`, `revision`, `action=evidence`, `checkKind`, `details` | Current revision; evidence must describe actual authorized verification |

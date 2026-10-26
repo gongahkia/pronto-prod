@@ -4,7 +4,7 @@ import type { SessionUser } from "@/lib/auth";
 import { getPool } from "@/lib/db";
 import { createKnowledgeSuggestion, listKnowledgeSuggestions, reviewKnowledgeSuggestion,
   reviseKnowledgeSuggestion, stageApprovedKnowledgeSuggestion } from "@/lib/knowledge/suggestions";
-import { markAssistantDraftTested, publishAssistantDraft } from "@/lib/assistant-drafts";
+import { publishAssistantDraft } from "@/lib/assistant-drafts";
 import { approveConfiguration } from "@/lib/managed-approvals";
 import { getEscalationPolicy, saveEscalationPolicy } from "@/lib/staff-configuration";
 import { hasStaffCapability, setStaffCapability } from "@/lib/staff-permissions";
@@ -77,8 +77,6 @@ dbDescribe("business portal suggestions and local staff interaction", () => {
     expect((await getPool().query("select count(*)::int as n from knowledge_sources where client_id = $1", [first])).rows[0].n).toBe(0);
     const draftVersion = await stageApprovedKnowledgeSuggestion({ actor: operator, clientId: first,
       suggestionId, expectedRevision: 2 });
-    await expect(publishAssistantDraft(first, operator.userId)).rejects.toThrow("Test the current draft");
-    await markAssistantDraftTested(first, draftVersion);
     await expect(publishAssistantDraft(first, operator.userId)).rejects.toThrow("business approval");
     await approveConfiguration({ actor: approver, clientId: first, kind: "assistant", targetId: first,
       revision: String(draftVersion), evidence: "Reviewed tested assistant revision" });

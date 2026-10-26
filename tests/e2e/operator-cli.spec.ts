@@ -64,9 +64,7 @@ test("authenticated CLI replaces onboarding, knowledge publication and local cha
     expect(sourceApproval.status()).toBe(303);
     await mutate("/api/operator/knowledge-submissions", { clientId, submissionId: submission.id, revision: "1" });
     const draft = (await cli(["inspect", "knowledge", "--client-id", clientId])).draft;
-    const preview = await privateJson("preview.json", { clientId, channelId: "preview", message: "What time do you close?" });
-    await cli(["request", "/api/operator/assistant-test", "--json-file", preview]);
-    const assistantApproval = await owner.post("/api/client/approvals", { form: { kind: "assistant", revision: String(draft.edit_version), evidence: "Reviewed synthetic tested assistant" }, maxRedirects: 0 });
+    const assistantApproval = await owner.post("/api/client/approvals", { form: { kind: "assistant", revision: String(draft.edit_version), evidence: "Reviewed synthetic assistant" }, maxRedirects: 0 });
     expect(assistantApproval.status()).toBe(303);
     await mutate("/api/operator/assistant/publish", { clientId });
     expect((await cli(["inspect", "knowledge", "--client-id", clientId])).sources).toHaveLength(1);

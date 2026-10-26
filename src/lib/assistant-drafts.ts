@@ -9,8 +9,8 @@ import {
   validateAndNormalizeTriageFlow,
   type TriageFlowDraft,
 } from "@/lib/triage-flow";
-import type { KnowledgeChunk } from "@/lib/types";
 import type { AgentConfigUpdate } from "@/lib/agent/config";
+import { normalizeVoiceDraft } from "@/lib/voice-draft";
 
 export type KnowledgeDraftChange = {
   sourceId: string;
@@ -44,7 +44,6 @@ export type AssistantDraft = {
   knowledge_changes: Record<string, KnowledgeDraftChange>;
   updated_at: Date;
   edit_version: number;
-  tested_at: Date | null;
 };
 
 export class DraftConflictError extends Error {
@@ -55,7 +54,7 @@ export class DraftConflictError extends Error {
 
 export async function getAssistantDraft(clientId: string): Promise<AssistantDraft | null> {
   const result = await query<AssistantDraft>(
-    "select client_id, base_fingerprint, voice, flow, config, knowledge_changes, updated_at, edit_version, tested_at from assistant_drafts where client_id = $1",
+    "select client_id, base_fingerprint, voice, flow, config, knowledge_changes, updated_at, edit_version from assistant_drafts where client_id = $1",
     [clientId],
   );
   return result.rows[0] ?? null;
@@ -72,9 +71,9 @@ export async function getAssistantRevision(clientId: string): Promise<{ revision
   };
 }
 
-async function ensureDraft(clientId: string, actorUserId: string): Promise<void> {
-  const fingerprint = await liveFingerprint({ query }, clientId);
-  await query(
+async function ensureDraft(clientId: string, actorUserId: string, db: Queryable = { query }): Promise<void> {
+  const fingerprint = await liveFingerprint(db, clientId);
+  await db.query(
     `insert into assistant_drafts (client_id, base_fingerprint, updated_by)
      values ($1, $2, $3)
      on conflict (client_id) do nothing`,
@@ -86,23 +85,10 @@ export async function stageVoice(input: {
   clientId: string;
   actorUserId: string;
   voice: VoiceDraft;
-}): Promise<void> {
-  if (!input.voice.content.trim() || !input.voice.title.trim()) {
-    throw new Error("A voice guide title and content are required.");
-  }
-  if (input.voice.examples.length > 20) throw new Error("Keep at most 20 example replies.");
-  for (const example of input.voice.examples) {
-    if (!example.customerMessage.trim() || !example.idealResponse.trim()) {
-      throw new Error("Each example needs a customer message and ideal reply.");
-    }
-  }
-  await ensureDraft(input.clientId, input.actorUserId);
-  await query(
-    `update assistant_drafts set voice = $2::jsonb, updated_by = $3, tested_at = null,
-       edit_version = edit_version + 1, updated_at = now()
-     where client_id = $1`,
-    [input.clientId, JSON.stringify(input.voice), input.actorUserId],
-  );
+  expectedVersion?: number;
+}): Promise<number> {
+  const voice = normalizeVoiceDraft(input.voice);
+  return saveDraftSection({ ...input, section: "voice", value: voice });
 }
 
 export async function stageFlow(input: {
@@ -110,15 +96,32 @@ export async function stageFlow(input: {
   actorUserId: string;
   nodes: unknown;
   edges: unknown;
-}): Promise<void> {
+  expectedVersion?: number;
+}): Promise<number> {
   const flow = validateAndNormalizeTriageFlow({ nodes: input.nodes, edges: input.edges });
-  await ensureDraft(input.clientId, input.actorUserId);
-  await query(
-    `update assistant_drafts set flow = $2::jsonb, updated_by = $3, tested_at = null,
-       edit_version = edit_version + 1, updated_at = now()
-     where client_id = $1`,
-    [input.clientId, JSON.stringify(flow), input.actorUserId],
-  );
+  return saveDraftSection({ ...input, section: "flow", value: flow });
+}
+
+export class DraftEditConflictError extends Error {
+  constructor() { super("These settings changed in another tab or session. Your edits are still here. Review the latest saved version before saving again."); }
+}
+
+async function saveDraftSection(input: { clientId: string; actorUserId: string; section: "voice" | "flow";
+  value: VoiceDraft | TriageFlowDraft; expectedVersion?: number }): Promise<number> {
+  return transaction(async db => {
+    if (input.expectedVersion !== undefined) {
+      const current = await db.query<{ edit_version: number }>("select edit_version from assistant_drafts where client_id = $1 for update", [input.clientId]);
+      if ((current.rows[0]?.edit_version ?? 0) !== input.expectedVersion) throw new DraftEditConflictError();
+    }
+    await ensureDraft(input.clientId, input.actorUserId, db);
+    // The version predicate also handles concurrent first saves, when no row existed to lock.
+    const result = await db.query<{ edit_version: number }>(`update assistant_drafts set ${input.section} = $2::jsonb,
+      updated_by = $3, edit_version = edit_version + 1, updated_at = now()
+      where client_id = $1 and ($4::integer is null or edit_version = $4) returning edit_version`,
+      [input.clientId, JSON.stringify(input.value), input.actorUserId, input.expectedVersion === undefined ? null : input.expectedVersion || 1]);
+    if (!result.rows[0]) throw new DraftEditConflictError();
+    return result.rows[0].edit_version;
+  });
 }
 
 export async function stageAgentConfig(input: AgentConfigUpdate): Promise<void> {
@@ -126,7 +129,7 @@ export async function stageAgentConfig(input: AgentConfigUpdate): Promise<void> 
   if (actor.rows[0]?.role !== "operator") throw new Error("Only a Pronto operator may prepare agent tuning.");
   await ensureDraft(input.clientId, input.actorUserId);
   await query(
-    `update assistant_drafts set config = $2::jsonb, updated_by = $3, tested_at = null,
+    `update assistant_drafts set config = $2::jsonb, updated_by = $3, 
        edit_version = edit_version + 1, updated_at = now() where client_id = $1`,
     [input.clientId, JSON.stringify(input), input.actorUserId],
   );
@@ -226,7 +229,7 @@ export async function stageKnowledge(input: {
     }
     await db.query(
       `update assistant_drafts
-       set knowledge_changes = $2::jsonb, updated_by = $3, tested_at = null,
+       set knowledge_changes = $2::jsonb, updated_by = $3, 
            edit_version = edit_version + 1, updated_at = now()
        where client_id = $1`,
       [input.clientId, JSON.stringify(currentChanges), input.actorUserId],
@@ -246,13 +249,6 @@ export async function discardAssistantDraft(clientId: string, actorUserId: strin
   });
 }
 
-export async function markAssistantDraftTested(clientId: string, expectedVersion: number): Promise<void> {
-  await query(
-    "update assistant_drafts set tested_at = now() where client_id = $1 and edit_version = $2",
-    [clientId, expectedVersion],
-  );
-}
-
 export async function publishAssistantDraft(clientId: string, actorUserId: string): Promise<number> {
   return transaction(async (db) => {
     const actor = await db.query<{ role: string }>(
@@ -266,9 +262,6 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
     );
     const draft = draftResult.rows[0];
     if (!draft) throw new Error("There are no changes to publish.");
-    if (!draft.tested_at) {
-      throw new Error("Test the current draft before publishing it.");
-    }
     await assertConfigurationApproved(db, clientId, "assistant", clientId, String(draft.edit_version));
     if (await liveFingerprint(db, clientId) !== draft.base_fingerprint) {
       throw new DraftConflictError();
@@ -463,37 +456,6 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
     }, db);
     return revisionResult.rows[0].revision;
   }, { isolationLevel: "serializable", retries: 2 });
-}
-
-export async function retrieveDraftKnowledge(
-  clientId: string,
-  embedding: number[],
-  model: string | null,
-  queryText: string | null,
-  limit = 5,
-): Promise<KnowledgeChunk[]> {
-  const result = await query<KnowledgeChunk & { distance: string; keyword_rank: string }>(
-    `select source_id, client_id, chunk_index, content, token_estimate,
-            embedding_model, embedding_dimensions, '{}'::jsonb as metadata,
-            (client_id::text || ':' || source_id::text || ':' || chunk_index::text) as id,
-            (embedding <=> $2::vector)::text as distance,
-            case when $5::text is null then '0'
-              else ts_rank_cd(to_tsvector('simple', content), websearch_to_tsquery('simple', $5))::text
-            end as keyword_rank
-     from assistant_draft_chunks
-     where client_id = $1 and embedding_dimensions = $3
-       and ($4::text is null or embedding_model = $4)
-     order by least(1 - (embedding <=> $2::vector) +
-       case when $5::text is null then 0 else
-         least(ts_rank_cd(to_tsvector('simple', content), websearch_to_tsquery('simple', $5)) * 8, 0.75)
-       end, 1) desc
-     limit $6`,
-    [clientId, vectorLiteral(embedding), embedding.length, model, queryText?.trim() || null, limit],
-  );
-  return result.rows.map((row) => ({
-    ...row,
-    score: Math.min(1 - Number(row.distance) + Math.min(Number(row.keyword_rank) * 8, 0.75), 1),
-  }));
 }
 
 async function liveFingerprint(db: Queryable, clientId: string): Promise<string> {

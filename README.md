@@ -26,11 +26,11 @@ sample customer emails and fake Meta providers, follow
 [the local demo runbook](docs/demos/local-mvp.md). It uses a marked
 `pronto_test` database and requires no real provider account.
 
-The business workspace has two destinations: Inbox and Business Knowledge. Inbox includes attention filters and recent conversation updates. Business Knowledge contains cards for knowledge sources, channels, brand voice, handoff rules, and testing and publication; editors expand within the page. Open `/client/inbox` with an authorized business responder account. The development-only connected customer simulator is `/demo/customer`; see [its setup guide](docs/demos/customer-simulator.md).
+The business workspace has two destinations: Inbox and Business Knowledge. Inbox includes attention filters and recent conversation updates. Business Knowledge contains cards for knowledge sources, channels, brand voice and handoff rules; editors expand within the page. Open `/client/inbox` with an authorized business responder account. The development-only connected customer simulator is `/demo/customer`; see [its setup guide](docs/demos/customer-simulator.md).
 
 Restaurant booking enquiries in the real-model path can check Chope and return a booking link with the requested date, time and party size. PostgreSQL stores availability observations and a shared cache; the worker refreshes recently requested combinations hourly and enquiries require observations no older than five minutes before claiming availability. See [Chope setup, scheduling and storage](docs/integrations/chope-live-read.md) for the required flags, tenant mapping, Chromium and worker setup.
 
-The old HQ operator frontend has been removed under PRON-87. Operator sign-in opens `/account`; administration uses the existing protected APIs through the [authenticated CLI](docs/ops/operator-cli.md). Business approvals, tested assistant drafts and channel activation gates remain independent. An operator login does not grant access to the business inbox.
+The old HQ operator frontend has been removed under PRON-87. Operator sign-in opens `/account`; administration uses the existing protected APIs through the [authenticated CLI](docs/ops/operator-cli.md). Business approvals, versioned assistant drafts and channel activation gates remain independent. An operator login does not grant access to the business inbox.
 
 PS.Cafe demo login, created by [the local demo setup](docs/demos/local-mvp.md):
 

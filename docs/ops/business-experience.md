@@ -7,7 +7,7 @@ Pronto's operator console remains the primary management workspace. The business
 | Destination | Route | Purpose |
 |---|---|---|
 | Inbox | `/client/inbox` | All conversations, needs-reply and resolved filters, attention-first or most-recent sorting. Claim, reply and release through the existing thread. |
-| Business Knowledge | `/client/knowledge` | Five cards: knowledge sources, customer channels, brand voice, handoff rules, and testing and publication. Source import and correction actions open dialogs from the Knowledge card header; the other editors expand within their card. |
+| Business Knowledge | `/client/knowledge` | Four cards: knowledge sources, customer channels, brand voice and handoff policies. Source import and correction actions open dialogs from the Knowledge card header; the other editors expand within their card. |
 
 `/client` opens Inbox for responders; `/client/activity` redirects to its most-recent view. The sidebar and mobile navigation contain only Inbox and Business Knowledge. The former assistant setup tab row is removed. `/client/assistant`, `/client/assistant/voice`, `/client/assistant/rules` and `/client/assistant/channels` redirect to the matching card on Business Knowledge. Save and connection-check forms return to that card. Approval and conversation deep links remain available within their workflows. Connected Channels, Contact Pronto and Settings pages have been removed. The workspace uses light mode. A notification link requires sign-in and tenant-scoped conversation access. Channel secrets remain masked in the connection editor; raw jobs and provider diagnostics stay in the operator console.
 
@@ -34,7 +34,7 @@ Opening a conflicting source shows its recorded statements and original referenc
 
 1. Any signed-in business member proposes a title, answer/policy, reason, optional existing source, source reference and outlet. A request key deduplicates retries. The proposal and its revisions live in `knowledge_suggestions` and `knowledge_suggestion_revisions`, not active RAG sources.
 2. A `knowledge.approve` business member approves, rejects or requests a revision of the exact pending revision with a review note. A new revision clears the old review. Cross-tenant and stale-revision requests fail.
-3. A Pronto operator stages a reviewed version into the existing `assistant_drafts` service. The operator privately tests the current assistant revision. A business knowledge approver approves that exact assistant revision with evidence, and the operator explicitly publishes. These are separate review and publication gates. The published source/version retains suggestion ID, available author identity, reason, supporting reference, outlet and approval provenance. The existing RAG index updates only on publication.
+3. A Pronto operator stages a reviewed version into the existing `assistant_drafts` service. A business knowledge approver approves that exact assistant revision with evidence, and the operator explicitly publishes. These are separate review and publication gates. The published source/version retains suggestion ID, available author identity, reason, supporting reference, outlet and approval provenance. The existing RAG index updates only on publication.
 4. A material change after approval needs a new proposal/revision. A legacy draft or publish route cannot turn a pending suggestion into customer knowledge.
 
 If the business reviewer account is deleted before staging or publication, the
@@ -65,3 +65,11 @@ The existing versioned policy API and authorized operator workflow retain respon
 ## Local verification
 
 Follow [safe regression baseline](../testing/safe-regression-baseline.md) for the marked database and guarded environment. Then run `pnpm test:db`, `pnpm test:local-mail` (with Mailpit), `pnpm lint`, `pnpm typecheck`, guarded `pnpm build`, and `pnpm test:e2e`. The [PS.Cafe demo guide](../demos/local-mvp.md) lists synthetic staff identities and the Mailpit handoff. These checks verify local behavior only; Meta messaging and real business staff command delivery remain blocked pending provider setup and authorization.
+
+## Reply style and team handoff
+
+Brand Voice controls tone, reply length and example wording. The editor compiles the selected style into a bounded style reference for the real model. Business facts remain in approved Knowledge; Handoff rules describe when the model should involve staff and pause AI replies. Style examples do not authorize actions or provide evidence for facts. Select up to four examples, with up to twenty saved; character limits are displayed in the editor and validated on the server. The prompt budget can reduce the examples included.
+
+Each card labels the settings as in use, prototype default or unpublished draft. Saving a draft does not change customer replies; use Review saved changes for the existing exact-revision approval and operator publication flow. The former Test & publish section, private preview UI/API, duplicate preview engine and tested marker have been removed. Test model output through the real customer conversation route instead.
+
+Unsaved edits trigger native reload warnings and a confirmation before link navigation. Voice and policy saves include the draft version; a stale save returns a conflict while retaining the local edits. This is a small POC safeguard, without autosave infrastructure or collaborative editing.

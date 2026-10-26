@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionUser } from "@/lib/auth";
 import { getPool } from "@/lib/db";
-import { getAssistantDraft, markAssistantDraftTested, publishAssistantDraft, stageAgentConfig, stageVoice } from "@/lib/assistant-drafts";
+import { getAssistantDraft, publishAssistantDraft, stageAgentConfig, stageVoice } from "@/lib/assistant-drafts";
 import { approveConfiguration, channelEvidenceKinds, recordChannelActivationEvidence } from "@/lib/managed-approvals";
 import { activateCustomerChannel } from "@/lib/channel-activation";
 import { changeOnboardingStage, listOnboardingStages } from "@/lib/onboarding";
@@ -78,7 +78,6 @@ dbDescribe("managed operations and tenant authority", () => {
     const current = (await getAssistantDraft(first))!.edit_version;
     await expect(approveConfiguration({ actor: approver, clientId: first, kind: "assistant", targetId: first,
       revision: String(original), evidence: "Stale" })).rejects.toThrow("changed");
-    await markAssistantDraftTested(first, current);
     await expect(publishAssistantDraft(first, operatorId)).rejects.toThrow("business approval");
     await expect(approveConfiguration({ actor: activator, clientId: first, kind: "assistant", targetId: first,
       revision: String(current), evidence: "Wrong capability" })).rejects.toThrow("knowledge.approve");
@@ -99,7 +98,6 @@ dbDescribe("managed operations and tenant authority", () => {
     expect((await getPool().query("select prompt_preamble from agent_configs where client_id = $1", [first]))
       .rows[0].prompt_preamble).toBe("Answer from knowledge");
     const revision = (await getAssistantDraft(first))!.edit_version;
-    await markAssistantDraftTested(first, revision);
     await approveConfiguration({ actor: approver, clientId: first, kind: "assistant", targetId: first,
       revision: String(revision), evidence: "Reviewed prompt and rules" });
     await publishAssistantDraft(first, operatorId);

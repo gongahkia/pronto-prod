@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
+import { useDraftEditor } from "@/components/use-draft-editor";
 import {
   TRIAGE_DECISIONS,
   TRIAGE_CHANNEL_COPY,
@@ -14,9 +16,11 @@ import type { ChannelKind } from "@/lib/types";
 
 const channels = Object.keys(TRIAGE_CHANNEL_COPY) as ChannelKind[];
 
-export function ClientRulesEditor({ initialFlow, embedded = false }: { initialFlow: TriageFlowDraft; embedded?: boolean }) {
+export function ClientRulesEditor({ initialFlow, initialVersion = 0, embedded = false }: { initialFlow: TriageFlowDraft; initialVersion?: number; embedded?: boolean }) {
   const router = useRouter();
-  const [flow, setFlow] = useState(initialFlow);
+  const editor = useDraftEditor(initialFlow, initialVersion);
+  const flow = editor.value;
+  const setFlow = editor.setValue;
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
 
@@ -50,11 +54,12 @@ export function ClientRulesEditor({ initialFlow, embedded = false }: { initialFl
       const response = await fetch("/api/client/assistant/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "flow", nodes: flow.nodes, edges: flow.edges }),
+        body: JSON.stringify({ action: "flow", nodes: flow.nodes, edges: flow.edges, expectedVersion: editor.version }),
       });
-      const body = await response.json() as { error?: string };
+      const body = await response.json() as { error?: string; version: number };
       if (!response.ok) throw new Error(body.error ?? "Could not save rules.");
-      setStatus("Rules saved as a draft. Preview an answer in Test & publish before publishing.");
+      editor.saved(body.version);
+      setStatus("Policy draft saved. Current replies keep using the existing policy until this draft is approved and published.");
       router.refresh();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not save rules.");
@@ -64,10 +69,8 @@ export function ClientRulesEditor({ initialFlow, embedded = false }: { initialFl
   }
 
   return (
-    <div className="space-y-4">
-      {!embedded && <p className="rounded-md border border-line bg-surface p-4 text-sm text-muted">
-        Pronto answers from approved knowledge when it can. These rules tell it when to hand a conversation to your team.
-      </p>}
+    <fieldset disabled={saving} className="min-w-0 space-y-4">
+      <p className="text-sm leading-6 text-muted">These policies guide when the model involves your team. A handoff pauses assistant replies until your team releases the conversation. Safety checks and restrictions on payments, refunds and booking changes always apply.</p>
       {TRIAGE_DECISIONS.map((decision) => {
         const node = flow.nodes.find((item) => item.data.decisionKey === decision.decisionKey);
         if (!node) return null;
@@ -83,10 +86,10 @@ export function ClientRulesEditor({ initialFlow, embedded = false }: { initialFl
               <label className="mt-4 flex items-center gap-2 text-sm font-medium">
                 <input type="checkbox" checked={node.data.enabled !== false}
                   onChange={(event) => updateDecision(decision.decisionKey, { enabled: event.target.checked })} />
-                Hand off
+                Prefer team review for this topic
               </label>
             <label className="mt-4 block text-sm font-medium">
-              Additional words or phrases
+              Example words or phrases for this topic
               <textarea rows={2} className="ui-input mt-1 w-full px-3 py-2 font-normal"
                 value={(node.data.triggerTerms ?? []).join(", ")}
                 onChange={(event) => updateDecision(decision.decisionKey, {
@@ -113,7 +116,7 @@ export function ClientRulesEditor({ initialFlow, embedded = false }: { initialFl
                           )}>
                           <option value="default">Use main rule</option>
                           <option value="handoff">Hand off</option>
-                          <option value="answer">Allow an answer</option>
+                          <option value="answer">Let the model assess</option>
                         </select>
                       </label>
                       <label className="mt-2 block text-xs text-muted">
@@ -133,12 +136,14 @@ export function ClientRulesEditor({ initialFlow, embedded = false }: { initialFl
         );
       })}
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" className="ui-primary-button px-4 py-2" disabled={saving} onClick={save}>
+        <button type="button" className="ui-primary-button px-4 py-2" disabled={saving || !editor.dirty} onClick={save}>
           {saving ? "Saving..." : "Save rules draft"}
         </button>
+        {editor.dirty && <><button type="button" className="ui-button px-3 py-2" onClick={editor.reset}>Discard edits</button><span className="text-xs text-warning">Unsaved changes</span></>}
+        <Link href="/client/approvals" className="text-sm text-accent">Review saved changes</Link>
         <span role="status" className="text-sm text-muted">{status}</span>
       </div>
-    </div>
+    </fieldset>
   );
 }
 
