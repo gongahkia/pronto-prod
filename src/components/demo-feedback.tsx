@@ -1,7 +1,7 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {usePathname} from 'next/navigation';
-import {Check,CornerDownRight,LocateFixed,MessageCircle,MousePointer2,Plus,X} from 'lucide-react';
+import {Check,CornerDownRight,Download,LocateFixed,MessageCircle,MousePointer2,Plus,X} from 'lucide-react';
 import {useDraftEditor} from '@/components/use-draft-editor';
 import type {FeedbackAnchor,FeedbackThread} from '@/lib/feedback/types';
 function selectorFor(element:Element){
@@ -53,7 +53,7 @@ function DemoFeedbackPanel({path}:{path:string}){
   if(payload.action!=='status')draft.reset();setAnchor(null);setSelected(body.id);await load();
  }catch(e){setError(e instanceof Error?e.message:'Could not save feedback.');}finally{setSaving(false);}}
  const current=threads.find(t=>t.id===selected);
- return <div data-feedback-ui>
+ return <div data-feedback-ui data-feedback-open={open||pinning?true:undefined}>
   {!open&&!pinning&&<button type="button" onClick={()=>setOpen(true)} aria-label="Open prototype feedback" className="ui-primary-button fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm shadow-lg"><MessageCircle size={17} aria-hidden="true"/>Feedback</button>}
   {pinning&&<><div className="pointer-events-none fixed inset-x-4 bottom-4 z-[80] mx-auto flex max-w-xl items-center justify-between gap-3 rounded-lg bg-accent px-4 py-3 text-sm text-white shadow-lg"><span className="inline-flex items-center gap-2"><MousePointer2 size={17} aria-hidden="true"/>Click a part of the page to comment. Esc to cancel.</span><button type="button" aria-label="Cancel pinning" className="pointer-events-auto" onClick={()=>{setPinning(false);setOpen(true);setHover(null);}}><X size={18}/></button></div>
    {hover&&<div className="pointer-events-none fixed z-[60] rounded-sm border-2 border-accent bg-accent/5" style={hover}/>}</>}
@@ -81,7 +81,7 @@ function DemoFeedbackPanel({path}:{path:string}){
        <button type="submit" disabled={saving||!draft.value.trim()} className="ui-primary-button inline-flex items-center gap-2 px-3 py-2 text-sm"><CornerDownRight size={15} aria-hidden="true"/>{saving?'Saving…':anchor?'Post comment':'Post reply'}</button>
       </form>
      </>}
-    </div><p className="border-t border-line p-4 text-xs leading-5 text-muted">Private prototype feedback, saved to this demo workspace. No message is sent to customers.</p>
+    </div><div className="space-y-3 border-t border-line p-4"><a href="/api/demo/feedback/export?status=all" download className="ui-button inline-flex items-center gap-2 px-3 py-2 text-xs"><Download size={14} aria-hidden="true"/>Export workspace feedback</a><p className="text-xs leading-5 text-muted">Private prototype feedback, saved to this demo workspace. No message is sent to customers.</p></div>
    </aside>
   </>}
  </div>;

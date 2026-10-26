@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, cleanup, within } from "@testing-library/react";
+import { render, screen, waitFor, cleanup, within,act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CustomerSimulator } from "@/components/customer-simulator";
 
@@ -12,6 +12,16 @@ const response = (value: unknown, status=200) => Promise.resolve(new Response(JS
 beforeEach(() => { cleanup(); HTMLElement.prototype.scrollIntoView=vi.fn(); });
 
 describe("customer simulator states", () => {
+  it('lets a slow poll finish instead of repeatedly superseding its response',async()=>{
+    vi.useFakeTimers();let finish!:(value:Response)=>void;
+    const fetcher=vi.fn().mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;})).mockImplementation(()=>response(state));vi.stubGlobal('fetch',fetcher);
+    try{
+      render(<CustomerSimulator/>);await act(async()=>{await vi.advanceTimersByTimeAsync(7500);});expect(fetcher).toHaveBeenCalledTimes(1);
+      await act(async()=>{finish(new Response(JSON.stringify(state)));await vi.advanceTimersByTimeAsync(0);});
+      expect(screen.getByRole('button',{name:'Conversation 1'})).toBeTruthy();
+      await act(async()=>{await vi.advanceTimersByTimeAsync(2500);});expect(fetcher).toHaveBeenCalledTimes(2);
+    }finally{cleanup();vi.useRealTimers();}
+  });
   it("disables unconfigured models and removes mock and configured-provider options", async () => {
     const fetcher=vi.fn((url: string, options?: RequestInit) => options?.method==="POST"
       ? response({error:"Configure GROQ_API_KEY securely on the server."},503) : response(state));

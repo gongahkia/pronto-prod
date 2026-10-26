@@ -36,6 +36,8 @@ Click the business name/logo to open **Workspace & usage**. It separates deliver
 
 In the enabled synthetic POC, **Feedback** on business pages and customer chat opens private page comments. Choose **Pin a comment**, click an interface element, and post a note; reviewers can reply, locate the element, resolve or reopen the thread. Comments, author and page anchors persist in PostgreSQL and are shared only within the authenticated demo workspace. This does not send a customer message. Pins use page/element anchors and can need relocation after a substantial layout change.
 
+**Export workspace feedback** downloads versioned JSON for Codex review, including page/element context, authors, replies and status. Codex can also query the structured tables directly with authorized database access. See [feedback serialization and ingestion](docs/ops/prototype-feedback.md) for authentication, pagination and the schema.
+
 See [verification evidence and UI checks](docs/poc/insights-feedback-verification.md) for the model, persistence, permission and responsive checks behind these changes.
 
 Restaurant booking enquiries in the real-model path can check Chope and return a booking link with the requested date, time and party size. PostgreSQL stores availability observations and a shared cache; the worker refreshes recently requested combinations hourly and enquiries require observations no older than five minutes before claiming availability. See [Chope setup, scheduling and storage](docs/integrations/chope-live-read.md) for the required flags, tenant mapping, Chromium and worker setup.
@@ -72,7 +74,9 @@ The example environment uses real inference with `PRONTO_USE_MOCK_AI=0`. Custome
 
 Live WhatsApp, Instagram, Messenger, Telegram, and Email testing requires real channel credentials plus a public HTTPS tunnel set as APP_BASE_URL. See docs/channels/webhook-setup.md and docs/setup/staging-env.md.
 
-The intended independent S$0 POC is Render Free + Neon Free + the existing Groq Free account. Read [the feasibility evidence, queue changes and deployment acceptance plan](docs/poc/render-neon-free-assessment.md) before deployment. The proposed web-only image and Free Blueprint are review artifacts; request-driven durable processing and cloud restart acceptance are still required. No cloud resource was created. The temporary [laptop tunnel](docs/demos/remote-poc.md) remains a separate running arrangement.
+The intended independent S$0 POC is Render Free + Neon Free + the existing Groq Free account. Read [the feasibility evidence, queue changes and deployment acceptance plan](docs/poc/render-neon-free-assessment.md) before deployment. The web-only image and Free Blueprint enable protected-demo request-driven durable processing. Cloud restart/sleep acceptance and explicit deployment approval are still required. No cloud resource was created. The temporary [laptop tunnel](docs/demos/remote-poc.md) remains a separate running arrangement.
+
+The [completed preparation checks](docs/poc/free-hosting-preparation.md) include patched dependencies, durable request processing, isolated PostgreSQL recovery tests and a real Groq workflow under 512 MiB / 0.1 CPU locally.
 
 Smart-triage JSON supports per-channel overrides under decision nodes, so clients can tune WhatsApp messages, Telegram bot messages, Instagram DMs, Messenger messages, and email differently.
 

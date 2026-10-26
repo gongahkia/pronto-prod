@@ -41,14 +41,19 @@ export function CustomerSimulator() {
   const retry = useRef<{ text: string; requestId: string; sessionId: string } | null>(null);
   const end = useRef<HTMLDivElement>(null);
   const requestVersion = useRef(0);
+  const polling = useRef(false);
   const load = useCallback(async () => {
+    // Slow cloud responses must finish before the next poll. Otherwise every
+    // response can be superseded before it is displayed on a small instance.
+    if(polling.current)return;
+    polling.current=true;
     const version = ++requestVersion.current;
     try {
       const value = await demoRequest(`/api/demo/customer${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ""}`);
       if (version === requestVersion.current) setState(value);
     } catch (failure) {
       if (version === requestVersion.current) setError(failure instanceof Error ? failure.message : "Could not load the conversation.");
-    }
+    }finally{polling.current=false;}
   }, [sessionId]);
   useEffect(() => {
     const initial = window.setTimeout(() => void load(), 0);

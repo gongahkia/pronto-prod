@@ -4,7 +4,7 @@ export const DEMO_MESSAGE_QUEUED='pronto:demo-message-queued';
 export function DemoQueuePump(){
  const [error,setError]=useState('');
  useEffect(()=>{
-  let active=true,pending=false;let timer:ReturnType<typeof setTimeout>;const abort=new AbortController();
+  let active=true,pending=false,wakeRequested=false;let timer:ReturnType<typeof setTimeout>;const abort=new AbortController();
   async function tick(){
    if(!active||pending)return;
    if(document.visibilityState!=='visible'){timer=setTimeout(()=>void tick(),15000);return;}
@@ -14,9 +14,9 @@ export function DemoQueuePump(){
     const result=await response.json();if(active)setError('');
     if(active)timer=setTimeout(()=>void tick(),result.processed||result.delivered||result.busy?2500:15000);
    }catch(failure){if(active){setError(failure instanceof Error?failure.message:'Processing is unavailable.');timer=setTimeout(()=>void tick(),15000);}}
-   finally{pending=false;}
+   finally{pending=false;if(active&&wakeRequested){wakeRequested=false;clearTimeout(timer);timer=setTimeout(()=>void tick(),0);}}
   }
-  const wake=()=>{if(active&&!pending){clearTimeout(timer);void tick();}};
+  const wake=()=>{if(!active)return;if(pending){wakeRequested=true;return;}clearTimeout(timer);void tick();};
   timer=setTimeout(()=>void tick(),0);window.addEventListener(DEMO_MESSAGE_QUEUED,wake);document.addEventListener('visibilitychange',wake);
   return()=>{active=false;clearTimeout(timer);abort.abort();window.removeEventListener(DEMO_MESSAGE_QUEUED,wake);document.removeEventListener('visibilitychange',wake);};
  },[]);

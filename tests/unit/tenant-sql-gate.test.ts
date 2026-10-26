@@ -8,6 +8,7 @@ vi.mock("pg", () => ({
   Pool: vi.fn(function Pool() {
     return {
       query: mocks.poolQuery,
+      on: vi.fn(),
     };
   }),
 }));
