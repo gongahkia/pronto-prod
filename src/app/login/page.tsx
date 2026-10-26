@@ -23,9 +23,6 @@ export default async function LoginPage({
             Pronto
           </div>
           <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">Customer service grounded in your business.</h1>
-          <p className="mt-4 max-w-lg text-base leading-7 text-muted">
-            Answer routine questions from your business knowledge, keep conversations together, and bring your team in when a person is needed.
-          </p>
           <ul className="mt-7 grid gap-3 text-sm sm:grid-cols-3 lg:grid-cols-1">
             <li className="rounded-lg border border-line bg-panel px-4 py-3">Answers from your business information</li>
             <li className="rounded-lg border border-line bg-panel px-4 py-3">Customer messages in one inbox</li>

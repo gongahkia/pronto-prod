@@ -235,7 +235,10 @@ export async function runAgentForMessage(input: {
 
   const precheck = evaluatePreGenerationGuardrails(
     input.customerMessage,
-    config.escalation_rules,
+    requireModelReply ? { ...config.escalation_rules, disabledReasonCodes: [
+      ...(Array.isArray(config.escalation_rules.disabledReasonCodes) ? config.escalation_rules.disabledReasonCodes : []),
+      "complaint_or_refund", "transactional_action", "private_lookup_unverified",
+    ] } : config.escalation_rules,
     input.channelKind,
   );
   if (precheck.shouldEscalate) {
@@ -266,6 +269,8 @@ export async function runAgentForMessage(input: {
     });
     return escalation;
   }
+
+  trace.addStep("pre_generation_passed", { businessTriage: requireModelReply ? "model" : "rules" });
 
   const localTextRetrieval = aiExecutionProfile()?.retrievalMode === "local_text";
   const responseProvider =
@@ -503,6 +508,8 @@ export async function runAgentForMessage(input: {
     timeoutMs: agentTimeoutMs(),
     maxPromptTokens: agentMaxPromptTokens(),
     conversationalTurn: requireModelReply && (smallTalkGreeting.shouldAnswer || aiDisclosure.shouldDisclose),
+    escalationRules: config.escalation_rules,
+    channelKind: input.channelKind,
   };
 
   let decision: GroundedAnswerDecision | undefined;
@@ -581,6 +588,8 @@ export async function runAgentForMessage(input: {
     },
   });
 
+  trace.addStep("model_decision", { action: decision.action, reasonCode: decision.reasonCode,
+    reasonDetail: decision.reasonDetail, confidence: decision.confidence, citedChunkCount: decision.citedChunkIds.length });
   const selfCheck = evaluatePostGenerationSelfCheck({
     decision,
     retrievedChunks: chunks,
@@ -624,6 +633,8 @@ export async function runAgentForMessage(input: {
     });
     return escalation;
   }
+
+  trace.addStep("self_check_passed", { reasonCode: selfCheck.reasonCode, reasonDetail: selfCheck.reasonDetail });
 
   if (decision.action === "escalate" || !decision.answer || (!citedChunks.length && !generationInput.conversationalTurn)) {
     logInfo("agent.model_decision_escalated", {

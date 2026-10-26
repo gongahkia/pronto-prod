@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle2, ChevronDown, Filter, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type {
@@ -49,8 +49,11 @@ export function ConversationFilterForm({
     <form action={action} className="space-y-3 border-b border-line p-4">
       {filters.sort && <input type="hidden" name="sort" value={filters.sort}/>}
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem_auto]">
-        <input name="q" type="search" aria-label="Search conversations" defaultValue={filters.query ?? ""}
-          className="ui-input min-w-0 px-3 py-2 text-sm" placeholder="Search customer or message"/>
+        <div className="relative min-w-0">
+          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"/>
+          <input name="q" type="search" aria-label="Search conversations" defaultValue={filters.query ?? ""}
+            className="ui-input w-full min-w-0 py-2 pl-9 pr-3 text-sm" placeholder="Search customer or message"/>
+        </div>
         <select name="channel" aria-label="Channel" defaultValue={filters.channelKind ?? ""} className="ui-input px-3 py-2 text-sm">
           <option value="">All channels</option>
           <option value="console">Customer chat</option>
@@ -59,16 +62,18 @@ export function ConversationFilterForm({
           </option>)}
         </select>
         <div className="flex gap-2">
-          <button className="ui-primary-button px-4 py-2 text-sm">Filter</button>
-          <Link href={action} className="ui-button px-3 py-2 text-sm">Reset</Link>
+          <button className="ui-primary-button px-3 py-2" aria-label="Apply filters" title="Apply filters"><Filter size={18} aria-hidden="true"/></button>
+          <Link href={action} className="ui-button px-3 py-2" aria-label="Reset filters" title="Reset filters"><RotateCcw size={18} aria-hidden="true"/></Link>
         </div>
       </div>
-      <details className="text-sm">
-        <summary className="w-fit cursor-pointer text-muted">More filters</summary>
+      <details className="group text-sm">
+        <summary className="flex w-fit cursor-pointer list-none items-center gap-2 text-muted [&::-webkit-details-marker]:hidden">
+          <SlidersHorizontal size={16} aria-hidden="true"/>More filters<ChevronDown size={14} aria-hidden="true" className="transition-transform group-open:rotate-180"/>
+        </summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <label className="text-xs text-muted">Status<select name="status" defaultValue={filters.status ?? ""} className="ui-input mt-1 block w-full px-3 py-2 text-sm">
             <option value="">All statuses</option><option value="needs_reply">Needs attention</option>
-            <option value="pending">Pending</option><option value="ai_handled">Handled by assistant</option>
+            <option value="pending">Pending</option>
             <option value="active">Open</option><option value="escalated">With your team</option><option value="closed">Resolved</option>
           </select></label>
           <label className="text-xs text-muted">Issue type<input name="reason" defaultValue={filters.reasonCode ?? ""}
@@ -101,13 +106,16 @@ export function ConversationList({
       {conversations.length === 0 ? (
         <p className="p-4 text-sm text-muted">{emptyText}</p>
       ) : (
-        conversations.map((conversation) => (
+        conversations.map((conversation) => {
+          const resolved = conversation.is_resolved === true;
+          return (
           <Link
             key={conversation.id}
             href={hrefForConversation(conversation)}
-            className="flex flex-col gap-4 p-4 hover:bg-surface-hover sm:flex-row sm:items-center sm:justify-between"
+            data-resolved={resolved}
+            className={`group flex flex-col gap-4 p-4 hover:bg-surface-hover sm:flex-row sm:items-center sm:justify-between ${resolved ? "bg-surface/40" : ""}`}
           >
-            <div className="min-w-0">
+            <div className={`min-w-0 ${resolved ? "opacity-60 group-hover:opacity-100 group-focus-visible:opacity-100" : ""}`}>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium">
                   {conversation.customer_name ?? conversation.customer_handle}
@@ -117,7 +125,7 @@ export function ConversationList({
                 {conversation.urgency === "short_term" && <Badge tone="amber">Priority</Badge>}
                 {conversation.active_escalation_id ? <Badge tone="amber">Needs reply</Badge>
                   : conversation.owner_action_required ? <Badge tone="amber">Review requested</Badge>
-                  : conversation.status === "closed" ? <Badge tone="green">Resolved</Badge> : null}
+                  : null}
                 {showClient && conversation.assigned_to_name ? <Badge>Assigned: {conversation.assigned_to_name}</Badge> : null}
                 {showClient && conversation.delivery_status && ["failed", "dead", "uncertain"].includes(conversation.delivery_status)
                   ? <Badge tone="red">Delivery {conversation.delivery_status}</Badge> : null}
@@ -128,7 +136,9 @@ export function ConversationList({
             </div>
             <span className="flex shrink-0 items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
             <time className="text-xs text-muted" dateTime={new Date(conversation.last_message_at).toISOString()}>{formatDateTime(conversation.last_message_at)}</time>
-            <span className="inline-flex items-center gap-2 text-sm font-medium text-accent">
+            {resolved ? <span className="inline-flex items-center gap-2 text-success" aria-label="Resolved">
+              <CheckCircle2 size={22} aria-hidden="true"/><span className="sr-only">Resolved</span>
+            </span> : <span className="inline-flex items-center gap-2 text-sm font-medium text-accent">
               <Image
                 src={channelDefinition(conversation.channel_kind).iconPath}
                 alt=""
@@ -138,10 +148,11 @@ export function ConversationList({
               />
               {conversation.active_escalation_id ? "Reply" : ctaLabel}
               <ArrowRight size={16} />
-            </span>
+            </span>}
             </span>
           </Link>
-        ))
+          );
+        })
       )}
     </div>
   );

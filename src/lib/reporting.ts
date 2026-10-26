@@ -45,6 +45,7 @@ export type FilteredConversation = {
   assigned_to_user_id: string | null;
   assigned_to_name: string | null;
   delivery_status: string | null;
+  is_resolved?: boolean;
 };
 
 export type ClientDashboardAnalytics = {
@@ -94,6 +95,15 @@ const actionableEscalationCondition = `
   )
 `;
 
+// A delivered assistant answer completes the current enquiry without closing
+// the chat to future messages. New/pending messages make it open again.
+const resolvedConversationCondition = `(ae.id is null and not c.owner_action_required and (
+  (c.status='closed' and (delivery.status is null or delivery.status='sent'))
+  or (c.status='active' and c.ai_should_respond=true and lm.sender_role='agent' and delivery.status='sent'
+    and not exists(select 1 from inbound_jobs pending_job where pending_job.client_id=c.client_id
+      and pending_job.conversation_id=c.id and pending_job.status in ('pending','processing','failed','dead')))
+))`;
+
 export async function getFilteredConversations(
   input: ConversationFilterInput = {},
 ): Promise<FilteredConversation[]> {
@@ -121,6 +131,7 @@ export async function getFilteredConversations(
         ,ae.assigned_to_user_id,
         assignee.name as assigned_to_name,
         delivery.status as delivery_status
+        ,${resolvedConversationCondition} as is_resolved
         ,model_message.provider as response_provider,model_message.model as response_model,
         model_message.mode as generation_mode
         ,ds.ai_configuration->>'provider' as selected_provider,ds.ai_configuration->>'model' as selected_model
@@ -385,6 +396,8 @@ function buildConversationFilters(input: ConversationFilterInput): SqlFilter {
     where.push("(c.owner_action_required or exists(select 1 from inbound_jobs j where j.client_id=c.client_id and j.conversation_id=c.id and j.status in ('pending','processing','failed','dead')))");
   } else if (input.status === "ai_handled") {
     where.push("(c.status='active' and c.ai_should_respond=true and not c.owner_action_required and ae.id is null)");
+  } else if (input.status === "closed") {
+    where.push(resolvedConversationCondition);
   } else if (input.status && conversationStatuses.has(input.status)) {
     where.push(`c.status = $${pushParam(values, input.status)}::conversation_status`);
   }

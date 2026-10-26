@@ -65,7 +65,7 @@ async function generate(input: Parameters<typeof generateHandoffIntake>[0]): Pro
   if (!client || !config || !customer) return null;
   const critical = evaluatePreGenerationGuardrails(customer.body, { ...config.escalation_rules,
     disabledReasonCodes: intakeReasons }, input.channel.kind);
-  const askForDetails = intakeReasons.includes(input.escalation.reason_code) && !critical.shouldEscalate;
+  const askForDetails = !critical.shouldEscalate;
 
   const profile = aiExecutionProfile();
   const provider = profile?.provider ?? process.env.PRONTO_LLM_PROVIDER ?? config.response_provider;
@@ -96,6 +96,7 @@ async function generate(input: Parameters<typeof generateHandoffIntake>[0]): Pro
     retrievedChunks: chunks, responseModel: selected.model, maxOutputTokens: agentMaxOutputTokens(),
     maxPromptTokens: agentMaxPromptTokens(), timeoutMs: agentTimeoutMs(), handoffReason: input.escalation.reason_code,
     handoffAskForDetails: askForDetails,
+    escalationRules: config.escalation_rules, channelKind: input.channel.kind,
   };
   const decision = await getGenerationProvider(selected.provider).generateGroundedAnswer(generationInput);
   const prompt = `${buildGroundedAnswerInstructions(generationInput)}\n${buildGroundedAnswerUserInput(generationInput)}`;
@@ -107,8 +108,8 @@ async function generate(input: Parameters<typeof generateHandoffIntake>[0]): Pro
   // Validate source citations and mutation claims before sending intake text.
   // Optional questions may also be grounded in the customer's own description.
   const check = evaluatePostGenerationSelfCheck({ decision: { ...decision, action: "answer" }, retrievedChunks: chunks,
-    clarificationContext: askForDetails ? customer.body : `${customer.body}\nOur team will review this enquiry. The assistant is paused.`,
-    requireQuestion: askForDetails });
+    clarificationContext: `${customer.body}\nOur team will review this enquiry. The assistant is paused.`,
+    requireQuestion: false });
   if (decision.action !== "escalate" || !decision.answer?.trim() || !check.passed || (!askForDetails && /[?？]/.test(decision.answer))) {
     logInfo("agent.handoff_intake_rejected", { clientId, conversationId, action: decision.action,
       hasAnswer: Boolean(decision.answer?.trim()), reasonCode: check.reasonCode });

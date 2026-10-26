@@ -40,6 +40,8 @@ export type GenerateAnswerInput = {
   handoffReason?: string;
   handoffAskForDetails?: boolean;
   conversationalTurn?: boolean;
+  escalationRules?: Record<string, unknown>;
+  channelKind?: string;
 };
 
 export type LlmCallContext = {

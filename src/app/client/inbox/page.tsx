@@ -78,7 +78,6 @@ export default async function ClientInboxPage({
           <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2" aria-label="Inbox views">
             <QuickFilter href={viewHref({ status: "" })} label="All" active={!filters.status} />
-            <QuickFilter href={viewHref({ status: "ai_handled" })} label="Handled by assistant" active={filters.status === "ai_handled"}/>
             <QuickFilter
               href={viewHref({ status: "needs_reply" })}
               label="Needs attention"

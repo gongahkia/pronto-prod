@@ -30,7 +30,14 @@ The business workspace has two destinations: Inbox and Business Knowledge. Inbox
 
 The old HQ operator frontend has been removed under PRON-87. Operator sign-in opens `/account`; administration uses the existing protected APIs through the [authenticated CLI](docs/ops/operator-cli.md). Business approvals, tested assistant drafts and channel activation gates remain independent. An operator login does not grant access to the business inbox.
 
-Seeded logins:
+PS.Cafe demo login, created by [the local demo setup](docs/demos/local-mvp.md):
+
+- Email / username: `responder@ps-cafe-demo.test`
+- Password: `pronto-ps-demo`
+
+Sign in at `/login`. This account can use both the customer chat at `/demo/customer` and the business inbox at `/client/inbox`.
+
+Other seeded logins:
 
 - Operator: `operator@pronto.sg` / `pronto-operator`
 - Client: `owner@northbridgenasi.sg` / `pronto-client`
