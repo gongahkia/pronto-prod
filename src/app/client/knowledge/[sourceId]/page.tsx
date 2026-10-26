@@ -8,7 +8,6 @@ import {
   getKnowledgeSourceVersionsForClient,
 } from "@/lib/knowledge/manage";
 import { AppShell } from "@/components/shell";
-import { ClientAssistantNav } from "@/components/client-assistant-nav";
 import {
   KnowledgeSourceDiagnostics,
   KnowledgeSourceVersionHistory,
@@ -47,7 +46,6 @@ export default async function ClientKnowledgeSourcePage({
         <h1 className="text-xl font-semibold">Knowledge source</h1>
         <p className="text-sm text-muted">Propose changes for review before Pronto uses them to answer customers.</p>
       </div>
-      <ClientAssistantNav active="knowledge" />
       <section className="ui-panel">
         <div className="ui-panel-header">
           <Link href="/client/knowledge" className="text-sm text-accent">

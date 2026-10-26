@@ -80,6 +80,10 @@ failure or a failed grounding check leaves the reply to staff without storing a 
 The workspace and customer chat use the logo from [PS.Cafe's official website](https://www.pscafe.com/),
 stored locally at `public/brands/ps-cafe-logo.webp`.
 
+The conversation's **Decision flow** tab shows the recorded path for each customer message. Routine business triage reaches the real model using approved knowledge and the business handoff configuration. Security, private-record access and critical-issue checks remain in place. Model explanations are recorded from the provider's structured decision; older traces without an explanation are marked accordingly. Follow-ups received during staff ownership show the paused path rather than an invented model decision.
+
+Retrieved documents appear as connected source cards with document names, excerpts, original links and a distinction between retrieved context and citations actually used. New traces retain source snapshots; older traces resolve their recorded chunk IDs against the remaining knowledge records. Model nodes show the recorded provider and model. In Inbox, delivered assistant answers and completed staff conversations are dimmed with a green tick. This completes the current enquiry without preventing future customer messages in an assistant-owned chat.
+
 ## Configure the current Groq-only POC securely
 
 Groq `openai/gpt-oss-20b` is the default for new real conversations. The only

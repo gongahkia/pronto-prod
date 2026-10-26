@@ -1,5 +1,11 @@
 # Chope demo availability reader
 
+## Current real-model customer prototype (26 October 2026)
+
+The current local PS.Cafe worker launches with `PRONTO_CHOPE_LIVE_READS=0` and `CHOPE_LIVE_READ_APPROVED=0`; the tenant's `business_profile.chopeAvailability.enabled` is also false. The real-model conversation path does not invoke the older deterministic booking branch, and Chope is not an integration tool in its model context. Starting the local frontend therefore does not start scraping.
+
+The reader below is on demand, with a 60-second minimum interval per process, rather than a recurring scraper. It returns a structured observation in memory. The standalone `pnpm chope:live-read` command prints JSON and does not write to the database. When the older booking branch is explicitly used, its observation provenance is retained in PostgreSQL `messages.metadata.reservation`, including observed time, scoped date/party size and observed/displayed slots. There is no dedicated scrape-results table, background refresh schedule or raw-HTML archive. Observations older than five minutes are rejected. The current local PS.Cafe history has no stored reservation observations.
+
 ## 25 October 2026 POC verification
 
 After the agreement owner reaffirmed the previously supplied demo authorization,

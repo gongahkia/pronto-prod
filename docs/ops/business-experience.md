@@ -7,9 +7,9 @@ Pronto's operator console remains the primary management workspace. The business
 | Destination | Route | Purpose |
 |---|---|---|
 | Inbox | `/client/inbox` | All conversations, needs-reply and resolved filters, attention-first or most-recent sorting. Claim, reply and release through the existing thread. |
-| Business Knowledge | `/client/knowledge` | Published facts and provenance, suggested corrections, review and revision. Full document submission remains available under Advanced. |
+| Business Knowledge | `/client/knowledge` | Five cards: knowledge sources and reviews, customer channels, brand voice, handoff rules, and testing and publication. Editors expand within their card. |
 
-`/client` opens Inbox for responders; `/client/activity` redirects to its most-recent view. The sidebar and mobile navigation contain only Inbox and Business Knowledge. Assistant preview, approvals and conversation deep links remain available within their workflows. Connected Channels, Contact Pronto and Settings pages have been removed. The workspace uses light mode. A notification link requires sign-in and tenant-scoped conversation access. The client portal does not show raw jobs, credentials or model/provider diagnostics.
+`/client` opens Inbox for responders; `/client/activity` redirects to its most-recent view. The sidebar and mobile navigation contain only Inbox and Business Knowledge. The former assistant setup tab row is removed. `/client/assistant`, `/client/assistant/voice`, `/client/assistant/rules` and `/client/assistant/channels` redirect to the matching card on Business Knowledge. Save and connection-check forms return to that card. Approval and conversation deep links remain available within their workflows. Connected Channels, Contact Pronto and Settings pages have been removed. The workspace uses light mode. A notification link requires sign-in and tenant-scoped conversation access. Channel secrets remain masked in the connection editor; raw jobs and provider diagnostics stay in the operator console.
 
 ## Capabilities
 

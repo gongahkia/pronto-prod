@@ -88,10 +88,12 @@ test("client account cannot inspect operator diagnostics and the retired UI is u
 test("client can follow setup to a response preview without sending a customer message", async ({ page }) => {
   await login(page, clientLogin.email, clientLogin.password);
   await page.goto("/client/assistant");
+  await expect(page).toHaveURL(/\/client\/knowledge\?section=testing#test-publish$/);
   await expect(page.getByRole("heading", { name: "Test & publish" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Before customers write in" })).toBeVisible();
   await expect(page.getByText("Nothing here is sent to a customer.")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Assistant setup" }).getByRole("link", { name: "Knowledge" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Assistant setup" })).toHaveCount(0);
+  for (const name of ["Knowledge", "Channels", "Brand voice", "Handoff rules"])
+    await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
 });
 
 test("login and dashboards avoid obvious mobile horizontal overflow", async ({ page }) => {

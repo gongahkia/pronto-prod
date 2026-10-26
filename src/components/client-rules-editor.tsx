@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import {
   TRIAGE_DECISIONS,
@@ -13,7 +14,7 @@ import type { ChannelKind } from "@/lib/types";
 
 const channels = Object.keys(TRIAGE_CHANNEL_COPY) as ChannelKind[];
 
-export function ClientRulesEditor({ initialFlow }: { initialFlow: TriageFlowDraft }) {
+export function ClientRulesEditor({ initialFlow, embedded = false }: { initialFlow: TriageFlowDraft; embedded?: boolean }) {
   const router = useRouter();
   const [flow, setFlow] = useState(initialFlow);
   const [saving, setSaving] = useState(false);
@@ -64,27 +65,28 @@ export function ClientRulesEditor({ initialFlow }: { initialFlow: TriageFlowDraf
 
   return (
     <div className="space-y-4">
-      <p className="rounded-md border border-line bg-surface p-4 text-sm text-muted">
+      {!embedded && <p className="rounded-md border border-line bg-surface p-4 text-sm text-muted">
         Pronto answers from approved knowledge when it can. These rules tell it when to hand a conversation to your team.
-      </p>
+      </p>}
       {TRIAGE_DECISIONS.map((decision) => {
         const node = flow.nodes.find((item) => item.data.decisionKey === decision.decisionKey);
         if (!node) return null;
         return (
-          <section key={decision.decisionKey} className="ui-panel p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+          <details key={decision.decisionKey} className={embedded ? "group border-b border-line pb-4" : "group ui-panel p-5"}>
+            <summary className="flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
               <div>
-                <h2 className="font-semibold">{decision.label}</h2>
+                <h3 className="font-semibold">{decision.label}</h3>
                 <p className="mt-1 text-sm text-muted">{decision.description}</p>
               </div>
-              <label className="flex items-center gap-2 text-sm font-medium">
+              <span className="flex shrink-0 items-center gap-2 text-xs text-muted">{node.data.enabled !== false ? "On" : "Off"}<ChevronDown size={16} className="transition-transform group-open:rotate-180" aria-hidden="true"/></span>
+            </summary>
+              <label className="mt-4 flex items-center gap-2 text-sm font-medium">
                 <input type="checkbox" checked={node.data.enabled !== false}
                   onChange={(event) => updateDecision(decision.decisionKey, { enabled: event.target.checked })} />
                 Hand off
               </label>
-            </div>
             <label className="mt-4 block text-sm font-medium">
-              Words or phrases that should trigger this rule
+              Additional words or phrases
               <textarea rows={2} className="ui-input mt-1 w-full px-3 py-2 font-normal"
                 value={(node.data.triggerTerms ?? []).join(", ")}
                 onChange={(event) => updateDecision(decision.decisionKey, {
@@ -127,7 +129,7 @@ export function ClientRulesEditor({ initialFlow }: { initialFlow: TriageFlowDraf
                 })}
               </div>
             </details>
-          </section>
+          </details>
         );
       })}
       <div className="flex flex-wrap items-center gap-3">

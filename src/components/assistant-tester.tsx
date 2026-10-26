@@ -91,11 +91,13 @@ export function AssistantTester({
   clientName,
   endpoint = "/api/client/assistant-test",
   clientId,
+  embedded = false,
 }: {
   channels: AssistantTesterChannel[];
   clientName: string;
   endpoint?: string;
   clientId?: string;
+  embedded?: boolean;
 }) {
   const router = useRouter();
   const [selectedChannelId, setSelectedChannelId] = useState(channels[0]?.id ?? "");
@@ -181,7 +183,7 @@ export function AssistantTester({
   }
 
   return (
-    <section className="ui-panel overflow-hidden">
+    <section className={embedded ? "overflow-hidden" : "ui-panel overflow-hidden"}>
       <div className="ui-panel-header">
         <div>
           <h2 className="text-base font-semibold">Preview a customer conversation</h2>
@@ -279,7 +281,7 @@ function MessagingPreview({
         <input
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
-          className="min-h-10 flex-1 rounded-full bg-white px-4 py-2 text-sm text-foreground shadow-sm outline-none"
+          className="min-h-10 min-w-0 flex-1 rounded-full bg-white px-4 py-2 text-sm text-foreground shadow-sm outline-none"
           placeholder="Message"
         />
         <button
@@ -392,7 +394,7 @@ function EmailPreview({
         <input
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
-          className="min-h-10 flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm outline-none"
+          className="min-h-10 min-w-0 flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm outline-none"
           placeholder="Write test email"
         />
         <button

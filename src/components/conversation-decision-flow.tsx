@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Background, Controls, Handle, MarkerType, Position, ReactFlow, type Node, type NodeProps } from "@xyflow/react";
+import { useEffect, useRef, useState } from "react";
+import { Background, Controls, Handle, MarkerType, Position, ReactFlow, type Edge, type Node, type NodeProps, type ReactFlowInstance } from "@xyflow/react";
 import { BookOpenText, CheckCheck, FileText, GitBranch, MessageCircle, Send, ShieldCheck, Sparkles } from "lucide-react";
 import type { ConversationDecision, DecisionStep, DecisionSource } from "@/lib/conversation-decision-flow";
 import { formatDateTime } from "@/lib/date-format";
@@ -44,12 +44,25 @@ const nodeTypes = { decision: DecisionFlowNode, source: SourceFlowNode };
 export default function ConversationDecisionFlow({ decisions }: { decisions: ConversationDecision[] }) {
   const [selectedId, setSelectedId] = useState(decisions.at(-1)?.id ?? "");
   const selected = decisions.find(decision => decision.id === selectedId) ?? decisions.at(-1);
+  const stepCount = selected?.steps.length ?? 0;
+  const sourceCount = selected?.steps.reduce((count, step) => count + (step.sources?.length ?? 0), 0) ?? 0;
+  const container = useRef<HTMLDivElement>(null);
+  const instance = useRef<ReactFlowInstance<DecisionNode | SourceNode> | null>(null);
+  useEffect(() => {
+    if (!container.current) return;
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => { void instance.current?.fitView({ padding: 0.15, maxZoom: 0.9 }); });
+    });
+    observer.observe(container.current);
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [selected?.id, stepCount, sourceCount]);
   if (!selected) return <div className="ui-panel p-6 text-sm text-muted">A decision flow will appear after the first customer message.</div>;
   const nodes: (DecisionNode | SourceNode)[] = selected.steps.map((step, index) => ({ id: step.id, type: "decision",
     position: { x: 0, y: index * 195 }, data: step }));
-  const edges = selected.steps.slice(1).map((step, index) => ({ id: `${selected.id}-edge-${index}`,
+  const edges: Edge[] = selected.steps.slice(1).map((step, index) => ({ id: `${selected.id}-edge-${index}`,
     source: selected.steps[index].id, target: step.id, type: "smoothstep",
-    targetHandle: undefined as string | undefined,
     markerEnd: { type: MarkerType.ArrowClosed, color: "#94a3b8" }, style: { stroke: "#94a3b8", strokeWidth: 1.5 } }));
   selected.steps.forEach((step, stepIndex) => step.sources?.forEach((source, sourceIndex, sources) => {
     const id = `${step.id}-source-${sourceIndex}`;
@@ -67,8 +80,9 @@ export default function ConversationDecisionFlow({ decisions }: { decisions: Con
       </label>
       <p className="text-xs text-muted">{formatDateTime(selected.createdAt)} · {selected.status}</p>
     </div>
-    <div className="h-[620px] w-full bg-surface/50" aria-label="Recorded decision diagram">
+    <div ref={container} className="h-[620px] w-full bg-surface/50" aria-label="Recorded decision diagram">
       <ReactFlow key={selected.id} nodes={nodes} edges={edges} nodeTypes={nodeTypes} nodesDraggable={false} nodesConnectable={false}
+        onInit={flow => { instance.current = flow; }}
         edgesFocusable={false} fitView fitViewOptions={{ padding: 0.15, maxZoom: 0.9 }} minZoom={0.25} maxZoom={1.5} colorMode="light">
         <Background color="#d8dee9" gap={20}/><Controls showInteractive={false}/>
       </ReactFlow>

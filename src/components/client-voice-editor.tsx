@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { VoiceDraft } from "@/lib/assistant-drafts";
 
-export function ClientVoiceEditor({ initialVoice }: { initialVoice: VoiceDraft }) {
+export function ClientVoiceEditor({ initialVoice, embedded = false }: { initialVoice: VoiceDraft; embedded?: boolean }) {
   const router = useRouter();
   const [voice, setVoice] = useState(initialVoice);
   const [status, setStatus] = useState("");
@@ -32,8 +32,8 @@ export function ClientVoiceEditor({ initialVoice }: { initialVoice: VoiceDraft }
 
   return (
     <div className="space-y-5">
-      <section className="ui-panel p-5">
-        <h2 className="text-base font-semibold">How Pronto should sound</h2>
+      <section className={embedded ? "" : "ui-panel p-5"}>
+        <h3 className="text-base font-semibold">How Pronto should sound</h3>
         <p className="mt-1 text-sm text-muted">Write the style guide in plain language. It stays in draft until you publish.</p>
         <div className="mt-4 space-y-3">
           <label className="block text-sm font-medium">
@@ -49,10 +49,10 @@ export function ClientVoiceEditor({ initialVoice }: { initialVoice: VoiceDraft }
           </label>
         </div>
       </section>
-      <section className="ui-panel p-5">
+      <section className={embedded ? "border-t border-line pt-5" : "ui-panel p-5"}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold">Example replies</h2>
+            <h3 className="text-base font-semibold">Example replies</h3>
             <p className="mt-1 text-sm text-muted">Show Pronto what a good reply looks like.</p>
           </div>
           <button type="button" className="ui-button px-3 py-2"

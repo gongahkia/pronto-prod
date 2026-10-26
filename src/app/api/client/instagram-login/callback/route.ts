@@ -31,7 +31,7 @@ export async function GET(request: Request) {
       actorUserId: user.userId, status: "draft", externalId: token.igUserId,
       values: { "settings.authMode": "instagram_login", "credentials.instagramAccessToken": token.accessToken,
         "credentials.igUserId": token.igUserId, "credentials.tokenExpiresAt": token.tokenExpiresAt } });
-    const result = NextResponse.redirect(publicAppUrl(`/client/assistant/channels?channel=${encodeURIComponent(state.channelId)}&saved=1`, request.url), 303);
+    const result = NextResponse.redirect(publicAppUrl(`/client/knowledge?channel=${encodeURIComponent(state.channelId)}&saved=1#channels`, request.url), 303);
     result.cookies.set("pronto_instagram_oauth_nonce", "", { maxAge: 0, path: "/api/client/instagram-login/callback" });
     return result;
   } catch {
