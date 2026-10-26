@@ -70,10 +70,10 @@ test("operator inspection exposes channel state without provider credentials", a
 test("seeded client can render the overview dashboard", async ({ page }) => {
   await login(page, clientLogin.email, clientLogin.password);
 
-  await expect(page).toHaveURL(/\/client$/);
-  await expect(page.getByRole("heading", { name: "Needs Attention" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Conversations needing a person" })).toBeVisible();
-  for (const label of ["Needs Attention", "Recent Activity", "Business Knowledge", "Connected Channels"])
+  await expect(page).toHaveURL(/\/client\/inbox$/);
+  await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Needs attention",exact:true })).toBeVisible();
+  for (const label of ["Inbox", "Business Knowledge"])
     await expect(page.getByRole("navigation").getByRole("link", { name: label }).first()).toBeVisible();
 });
 
@@ -108,7 +108,7 @@ test("login and dashboards avoid obvious mobile horizontal overflow", async ({ p
   await expect(page).toHaveURL(/\/login$/);
 
   await login(page, clientLogin.email, clientLogin.password);
-  await expect(page.getByRole("heading", { name: "Needs Attention" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 
@@ -136,8 +136,8 @@ test("business destinations remain usable by keyboard on mobile", async ({ page 
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page, clientLogin.email, clientLogin.password);
   for (const [route, heading] of [
-    ["/client", "Needs Attention"], ["/client/activity", "Recent Activity"],
-    ["/client/knowledge", "Business Knowledge"], ["/client/channels", "Connected Channels"],
+    ["/client/inbox", "Inbox"], ["/client/activity", "Inbox"],
+    ["/client/knowledge", "Business Knowledge"],
   ]) {
     await page.goto(route);
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
@@ -150,12 +150,21 @@ test("business destinations remain usable by keyboard on mobile", async ({ page 
   }
 });
 
-test("PS.Cafe synthetic staff proposes knowledge and confirms a local policy command", async ({ page }) => {
+test("removed business pages and their navigation links are unavailable", async ({ page }) => {
+  await login(page, clientLogin.email, clientLogin.password);
+  await expect(page.locator('a[href="/client/channels"],a[href="/client/contact-pronto"],a[href="/client/settings"]')).toHaveCount(0);
+  for (const path of ["/client/channels", "/client/contact-pronto", "/client/settings"]) {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(404);
+  }
+});
+
+test("PS.Cafe synthetic staff proposes and reviews knowledge", async ({ page }) => {
   await setupPsCafeDemo();
   const suggestionTitle = `Dietary caveat demo ${Date.now()}`;
   await login(page, "responder@ps-cafe-demo.test", "pronto-ps-demo");
-  await expect(page).toHaveURL(/\/client$/);
-  await expect(page.getByRole("heading", { name: "Needs Attention" })).toBeVisible();
+  await expect(page).toHaveURL(/\/client\/inbox$/);
+  await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
   await page.goto("/client/knowledge");
   await expect(page.getByRole("heading", { name: "Business Knowledge" })).toBeVisible();
   await page.getByRole("textbox", { name: "Title", exact: true }).fill(suggestionTitle);
@@ -173,15 +182,7 @@ test("PS.Cafe synthetic staff proposes knowledge and confirms a local policy com
   await expect(page.getByText(suggestionTitle)).toBeVisible();
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(page).toHaveURL(/\/login$/);
-  await login(page, "policy@ps-cafe-demo.test", "pronto-ps-demo");
-  await page.goto("/client/contact-pronto");
-  await page.getByRole("textbox", { name: "Your request" }).fill("Change our escalation response target to 30 minutes");
-  await page.getByRole("button", { name: "Send request" }).click();
-  await expect(page.getByText(/Change response target from (?:unset|\d+) to 30 minutes/)).toBeVisible();
-  await page.getByRole("button", { name: "Confirm change" }).click();
-  await expect(page.getByText(/Response target saved/)).toBeVisible();
-  await page.goto("/client/settings");
-  await expect(page.getByText("Current: 30 minutes")).toBeVisible();
+
 });
 
 test("PS.Cafe staff submits a text source; only a delegated reviewer can approve its exact revision", async ({ page }) => {
@@ -242,7 +243,7 @@ test("PS.Cafe responder claims, replies and explicitly releases a local email ha
     await page.goto("/client");
     await page.getByRole("button", { name: "Log out" }).click();
     await login(page, "responder@ps-cafe-demo.test", "pronto-ps-demo");
-    await expect(page.getByRole("heading", { name: "Needs Attention" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
     await page.locator(`a[href="/client/conversations/${conversationId}"]`).click();
     await expect(page).toHaveURL(new RegExp(`/client/conversations/${conversationId}`));
     await page.getByRole("button", { name: "Claim", exact: true }).click();

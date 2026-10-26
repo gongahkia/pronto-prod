@@ -198,7 +198,7 @@ export class OpenAiProvider implements LlmProvider {
     const parsedJson = parseJsonObject(responseOutputText(response));
     const parsed = answerDecisionSchema.parse(parsedJson);
 
-    if (parsed.action === "answer" && (!parsed.answer || !parsed.citedChunkIds.length)) {
+    if (parsed.action === "answer" && (!parsed.answer || (!parsed.citedChunkIds.length && !input.conversationalTurn))) {
       return {
         action: "escalate",
         answer: null,

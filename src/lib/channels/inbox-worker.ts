@@ -15,6 +15,8 @@ import { withAiExecutionProfile, type AiExecutionMode, type AiExecutionProfile }
 import type { DemoAiProfile } from "@/lib/llm/demo-models";
 import { protectedDemoDeployment } from "@/lib/deployment-profile";
 import { recordConversationOutcome } from "@/lib/conversation-actions";
+import { generateHandoffIntake } from "@/lib/agent/handoff-intake";
+import { shouldUseMockAi } from "@/lib/env";
 
 export async function processInboundJob(input: { jobId?: string; requestId?: string;
   reservationConnector?: ReservationConnector } = {}): Promise<
@@ -101,6 +103,8 @@ async function execute(job: InboundJob, requestId?: string,
     const session = await query<{ ai_mode: AiExecutionMode; ai_selection: string; ai_configuration: DemoAiProfile | null }>(`select ai_mode,ai_selection,ai_configuration from customer_demo_sessions
       where conversation_id=$1 and client_id=$2`, [conversation.id, job.client_id]);
     if (!session.rows[0]) throw new Error("Customer simulator session is missing.");
+    if (process.env.NODE_ENV !== "test" && session.rows[0].ai_mode !== "real")
+      throw new Error("Simulated customer replies are disabled. Start a conversation with a real model.");
     demoMode = session.rows[0].ai_mode;
     const configuration = demoMode === "real" ? await requireRealDemoConfiguration(true, storedDemoProfile(session.rows[0])) : undefined;
     demoProfile = { mode: demoMode, syntheticDemo: true, ...(configuration ? { provider: configuration.provider,
@@ -141,6 +145,9 @@ async function execute(job: InboundJob, requestId?: string,
 }
 
 async function queueAnswer(job: InboundJob, conversation: Conversation, answer: Message): Promise<void> {
+  if (process.env.NODE_ENV !== "test" && !shouldUseMockAi() &&
+      (answer.metadata.generationMode !== "real" || answer.metadata.responseProvider === "mock"))
+    throw new Error("Only genuine model responses can be delivered.");
   await transaction(async (db) => {
     const owner = await db.query<Conversation>(
       "select * from conversations where id = $1 and client_id = $2 for update",
@@ -173,23 +180,35 @@ async function queueHandoff(
     outOfHoursAcknowledgement: string | null } }>(
     "select policy from escalation_policy_versions where client_id = $1 order by version desc limit 1", [job.client_id]);
   const configured = policy.rows[0]?.policy;
-  const body = configured?.outOfHoursAcknowledgement &&
+  const requireRealReply = !shouldUseMockAi() || (isCustomerDemoChannel(channel) && process.env.NODE_ENV !== "test");
+  const outOfHours = configured?.outOfHoursAcknowledgement &&
     !isWithinStaffedHours(new Date(), configured.timezone, configured.staffedHours)
-    ? configured.outOfHoursAcknowledgement : getEscalationHoldingReply(channel.settings);
+    ? configured.outOfHoursAcknowledgement : null;
+  const existing = await query<Message>(`select * from messages where client_id=$1 and conversation_id=$2
+    and channel_id=$3 and external_message_id=$4 limit 1`,
+    [job.client_id, conversation.id, channel.id, `agent-handoff-${escalation.id}`]);
+  if (requireRealReply && existing.rows[0] && (existing.rows[0].metadata.generationMode !== "real" ||
+      existing.rows[0].metadata.responseProvider === "mock")) throw new Error("A legacy simulated response cannot be delivered.");
+  const intake = existing.rows[0] || (!requireRealReply && outOfHours) ? null
+    : await generateHandoffIntake({ channel, conversation, escalation, customerMessageId: job.message_id });
+  const body = existing.rows[0]?.body ?? intake?.body ?? (requireRealReply ? null : outOfHours ?? getEscalationHoldingReply(channel.settings));
   await transaction(async (db) => {
-    await db.query(
-      `insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
-       values ($1, $2, $3, $4, 'agent', $5, $6)
-       on conflict (channel_id, external_message_id) do nothing`,
-      [conversation.id, job.client_id, channel.id, `agent-handoff-${escalation.id}`, body,
-        { escalationId: escalation.id, customerMessageId: job.message_id, policy: "escalation_holding_reply" }],
-    );
-    await enqueueOutboundMessage(db, {
-      clientId: job.client_id, channelId: channel.id, conversationId: conversation.id,
-      escalationId: escalation.id, externalThreadId: conversation.external_thread_id, body,
-      idempotencyKey: `escalation-holding:${escalation.id}`,
-      metadata: { purpose: "escalation_holding_reply", customerMessageId: job.message_id },
-    });
+    if (body) {
+      const recorded = await db.query<Message>(
+        `insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
+         values ($1, $2, $3, $4, 'agent', $5, $6)
+         on conflict (channel_id, external_message_id) do update set external_message_id=excluded.external_message_id
+         returning *`,
+        [conversation.id, job.client_id, channel.id, `agent-handoff-${escalation.id}`, body,
+          { ...intake?.metadata, escalationId: escalation.id, customerMessageId: job.message_id, policy: "escalation_holding_reply" }],
+      );
+      await enqueueOutboundMessage(db, {
+        clientId: job.client_id, channelId: channel.id, conversationId: conversation.id,
+        escalationId: escalation.id, externalThreadId: conversation.external_thread_id, body: recorded.rows[0].body,
+        idempotencyKey: `escalation-holding:${escalation.id}`,
+        metadata: { purpose: "escalation_holding_reply", customerMessageId: job.message_id, agentMessageId: recorded.rows[0].id },
+      });
+    }
     await enqueueStaffNotification(db, job.client_id, escalation.id);
     await enqueueKnowledgeReviewItem(db, { clientId: job.client_id, conversationId: conversation.id,
       messageId: job.message_id, escalationId: escalation.id, reasonCode: escalation.reason_code });

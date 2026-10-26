@@ -86,8 +86,8 @@ export async function setupPsCafeDemo(): Promise<void> {
         directBooking: false, liveAvailability: false },
     };
     await db.query(`insert into clients (id, name, slug, vertical, plan_tier, status, business_profile, brand_voice)
-      values ($1, 'PS.Cafe Raffles City (demo)', $2, 'fnb', 'trial', 'pilot', $3::jsonb, $4)
-      on conflict (id) do update set business_profile = excluded.business_profile,
+      values ($1, 'PS.Cafe Raffles City', $2, 'fnb', 'trial', 'pilot', $3::jsonb, $4)
+      on conflict (id) do update set name = excluded.name, business_profile = excluded.business_profile,
         brand_voice = excluded.brand_voice, updated_at = now()`,
       [PS_CAFE_DEMO_CLIENT_ID, PS_CAFE_DEMO_SLUG, JSON.stringify(profile),
         "Demonstration default, pending restaurant approval: concise, courteous and clear. State uncertainty and refer booking or allergy questions to staff."],

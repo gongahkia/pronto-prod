@@ -63,6 +63,8 @@ export function getGenerationProvider(provider: string | null | undefined): LlmP
   const normalized = normalizeProviderName(provider);
   if (aiExecutionMode() === "real" && normalized === "mock")
     throw new LlmConfigurationError("mock", "Real demo mode requires a real generation provider.");
+  if (normalized === "mock" && !shouldUseMockAi())
+    throw new LlmConfigurationError("mock", "Simulated generation is disabled. Configure a real provider.");
   if (shouldUseMockAi() || normalized === "mock") {
     return mockProvider;
   }

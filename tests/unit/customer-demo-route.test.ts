@@ -27,6 +27,12 @@ describe("authenticated customer demo API", () => {
     expect(response.status).toBe(503); expect(await response.json()).toEqual({ error: "Configure GROQ_API_KEY securely on the server." });
     expect(mocks.createDemoSession).toHaveBeenCalledWith(expect.anything(), "real");
   });
+  it.each([{ mode: "mock", choice: "mock" }, { mode: "real", choice: "mock" }, { mode: "real", choice: "configured" }])(
+    "rejects simulated and generic configured conversations: %o", async selection => {
+      expect((await POST(request({ action: "create", ...selection }))).status).toBe(400);
+      expect(mocks.createDemoSession).not.toHaveBeenCalled();
+    },
+  );
   it("passes only bounded synthetic send fields and reports malformed requests", async () => {
     expect((await POST(request({ action: "send", sessionId: "a", requestId: "b", text: "Hello" }))).status).toBe(202);
     expect(mocks.sendDemoMessage).toHaveBeenCalledWith(expect.anything(), { sessionId: "a", requestId: "b", text: "Hello" });

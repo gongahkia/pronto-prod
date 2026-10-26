@@ -1,16 +1,20 @@
 import Image from "next/image";
+import type { ReactNode } from "react";
 import { channelDefinition } from "@/lib/channels/catalog";
-import { formatDate } from "@/lib/date-format";
+import { formatDateTime } from "@/lib/date-format";
 import type { ClientConversationTriage } from "@/lib/dashboard";
 import type { Message } from "@/lib/types";
 import { Badge } from "@/components/badge";
+import { ChatHistory } from "@/components/chat-history";
 
 export function ChannelConversationThread({
   conversation,
   messages,
+  footer,
 }: {
   conversation: ClientConversationTriage;
   messages: Message[];
+  footer?: ReactNode;
 }) {
   const contact = conversation.customer_name ?? conversation.customer_handle ?? "Customer";
   const channel = channelDefinition(conversation.channel_kind);
@@ -21,14 +25,15 @@ export function ChannelConversationThread({
         <Image src={channel.iconPath} alt="" width={22} height={22} />
         <div className="min-w-0 flex-1">
           <p className="font-semibold">{contact}</p>
-          <p className="text-xs text-muted">{channel.label} conversation</p>
+          <p className="text-xs text-muted">{conversation.channel_kind === "console" ? "Instagram" : channel.label} conversation</p>
         </div>
         <Badge tone={conversation.active_escalation_id ? "amber" : "neutral"}>
           {conversation.active_escalation_id ? "Needs attention" : conversation.status}
         </Badge>
       </div>
+      <ChatHistory lastMessageId={messages.at(-1)?.id}>
       {messages.length ? (
-        <ol className="divide-y divide-line">
+        <ol className="space-y-4" aria-label="Message history">
           {messages.map((message) => {
             const fromCustomer = message.sender_role === "customer";
             const sender = fromCustomer
@@ -39,19 +44,16 @@ export function ChannelConversationThread({
                   ? "Your team"
                   : "System";
             return (
-              <li key={message.id} className="px-4 py-4 sm:px-5">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="text-sm font-semibold">{sender}</span>
-                  <time dateTime={new Date(message.created_at).toISOString()} className="text-xs text-muted">
-                    {formatDate(message.created_at)}
+              <li key={message.id} className={`flex ${fromCustomer ? "justify-start" : "justify-end"}`}>
+                <div className={`min-w-0 max-w-[86%] rounded-2xl px-4 py-3 ${fromCustomer
+                  ? "rounded-tl-md border border-line bg-surface"
+                  : "rounded-tr-md bg-accent text-white"}`}>
+                  <p className="mb-1 text-xs font-semibold opacity-75">{sender}</p>
+                  <p className="whitespace-pre-wrap break-words text-sm leading-6">{message.body}</p>
+                  <time dateTime={new Date(message.created_at).toISOString()} className="mt-2 block text-right text-[11px] opacity-70">
+                    {formatDateTime(message.created_at)}
                   </time>
                 </div>
-                {message.sender_role === "agent" && ["real", "mock"].includes(String(message.metadata.generationMode)) &&
-                  <p className="mt-1 text-xs text-muted">{message.metadata.generationMode === "real" ? "Real model response" : "Mock response"}
-                    {typeof message.metadata.responseProvider === "string" && typeof message.metadata.responseModel === "string"
-                      ? ` · ${message.metadata.responseProvider} / ${message.metadata.responseModel}` : ""}
-                    {message.metadata.retrievalMode === "local_text" ? " · local PostgreSQL text retrieval" : ""}</p>}
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.body}</p>
               </li>
             );
           })}
@@ -59,6 +61,8 @@ export function ChannelConversationThread({
       ) : (
         <p className="p-5 text-sm text-muted">No messages in this conversation yet.</p>
       )}
+      </ChatHistory>
+      {footer}
     </section>
   );
 }

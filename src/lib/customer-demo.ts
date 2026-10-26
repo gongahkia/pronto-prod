@@ -24,6 +24,8 @@ export async function assertDemoActor(actor: SessionUser, db: Queryable = { quer
 
 export async function createDemoSession(actor: SessionUser, mode: AiExecutionMode, selection?: unknown) {
   await assertDemoActor(actor);
+  if (process.env.NODE_ENV !== "test" && (mode !== "real" || selection === "mock" || selection === "configured"))
+    throw new DemoError("Choose an available real AI model. Simulated replies are disabled.");
   const choice = selection ?? (mode === "mock" ? "mock" : DEFAULT_DEMO_MODEL);
   if (!demoModelChoice(choice) || (mode === "mock") !== (choice === "mock")) throw new DemoError("Choose a supported demo model and matching mode.");
   const configuration = mode === "real" ? await requireRealDemoConfiguration(true, profileForDemoChoice(choice)) : undefined;
@@ -42,7 +44,7 @@ export async function createDemoSession(actor: SessionUser, mode: AiExecutionMod
     const id = randomUUID();
     const conversation = await db.query<{ id: string }>(`insert into conversations
       (client_id,channel_id,external_thread_id,customer_name,customer_handle)
-      values ($1,$2,$3,'Simulated customer',$4) returning id`, [DEMO_CLIENT_ID, DEMO_CHANNEL_ID, id, `demo:${actor.userId}`]);
+      values ($1,$2,$3,'Customer',$4) returning id`, [DEMO_CLIENT_ID, DEMO_CHANNEL_ID, id, `demo:${actor.userId}`]);
     await db.query(`insert into customer_demo_sessions (id,client_id,user_id,conversation_id,ai_mode,ai_selection,ai_configuration)
       values ($1,$2,$3,$4,$5,$6,$7::jsonb)`, [id, DEMO_CLIENT_ID, actor.userId, conversation.rows[0].id, mode, choice, snapshot ? JSON.stringify(snapshot) : null]);
     await recordAuditLog({ clientId: DEMO_CLIENT_ID, actorUserId: actor.userId,
@@ -61,6 +63,8 @@ async function ownedSession(actor: SessionUser, id: string, db: Queryable = { qu
      where s.id=$1 and s.client_id=$2 and s.user_id=$3 and c.channel_id=$4 and c.deleted_at is null`,
     [id, DEMO_CLIENT_ID, actor.userId, DEMO_CHANNEL_ID]);
   if (!result.rows[0]) throw new DemoError("Conversation not found.", 404);
+  if (process.env.NODE_ENV !== "test" && result.rows[0].ai_mode !== "real")
+    throw new DemoError("This older test conversation is unavailable. Start a new conversation with a real model.", 409);
   return result.rows[0];
 }
 
@@ -91,7 +95,7 @@ export async function sendDemoMessage(actor: SessionUser, input: { sessionId: st
     }
     return ingestInboundMessage({ channelId: DEMO_CHANNEL_ID, channelKind: "console",
       externalMessageId: externalId, externalThreadId: session.id, customerHandle: `demo:${actor.userId}`,
-      customerName: "Simulated customer", occurredAt: new Date().toISOString(), text: input.text.trim(),
+      customerName: "Customer", occurredAt: new Date().toISOString(), text: input.text.trim(),
       raw: { synthetic: true } }, db);
   }, { isolationLevel: "serializable", retries: 2 });
 }
@@ -122,7 +126,7 @@ export async function getDemoState(actor: SessionUser, sessionId?: string) {
   let realAi: { available: boolean; detail: string; provider?: string; model?: string };
   try {
     const config = await requireRealDemoConfiguration(true, profileForDemoChoice(DEFAULT_DEMO_MODEL));
-    realAi = { available: true, detail: "Configured. Actual inference is labelled on each delivered reply.", provider: config.provider, model: config.model };
+    realAi = { available: true, detail: "Configured on the server.", provider: config.provider, model: config.model };
   } catch (error) { realAi = { available: false, detail: error instanceof DemoError ? error.message : "Real AI configuration could not be checked." }; }
   const modelChoices = await demoModelAvailability();
   if (!sessionId) return { now: new Date().toISOString(), sessions: sessions.rows, realAi, modelChoices, session: null, messages: [], job: null, providerError: false, providerFailureCode: null };

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deterministicEmbedding, mockGroundedAnswer } from "@/lib/llm/mock";
 import { getMockAiStatus } from "@/lib/llm/mock-status";
+import { getGenerationProvider } from "@/lib/llm";
 
 describe("mock provider", () => {
   afterEach(() => {
@@ -13,6 +14,11 @@ describe("mock provider", () => {
 
     expect(first).toEqual(second);
     expect(first).toHaveLength(1536);
+  });
+
+  it("rejects a mock provider when real inference is enabled", () => {
+    vi.stubEnv("PRONTO_USE_MOCK_AI", "0");
+    expect(() => getGenerationProvider("mock")).toThrow();
   });
 
   it("answers only when a source is available", () => {

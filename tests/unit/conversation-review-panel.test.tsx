@@ -57,4 +57,16 @@ describe("ConversationReviewPanel", () => {
 
     expect(screen.getByText("No conversations yet.")).toBeTruthy();
   });
+
+  it("places replies in chat bubbles without technical generation labels", () => {
+    const reply: Message = { ...messages[0], id: "reply_1", sender_role: "agent", body: "Our team is here to help.",
+      metadata: { generationMode: "real", responseProvider: "groq", responseModel: "openai/gpt-oss-20b" } };
+    render(<ConversationReviewPanel conversation={conversation} messages={[...messages, reply]} />);
+
+    const incoming = screen.getByText(messages[0].body).closest("li")!;
+    const outgoing = screen.getByText(reply.body).closest("li")!;
+    expect(incoming.className).toContain("justify-start");
+    expect(outgoing.className).toContain("justify-end");
+    expect(screen.queryByText(/Real model response|groq|Response details/)).toBeNull();
+  });
 });

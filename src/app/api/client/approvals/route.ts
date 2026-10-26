@@ -20,5 +20,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Approval failed." }, { status: 403 });
   }
-  return NextResponse.redirect(publicAppUrl(kind === "assistant" ? "/client/knowledge" : "/client/channels", request.url), 303);
+  return NextResponse.redirect(publicAppUrl(kind === "assistant" ? "/client/knowledge" : "/client/approvals", request.url), 303);
 }

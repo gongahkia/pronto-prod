@@ -6,12 +6,10 @@ Pronto's operator console remains the primary management workspace. The business
 
 | Destination | Route | Purpose |
 |---|---|---|
-| Needs Attention | `/client` | Human-owned conversations, age, assigned staff, AI pause and the configured response target. Claim, reply and release through the existing thread. |
-| Recent Activity | `/client/activity` | Tenant conversations, observed delivery state, published knowledge changes and channel interruptions. A queued or provider-accepted message is never labelled delivered. |
+| Inbox | `/client/inbox` | All conversations, needs-reply and resolved filters, attention-first or most-recent sorting. Claim, reply and release through the existing thread. |
 | Business Knowledge | `/client/knowledge` | Published facts and provenance, suggested corrections, review and revision. Full document submission remains available under Advanced. |
-| Connected Channels | `/client/channels` | Customer channel state and separate verified staff contact preferences. Technical credentials remain operator-only. |
 
-Legacy `/client/inbox`, `/client/assistant`, `/client/approvals`, `/client/settings` and conversation deep links remain available. A notification link requires sign-in and tenant-scoped conversation access. The client portal does not show raw jobs, credentials or operator diagnostics.
+`/client` opens Inbox for responders; `/client/activity` redirects to its most-recent view. The sidebar and mobile navigation contain only Inbox and Business Knowledge. Assistant preview, approvals and conversation deep links remain available within their workflows. Connected Channels, Contact Pronto and Settings pages have been removed. The workspace uses light mode. A notification link requires sign-in and tenant-scoped conversation access. The client portal does not show raw jobs, credentials or model/provider diagnostics.
 
 ## Capabilities
 
@@ -44,7 +42,7 @@ The PS.Cafe 5:30pm versus 6:00pm weekend reservation cutoff conflict remains unr
 
 ## Local staff interaction
 
-`/client/contact-pronto` and `/api/client/staff-interaction` are **local-only**. Set `PRONTO_LOCAL_STAFF_COMMANDS=1` in a nonproduction app connected to the marked disposable test database. The production-mode Playwright harness additionally requires `PRONTO_LOCAL_STAFF_E2E=1` and identical loopback `DATABASE_URL`/`PRONTO_TEST_DATABASE_URL` pointing to `/pronto_test`. No live channel adapter calls this service. Avoid enabling the local flag on a shared development database.
+The Contact Pronto page has been removed. `/api/client/staff-interaction` remains a **local-only** backend test endpoint. Set `PRONTO_LOCAL_STAFF_COMMANDS=1` in a nonproduction app connected to the marked disposable test database. The production-mode Playwright harness additionally requires `PRONTO_LOCAL_STAFF_E2E=1` and identical loopback `DATABASE_URL`/`PRONTO_TEST_DATABASE_URL` pointing to `/pronto_test`. No live channel adapter calls this service. Avoid enabling the local flag on a shared development database.
 
 Supported deterministic requests:
 
@@ -56,7 +54,7 @@ The server derives actor and tenant from the authenticated session and rechecks 
 
 ## Escalation policy and operational limits
 
-Authorized policy managers can edit response target, staffed hours, timezone, verified destination references, reminder preference, backup destination and out-of-hours acknowledgement through the existing versioned Settings form. The target is optional and is not a guaranteed SLA. Tranche C now schedules verified staff reminders and backup notifications through the existing worker; see [source review and timed notifications](knowledge-and-reminders.md). The existing durable initial notification and secure handoff link remain active.
+The existing versioned policy API and authorized operator workflow retain response target, staffed hours, timezone, verified destination references, reminder preference, backup destination and out-of-hours acknowledgement settings. The business Settings page has been removed. The target is optional and is not a guaranteed SLA. Tranche C schedules verified staff reminders and backup notifications through the existing worker; see [source review and timed notifications](knowledge-and-reminders.md). The existing durable initial notification and secure handoff link remain active. Real inference mode does not send a configured canned acknowledgement to the customer.
 
 `036_business_interaction.sql` adds the narrow permission, suggestion/revision tables and local command table. `037_business_interaction_user_deletion.sql` keeps history when a synthetic author/reviewer is removed. Neither migration grants existing users new authority or activates channels. Apply only with `pnpm migrate:test` after `pnpm test:db:verify` against the marked disposable database; production migration requires a separate review. The audit trail and source versions should be retained according to the deployment's data-retention policy.
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, waitFor, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CustomerSimulator } from "@/components/customer-simulator";
 
@@ -12,15 +12,39 @@ const response = (value: unknown, status=200) => Promise.resolve(new Response(JS
 beforeEach(() => { cleanup(); HTMLElement.prototype.scrollIntoView=vi.fn(); });
 
 describe("customer simulator states", () => {
-  it("shows missing real configuration and never selects mock implicitly", async () => {
+  it("disables unconfigured models and removes mock and configured-provider options", async () => {
     const fetcher=vi.fn((url: string, options?: RequestInit) => options?.method==="POST"
       ? response({error:"Configure GROQ_API_KEY securely on the server."},503) : response(state));
     vi.stubGlobal("fetch",fetcher); render(<CustomerSimulator/>);
-    await screen.findByText("Real AI unavailable");
-    expect((screen.getByLabelText("AI mode") as HTMLSelectElement).value).toBe("groq-oss");
+    await screen.findByText("Unavailable");
+    await userEvent.click(screen.getByText("Model settings"));
+    expect((screen.getByLabelText("AI model") as HTMLSelectElement).value).toBe("");
+    for (const option of screen.getAllByRole("option").filter(option => option.getAttribute("value"))) {
+      expect((option as HTMLOptionElement).disabled).toBe(true);
+    }
+    expect(screen.queryByRole("option", {name:/Mock|Configured real AI/})).toBeNull();
+    expect((screen.getByRole("button",{name:"New conversation"}) as HTMLButtonElement).disabled).toBe(true);
     await userEvent.click(screen.getByRole("button",{name:"New conversation"}));
-    await screen.findByRole("alert");
-    expect(JSON.parse(String(fetcher.mock.calls.find(call=>call[1]?.method==="POST")?.[1]?.body))).toMatchObject({mode:"real"});
+    expect(fetcher.mock.calls.some(call=>call[1]?.method==="POST")).toBe(false);
+  });
+  it("allows only a configured model to create a real conversation", async () => {
+    const configured={...state,modelChoices:[
+      {id:"groq-oss",available:false,detail:"Configure GROQ_API_KEY securely on the server."},
+      {id:"gemini-flash",available:true,detail:"Configured."},
+      {id:"gemini-lite",available:false,detail:"Not ready."}]};
+    const fetcher=vi.fn((url:string, options?:RequestInit)=>options?.method==="POST"
+      ? response({id},201) : response(configured));
+    vi.stubGlobal("fetch",fetcher);render(<CustomerSimulator/>);
+    await screen.findByText("Unavailable");
+    await userEvent.click(screen.getByText("Model settings"));
+    const mode=screen.getByLabelText("AI model");
+    expect((screen.getByRole("option",{name:"Gemini 3.8 Flash"}) as HTMLOptionElement).disabled).toBe(false);
+    expect((screen.getByRole("option",{name:/Groq GPT-OSS/}) as HTMLOptionElement).disabled).toBe(true);
+    await userEvent.selectOptions(mode,"gemini-flash");
+    await userEvent.click(screen.getByRole("button",{name:"New conversation"}));
+    await waitFor(()=>expect(fetcher.mock.calls.some(call=>call[1]?.method==="POST")).toBe(true));
+    expect(JSON.parse(String(fetcher.mock.calls.find(call=>call[1]?.method==="POST")?.[1]?.body)))
+      .toMatchObject({action:"create",mode:"real",choice:"gemini-flash"});
   });
   it("keeps an unsuccessful send retry bound to the same idempotency key", async () => {
     const sent: Record<string,unknown>[]=[];
@@ -32,7 +56,7 @@ describe("customer simulator states", () => {
       return response(url.includes("sessionId") ? {...state,session:{id,conversation_id:id,ai_mode:"mock",status:"active"}} : state);
     }));
     render(<CustomerSimulator/>); await userEvent.click(await screen.findByRole("button",{name:/Conversation 1/}));
-    const input=await screen.findByLabelText("Message PS.Cafe demo");
+    const input=await screen.findByLabelText("Message PS.Cafe Raffles City");
     await waitFor(()=>expect((input as HTMLTextAreaElement).disabled).toBe(false));
     await userEvent.type(input,"What time do you close?"); await userEvent.click(screen.getByRole("button",{name:"Send message"}));
     await screen.findByText("Network interrupted"); await userEvent.click(screen.getByRole("button",{name:/^Retry$/}));
@@ -45,10 +69,10 @@ describe("customer simulator states", () => {
         {id:"business",body:"Please check https://www.chope.co/singapore-restaurants/restaurant/ps-cafe-raffles-city",sender:"business",created_at:state.now,generation_mode:"mock"}]};
     vi.stubGlobal("fetch",vi.fn((url:string)=>response(url.includes("sessionId")?snapshot:state)));
     render(<CustomerSimulator/>); await userEvent.click(await screen.findByRole("button",{name:/Conversation 1/}));
-    await screen.findByText(/A person is handling this conversation/);
-    expect(screen.getByText(/Processing is taking longer/)).toBeTruthy();
+    await screen.findByText(/Our team is handling your enquiry/);
+    expect(screen.getByText(/Our reply is taking longer/)).toBeTruthy();
     expect(screen.getByRole("link",{name:/https:\/\/www.chope.co/}).getAttribute("rel")).toContain("noopener");
-    expect(screen.getByText(/mock response/)).toBeTruthy();
+    expect(screen.queryByText(/mock response/)).toBeNull();
   });
   it("disables the old composer while creating another conversation and sends only to the new session", async () => {
     const nextId="00000000-0000-4000-8000-000000000002";
@@ -61,10 +85,11 @@ describe("customer simulator states", () => {
         sent.push(body); return response({jobId:nextId},202);
       }
       const selected=url.includes(nextId)?nextId:id;
-      return response(url.includes("sessionId")?{...state,session:{id:selected,conversation_id:selected,ai_mode:"mock",status:"active"}}:state);
+      const configured={...state,modelChoices:[{id:"groq-oss",available:true,detail:"Configured."}]};
+      return response(url.includes("sessionId")?{...configured,session:{id:selected,conversation_id:selected,ai_mode:"real",status:"active"}}:configured);
     }));
     render(<CustomerSimulator/>); await userEvent.click(await screen.findByRole("button",{name:/Conversation 1/}));
-    const input=screen.getByLabelText("Message PS.Cafe demo") as HTMLTextAreaElement;
+    const input=screen.getByLabelText("Message PS.Cafe Raffles City") as HTMLTextAreaElement;
     await waitFor(()=>expect(input.disabled).toBe(false));
     await userEvent.click(screen.getByRole("button",{name:"New conversation"}));
     expect(input.disabled).toBe(true);
@@ -79,17 +104,23 @@ describe("customer simulator states", () => {
     vi.stubGlobal("fetch",vi.fn((url:string)=>response(url.includes("sessionId")?snapshot:state)));
     render(<CustomerSimulator/>); await userEvent.click(await screen.findByRole("button",{name:/Conversation 1/}));
     await screen.findByText(/reply has not been delivered/);
-    expect(screen.queryByText(/Pronto assistant/)).toBeNull();
+    expect(screen.queryByText(/PS.Cafe assistant/)).toBeNull();
   });
-  it("renders selected and actual model metadata from an explicit injected UI fixture",async()=>{
+  it("keeps provider diagnostics out of the customer chat",async()=>{
     const snapshot={...state,session:{id,conversation_id:id,ai_mode:"real",status:"active",ai_selection:"groq-oss",
       ai_configuration:{provider:"groq",model:"openai/gpt-oss-20b",embeddingProvider:"gemini",embeddingModel:"gemini-embedding-2"}},
       messages:[{id:"fixture",body:"Injected UI fixture, not external inference.",sender:"business",created_at:state.now,
-        generation_mode:"real",response_provider:"groq",response_model:"openai/gpt-oss-20b"}]};
+        generation_mode:"real",response_provider:"groq",response_model:"openai/gpt-oss-20b"},
+        {id:"human",body:"Our team has reviewed your enquiry.",sender:"human",created_at:state.now,generation_mode:null}]};
     vi.stubGlobal("fetch",vi.fn((url:string)=>response(url.includes("sessionId")?snapshot:state)));
     render(<CustomerSimulator/>);await userEvent.click(await screen.findByRole("button",{name:/Conversation 1/}));
-    await screen.findByText(/Selected: groq/);expect(screen.getByText(/real model response/)).toBeTruthy();
-    expect(screen.getByText(/groq \/ openai\/gpt-oss-20b/)).toBeTruthy();
-    expect((screen.getByLabelText("AI mode") as HTMLSelectElement).value).toBe("groq-oss");
+    const history=within(screen.getByLabelText("Message history"));
+    await history.findByText("Our team has reviewed your enquiry.");
+    expect(history.getByText("Our team")).toBeTruthy();
+    expect(history.queryByText(/real model response|groq|demo/i)).toBeNull();
+    expect(screen.queryByText(/real model response|groq \/ openai/)).toBeNull();
+    expect(screen.getByText("Model settings").closest("details")!.open).toBe(false);
+    expect(screen.queryByText(/Real AI requested|Selected:|Retrieval:|AI owns this conversation/)).toBeNull();
+    expect((screen.getByLabelText("AI model") as HTMLSelectElement).value).toBe("");
   });
 });

@@ -32,10 +32,23 @@ export default async function ClientInboxPage({
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const filters = filtersFromSearchParams(resolvedSearchParams, user.clientId);
   const page = pageFromSearchParams(resolvedSearchParams);
+  const sort = resolvedSearchParams.sort === "recent" ? "recent" : "attention";
+  const viewHref = (changes: Record<string, string>) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(resolvedSearchParams)) {
+      const first = Array.isArray(value) ? value[0] : value;
+      if (first && key !== "page") params.set(key, first);
+    }
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
+    return `/client/inbox${params.size ? `?${params}` : ""}`;
+  };
   const limit = 75;
   const [client, conversations, analytics] = await Promise.all([
     getClient(user.clientId),
-    getFilteredConversations({ ...filters, sort: "attention", limit: limit + 1, offset: (page - 1) * limit }),
+    getFilteredConversations({ ...filters, sort, limit: limit + 1, offset: (page - 1) * limit }),
     getClientDashboardAnalytics(user.clientId),
   ]);
   if (!client) {
@@ -52,42 +65,42 @@ export default async function ClientInboxPage({
         <div>
           <h1 className="text-xl font-semibold">Inbox</h1>
           <p className="text-sm text-muted">
-            Customer conversations ordered by what needs your attention first.
+            Customer conversations, team follow-ups and recent replies.
           </p>
         </div>
         <Badge tone={analytics.actionableEscalations ? "amber" : "green"}>
           {analytics.actionableEscalations} need reply
         </Badge>
-        {user.clientId === "00000000-0000-4000-8000-00000000a101" && process.env.PRONTO_CUSTOMER_DEMO_ENABLED === "1"
-          ? <Link href="/demo/customer" className="text-sm text-accent">Open customer simulator</Link> : null}
       </div>
 
       <section className="ui-panel">
         <div className="ui-panel-header">
-          <div className="flex flex-wrap gap-2">
-            <QuickFilter href="/client/inbox" label="All" active={!filters.status} />
-            <QuickFilter href="/client/inbox?status=pending" label="Pending" active={filters.status === "pending"}/>
-            <QuickFilter href="/client/inbox?status=ai_handled" label="AI-handled" active={filters.status === "ai_handled"}/>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2" aria-label="Inbox views">
+            <QuickFilter href={viewHref({ status: "" })} label="All" active={!filters.status} />
+            <QuickFilter href={viewHref({ status: "ai_handled" })} label="Handled by assistant" active={filters.status === "ai_handled"}/>
             <QuickFilter
-              href="/client/inbox?status=needs_reply"
-              label="Needs reply"
+              href={viewHref({ status: "needs_reply" })}
+              label="Needs attention"
               active={filters.status === "needs_reply"}
             />
             <QuickFilter
-              href="/client/inbox?status=active"
-              label="Active"
-              active={filters.status === "active"}
-            />
-            <QuickFilter
-              href="/client/inbox?status=closed"
+              href={viewHref({ status: "closed" })}
               label="Resolved"
               active={filters.status === "closed"}
             />
           </div>
+          <div className="flex gap-3 text-sm">
+            <Link href={viewHref({ sort: "" })} aria-current={sort === "attention" ? "page" : undefined}
+              className={sort === "attention" ? "font-medium text-accent" : "text-muted"}>Needs attention first</Link>
+            <Link href={viewHref({ sort: "recent" })} aria-current={sort === "recent" ? "page" : undefined}
+              className={sort === "recent" ? "font-medium text-accent" : "text-muted"}>Most recent</Link>
+          </div>
+          </div>
         </div>
         <ConversationFilterForm
           action="/client/inbox"
-          filters={filters}
+          filters={{ ...filters, sort }}
         />
         <ConversationList
           conversations={visibleConversations}

@@ -51,18 +51,34 @@ using Next.js 16.4's server-content-refetching `retry()` API. The current
 database pool already limits connection waits to five seconds and statements to
 thirty seconds. A skeleton alone is not evidence that the inbox has loaded.
 
-Choose **Mock • deterministic test** explicitly to exercise the pipeline without
-provider credentials. Ask “What time do you close today?” for a grounded fixture
-answer. Start another conversation and ask “My order has a missing item and I
+Open **Model settings** to select Groq or either Gemini model. Unavailable models
+remain visible but disabled; availability is checked on the server in both local
+and hosted environments. **New conversation** is disabled until an available
+model is selected. Mock and the generic configured-provider choice are absent
+from the dropdown and rejected by the customer API. Legacy mock sessions cannot receive new messages outside the automated test harness.
+Ask “What time do you close today?” for a grounded outlet answer.
+Switch views by entering `/demo/customer` or `/client/inbox` directly; neither view includes a switch link. Both display the same persisted conversation. Inbox refreshes automatically while visible.
+Start another conversation and ask “My order has a missing item and I
 want a refund” for a policy handoff. The business view supports independent owner
 review, urgency, takeover, manual reply/resolution and explicit release. AI does
 not answer a human-owned backlog after release; future enquiries can use AI again.
 
-The default **Groq GPT-OSS 20B** selection fails clearly if its key, free-tier
+The default **Groq GPT-OSS 20B** selection is disabled if its key, free-tier
 attestation, explicit testing approval or approved published knowledge are absent.
-It needs no embedding service or embedding preparation. It does not substitute mock generation. Deterministic
-policy replies, booking invitations and escalation acknowledgements can still
-precede model generation; these are not evidence of external inference.
+It needs no embedding service or embedding preparation. It does not substitute mock generation. With real inference enabled, greetings, booking answers and handoff acknowledgements also require a real model call. Failed generation hands the conversation to staff without saving a canned customer reply.
+
+The legacy seeded/mock history was archived and removed from the local PS.Cafe tenant. Genuine model conversations remain available in both views. A further predeployment history reset must remain scoped to this simulator's conversations and their dependent messages/jobs; retain the tenant, accounts, approved knowledge and provider configuration.
+
+For routine complaints and transactional enquiries, the real model can write a
+source-grounded handoff acknowledgement with a relevant follow-up question. It
+receives the business context and recent messages, so it can ask for useful missing
+details without repeating information already supplied. The question is generated,
+not selected from a fixed order script. Staff retain ownership after handoff and
+subsequent customer details stay in the same thread. Missing knowledge, a model
+failure or a failed grounding check leaves the reply to staff without storing a canned acknowledgement.
+
+The workspace and customer chat use the logo from [PS.Cafe's official website](https://www.pscafe.com/),
+stored locally at `public/brands/ps-cafe-logo.webp`.
 
 ## Configure the current Groq-only POC securely
 
@@ -125,7 +141,7 @@ version and current source-content hash. Seed fixtures with no version history
 are labelled with a hash and null version, not an invented version. Trace steps
 record `local_text` and zero embedding calls; generated messages and usage records
 retain that retrieval mode alongside actual Groq model/provider/response evidence.
-The business conversation view labels local PostgreSQL retrieval explicitly.
+Both chat views show customer-facing text and sender labels. Model/provider diagnostics remain in database metadata, traces and usage records for verification; the business inbox does not display them.
 
 Keyword search is less robust than semantic vectors for paraphrases, spelling
 errors and languages outside existing aliases. Its score is lexical ranking, not
@@ -161,12 +177,11 @@ index and `demo:customer:embed --provider gemini` procedure are retained. Do not
 run that procedure for the current Groq-only POC or silently substitute Groq into
 an existing Gemini conversation.
 
-The **Configured real AI** choice retains OpenAI generation/embeddings
+The backend retains optional OpenAI generation/embeddings
 (`OPENAI_API_KEY`), Azure deployment configuration, or Anthropic generation with
 separately configured OpenAI/Azure embeddings. These optional modes can incur
 charges and require their own account/processing approval. Their implementation
-and provenance checks have not been deleted. Mock remains an explicit independent
-deterministic test choice.
+and provenance checks have not been deleted. These generic configured modes are absent from the customer dropdown. Mock generation is limited to explicit internal test harnesses.
 
 ## Triage scope and tests
 
@@ -182,9 +197,7 @@ introduced. Resolving a handoff still requires a separate authorized release.
 Run ordinary unit tests with `pnpm test`. Use a separate identity-verified marked
 database for `pnpm test:db` and `pnpm test:local-mail`. The new browser scenarios
 are opt-in with `PRONTO_CUSTOMER_DEMO_ENABLED=1 PRONTO_DEMO_ONLY_DELIVERY=1 pnpm
-test:e2e:local-mail`; they launch an owned worker and exercise mock generation,
-real-mode configuration failure, shared state, takeover, manual reply and release.
-They do not establish genuine LLM or live Instagram acceptance. Ordinary production still disables the simulator. The separate, fail-closed
+test:e2e:local-mail`; they launch an owned worker and check configuration failure, disabled choices and mock-request rejection. The real conversation workflow additionally requires `PRONTO_RUN_REAL_DEMO_E2E=1` and an approved configured provider. Stubbed tests do not establish genuine LLM or live Instagram acceptance. Ordinary production still disables the simulator. The separate, fail-closed
 `protected-demo` profile now supports invited synthetic users and a uniquely marked
 non-test database. See [Vercel setup](../setup/vercel-demo.md); no hosted resources
 have been provisioned. Hosted delivery excludes even local SMTP. Local demo

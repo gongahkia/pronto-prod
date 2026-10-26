@@ -1,9 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send, RefreshCw, MessageCircle } from "lucide-react";
-import { DEFAULT_DEMO_MODEL, demoModelChoices, demoModelChoice, type DemoModelChoice, type DemoAiProfile } from "@/lib/llm/demo-models";
+import { PsCafeLogo } from "@/components/ps-cafe-logo";
+import { DEFAULT_DEMO_MODEL, demoModelChoices, type DemoModelChoice, type DemoAiProfile } from "@/lib/llm/demo-models";
+
+const customerModelChoices = demoModelChoices.filter(option => option.id !== "mock" && option.id !== "configured");
 
 type State = {
   now: string;
@@ -28,7 +30,7 @@ async function demoRequest(path: string, body?: unknown) {
   const response = await fetch(path, { ...(body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
     cache: "no-store", signal: AbortSignal.timeout(15_000) });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error ?? "The demo request failed.");
+  if (!response.ok) throw new Error(data.error ?? "The request failed. Please try again.");
   return data;
 }
 
@@ -59,10 +61,10 @@ export function CustomerSimulator() {
   }, [load]);
   useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [state?.messages.length]);
   const start = async () => {
-    if (loading || sending) return;
+    if (loading || sending || !state?.modelChoices.find(option => option.id === choice)?.available) return;
     setLoading(true); setError("");
     try {
-      const session = await demoRequest("/api/demo/customer", { action: "create", mode: choice === "mock" ? "mock" : "real", choice });
+      const session = await demoRequest("/api/demo/customer", { action: "create", mode: "real", choice });
       ++requestVersion.current;
       retry.current = null; setText(""); setSessionId(session.id); setState(null);
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Could not start a conversation."); }
@@ -93,63 +95,69 @@ export function CustomerSimulator() {
   return <main className="min-h-screen bg-surface px-3 py-5 text-foreground sm:px-6">
     <div className="mx-auto max-w-5xl">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div><p className="text-xs font-semibold uppercase tracking-wide text-accent">Pronto • unofficial POC</p>
-          <h1 className="text-xl font-semibold">Simulated Instagram DM</h1></div>
-        <Link href="/client/inbox" className="ui-button px-3 py-2 text-sm">Open business inbox</Link>
+        <div><p className="text-xs font-semibold uppercase tracking-wide text-accent">Pronto</p>
+          <h1 className="text-xl font-semibold">Messages</h1></div>
       </header>
       <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)]">
-        <aside className="ui-panel space-y-4 p-4">
-          <label className="block text-sm font-medium">AI mode
-            <select aria-label="AI mode" className="ui-input mt-2 w-full px-3 py-2" value={choice} onChange={event => setChoice(event.target.value as DemoModelChoice)}>
-              {demoModelChoices.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-            </select></label>
-          <button className="ui-primary-button w-full px-3 py-2 text-sm" disabled={loading || sending} onClick={() => void start()}>{loading ? "Starting…" : "New conversation"}</button>
-          {availability && <div className="rounded-md border border-line p-3 text-xs">
-            <strong>{choice === "mock" ? "Mock test mode" : availability.available ? "Real AI configured" : "Real AI unavailable"}</strong>
-            <p className="mt-1 break-words text-muted">{availability.detail}</p>
-          </div>}
-          <nav aria-label="Your simulated conversations"><p className="mb-2 text-xs font-semibold text-muted">Your conversation history</p>
-            {state?.sessions.map((session, index) => <button key={session.id} disabled={loading || sending} className={`mb-2 block w-full rounded-md border px-3 py-2 text-left text-sm ${sessionId === session.id ? "border-accent bg-accent-soft" : "border-line"}`}
+        <aside className="ui-panel min-w-0 space-y-4 p-4">
+          <button className="ui-primary-button w-full px-3 py-2 text-sm" disabled={loading || sending || !availability?.available} onClick={() => void start()}>{loading ? "Starting…" : "New conversation"}</button>
+          <details className="space-y-3 text-sm">
+            <summary className="cursor-pointer font-medium">Model settings</summary>
+            <label className="block text-sm font-medium">AI model
+              <select aria-label="AI model" className="ui-input mt-2 w-full px-3 py-2" disabled={loading || sending}
+                value={availability?.available ? choice : ""} onChange={event => setChoice(event.target.value as DemoModelChoice)}>
+                <option value="" disabled>{state ? "Choose an available model" : "Checking models…"}</option>
+                {customerModelChoices.map(option => {
+                  const configuration = state?.modelChoices.find(item => item.id === option.id);
+                  return <option key={option.id} value={option.id} disabled={!configuration?.available}
+                    className="disabled:text-muted" title={configuration?.detail}>
+                    {option.label}{configuration?.available ? "" : " — unavailable"}
+                  </option>;
+                })}
+              </select>
+            </label>
+            {availability && <div className="rounded-md border border-line p-3 text-xs">
+              <strong>{availability.available ? "Available" : "Unavailable"}</strong>
+              <p className="mt-1 break-words text-muted">{availability.detail}</p>
+            </div>}
+            {state?.providerFailureCode === "quota_exhausted" && <p className="text-xs text-danger">The selected provider’s quota is exhausted. Choose another available model and start a new conversation.</p>}
+          </details>
+          <nav aria-label="Your conversations"><p className="mb-2 text-xs font-semibold text-muted">Your conversation history</p>
+            <div className="flex gap-2 overflow-x-auto md:block md:max-h-[36rem] md:overflow-y-auto">
+            {state?.sessions.map((session, index) => <button key={session.id} disabled={loading || sending} className={`shrink-0 whitespace-nowrap rounded-md border px-3 py-2 text-left text-sm md:mb-2 md:block md:w-full ${sessionId === session.id ? "border-accent bg-accent-soft" : "border-line"}`}
               onClick={() => { ++requestVersion.current; retry.current = null; setText(""); setState(null); setSessionId(session.id); }}>
-              Conversation {state.sessions.length - index}<span className="block text-xs text-muted">{demoModelChoice(session.ai_selection)?.label ?? "Configured real AI"}</span></button>)}
+              Conversation {state.sessions.length - index}</button>)}
+            </div>
           </nav>
         </aside>
         <section aria-label="Customer chat" className="ui-panel flex min-h-[34rem] min-w-0 flex-col overflow-hidden">
           <div className="flex items-center gap-3 border-b border-line px-4 py-4">
-            <ArrowLeft size={19} aria-hidden="true"/><span className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-lg font-semibold text-white">PS.</span>
-            <div className="min-w-0"><h2 className="font-semibold">PS.Cafe Raffles City</h2><p className="text-xs text-muted">Unofficial restaurant demo</p></div>
+            <ArrowLeft size={19} aria-hidden="true"/><PsCafeLogo className="h-11 w-20"/>
+            <div className="min-w-0"><h2 className="font-semibold">PS.Cafe Raffles City</h2><p className="text-xs text-muted">Restaurant enquiries</p></div>
           </div>
-          {state?.session && <div className="border-b border-line bg-surface px-4 py-2 text-xs">
-            {state.session.ai_mode === "mock" ? "Mock AI — deterministic test responses" : "Real AI requested — policy replies and handoffs may run before generation"}
-            {state.session.ai_configuration && <span className="ml-2">Selected: {state.session.ai_configuration.provider} · {state.session.ai_configuration.model}</span>}
-            {state.session.ai_configuration?.retrievalMode === "local_text" && <span className="ml-2">Retrieval: local PostgreSQL text</span>}
-            <span className="ml-2">{humanOwned ? "AI paused for your team" : "AI owns this conversation"}</span></div>}
           <div className="max-h-[32rem] flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite" aria-label="Message history">
             {!state?.session ? <div className="mx-auto mt-16 max-w-xs text-center text-sm text-muted"><MessageCircle className="mx-auto mb-3"/>
-              Choose a mode and start a conversation, or reopen your saved history.</div> : null}
+              Start a conversation with PS.Cafe Raffles City, or continue a previous conversation.</div> : null}
             {state?.messages.map(message => <div key={message.id} className={`flex ${message.sender === "customer" ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm ${message.sender === "customer" ? "bg-accent text-white" : "border border-line bg-surface"}`}>
-                <p className="mb-1 text-xs opacity-75">{message.sender === "customer" ? "You" : message.sender === "human" ? "Business team" : "Pronto assistant"}
-                  {message.generation_mode === "real" ? " · real model response" : message.generation_mode === "mock" ? " · mock response" : ""}
-                  {message.response_provider && <span> · {message.response_provider} / {message.response_model}</span>}</p>
+                <p className="mb-1 text-xs opacity-75">{message.sender === "customer" ? "You" : message.sender === "human" ? "Our team" : "PS.Cafe assistant"}</p>
                 <p className="whitespace-pre-wrap break-words leading-6"><MessageText text={message.body}/></p>
               </div></div>)}
-            {(processing || deliveryPending) && <p role="status" className="text-sm text-muted">{delayed ? "Processing is taking longer than expected. Check status; your message is already saved." : "Pronto is processing your message…"}</p>}
-            {state?.job?.status === "dead" && <div role="alert" className="text-sm text-danger">Processing stopped after retries. Your message is saved.
-              <button className="ml-2 underline" disabled={sending} onClick={() => void retryProcessing()}>Retry processing</button></div>}
+            {(processing || deliveryPending) && <p role="status" className="text-sm text-muted">{delayed ? "Our reply is taking longer than expected. Your message is saved; please check back shortly." : "PS.Cafe is replying…"}</p>}
+            {state?.job?.status === "dead" && <div role="alert" className="text-sm text-danger">We couldn’t process your message. Your message is saved.
+              <button className="ml-2 underline" disabled={sending} onClick={() => void retryProcessing()}>Try again</button></div>}
             {["failed", "uncertain"].includes(state?.job?.delivery_status ?? "") &&
               <p role="alert" className="text-sm text-danger">Your message is saved, but the reply has not been delivered. Refresh status or ask the business team to review delivery.</p>}
-            {state?.providerError && <p role="alert" className="text-sm text-danger">The real AI provider could not answer. The enquiry was handed to the team; no mock answer was substituted.</p>}
-            {state?.providerFailureCode === "quota_exhausted" && <p role="alert" className="text-sm text-danger">Quota for the selected provider is exhausted. No automatic retry or provider switch was made. You can explicitly select another model and start a new conversation.</p>}
-            {humanOwned && <p className="rounded-md bg-warning-bg p-3 text-sm">{state?.session?.status === "closed" ? "Your team resolved this conversation. AI stays paused until an authorized release." : "A person is handling this conversation. Further messages are saved and AI stays paused."}</p>}
+            {state?.providerError && <p role="alert" className="text-sm text-danger">Our assistant is unavailable. Our team will help with your enquiry.</p>}
+            {humanOwned && <p className="rounded-md bg-warning-bg p-3 text-sm">{state?.session?.status === "closed" ? "Our team has resolved this conversation. Start a new conversation if you need anything else." : "Our team is handling your enquiry. You can continue to send messages here."}</p>}
             <div ref={end}/>
           </div>
           {error && <div role="alert" className="border-t border-line bg-danger-bg p-3 text-sm text-danger">{error}
             <button className="ml-2 underline" onClick={() => { setError(""); if (retry.current) void send(); else void load(); }}>Retry</button></div>}
           <form className="flex gap-2 border-t border-line p-3" onSubmit={event => { event.preventDefault(); void send(); }}>
-            <label className="sr-only" htmlFor="customer-message">Message PS.Cafe demo</label>
+            <label className="sr-only" htmlFor="customer-message">Message PS.Cafe Raffles City</label>
             <textarea id="customer-message" rows={2} maxLength={4000} value={text} onChange={event => setText(event.target.value)}
-              disabled={loading || sending || !state?.session || state.session.id !== sessionId || state.session.status === "closed"} placeholder="Message the demo restaurant…" className="ui-input min-w-0 flex-1 resize-none rounded-xl px-3 py-2 text-sm"/>
+              disabled={loading || sending || !state?.session || state.session.id !== sessionId || state.session.status === "closed"} placeholder="Message PS.Cafe Raffles City…" className="ui-input min-w-0 flex-1 resize-none rounded-xl px-3 py-2 text-sm"/>
             <button aria-label="Send message" className="ui-primary-button self-end px-3 py-3" disabled={loading || !text.trim() || sending || !!processing || !state?.session || state.session.id !== sessionId || state.session.status === "closed"}><Send size={18}/></button>
           </form>
           <button onClick={() => { setError(""); void load(); }} className="flex items-center justify-center gap-1 pb-3 text-xs text-muted"><RefreshCw size={12}/>Refresh status</button>

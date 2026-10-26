@@ -5,29 +5,33 @@ import { Badge } from "@/components/badge";
 export function ConversationClassificationPanel({ conversation, canRespond, policy }: {
   conversation: Conversation; canRespond: boolean; policy: EscalationPolicy | null;
 }) {
-  return <section className="ui-panel mb-4 p-4" aria-label="Conversation classification">
-    <h2 className="font-semibold">Classification and ownership</h2>
+  const resolved = conversation.status === "closed";
+  const teamOwned = conversation.status === "escalated";
+  return <section className="ui-panel p-4" aria-label="Conversation status">
+    <h2 className="font-semibold">Conversation status</h2>
     <div className="my-3 flex flex-wrap gap-2">
-      <Badge>AI responds: {conversation.ai_should_respond == null ? "pending" : conversation.ai_should_respond ? "yes" : "no"}</Badge>
-      <Badge tone={conversation.owner_action_required ? "amber" : "neutral"}>Owner action: {conversation.owner_action_required ? "required" : "not required"}</Badge>
-      <Badge>{conversation.urgency === "short_term" ? "Short-term" : conversation.urgency === "long_term" ? "Long-term" : "Urgency pending"}</Badge>
+      <Badge tone={resolved ? "green" : teamOwned ? "amber" : "neutral"}>
+        {resolved ? "Resolved" : teamOwned ? "Your team is handling this" : "Assistant is handling this"}
+      </Badge>
+      {!teamOwned && !resolved && conversation.owner_action_required && <Badge tone="amber">Review requested</Badge>}
     </div>
-    <p className="text-xs text-muted">{conversation.status === "active" ? "AI owns this conversation. An owner review flag does not pause AI." : "Human-owned. AI stays paused until explicit authorized release."}</p>
-    <p className="mt-2 text-xs text-muted">Business response target: {policy?.targetMinutes == null ? "Not set" : `${policy.targetMinutes} minutes`}.
-      {policy ? ` Timezone: ${policy.timezone}. Staffed hours and notifications follow the existing business policy.` : " No SLA is inferred."}</p>
-    <p className="mt-2 text-xs text-muted">Urgent/negative-sentiment handoffs start short-term; other new outcomes start long-term. Your team can review this label. Holding acknowledgements are separate from an AI answer.</p>
-    {canRespond && conversation.status !== "closed" && <>
-      <form action={`/api/client/conversations/${conversation.id}`} method="post" className="mt-3 space-y-2">
+    <p className="text-sm leading-6 text-muted">{resolved ? "This conversation has been resolved."
+      : teamOwned ? "A team member needs to review and reply. The assistant is paused."
+      : conversation.owner_action_required ? "Review this conversation when you can. Take over to reply."
+      : "No team reply is needed. The assistant will continue answering."}</p>
+    {policy?.targetMinutes != null && <p className="mt-2 text-xs text-muted">Team response target: {policy.targetMinutes} minutes.</p>}
+    {canRespond && !resolved && <>
+      <form action={`/api/client/conversations/${conversation.id}`} method="post" className="mt-4 space-y-3">
         <input type="hidden" name="action" value="classify"/>
-        <label className="block text-xs">Urgency<select aria-label="Conversation urgency" name="urgency" className="ui-input mt-1 w-full px-2 py-2 text-sm" defaultValue={conversation.urgency ?? "long_term"}>
+        <label className="block text-sm">Priority<select aria-label="Conversation urgency" name="urgency" className="ui-input mt-1 w-full px-3 py-2 text-sm" defaultValue={conversation.urgency ?? "long_term"}>
           <option value="short_term">Short-term</option><option value="long_term">Long-term</option></select></label>
-        <label className="block text-xs">Owner review<select aria-label="Owner action required" name="ownerActionRequired" className="ui-input mt-1 w-full px-2 py-2 text-sm" defaultValue={String(conversation.owner_action_required ?? false)}>
-          <option value="true">Required</option><option value="false">Not required</option></select></label>
-        <button className="ui-button px-3 py-2 text-sm">Save classification</button>
+        <label className="block text-sm">Needs your review<select aria-label="Owner action required" name="ownerActionRequired" className="ui-input mt-1 w-full px-3 py-2 text-sm" defaultValue={String(conversation.owner_action_required ?? false)}>
+          <option value="true">Yes</option><option value="false">No</option></select></label>
+        <button className="ui-button px-3 py-2 text-sm">Save changes</button>
       </form>
-      {conversation.status === "active" && <form action={`/api/client/conversations/${conversation.id}`} method="post" className="mt-3">
+      {!teamOwned && <form action={`/api/client/conversations/${conversation.id}`} method="post" className="mt-3">
         <input type="hidden" name="action" value="takeover"/>
-        <button className="ui-primary-button px-3 py-2 text-sm">Take over and pause AI</button></form>}
+        <button className="ui-primary-button w-full px-3 py-2 text-sm">Take over and reply</button></form>}
     </>}
   </section>;
 }

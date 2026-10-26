@@ -57,7 +57,7 @@ export class FreeTierProvider implements LlmProvider {
       let decision: z.infer<typeof decisionSchema>;
       try { decision = decisionSchema.parse(JSON.parse(choice.message.content)); }
       catch { throw new ProviderRequestError(this.provider, "invalid_response"); }
-      if (decision.action === "answer" && (!decision.answer || !decision.citedChunkIds.length))
+      if (decision.action === "answer" && (!decision.answer || (!decision.citedChunkIds.length && !input.conversationalTurn)))
         decision = { ...decision, action: "escalate", answer: null, reasonCode: "ungrounded_answer",
           reasonDetail: "Provider returned an answer without source citations.", confidence: Math.min(decision.confidence, 0.4) };
       logInfo("llm.generation_completed", { clientId: input.clientId, conversationId: input.conversationId,

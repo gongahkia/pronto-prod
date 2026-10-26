@@ -127,7 +127,7 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
     }
 
     const parsed = anthropicDecisionSchema.parse(parseJsonObject(text));
-    if (parsed.action === "answer" && (!parsed.answer || !parsed.citedChunkIds.length)) {
+    if (parsed.action === "answer" && (!parsed.answer || (!parsed.citedChunkIds.length && !input.conversationalTurn))) {
       return {
         action: "escalate",
         answer: null,

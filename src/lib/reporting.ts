@@ -166,8 +166,9 @@ export async function getFilteredConversations(
       order by ${input.sort === "attention" ? `case
         when ae.id is not null then 0
         when c.status = 'escalated' then 1
-        when c.status = 'active' then 2
-        else 3
+        when c.owner_action_required and c.status = 'active' then 2
+        when c.status = 'active' then 3
+        else 4
       end,` : ""} c.last_message_at desc, c.id desc
       limit $${filters.values.length + 1}
       offset $${filters.values.length + 2}

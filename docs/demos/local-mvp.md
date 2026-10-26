@@ -92,17 +92,13 @@ separate version-bound assistant approval, and publishes it. Avoid publishing
 either conflicting cutoff as an authoritative fact. The fixture's existing
 knowledge and Chope read-only fallback remain intact.
 
-For a local staff configuration exercise, start the app with
-`PRONTO_LOCAL_STAFF_COMMANDS=1` in the marked test database. Sign in as
-`policy@ps-cafe-demo.test`, open `/client/contact-pronto`, send
-`Change our escalation response target to 30 minutes`, review the old/new
-proposal, and confirm. Settings then shows the persisted versioned target.
-This interface uses authenticated synthetic identities and is disabled for
-real messaging providers. See [the business experience guide](../ops/business-experience.md)
-for exact command syntax, permissions and limitations.
+Contact Pronto and Settings pages have been removed. The guarded staff-command
+backend remains covered by the local integration tests; use the operator CLI for
+staff configuration. See [the business experience guide](../ops/business-experience.md)
+for permissions and limitations.
 
-Tranche C adds a guided source and reminder exercise at `/client/knowledge`
-and `/client/settings`. Synthetic staff may submit a text source, a selectable-
+The source review exercise remains at `/client/knowledge`.
+Synthetic staff may submit a text source, a selectable-
 text PDF, or a permitted public URL for review; the source stays out of active
 RAG until exact business approval and Pronto publication. The public URL
 operation itself requires a real public network request, so the deterministic

@@ -48,6 +48,9 @@ const cjkStopCharacters = new Set("的是了在和有吗我你他她它们这那
 export function evaluatePostGenerationSelfCheck(input: {
   decision: GroundedAnswerDecision;
   retrievedChunks: KnowledgeChunk[];
+  clarificationContext?: string;
+  operationalContext?: string;
+  requireQuestion?: boolean;
 }): PostGenerationSelfCheckResult {
   if (input.decision.action === "escalate") {
     return {
@@ -62,7 +65,7 @@ export function evaluatePostGenerationSelfCheck(input: {
     return failed("post_check_missing_answer", "The model chose answer without customer-facing text.");
   }
 
-  if (!input.decision.citedChunkIds.length) {
+  if (!input.decision.citedChunkIds.length && !input.clarificationContext && !input.operationalContext) {
     return failed("post_check_missing_citations", "The model answer did not include source chunk citations.");
   }
 
@@ -80,7 +83,11 @@ export function evaluatePostGenerationSelfCheck(input: {
     );
   }
 
-  const overlap = sourceOverlapScore(input.decision.answer, citedChunks);
+  if (input.clarificationContext && input.requireQuestion !== false && !/[?？]/.test(input.decision.answer)) {
+    return failed("post_check_missing_question", "The handoff intake did not ask a clarification question.");
+  }
+  const overlap = sourceOverlapScore(input.decision.answer, citedChunks,
+    [input.clarificationContext, input.operationalContext].filter(Boolean).join("\n"));
   if (overlap < 0.08) {
     return failed(
       "post_check_low_source_overlap",
@@ -91,7 +98,9 @@ export function evaluatePostGenerationSelfCheck(input: {
   return {
     passed: true,
     reasonCode: "post_check_passed",
-    reasonDetail: "The answer cited retrieved source chunks and passed local policy checks.",
+    reasonDetail: input.operationalContext ? "The conversational reply matches the assistant's identity and passed local policy checks."
+      : input.clarificationContext ? "The clarification relates to the customer's message and passed local policy checks."
+      : "The answer cited retrieved source chunks and passed local policy checks.",
     confidence: input.decision.confidence,
   };
 }
@@ -105,13 +114,13 @@ function failed(reasonCode: string, reasonDetail: string): PostGenerationSelfChe
   };
 }
 
-function sourceOverlapScore(answer: string, chunks: KnowledgeChunk[]): number {
+function sourceOverlapScore(answer: string, chunks: KnowledgeChunk[], clarificationContext?: string): number {
   const answerTokens = meaningfulTokens(answer);
   if (!answerTokens.length) {
     return 0;
   }
   const sourceTokens = new Set(
-    chunks.flatMap((chunk) => meaningfulTokens(chunk.content)),
+    [...chunks.flatMap((chunk) => meaningfulTokens(chunk.content)), ...meaningfulTokens(clarificationContext ?? "")],
   );
   const matched = answerTokens.filter((token) => sourceTokens.has(token));
   return matched.length / answerTokens.length;

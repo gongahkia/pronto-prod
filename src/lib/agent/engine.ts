@@ -29,7 +29,7 @@ import {
 import { estimateTokens } from "@/lib/knowledge/chunk";
 import { retrieveKnowledge, retrieveKnowledgeText } from "@/lib/knowledge/retrieve";
 import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
-import { appBaseUrl } from "@/lib/env";
+import { appBaseUrl, shouldUseMockAi } from "@/lib/env";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
 import { selectModel } from "@/lib/llm/catalog";
 import { aiExecutionMode, aiExecutionProfile } from "@/lib/llm/execution-mode";
@@ -105,6 +105,7 @@ export async function runAgentForMessage(input: {
   }
 
   const normalizedKnowledgeQuery = normalizeKnowledgeQuery(input.customerMessage);
+  const requireModelReply = !shouldUseMockAi();
   // A tenant-declared policy conflict is a review signal, not customer-facing evidence.
   // Check before the restaurant booking path, which otherwise interprets a timing
   // policy question as an incomplete reservation request.
@@ -125,7 +126,7 @@ export async function runAgentForMessage(input: {
     }
   }
 
-  if (["fnb", "restaurant", "food_and_beverage"].includes((client.vertical ?? "").toLowerCase())) {
+  if (!requireModelReply && ["fnb", "restaurant", "food_and_beverage"].includes((client.vertical ?? "").toLowerCase())) {
     const booking = await assistWithRestaurantBooking({ clientId: input.clientId,
       message: input.customerMessage, businessProfile: client.business_profile ?? {},
       connector: input.reservationConnector ??
@@ -158,7 +159,7 @@ export async function runAgentForMessage(input: {
     input.customerMessage,
     client.name,
   );
-  if (smallTalkGreeting.shouldAnswer && smallTalkGreeting.answer) {
+  if (!requireModelReply && smallTalkGreeting.shouldAnswer && smallTalkGreeting.answer) {
     logInfo("agent.small_talk_greeting_answered", {
       requestId: input.requestId,
       clientId: input.clientId,
@@ -196,7 +197,7 @@ export async function runAgentForMessage(input: {
   }
 
   const aiDisclosure = evaluateAiDisclosure(input.customerMessage, client.name);
-  if (aiDisclosure.shouldDisclose && aiDisclosure.answer) {
+  if (!requireModelReply && aiDisclosure.shouldDisclose && aiDisclosure.answer) {
     logInfo("agent.ai_disclosure_answered", {
       requestId: input.requestId,
       clientId: input.clientId,
@@ -308,6 +309,10 @@ export async function runAgentForMessage(input: {
       sources: staticChunks.map(chunk => ({ chunkId: chunk.id, sourceId: chunk.source_id,
         version: chunk.metadata.sourceVersion ?? null, contentHash: chunk.metadata.sourceContentHash,
         approvalEvidence: chunk.metadata.approvalEvidence })) });
+    if (requireModelReply && !staticChunks.length) {
+      staticChunks = await retrieveKnowledgeText(input.clientId, normalizeKnowledgeQuery(client.name).searchQuery, 5,
+        { requestId: input.requestId, conversationId: input.conversationId });
+    }
   } else {
     let embedding: number[];
     try {
@@ -497,6 +502,7 @@ export async function runAgentForMessage(input: {
     maxOutputTokens: agentMaxOutputTokens(),
     timeoutMs: agentTimeoutMs(),
     maxPromptTokens: agentMaxPromptTokens(),
+    conversationalTurn: requireModelReply && (smallTalkGreeting.shouldAnswer || aiDisclosure.shouldDisclose),
   };
 
   let decision: GroundedAnswerDecision | undefined;
@@ -578,6 +584,8 @@ export async function runAgentForMessage(input: {
   const selfCheck = evaluatePostGenerationSelfCheck({
     decision,
     retrievedChunks: chunks,
+    ...(generationInput.conversationalTurn ? { operationalContext:
+      `Business identity: ${client.name}. Role: AI assistant. Scope: greet and welcome customers; help with enquiries; direct customers to our team when needed.` } : {}),
   });
   if (!selfCheck.passed) {
     logInfo("agent.self_check_escalated", {
@@ -617,7 +625,7 @@ export async function runAgentForMessage(input: {
     return escalation;
   }
 
-  if (decision.action === "escalate" || !decision.answer || !citedChunks.length) {
+  if (decision.action === "escalate" || !decision.answer || (!citedChunks.length && !generationInput.conversationalTurn)) {
     logInfo("agent.model_decision_escalated", {
       requestId: input.requestId,
       clientId: input.clientId,
@@ -679,6 +687,7 @@ export async function runAgentForMessage(input: {
         reasonCode: decision.reasonCode,
         citedChunkIds: decision.citedChunkIds,
         generationMode: aiExecutionMode() ?? (process.env.PRONTO_USE_MOCK_AI === "1" ? "mock" : "real"),
+        conversationalTurn: generationInput.conversationalTurn,
         responseProvider: responseModel.provider,
         responseModel: responseModel.model,
         providerResponseId: decision.providerResponseId ?? null,

@@ -37,6 +37,9 @@ export type GenerateAnswerInput = {
   maxOutputTokens?: number;
   timeoutMs?: number;
   maxPromptTokens?: number;
+  handoffReason?: string;
+  handoffAskForDetails?: boolean;
+  conversationalTurn?: boolean;
 };
 
 export type LlmCallContext = {

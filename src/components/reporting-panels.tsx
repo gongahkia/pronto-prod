@@ -9,6 +9,7 @@ import type {
 import { channelDefinition, channelDefinitions } from "@/lib/channels/catalog";
 import { Badge } from "@/components/badge";
 import { StatCard } from "@/components/stat-card";
+import { formatDateTime } from "@/lib/date-format";
 
 export function ClientAnalyticsCards({
   analytics,
@@ -45,63 +46,39 @@ export function ConversationFilterForm({
   filters: ConversationFilterInput;
 }) {
   return (
-    <form action={action} className="grid gap-3 p-4 md:grid-cols-4 xl:grid-cols-7">
-      <input
-        name="q"
-        defaultValue={filters.query ?? ""}
-        className="rounded-md border border-line px-3 py-2 text-sm md:col-span-2"
-        placeholder="Search customer or message"
-      />
-      <select
-        name="channel"
-        defaultValue={filters.channelKind ?? ""}
-        className="rounded-md border border-line px-3 py-2 text-sm"
-      >
-        <option value="">All channels</option>
-        {channelDefinitions.map((channel) => (
-          <option key={channel.kind} value={channel.kind}>
+    <form action={action} className="space-y-3 border-b border-line p-4">
+      {filters.sort && <input type="hidden" name="sort" value={filters.sort}/>}
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem_auto]">
+        <input name="q" type="search" aria-label="Search conversations" defaultValue={filters.query ?? ""}
+          className="ui-input min-w-0 px-3 py-2 text-sm" placeholder="Search customer or message"/>
+        <select name="channel" aria-label="Channel" defaultValue={filters.channelKind ?? ""} className="ui-input px-3 py-2 text-sm">
+          <option value="">All channels</option>
+          <option value="console">Customer chat</option>
+          {channelDefinitions.map(channel => <option key={channel.kind} value={channel.kind}>
             {channel.label}
-          </option>
-        ))}
-      </select>
-      <select
-        name="status"
-        defaultValue={filters.status ?? ""}
-        className="rounded-md border border-line px-3 py-2 text-sm"
-      >
-        <option value="">All statuses</option>
-        {action === "/client/inbox" ? <option value="needs_reply">Needs reply</option> : null}
-        {action === "/client/inbox" ? <><option value="pending">Pending</option><option value="ai_handled">AI-handled</option></> : null}
-        <option value="active">Active</option>
-        <option value="escalated">Escalated</option>
-        <option value="closed">Closed</option>
-      </select>
-      <input
-        name="reason"
-        defaultValue={filters.reasonCode ?? ""}
-        className="rounded-md border border-line px-3 py-2 text-sm"
-        placeholder="Escalation reason"
-      />
-      <input
-        name="from"
-        type="date"
-        defaultValue={filters.from ?? ""}
-        className="rounded-md border border-line px-3 py-2 text-sm"
-        aria-label="From date"
-      />
-      <input
-        name="to"
-        type="date"
-        defaultValue={filters.to ?? ""}
-        className="rounded-md border border-line px-3 py-2 text-sm"
-        aria-label="To date"
-      />
-      <div className="flex gap-2">
-        <button className="ui-primary-button px-3 py-2">Filter</button>
-        <Link href={action} className="ui-button px-3 py-2">
-          Reset
-        </Link>
+          </option>)}
+        </select>
+        <div className="flex gap-2">
+          <button className="ui-primary-button px-4 py-2 text-sm">Filter</button>
+          <Link href={action} className="ui-button px-3 py-2 text-sm">Reset</Link>
+        </div>
       </div>
+      <details className="text-sm">
+        <summary className="w-fit cursor-pointer text-muted">More filters</summary>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="text-xs text-muted">Status<select name="status" defaultValue={filters.status ?? ""} className="ui-input mt-1 block w-full px-3 py-2 text-sm">
+            <option value="">All statuses</option><option value="needs_reply">Needs attention</option>
+            <option value="pending">Pending</option><option value="ai_handled">Handled by assistant</option>
+            <option value="active">Open</option><option value="escalated">With your team</option><option value="closed">Resolved</option>
+          </select></label>
+          <label className="text-xs text-muted">Issue type<input name="reason" defaultValue={filters.reasonCode ?? ""}
+            className="ui-input mt-1 block w-full px-3 py-2 text-sm" placeholder="Filter by issue"/></label>
+          <label className="text-xs text-muted">From<input name="from" type="date" defaultValue={filters.from ?? ""}
+            className="ui-input mt-1 block w-full px-3 py-2 text-sm" aria-label="From date"/></label>
+          <label className="text-xs text-muted">To<input name="to" type="date" defaultValue={filters.to ?? ""}
+            className="ui-input mt-1 block w-full px-3 py-2 text-sm" aria-label="To date"/></label>
+        </div>
+      </details>
     </form>
   );
 }
@@ -136,19 +113,11 @@ export function ConversationList({
                   {conversation.customer_name ?? conversation.customer_handle}
                 </p>
                 {showClient ? <Badge>{conversation.client_name}</Badge> : null}
-                <Badge>{conversation.channel_kind}</Badge>
-                {conversation.response_provider && <Badge>{conversation.generation_mode === "mock" ? "Mock" : "Real"}: {conversation.response_provider} / {conversation.response_model}</Badge>}
-                {!conversation.response_provider && conversation.selected_provider && <Badge>Selected: {conversation.selected_provider} / {conversation.selected_model}</Badge>}
-                {conversation.urgency ? <Badge tone={conversation.urgency === "short_term" ? "amber" : "neutral"}>
-                  {conversation.urgency === "short_term" ? "Short-term" : "Long-term"}</Badge> : null}
-                {conversation.ai_should_respond != null ? <Badge>AI responds: {conversation.ai_should_respond ? "yes" : "no"}</Badge> : null}
-                {conversation.owner_action_required ? <Badge tone="amber">Owner action required</Badge> : null}
-                <Badge tone={conversation.status === "escalated" ? "red" : "green"}>
-                  {conversation.status}
-                </Badge>
-                {conversation.active_escalation_reason_code ? (
-                  <Badge tone="red">{conversation.active_escalation_reason_code}</Badge>
-                ) : null}
+                <span className="text-xs text-muted">{conversation.channel_kind === "console" ? "Instagram" : channelDefinition(conversation.channel_kind).label}</span>
+                {conversation.urgency === "short_term" && <Badge tone="amber">Priority</Badge>}
+                {conversation.active_escalation_id ? <Badge tone="amber">Needs reply</Badge>
+                  : conversation.owner_action_required ? <Badge tone="amber">Review requested</Badge>
+                  : conversation.status === "closed" ? <Badge tone="green">Resolved</Badge> : null}
                 {showClient && conversation.assigned_to_name ? <Badge>Assigned: {conversation.assigned_to_name}</Badge> : null}
                 {showClient && conversation.delivery_status && ["failed", "dead", "uncertain"].includes(conversation.delivery_status)
                   ? <Badge tone="red">Delivery {conversation.delivery_status}</Badge> : null}
@@ -157,7 +126,9 @@ export function ConversationList({
                 {conversation.last_message ?? "No message yet."}
               </p>
             </div>
-            <span className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-accent">
+            <span className="flex shrink-0 items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
+            <time className="text-xs text-muted" dateTime={new Date(conversation.last_message_at).toISOString()}>{formatDateTime(conversation.last_message_at)}</time>
+            <span className="inline-flex items-center gap-2 text-sm font-medium text-accent">
               <Image
                 src={channelDefinition(conversation.channel_kind).iconPath}
                 alt=""
@@ -165,8 +136,9 @@ export function ConversationList({
                 height={20}
                 className="h-5 w-5"
               />
-              {conversation.active_escalation_id ? "Open triage" : ctaLabel}
+              {conversation.active_escalation_id ? "Reply" : ctaLabel}
               <ArrowRight size={16} />
+            </span>
             </span>
           </Link>
         ))

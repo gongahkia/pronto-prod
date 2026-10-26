@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   retrieveKnowledge: vi.fn(),
   recordAgentUsageEvent: vi.fn(),
   traceFinalize: vi.fn(),
+  greeting: vi.fn(),
+  disclosure: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -18,7 +20,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/agent/guardrails", () => ({
-  evaluateAiDisclosure: () => ({ shouldDisclose: false, answer: null }),
+  evaluateAiDisclosure: mocks.disclosure,
   evaluatePreGenerationGuardrails: () => ({
     shouldEscalate: false,
     reasonCode: "in_scope",
@@ -31,7 +33,7 @@ vi.mock("@/lib/agent/guardrails", () => ({
     reasonDetail: "Enough source confidence.",
     confidence: 0.9,
   }),
-  evaluateSmallTalkGreeting: () => ({ shouldAnswer: false, answer: null }),
+  evaluateSmallTalkGreeting: mocks.greeting,
 }));
 
 vi.mock("@/lib/agent/self-check", () => ({
@@ -96,6 +98,7 @@ vi.mock("@/lib/knowledge/query", () => ({
 
 vi.mock("@/lib/env", () => ({
   appBaseUrl: () => "https://pronto.test",
+  shouldUseMockAi: () => false,
 }));
 
 vi.mock("@/lib/llm", () => ({
@@ -128,6 +131,8 @@ import { runAgentForMessage } from "@/lib/agent/engine";
 describe("agent engine provider failures", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.greeting.mockReturnValue({ shouldAnswer: false, answer: null });
+    mocks.disclosure.mockReturnValue({ shouldDisclose: false, answer: null });
     mocks.query.mockImplementation(async (sql: string) => {
       if (sql.includes("from clients")) {
         return { rows: [{ id: "client-1", name: "Client", brand_voice: "Concise" }] };
@@ -150,6 +155,9 @@ describe("agent engine provider failures", () => {
       }
       if (sql.includes("from messages")) {
         return { rows: [] };
+      }
+      if (sql.includes("insert into messages")) {
+        return { rows: [{ id: "answer-1" }] };
       }
       return { rows: [] };
     });
@@ -222,6 +230,20 @@ describe("agent engine provider failures", () => {
         errorMessage: "generation unavailable",
       }),
     );
+  });
+
+  it.each(["greeting", "disclosure"])("uses model inference for %s instead of its canned reply", async kind => {
+    if (kind === "greeting") mocks.greeting.mockReturnValue({ shouldAnswer: true, answer: "Canned greeting" });
+    else mocks.disclosure.mockReturnValue({ shouldDisclose: true, answer: "Canned disclosure" });
+    mocks.embed.mockResolvedValue([[0.1]]);
+    mocks.generateGroundedAnswer.mockResolvedValue({ action: "answer", answer: "The model's actual reply.",
+      confidence: 0.9, reasonCode: "grounded_answer", reasonDetail: "Grounded.", citedChunkIds: ["chunk-1"], providerResponseId: "response-1" });
+    const result = await runAgentForMessage({ ...agentInput(), customerMessage: kind === "greeting" ? "Hi" : "Are you an AI?" });
+    expect(result).toMatchObject({ action: "answered", responseText: "The model's actual reply." });
+    expect(mocks.generateGroundedAnswer).toHaveBeenCalledTimes(1);
+    expect(mocks.query).toHaveBeenCalledWith(expect.stringContaining("insert into messages"), expect.arrayContaining([
+      "The model's actual reply.", expect.objectContaining({ responseProvider: "openai", providerResponseId: "response-1" }),
+    ]));
   });
 });
 

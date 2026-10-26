@@ -118,7 +118,7 @@ administrative policy layer.
 1. Operator prepares/submits onboarding or a knowledge/channel draft via CLI.
 2. An authorized business reviewer signs in separately to the retained business
    portal. Onboarding approvals are at `/client/approvals`; source/assistant
-   approvals at `/client/knowledge`; channel approvals at `/client/channels`.
+   approvals at `/client/knowledge`; channel approvals at `/client/approvals`.
 3. Operator inspects the current version, runs the private assistant preview or
    authorized channel check, and stages/publishes/activates using the existing API.
 

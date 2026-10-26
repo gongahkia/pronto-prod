@@ -33,49 +33,52 @@ async function login(page:Page){
   await page.getByLabel("Email",{exact:true}).fill("responder@ps-cafe-demo.test");
   await page.getByLabel("Password",{exact:true}).fill("pronto-ps-demo");
   await page.getByRole("button",{name:"Sign in",exact:true}).click();
-  await expect(page).toHaveURL(/\/client$/);
+  await expect(page).toHaveURL(/\/client\/inbox$/);
 }
 
-test("real AI mode shows missing credentials and creates no mock session",async({page})=>{
+// Live inference is opt-in for the browser workflow; runtime API requests cannot create mock sessions.
+async function startRealConversation(page:Page){
+  const created=await page.request.post("/api/demo/customer",{headers:{origin:new URL(page.url()).origin},
+    data:{action:"create",mode:"real",choice:"groq-oss"}});
+  expect(created.status()).toBe(201);
+  await page.reload();
+  await page.getByRole("button",{name:/^Conversation /}).first().click();
+  await page.getByText("Model settings",{exact:true}).click();
+}
+
+test("unconfigured models stay visible and disabled with no mock or configured-provider option",async({page})=>{
   await login(page); await page.goto("/demo/customer");
-  await expect(page.getByText("Real AI unavailable",{exact:true})).toBeVisible();
-  await expect(page.getByLabel("AI mode")).toHaveValue("groq-oss");
-  const response=page.waitForResponse(response=>response.url().endsWith("/api/demo/customer") && response.request().method()==="POST");
-  await page.getByRole("button",{name:"New conversation",exact:true}).click();
-  expect((await response).status()).toBe(503);
-  await expect(page.getByRole("alert").filter({hasText:"GROQ_API_KEY"})).toBeVisible();
-  await expect(page.getByLabel("Message PS.Cafe demo")).toBeDisabled();
+  await page.getByText("Model settings",{exact:true}).click();
+  await expect(page.getByText("Unavailable",{exact:true})).toBeVisible();
+  const mode=page.getByLabel("AI model");
+  await expect(mode).toHaveValue("");
+  for(const choice of ["gemini-flash","groq-oss","gemini-lite"]){
+    await expect(mode.locator(`option[value="${choice}"]`)).toBeDisabled();
+  }
+  await expect(mode.locator('option[value="mock"],option[value="configured"]')).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"New conversation",exact:true})).toBeDisabled();
+  await expect(page.getByLabel("Message PS.Cafe Raffles City")).toBeDisabled();
+  expect((await page.request.post("/api/demo/customer",{headers:{origin:new URL(page.url()).origin},
+    data:{action:"create",mode:"real",choice:"groq-oss"}})).status()).toBe(503);
 });
 
-test("model choices are explicit, server allowlisted and do not rewrite an existing Mock conversation",async({page})=>{
+test("the public API rejects deterministic and generic-provider sessions",async({page})=>{
   await login(page);await page.goto("/demo/customer");
-  const mode=page.getByLabel("AI mode");
-  for(const choice of ["gemini-flash","groq-oss","gemini-lite"]){
-    await mode.selectOption(choice);
-    const pending=page.waitForResponse(r=>r.url().endsWith("/api/demo/customer")&&r.request().method()==="POST");
-    await page.getByRole("button",{name:"New conversation",exact:true}).click();expect((await pending).status()).toBe(503);
-    await expect(page.getByLabel("Message PS.Cafe demo")).toBeDisabled();
+  for(const data of [{action:"create",mode:"mock",choice:"mock"},{action:"create",mode:"real",choice:"configured"}]){
+    const response=await page.request.post("/api/demo/customer",{headers:{origin:new URL(page.url()).origin},data});
+    expect(response.status()).toBe(400);
   }
-  expect((await page.request.post("/api/demo/customer",{headers:{origin:new URL(page.url()).origin},
-    data:{action:"create",mode:"real",choice:"arbitrary-paid-model"}})).status()).toBe(400);
-  await mode.selectOption("mock");await page.getByRole("button",{name:"New conversation",exact:true}).click();
-  await expect(page.getByLabel("Message PS.Cafe demo")).toBeEnabled();
-  const before=await(await page.request.get("/api/demo/customer")).json();
-  await mode.selectOption("groq-oss");await page.getByRole("button",{name:"Refresh status",exact:true}).click();
-  await expect(page.getByText("Mock AI — deterministic test responses",{exact:false})).toBeVisible();
-  const after=await(await page.request.get("/api/demo/customer")).json();
-  expect(after.sessions[0]).toMatchObject({id:before.sessions[0].id,ai_mode:"mock",ai_selection:"mock"});
 });
 
 test("customer and owner share a durable conversation, independent triage, takeover, reply and release",async({page})=>{
-  test.setTimeout(90_000);
+  test.skip(process.env.PRONTO_RUN_REAL_DEMO_E2E!=="1","Requires explicit approval and configured real provider credentials.");
+  test.setTimeout(120_000);
   await login(page); await page.goto("/demo/customer");
-  await page.getByLabel("AI mode").selectOption("mock");
-  await page.getByRole("button",{name:"New conversation",exact:true}).click();
-  const input=page.getByLabel("Message PS.Cafe demo"); await expect(input).toBeEnabled();
+  await startRealConversation(page);
+  const input=page.getByLabel("Message PS.Cafe Raffles City"); await expect(input).toBeEnabled();
   await input.fill("What time do you close today?"); await page.getByRole("button",{name:"Send message",exact:true}).click();
   await expect(page.getByLabel("Message history")).toContainText("10:00pm",{timeout:25000});
-  await expect(page.getByText(/mock response/)).toBeVisible();
+  await expect(page.getByLabel("Message history").getByText("PS.Cafe assistant",{exact:true})).toBeVisible();
   const state=await(await page.request.get("/api/demo/customer")).json();
   const conversationId=state.sessions[0].conversation_id;
   const owner=await page.context().newPage(); await owner.goto("/demo/customer");
@@ -85,22 +88,22 @@ test("customer and owner share a durable conversation, independent triage, takeo
   await expect(owner.getByTestId("workspace-loading")).toHaveCount(0);
   await owner.locator(`a[href="/client/conversations/${conversationId}"]`).click();
   await expect(owner).toHaveURL(new RegExp(`/client/conversations/${conversationId}$`));
-  await expect(owner.getByText("AI responds: yes",{exact:true})).toBeVisible();
+  await expect(owner.getByText("Assistant is handling this",{exact:true})).toBeVisible();
   await owner.getByLabel("Conversation urgency").selectOption("short_term");
   await owner.getByLabel("Owner action required").selectOption("true");
-  await owner.getByRole("button",{name:"Save classification",exact:true}).click();
-  await expect(owner.getByText("Owner action: required",{exact:true})).toBeVisible();
-  await expect(owner.getByText("AI responds: yes",{exact:true})).toBeVisible();
-  await owner.getByRole("button",{name:"Take over and pause AI",exact:true}).click();
-  await expect(owner.getByText("AI responds: no",{exact:true})).toBeVisible();
+  await owner.getByRole("button",{name:"Save changes",exact:true}).click();
+  await expect(owner.getByText("Review requested",{exact:true})).toBeVisible();
+  await expect(owner.getByText("Assistant is handling this",{exact:true})).toBeVisible();
+  await owner.getByRole("button",{name:"Take over and reply",exact:true}).click();
+  await expect(owner.getByText("Your team is handling this",{exact:true})).toBeVisible();
   await page.bringToFront(); await page.getByRole("button",{name:"Refresh status",exact:true}).click();
-  await expect(page.getByText(/A person is handling this conversation/)).toBeVisible();
+  await expect(page.getByText(/Our team is handling your enquiry/)).toBeVisible();
   await input.fill("Please have a team member reply."); await page.getByRole("button",{name:"Send message",exact:true}).click();
   await expect.poll(async()=>{
     const jobs=await getPool().query("select status from inbound_jobs where client_id=$1 and conversation_id=$2 order by sequence desc limit 1",[PS_CAFE_DEMO_CLIENT_ID,conversationId]);
     return jobs.rows[0]?.status;
   }).toBe("skipped");
-  await expect(page.getByText(/mock response/)).toHaveCount(1);
+  await expect(page.getByLabel("Message history").getByText("PS.Cafe assistant",{exact:true})).toHaveCount(1);
   await owner.bringToFront(); await owner.reload();
   await owner.getByPlaceholder("Write the reply the customer will receive").fill("Our team will help with your request.");
   await owner.getByRole("button",{name:"Send reply and resolve",exact:true}).click();
@@ -112,12 +115,11 @@ test("customer and owner share a durable conversation, independent triage, takeo
   await page.bringToFront(); await page.getByRole("button",{name:"Refresh status",exact:true}).click();
   await expect(input).toBeEnabled();
   await input.fill("What time do you close tomorrow?"); await page.getByRole("button",{name:"Send message",exact:true}).click();
-  await expect(page.getByText(/mock response/)).toHaveCount(2,{timeout:25000});
-  const created=page.waitForResponse(response=>response.url().endsWith("/api/demo/customer") && response.request().method()==="POST");
-  await page.getByRole("button",{name:"New conversation",exact:true}).click();
-  expect((await created).status()).toBe(201); await expect(input).toBeEnabled();
+  await expect(page.getByLabel("Message history").getByText("PS.Cafe assistant",{exact:true})).toHaveCount(2,{timeout:25000});
+  await startRealConversation(page);
+  await expect(input).toBeEnabled();
   await input.fill("My order has a missing item and I want a refund."); await page.getByRole("button",{name:"Send message",exact:true}).click();
-  await expect(page.getByText(/A person is handling this conversation/)).toBeVisible({timeout:25000});
+  await expect(page.getByText(/Our team is handling your enquiry/)).toBeVisible({timeout:25000});
   await expect(page.getByLabel("Message history")).not.toContainText("10:00pm");
   await owner.close();
 });
@@ -126,7 +128,7 @@ test("anonymous and another tenant cannot inject or inspect demo sessions",async
   const anonymous=await page.request.get("/api/demo/customer"); expect(anonymous.status()).toBe(401);
   await page.goto("/login"); await page.getByLabel("Email",{exact:true}).fill("owner@northbridgenasi.sg");
   await page.getByLabel("Password",{exact:true}).fill("pronto-client"); await page.getByRole("button",{name:"Sign in",exact:true}).click();
-  await expect(page).toHaveURL(/\/client$/);
+  await expect(page).toHaveURL(/\/client\/inbox$/);
   expect((await page.request.get("/api/demo/customer")).status()).toBe(403);
   const response=await page.request.post("/api/demo/customer",{headers:{origin:new URL(page.url()).origin},data:{action:"create",mode:"mock"}});
   expect(response.status()).toBe(403);

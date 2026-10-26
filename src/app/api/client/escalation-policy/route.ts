@@ -39,5 +39,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Policy update failed." }, { status: 409 });
   }
-  return NextResponse.redirect(publicAppUrl("/client/settings", request.url), 303);
+  return NextResponse.redirect(publicAppUrl("/client", request.url), 303);
 }

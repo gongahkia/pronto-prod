@@ -59,6 +59,13 @@ describe("bounded Gemini and Groq adapters using injected transport",()=>{
     await expect(real(()=>new FreeTierProvider("gemini").generateGroundedAnswer(base))).rejects.toMatchObject({code:"invalid_response"});
     expect(normalizeProviderError("gemini",new DOMException("private detail","TimeoutError"))).toMatchObject({code:"timeout"});
   });
+  it("preserves a model-generated greeting grounded in the assistant's operating identity",async()=>{
+    const greeting={...decision,answer:"Hello! Welcome to Synthetic cafe. How can I help?",citedChunkIds:[]};
+    vi.stubGlobal("fetch",async()=>response({id:"actual-response-id",model:base.responseModel,
+      choices:[{finish_reason:"stop",message:{content:JSON.stringify(greeting)}}]}));
+    expect(await real(()=>new FreeTierProvider("gemini").generateGroundedAnswer({...base,customerMessage:"Hi",conversationalTurn:true})))
+      .toMatchObject({action:"answer",answer:greeting.answer,providerResponseId:"actual-response-id",citedChunkIds:[]});
+  });
   it("rejects a returned model that differs from the requested allowlisted model",async()=>{
     vi.stubGlobal("fetch",async()=>response({model:"unexpected-paid-model",choices:[{finish_reason:"stop",message:{content:JSON.stringify(decision)}}]}));
     await expect(real(()=>new FreeTierProvider("gemini").generateGroundedAnswer(base))).rejects.toMatchObject({code:"invalid_response"});

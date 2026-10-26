@@ -15,10 +15,7 @@ export function ConversationTriagePanel({
   canRelease?: boolean;
 }) {
   return (
-    <section className="ui-panel">
-      <div className="ui-panel-header">
-        <h2 className="text-base font-semibold">Your next action</h2>
-      </div>
+    <section className="border-t border-line" aria-label="Reply to customer">
       {escalation ? (
         <div id={`escalation-${escalation.id}`} className="space-y-3 p-4">
           <div className="flex flex-wrap items-start gap-2">
@@ -57,18 +54,19 @@ export function ConversationTriagePanel({
             </form>
           ) : null}
           {escalation.status !== "resolved" && canRespond ? (
-            <form action="/api/escalations" method="post" className="space-y-2">
+            <form action="/api/escalations" method="post" className="flex flex-wrap items-end gap-3">
               <input type="hidden" name="action" value="resolve" />
               <input type="hidden" name="escalationId" value={escalation.id} />
               <input type="hidden" name="returnTo" value={returnTo} />
               <textarea
                 name="reply"
-                rows={4}
+                rows={2}
                 required
-                className="w-full rounded-md border border-line px-3 py-2 text-sm"
+                aria-label="Reply to customer"
+                className="ui-input min-w-0 flex-1 resize-none rounded-xl px-3 py-2 text-sm"
                 placeholder="Write the reply the customer will receive"
               />
-              <button className="ui-primary-button px-3 py-2">
+              <button className="ui-primary-button rounded-xl px-3 py-3 text-sm">
                 Send reply and resolve
               </button>
             </form>

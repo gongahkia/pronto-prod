@@ -36,7 +36,7 @@ async function bootstrap(path: string) {
     const existing = await db.query<{ count: number }>("select ((select count(*) from clients)+(select count(*) from users))::int as count");
     if (existing.rows[0].count !== 0) throw new Error("Bootstrap requires a new, empty protected-demo database. Existing accounts/data will not be overwritten.");
     await db.query(`insert into clients(id,name,slug,vertical,status,brand_voice,business_profile)
-      values($1,'PS.Cafe Raffles City (unofficial demo)',$2,'fnb','pilot',$3,$4::jsonb)`,
+      values($1,'PS.Cafe Raffles City',$2,'fnb','pilot',$3,$4::jsonb)`,
       [DEMO_CLIENT_ID,DEMO_SLUG,"Unofficial demonstration voice: concise, courteous, honest about uncertainty.",
         JSON.stringify({ demoSeed: "ps-cafe-raffles-city-v1", timezone: "Asia/Singapore", approvedByRestaurant: false,
           chopeAvailability: { enabled: false }, reservationPolicy: { directBooking: false, liveAvailability: false } })]);

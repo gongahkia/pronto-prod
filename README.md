@@ -26,7 +26,7 @@ sample customer emails and fake Meta providers, follow
 [the local demo runbook](docs/demos/local-mvp.md). It uses a marked
 `pronto_test` database and requires no real provider account.
 
-The business workspace includes Inbox, Needs Attention, Recent Activity, Business Knowledge and Connected Channels. Open `/client/inbox` with an authorized business responder account. The development-only connected customer simulator is `/demo/customer`; see [its setup guide](docs/demos/customer-simulator.md).
+The business workspace has two destinations: Inbox and Business Knowledge. Inbox includes attention filters and recent conversation updates. Open `/client/inbox` with an authorized business responder account. The development-only connected customer simulator is `/demo/customer`; see [its setup guide](docs/demos/customer-simulator.md).
 
 The old HQ operator frontend has been removed under PRON-87. Operator sign-in opens `/account`; administration uses the existing protected APIs through the [authenticated CLI](docs/ops/operator-cli.md). Business approvals, tested assistant drafts and channel activation gates remain independent. An operator login does not grant access to the business inbox.
 
@@ -47,7 +47,7 @@ Use pnpm outbox:retry after testing failed WhatsApp/Telegram/Instagram/Email own
 
 ## Environment Notes
 
-The app defaults to mock AI with PRONTO_USE_MOCK_AI=1, so local testing works without paid model keys. To test live providers, set PRONTO_USE_MOCK_AI=0 and configure OPENAI_API_KEY, AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_DEPLOYMENT, or ANTHROPIC_API_KEY as a manual fallback. Azure embeddings require AZURE_OPENAI_EMBEDDING_DEPLOYMENT and PRONTO_EMBEDDING_PROVIDER=azure.
+The example environment uses real inference with `PRONTO_USE_MOCK_AI=0`. Customer conversations require an available configured model; unavailable choices remain visible and disabled. Groq uses approved local text retrieval with no embedding service. Optional OpenAI, Azure and Anthropic adapters remain available for separately configured deployments. Azure embeddings require `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` and `PRONTO_EMBEDDING_PROVIDER=azure`. Internal automated tests can explicitly enable mock AI; the customer API rejects mock conversations.
 
 Live WhatsApp, Instagram, Messenger, Telegram, and Email testing requires real channel credentials plus a public HTTPS tunnel set as APP_BASE_URL. See docs/channels/webhook-setup.md and docs/setup/staging-env.md.
 

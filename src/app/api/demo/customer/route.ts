@@ -20,7 +20,9 @@ async function handle(request: Request, mutate: boolean) {
     let body: Record<string, unknown>;
     try { body = JSON.parse(raw); } catch { throw new DemoError("Invalid request."); }
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new DemoError("Invalid request.");
-    if (body.action === "create" && (body.mode === "real" || body.mode === "mock")) {
+    if (body.action === "create" && (body.mode !== "real" || body.choice === "mock" || body.choice === "configured"))
+      throw new DemoError("Choose an available real AI model. Simulated replies are disabled.");
+    if (body.action === "create" && body.mode === "real") {
       if (Object.keys(body).some(key => !["action","mode","choice"].includes(key))) throw new DemoError("Only allowlisted demo model choices are accepted.");
       return NextResponse.json(body.choice === undefined ? await createDemoSession(actor, body.mode)
         : await createDemoSession(actor, body.mode, body.choice), { status: 201 });

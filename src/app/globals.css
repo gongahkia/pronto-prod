@@ -4,7 +4,7 @@
 :root[data-pronto-theme="day"] {
   color-scheme: light;
   --background: #ffffff;
-  --foreground: #000000;
+  --foreground: #17212f;
   --muted: #6b7280;
   --panel: #ffffff;
   --surface: #f5f7fb;
@@ -13,11 +13,11 @@
   --input: #ffffff;
   --line: #0000001a;
   --line-strong: #0000002e;
-  --sidebar: #213183;
-  --sidebar-foreground: #ffffff;
-  --sidebar-muted: color-mix(in srgb, #ffffff 72%, #213183);
-  --sidebar-line: color-mix(in srgb, #ffffff 16%, #213183);
-  --sidebar-active: #455dd3;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #17212f;
+  --sidebar-muted: #667085;
+  --sidebar-line: #e5e7eb;
+  --sidebar-active: #eef2ff;
   --accent: #455dd3;
   --accent-dark: #213183;
   --accent-soft: #eef2ff;

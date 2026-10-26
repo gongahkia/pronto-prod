@@ -26,5 +26,5 @@ export async function POST(request: Request) {
   } else if (action === "location") {
     return NextResponse.json({ error: "Suggest a business knowledge correction for Pronto review." }, { status: 403 });
   } else return NextResponse.json({ error: "Unsupported settings action." }, { status: 400 });
-  return NextResponse.redirect(publicAppUrl("/client/settings", request.url), 303);
+  return NextResponse.redirect(publicAppUrl("/client", request.url), 303);
 }
