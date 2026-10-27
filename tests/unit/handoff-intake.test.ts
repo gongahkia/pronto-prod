@@ -93,6 +93,13 @@ describe("model-driven handoff intake", () => {
     expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({handoffAskForDetails:false}));
   });
 
+  it.each(["We'll refund your order. Could you share the order details?",
+    "We will issue a refund. Could you share the order details?",
+    "Your refund will be approved. Could you share the order details?"])("rejects a promised staff action in a handoff acknowledgement: %s",async answer=>{
+    mocks.generate.mockResolvedValue({action:"escalate",answer,confidence:0.9,citedChunkIds:[]});
+    expect(await run()).toBeNull();
+  });
+
   it("allows an acknowledgement when the model needs no more details", async () => {
     mocks.generate.mockResolvedValue({ action: "escalate", answer: "Our team will review this enquiry.",
       confidence: 0.9, citedChunkIds: [], providerResponseId: "acknowledgement" });

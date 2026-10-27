@@ -37,6 +37,9 @@ export function handoffReplyFromDecision(input: {
   const check = evaluatePostGenerationSelfCheck({ decision: { ...decision, action: "answer" }, retrievedChunks: input.chunks,
     clarificationContext: `${input.customerMessage}\nOur team will review this enquiry. The assistant is paused.`, requireQuestion: false });
   if (decision.action !== "escalate" || !decision.answer?.trim() || !check.passed || (!input.askForDetails && /[?？]/.test(decision.answer))) return null;
+  // Acknowledgement reuse cannot promise a mutation or approval on staff's behalf.
+  if (/\b(?:i|we)(?:['’]ll|\s+(?:will|shall|can))\s+(?:now\s+)?(?:refund|book|reserve|cancel|modify|approve|issue\s+(?:you\s+)?(?:a\s+)?refund|process\s+(?:(?:your|the|a)\s+)?(?:refund|payment|booking|reservation|order))\b/i.test(decision.answer) ||
+      /\b(?:refund|payment|booking|reservation|order)\s+(?:will|shall)\s+be\s+(?:approved|processed|confirmed|cancelled|canceled|changed|modified)\b/i.test(decision.answer)) return null;
   const cited = input.chunks.filter(chunk => decision.citedChunkIds.includes(chunk.id));
   return { body: decision.answer.trim(), metadata: { generationMode: input.generationMode ?? "real", responseProvider: input.provider,
     responseModel: decision.actualModel ?? input.model, providerResponseId: decision.providerResponseId ?? null,
