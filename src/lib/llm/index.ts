@@ -7,6 +7,7 @@ import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import { OpenAiProvider } from "@/lib/llm/openai";
 import { FreeTierProvider } from "@/lib/llm/free-providers";
 import { prepareGenerationInput } from "@/lib/llm/prompt-budget";
+import { withProviderRecovery } from "@/lib/llm/recovery";
 import { runTurnModelCall } from "@/lib/agent/turn-budget";
 import { estimateTokens } from "@/lib/knowledge/chunk";
 import type {
@@ -91,8 +92,8 @@ export function getGenerationProvider(provider: string | null | undefined): LlmP
   return { embed: (...args) => selected.embed(...args), generateGroundedAnswer: async input => {
     const prepared = prepareGenerationInput(input);
     const decision = await runTurnModelCall(input.reservationExtraction ? "reservation_extract" : input.handoffReason ? "handoff_intake" : "answer",
-      prepared.tokenEstimate, input.maxOutputTokens ?? 800, control => selected.generateGroundedAnswer({ ...prepared.input,
-        signal: control.signal ?? input.signal, timeoutMs: Math.min(input.timeoutMs ?? 25000, control.timeoutMs ?? Infinity) }));
+      prepared.tokenEstimate, input.maxOutputTokens ?? 800, control => withProviderRecovery(shouldUseMockAi() ? "mock" : normalizeProviderName(provider), () => selected.generateGroundedAnswer({ ...prepared.input,
+        signal: control.signal ?? input.signal, timeoutMs: Math.min(input.timeoutMs ?? 25000, control.timeoutMs ?? Infinity) })));
     return { ...decision, contextChunkIds: prepared.input.retrievedChunks.map(chunk => chunk.id),
       promptTokenEstimate: prepared.tokenEstimate, promptHash: prepared.hash };
   } };
@@ -120,6 +121,6 @@ export function getEmbeddingProvider(provider: string | null | undefined): LlmPr
   const selected = embeddingProvider(provider);
   return { generateGroundedAnswer: input => selected.generateGroundedAnswer(input),
     embed: (texts, model, context = {}) => runTurnModelCall("embedding", estimateTokens(texts.join("\n")), 0,
-      control => selected.embed(texts, model, { ...context, signal: control.signal ?? context.signal,
-        timeoutMs: Math.min(context.timeoutMs ?? 25000, control.timeoutMs ?? Infinity) })) };
+      control => withProviderRecovery(shouldUseMockAi() ? "mock" : normalizeProviderName(provider), () => selected.embed(texts, model, { ...context, signal: control.signal ?? context.signal,
+        timeoutMs: Math.min(context.timeoutMs ?? 25000, control.timeoutMs ?? Infinity) }))) };
 }

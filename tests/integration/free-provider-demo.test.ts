@@ -95,10 +95,47 @@ dbDescribe("free-provider demo profiles with explicit fake inference and real is
     vi.stubEnv("GEMINI_API_KEY","");const session=await createDemoSession(actor,"real","groq-oss");
     vi.mocked(FreeTierProvider.prototype.generateGroundedAnswer).mockRejectedValue(new ProviderRequestError("groq","quota_exhausted",429));
     const job=await sendDemoMessage(actor,{sessionId:session.id,requestId:randomUUID(),text:"What time do you close?"});
-    expect(await processInboundJob({jobId:job.jobId})).toMatchObject({outcome:"escalated"});
+    await expect(processInboundJob({jobId:job.jobId})).rejects.toMatchObject({code:"quota_exhausted"});
     expect(await processInboundJob()).toBeNull();
-    expect(await getDemoState(actor,session.id)).toMatchObject({providerError:true,providerFailureCode:"quota_exhausted"});
+    expect(await getDemoState(actor,session.id)).toMatchObject({providerError:true,providerFailureCode:"quota_exhausted",job:{status:"dead"},session:{status:"active"}});
+    expect((await getPool().query("select id from escalations where client_id=$1 and conversation_id=$2",[DEMO_CLIENT_ID,session.conversationId])).rows).toHaveLength(0);
     expect(FreeTierProvider.prototype.generateGroundedAnswer).toHaveBeenCalledTimes(1);
+  });
+  it("retries transient failures with a shared cooldown, preserving ownership and attempt counts",async()=>{
+    const session=await createDemoSession(actor,"real","groq-oss");
+    const model=vi.mocked(FreeTierProvider.prototype.generateGroundedAnswer);
+    model.mockRejectedValueOnce(new ProviderRequestError("groq","rate_limited",429,120));
+    const job=await sendDemoMessage(actor,{sessionId:session.id,requestId:randomUUID(),text:"What time do you close?"});
+    await expect(processInboundJob({jobId:job.jobId})).rejects.toMatchObject({code:"rate_limited"});
+    const state=await getDemoState(actor,session.id);
+    expect(state).toMatchObject({session:{status:"active"},job:{status:"failed",attempt_count:1,failure_code:"rate_limited"}});
+    expect(new Date(String(state.job?.available_at)).getTime()-Date.now()).toBeGreaterThan(115000);
+    expect(await processInboundJob({jobId:job.jobId})).toBeNull();
+    // Even if a different worker claims another conversation, it must respect the cooldown.
+    const other=await createDemoSession(actor,"real","groq-oss");
+    const next=await sendDemoMessage(actor,{sessionId:other.id,requestId:randomUUID(),text:"What are your opening hours?"});
+    await expect(processInboundJob({jobId:next.jobId})).rejects.toMatchObject({name:"ProviderCooldownError"});
+    expect((await getDemoState(actor,other.id)).job).toMatchObject({status:"failed",attempt_count:0,failure_code:"provider_cooldown"});
+    expect(model).toHaveBeenCalledTimes(1);
+    await getPool().query("delete from provider_cooldowns where client_id=$1",[DEMO_CLIENT_ID]);
+    await getPool().query("update inbound_jobs set available_at=now() where id=$1",[job.jobId]);
+    expect(await processInboundJob({jobId:job.jobId})).toMatchObject({outcome:"answered"});
+    expect((await getDemoState(actor,session.id)).job).toMatchObject({status:"completed",failure_code:null});
+    expect((await getPool().query("select id from escalations where client_id=$1",[DEMO_CLIENT_ID])).rows).toHaveLength(0);
+  });
+  it("stops repeated transient failures after five actual attempts without notifying staff",async()=>{
+    const session=await createDemoSession(actor,"real","groq-oss");
+    vi.mocked(FreeTierProvider.prototype.generateGroundedAnswer).mockRejectedValue(new ProviderRequestError("groq","timeout"));
+    const job=await sendDemoMessage(actor,{sessionId:session.id,requestId:randomUUID(),text:"What time do you close?"});
+    for(let attempt=1;attempt<=5;attempt++) {
+      await getPool().query("delete from provider_cooldowns where client_id=$1",[DEMO_CLIENT_ID]);
+      await getPool().query("update inbound_jobs set available_at=now() where id=$1",[job.jobId]);
+      await expect(processInboundJob({jobId:job.jobId})).rejects.toMatchObject({code:"timeout"});
+      expect((await getDemoState(actor,session.id)).job).toMatchObject({status:attempt===5?"dead":"failed",attempt_count:attempt});
+    }
+    expect(await processInboundJob({jobId:job.jobId})).toBeNull();
+    expect((await getDemoState(actor,session.id)).session).toMatchObject({status:"active"});
+    expect((await getPool().query("select id from escalations where client_id=$1",[DEMO_CLIENT_ID])).rows).toHaveLength(0);
   });
   it("rejects a cross-tenant chunk in the dedicated Gemini index at the database boundary",async()=>{
     const clientId=randomUUID(),sourceId=randomUUID(),chunkId=randomUUID();

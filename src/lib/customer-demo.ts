@@ -110,7 +110,7 @@ export async function retryDemoProcessing(actor: SessionUser, sessionId: string)
       and actor_user_id=$2 and action='demo.processing_retried' and created_at>now()-interval '1 hour'`, [DEMO_CLIENT_ID, actor.userId]);
     if (Number(count.rows[0]?.count ?? 0) >= 5) throw new DemoError("Demo retry limit reached. Ask the team to review the failure.", 429);
     const retried = await db.query(`update inbound_jobs set status='pending', attempt_count=0, available_at=now(),
-      lease_expires_at=null, last_error=null, updated_at=now() where client_id=$1 and conversation_id=$2 and status='dead'
+      lease_expires_at=null, last_error=null, failure_code=null, failure_provider=null, updated_at=now() where client_id=$1 and conversation_id=$2 and status='dead'
       and id=(select id from inbound_jobs where client_id=$1 and conversation_id=$2 order by sequence desc limit 1)
       returning id`, [DEMO_CLIENT_ID, session.conversation_id]);
     let retriedDelivery=0;
@@ -150,7 +150,7 @@ export async function getDemoState(actor: SessionUser, sessionId?: string) {
       from outbound_messages o left join messages m on m.id::text=o.metadata->>'agentMessageId' and m.client_id=o.client_id
       where o.client_id=$1 and o.conversation_id=$2 and o.status='sent' order by created_at,id`,
       [DEMO_CLIENT_ID, session.conversation_id]),
-    query(`select j.status,j.attempt_count,j.created_at,
+    query(`select j.status,j.attempt_count,j.created_at,j.failure_code,j.failure_provider,j.available_at,
       (select o.status from outbound_messages o where o.client_id=j.client_id
         and o.metadata->>'customerMessageId'=j.message_id::text order by o.created_at desc limit 1) as delivery_status
       from inbound_jobs j where j.client_id=$1
@@ -159,7 +159,8 @@ export async function getDemoState(actor: SessionUser, sessionId?: string) {
       and status in ('open','claimed') limit 1`,
       [DEMO_CLIENT_ID, session.conversation_id]),
   ]);
-  const providerFailureCode = failedProvider.rows[0]?.reason_detail?.includes("quota_exhausted") ? "quota_exhausted" : null;
+  const operationalFailure = ["failed", "dead"].includes(job.rows[0]?.status) ? job.rows[0]?.failure_code : null;
+  const providerFailureCode = operationalFailure ?? (failedProvider.rows[0]?.reason_detail?.includes("quota_exhausted") ? "quota_exhausted" : null);
   return { now: new Date().toISOString(), sessions: sessions.rows, realAi, modelChoices, session, messages: messages.rows, job: job.rows[0] ?? null,
-    providerError: failedProvider.rows.length > 0, providerFailureCode };
+    providerError: Boolean(operationalFailure) || failedProvider.rows.length > 0, providerFailureCode };
 }

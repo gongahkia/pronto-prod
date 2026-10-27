@@ -34,7 +34,7 @@ describe("bounded Gemini and Groq adapters using injected transport",()=>{
   it.each([429,401,503])("normalizes HTTP %i without payload/key leakage or retry",async status=>{
     const fetch=vi.fn(async()=>response({error:{message:"PRIVATE PROMPT synthetic-provider-key-never-used-live",type:"api_error"}},status));vi.stubGlobal("fetch",fetch);
     const error=await real(()=>new FreeTierProvider("groq").generateGroundedAnswer({...base,responseModel:"openai/gpt-oss-20b"})).catch(e=>e);
-    expect(error.status).toBe(status);expect(error.code).toBe(status===429?"quota_exhausted":status===401?"authentication":"unavailable");
+    expect(error.status).toBe(status);expect(error.code).toBe(status===429?"rate_limited":status===401?"authentication":"unavailable");
     expect(error.message).not.toMatch(/PRIVATE|synthetic-provider-key/);expect(fetch).toHaveBeenCalledTimes(1);
   });
   it("requires a key, explicit opt-in and account-side free-tier confirmation",async()=>{
@@ -95,7 +95,7 @@ describe("bounded Gemini and Groq adapters using injected transport",()=>{
   });
   it("stops embedding on quota exhaustion and does not use Groq as an embedder",async()=>{
     const fetch=vi.fn(async()=>response({},429));vi.stubGlobal("fetch",fetch);
-    await expect(real(()=>new FreeTierProvider("gemini").embed(["A","B"],"gemini-embedding-2",{clientId:base.clientId}))).rejects.toMatchObject({code:"quota_exhausted"});
+    await expect(real(()=>new FreeTierProvider("gemini").embed(["A","B"],"gemini-embedding-2",{clientId:base.clientId}))).rejects.toMatchObject({code:"rate_limited"});
     expect(fetch).toHaveBeenCalledTimes(1);
     await expect(real(()=>new FreeTierProvider("groq").embed(["A"],"gemini-embedding-2"))).rejects.toThrow(/embeddings/);
   });

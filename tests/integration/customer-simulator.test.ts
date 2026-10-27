@@ -141,10 +141,10 @@ dbDescribe("authenticated simulator through the existing durable backend", () =>
     expect(shouldUseMockAi()).toBe(true);
     generation.mockRejectedValueOnce(new Error("Synthetic provider timeout"));
     const failed = await createDemoSession(actor, "real", "configured"); const failedJob = await send(failed.id);
-    expect(await processInboundJob({ jobId: failedJob.jobId })).toMatchObject({ outcome: "escalated" });
+    await expect(processInboundJob({ jobId: failedJob.jobId })).rejects.toMatchObject({ code: "unavailable" });
     await flushRetryableOutboundMessages();
     const failureState = await getDemoState(actor, failed.id);
-    expect(failureState).toMatchObject({ providerError: true, session: { status: "escalated" } });
+    expect(failureState).toMatchObject({ providerError: true, session: { status: "active" }, job: { status: "failed" } });
     expect(failureState.messages.every(message => message.generation_mode == null)).toBe(true);
   });
 

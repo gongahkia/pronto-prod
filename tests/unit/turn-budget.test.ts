@@ -21,6 +21,10 @@ describe("one budget for a complete agent turn", () => {
       expect(turnBudgetSnapshot()?.consumedTokens).toBe(200);
     }, { maxTokens: 250 });
   });
+  it("rejects a response when reported usage exceeds the remaining token budget", async () => {
+    await expect(withAgentTurn(() => runTurnModelCall("answer", 10, 10, async () => ({usage:{inputTokens:200,outputTokens:100}})),
+      {maxTokens:250})).rejects.toMatchObject({reason:"tokens"});
+  });
   it("cancels overdue work and prevents a late result from reaching persistence", async () => {
     vi.useFakeTimers();
     let finish!: (value: object) => void, writes = 0, signal: AbortSignal | undefined;

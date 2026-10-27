@@ -13,6 +13,7 @@ import { assertCustomerDemoEnabled, isCustomerDemoChannel } from "@/lib/customer
 import { requireRealDemoConfiguration, storedDemoProfile } from "@/lib/customer-demo-ai";
 import { withAiExecutionProfile, type AiExecutionMode, type AiExecutionProfile } from "@/lib/llm/execution-mode";
 import type { DemoAiProfile } from "@/lib/llm/demo-models";
+import { LlmConfigurationError } from "@/lib/llm/errors";
 import { protectedDemoDeployment } from "@/lib/deployment-profile";
 import { recordConversationOutcome } from "@/lib/conversation-actions";
 import { generateHandoffIntake } from "@/lib/agent/handoff-intake";
@@ -107,7 +108,8 @@ async function execute(job: InboundJob, requestId?: string,
     if (process.env.NODE_ENV !== "test" && session.rows[0].ai_mode !== "real")
       throw new Error("Simulated customer replies are disabled. Start a conversation with a real model.");
     demoMode = session.rows[0].ai_mode;
-    const configuration = demoMode === "real" ? await requireRealDemoConfiguration(true, storedDemoProfile(session.rows[0])) : undefined;
+    const configuration = demoMode === "real" ? await requireRealDemoConfiguration(true, storedDemoProfile(session.rows[0]))
+      .catch(() => { throw new LlmConfigurationError("demo", "Check the selected provider and published knowledge configuration."); }) : undefined;
     demoProfile = { mode: demoMode, syntheticDemo: true, ...(configuration ? { provider: configuration.provider,
       model: configuration.model, embeddingProvider: configuration.embeddingProvider, embeddingModel: configuration.embeddingModel,
       ...(configuration.retrievalMode ? { retrievalMode: configuration.retrievalMode } : {}) } : {}) };

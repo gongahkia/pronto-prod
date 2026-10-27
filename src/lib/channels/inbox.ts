@@ -1,3 +1,4 @@
+import { processingFailure } from "@/lib/agent/processing-error";
 import { query, transaction, type Queryable } from "@/lib/db";
 import type { NormalizedInboundMessage } from "@/lib/channels/types";
 import type { Channel, Conversation, Message } from "@/lib/types";
@@ -123,21 +124,24 @@ export async function claimInboundJob(input: { jobId?: string; leaseSeconds?: nu
 export async function finishInboundJob(job: InboundJob, outcome: "completed" | "skipped"): Promise<void> {
   await query(
     `update inbound_jobs set status = $3, completed_at = now(), lease_expires_at = null,
-       last_error = null, updated_at = now()
+       last_error = null, failure_code = null, failure_provider = null, updated_at = now()
      where id = $1 and client_id = $2 and status = 'processing' and attempt_count = $4`,
     [job.id, job.client_id, outcome, job.attempt_count],
   );
 }
 
 export async function failInboundJob(job: InboundJob, error: unknown): Promise<void> {
-  const delaySeconds = Math.min(300, 5 * 2 ** (job.attempt_count - 1));
+  const failure = processingFailure(error);
+  const delaySeconds = Math.max(Math.min(300, 5 * 2 ** (job.attempt_count - 1)), failure.delaySeconds ?? 0);
   await query(
-    `update inbound_jobs set status = $3, available_at = now() + make_interval(secs => $4::int),
-       lease_expires_at = null, last_error = $5, updated_at = now()
+    `update inbound_jobs set status = case when $9 and created_at < now()-interval '15 minutes' then 'dead' else $3 end,
+       attempt_count=case when $9 then greatest(0,attempt_count-1) else attempt_count end,
+       available_at = now() + make_interval(secs => $4::int), lease_expires_at = null,
+       last_error = $5, failure_code=$7, failure_provider=$8, updated_at = now()
      where id = $1 and client_id = $2 and status = 'processing' and attempt_count = $6`,
-    [job.id, job.client_id, job.attempt_count >= MAX_ATTEMPTS ? "dead" : "failed",
+    [job.id, job.client_id, !failure.retryable || (!failure.deferred && job.attempt_count >= MAX_ATTEMPTS) ? "dead" : "failed",
       delaySeconds, error instanceof Error ? `Processing failed (${error.name}).` : "Processing failed.",
-      job.attempt_count],
+      job.attempt_count, failure.code, failure.provider, Boolean(failure.deferred)],
   );
 }
 

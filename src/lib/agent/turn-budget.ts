@@ -71,6 +71,7 @@ export async function runTurnModelCall<T>(stage: string, inputTokens: number, ou
     if (usage && Number.isFinite(usage.inputTokens) && Number.isFinite(usage.outputTokens) && usage.inputTokens >= 0 && usage.outputTokens >= 0) {
       step.actualTokens = usage.inputTokens + usage.outputTokens;
       state.tokens += step.actualTokens - reserve;
+      if (state.tokens > state.maxTokens) throw new TurnBudgetExceededError("tokens");
     }
     return result;
   } finally { step.durationMs = Date.now() - started; }

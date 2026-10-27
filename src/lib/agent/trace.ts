@@ -11,7 +11,7 @@ export type TraceStep = {
 };
 
 export type TraceFinalize = {
-  status: "answered" | "escalated";
+  status: "answered" | "escalated" | "failed";
   reasonCode: string;
   confidence: number;
   responseProvider?: string;

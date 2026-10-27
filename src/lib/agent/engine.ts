@@ -1,3 +1,5 @@
+import { processingFailure } from "@/lib/agent/processing-error";
+import { normalizeProviderError } from "@/lib/llm/errors";
 import { query, transaction } from "@/lib/db";
 import { assistWithRestaurantBooking } from "@/lib/reservations/chope";
 import { configuredChopeBrowserConnector } from "@/lib/reservations/chope-browser";
@@ -353,24 +355,11 @@ async function runAgentTurn(input: AgentRunInput): Promise<AgentRunResult> {
         embeddingModel,
         errorMessage,
       });
-      const escalation = await createEscalation({
-        ...input,
-        reasonCode: "provider_error",
-        reasonDetail: `Embedding provider failed before retrieval: ${errorMessage}`,
-        confidence: 0,
-      });
-      await trace.finalize({
-        status: "escalated",
-        reasonCode: "provider_error",
-        confidence: 0,
-        responseProvider: responseModel.provider,
-        responseModel: responseModel.model,
-        embeddingProvider,
-        embeddingModel,
-        escalationId: escalation.escalationId,
-        errorMessage,
-      });
-      return escalation;
+      const failure = processingFailure(error).code === "processing_error" ? normalizeProviderError(embeddingProvider,error) : error;
+      await trace.finalize({ status: "failed", reasonCode: processingFailure(failure).code, confidence: 0,
+        responseProvider: responseModel.provider, responseModel: responseModel.model,
+        embeddingProvider, embeddingModel, errorMessage: providerErrorMessage(failure) });
+      throw failure;
     }
     await safeRecordUsage({
       clientId: input.clientId,
@@ -563,27 +552,12 @@ async function runAgentTurn(input: AgentRunInput): Promise<AgentRunResult> {
         : providerError
           ? redactErrorMessage(providerError)
           : "No LLM provider was available.";
-    const escalation = await createEscalation({
-      ...input,
-      reasonCode: "provider_error",
-      reasonDetail: `Generation provider failed: ${errorMessage}`,
-      confidence: 0,
-    });
-    await trace.finalize({
-      status: "escalated",
-      reasonCode: "provider_error",
-      confidence: 0,
-      responseProvider: responseModel.provider,
-      responseModel: responseModel.model,
-      embeddingProvider,
-      embeddingModel,
-      retrievalTopScore: chunks[0]?.score ?? null,
-      retrievalThreshold,
-      retrievalChunks: chunks,
-      escalationId: escalation.escalationId,
-      errorMessage,
-    });
-    return escalation;
+    const failure = processingFailure(providerError).code === "processing_error" ? normalizeProviderError(responseModel.provider,providerError) : providerError;
+    await trace.finalize({ status: "failed", reasonCode: processingFailure(failure).code, confidence: 0,
+      responseProvider: responseModel.provider, responseModel: responseModel.model,
+      embeddingProvider, embeddingModel, retrievalTopScore: chunks[0]?.score ?? null,
+      retrievalThreshold, retrievalChunks: chunks, errorMessage });
+    throw failure;
   }
 
   // Normalize formatting before validation, persistence and outbound delivery.

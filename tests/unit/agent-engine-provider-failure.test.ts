@@ -188,44 +188,12 @@ describe("agent engine provider failures", () => {
     ]);
   });
 
-  it("creates an escalation when embeddings fail before retrieval", async () => {
-    mocks.embed.mockRejectedValueOnce(new Error("embedding provider down"));
-
-    const result = await runAgentForMessage(agentInput());
-
-    expect(result).toMatchObject({
-      action: "escalated",
-      reasonCode: "provider_error",
-      escalationId: "escalation-1",
-    });
-    expect(mocks.transaction).toHaveBeenCalled();
-    expect(mocks.traceFinalize).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: "escalated",
-        reasonCode: "provider_error",
-        errorMessage: "embedding provider down",
-      }),
-    );
-  });
-
-  it("creates an escalation when generation fails", async () => {
-    mocks.embed.mockResolvedValueOnce([[0.1]]);
-    mocks.generateGroundedAnswer.mockRejectedValue(new Error("generation unavailable"));
-
-    const result = await runAgentForMessage(agentInput());
-
-    expect(result).toMatchObject({
-      action: "escalated",
-      reasonCode: "provider_error",
-      escalationId: "escalation-1",
-    });
-    expect(mocks.traceFinalize).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: "escalated",
-        reasonCode: "provider_error",
-        errorMessage: "generation unavailable",
-      }),
-    );
+  it.each(["embedding", "generation"])("reports a recoverable %s failure without transferring ownership", async stage => {
+    if (stage === "embedding") mocks.embed.mockRejectedValueOnce(new Error("embedding provider down"));
+    else { mocks.embed.mockResolvedValueOnce([[0.1]]); mocks.generateGroundedAnswer.mockRejectedValue(new Error("generation unavailable")); }
+    await expect(runAgentForMessage(agentInput())).rejects.toMatchObject({ code: "unavailable" });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.traceFinalize).toHaveBeenCalledWith(expect.objectContaining({ status: "failed", reasonCode: "unavailable" }));
   });
 
   it.each(["greeting", "disclosure"])("uses model inference for %s instead of its canned reply", async kind => {

@@ -17,7 +17,7 @@ type State = {
   session: { id: string; conversation_id: string; ai_mode: "real" | "mock"; ai_selection: string; ai_configuration: DemoAiProfile | null; status: string } | null;
   messages: { id: string; body: string; sender: string; created_at: string; generation_mode: string | null;
     response_provider: string | null; response_model: string | null }[];
-  job: { status: string; created_at: string; delivery_status?: string | null } | null;
+  job: { status: string; created_at: string; delivery_status?: string | null; available_at?: string; failure_code?: string; failure_provider?: string } | null;
   providerError: boolean;
   providerFailureCode: string | null;
 };
@@ -150,7 +150,11 @@ export function CustomerSimulator() {
               <button className="ml-2 underline" disabled={sending} onClick={() => void retryProcessing()}>Try again</button></div>}
             {["failed", "uncertain"].includes(state?.job?.delivery_status ?? "") &&
               <p role="alert" className="text-sm text-danger">Your message is saved, but the reply has not been delivered. Refresh status or ask the business team to review delivery.</p>}
-            {state?.providerError && <p role="alert" className="text-sm text-danger">Our assistant is unavailable. Our team will help with your enquiry.</p>}
+            {state?.providerError && <p role="alert" className="text-sm text-danger">{state.providerFailureCode === "quota_exhausted" ? "The AI provider’s quota is exhausted. Ask the demo operator to check the provider account before retrying." :
+                state.providerFailureCode === "authentication" || state.providerFailureCode === "configuration" ? "The assistant configuration needs attention. Ask the demo operator to check it before retrying." :
+                state.job?.status === "failed" ? "The AI provider is temporarily unavailable. Your message is saved and will retry automatically after the recovery delay." :
+                state.providerFailureCode?.includes("budget") ? "This request exceeded the assistant’s processing limit. Try a shorter request in a new conversation." :
+                "The assistant could not complete this request. Your message is saved; you can retry when the provider recovers."}</p>}
             {humanOwned && <p className="rounded-md bg-warning-bg p-3 text-sm">{state?.session?.status === "closed" ? "Our team has resolved this conversation. Start a new conversation if you need anything else." : "Our team is handling your enquiry. You can continue to send messages here."}</p>}
             <div ref={end}/>
           </div>

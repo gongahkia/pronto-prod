@@ -88,7 +88,7 @@ export class FreeTierProvider implements LlmProvider {
           body: JSON.stringify({ content: { parts: [{ text: context.embeddingTask === "query"
             ? `task: question answering | query: ${text}` : `title: none | text: ${text}` }] }, output_dimensionality: 1536 }),
         });
-        if (!response.ok) throw normalizeProviderError("gemini", { status: response.status });
+        if (!response.ok) throw normalizeProviderError("gemini", { status: response.status, headers: response.headers });
         const data = await response.json() as { embedding?: { values?: unknown } };
         const vector = data.embedding?.values;
         if (!Array.isArray(vector) || vector.length !== 1536 || vector.some(n => typeof n !== "number" || !Number.isFinite(n)) ||
