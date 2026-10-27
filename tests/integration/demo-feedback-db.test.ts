@@ -1,0 +1,49 @@
+import {randomUUID} from 'node:crypto';
+import {afterAll,beforeAll,beforeEach,describe,expect,it,vi} from 'vitest';
+import {getPool} from '@/lib/db';
+import {DEMO_CLIENT_ID} from '@/lib/customer-demo-boundary';
+import {removePsCafeDemo,setupPsCafeDemo,PS_CAFE_DEMO_RESPONDER_ID} from '../../scripts/demo/ps-cafe-raffles-city';
+import type {SessionUser} from '@/lib/auth';
+const mock=vi.hoisted(()=>({user:vi.fn()}));
+vi.mock('@/lib/auth',()=>({getSessionUser:mock.user}));
+vi.mock('@/lib/customer-demo',()=>({assertDemoActor:vi.fn()}));
+import {GET,POST} from '@/app/api/demo/feedback/route';
+const dbDescribe=process.env.PRONTO_RUN_DB_TESTS==='1'?describe:describe.skip;
+const actor:SessionUser={userId:PS_CAFE_DEMO_RESPONDER_ID,role:'client',clientId:DEMO_CLIENT_ID,name:'QA reviewer',email:'qa@demo.test'};
+const anchor={selector:'#brand-voice',label:'Brand voice',quote:'',x:0.5,y:0.5};
+const post=(body:unknown)=>POST(new Request('http://localhost:3000/api/demo/feedback',{method:'POST',headers:{origin:'http://localhost:3000','content-type':'application/json'},body:JSON.stringify(body)}));
+const counts=async()=>(await getPool().query<{threads:number;comments:number}>(`select (select count(*)::int from demo_feedback_threads where client_id=$1) threads,(select count(*)::int from demo_feedback_comments where client_id=$1) comments`,[DEMO_CLIENT_ID])).rows[0];
+dbDescribe('prototype feedback against an isolated database',()=>{
+ beforeAll(async()=>{vi.stubEnv('PRONTO_CUSTOMER_DEMO_ENABLED','1');await removePsCafeDemo();await setupPsCafeDemo();});
+ beforeEach(async()=>{mock.user.mockResolvedValue(actor);await getPool().query('delete from demo_feedback_threads where client_id=$1',[DEMO_CLIENT_ID]);});
+ afterAll(async()=>{await removePsCafeDemo();vi.unstubAllEnvs();await getPool().end();});
+ it('does not create a second thread or comment when a committed save is retried',async()=>{
+  const payload={action:'create',requestId:randomUUID(),path:'/client/knowledge',anchor,body:'Please clarify.'};
+  const first=await (await post(payload)).json();const retry=await post(payload);
+  expect(retry.status).toBe(200);expect(await retry.json()).toEqual({id:first.id,replayed:true});expect(await counts()).toEqual({threads:1,comments:1});
+ });
+ it('collapses simultaneous submissions of the same request into one record',async()=>{
+  const payload={action:'create',requestId:randomUUID(),path:'/client/knowledge',anchor,body:'Double click.'};
+  const responses=await Promise.all([post(payload),post(payload),post(payload)]);
+  expect(responses.map(r=>r.status)).toEqual([200,200,200]);expect(new Set((await Promise.all(responses.map(r=>r.json()))).map(b=>b.id)).size).toBe(1);expect(await counts()).toEqual({threads:1,comments:1});
+ });
+ it('deduplicates replies, keeps distinct requests and does not bump the thread on a replay',async()=>{
+  const {id}=await (await post({action:'create',requestId:randomUUID(),path:'/client/knowledge',anchor,body:'Start.'})).json();
+  const reply={action:'reply',requestId:randomUUID(),threadId:id,body:'Follow-up.'};
+  await post(reply);const before=(await getPool().query('select updated_at from demo_feedback_threads where id=$1',[id])).rows[0].updated_at;
+  expect((await post(reply)).status).toBe(200);
+  expect((await getPool().query('select updated_at from demo_feedback_threads where id=$1',[id])).rows[0].updated_at).toEqual(before);
+  await post({...reply,requestId:randomUUID(),body:'A genuinely second reply.'});expect(await counts()).toEqual({threads:1,comments:3});
+ });
+ it('does not let another reviewer replay a request ID to read a thread',async()=>{
+  const requestId=randomUUID();await post({action:'create',requestId,path:'/client/knowledge',anchor,body:'Mine.'});
+  const other=(await getPool().query(`insert into users(client_id,email,name,role,password_hash) values($1,$2,'Other reviewer','client','x') returning id`,[DEMO_CLIENT_ID,`other-${randomUUID()}@demo.test`])).rows[0];
+  mock.user.mockResolvedValue({...actor,userId:other.id});
+  expect((await post({action:'create',requestId,path:'/client/knowledge',anchor,body:'Theirs.'})).status).toBe(409);expect(await counts()).toEqual({threads:1,comments:1});
+ });
+ it('lists saved threads for the page',async()=>{
+  await post({action:'create',requestId:randomUUID(),path:'/client/knowledge',anchor,body:'Visible.'});
+  const body=await (await GET(new Request('http://localhost:3000/api/demo/feedback?path=/client/knowledge'))).json();
+  expect(body.threads).toHaveLength(1);expect(body.threads[0].comments[0].body).toBe('Visible.');
+ });
+});

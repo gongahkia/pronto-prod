@@ -7,6 +7,7 @@ import {query,transaction} from '@/lib/db';
 import {assertSameOrigin} from '@/lib/http/csrf';
 import {feedbackMutation,feedbackPath} from '@/lib/feedback/schema';
 import type {FeedbackThread} from '@/lib/feedback/types';
+class ReplayedRequest extends Error{}
 async function actor(){const user=await getSessionUser();if(!user)throw new DemoError('Sign in to leave prototype feedback.',401);enterTenantContext(user);await assertDemoActor(user);return user;}
 function failure(error:unknown){return NextResponse.json({error:error instanceof DemoError?error.message:'Could not save prototype feedback.'},{status:error instanceof DemoError?error.status:500});}
 export async function GET(request:Request){
@@ -27,6 +28,8 @@ export async function POST(request:Request){
   const parsed=feedbackMutation.safeParse(body);
   if(!parsed.success)return NextResponse.json({error:'Add a comment of up to 3,000 characters on a valid page.'},{status:400});
   const input=parsed.data;
+  const requestId=input.action==='status'?null:input.requestId;
+  try{
   const id=await transaction(async db=>{
    let threadId:string;
    if(input.action==='create'){
@@ -37,9 +40,20 @@ export async function POST(request:Request){
    }
    if(input.action==='status')await db.query(`update demo_feedback_threads set status=$3,updated_at=now() where client_id=$1 and id=$2`,[DEMO_CLIENT_ID,threadId,input.status]);
    else{
-    await db.query(`insert into demo_feedback_comments(client_id,thread_id,author_user_id,author_name,body) values($1,$2,$3,$4,$5)`,[DEMO_CLIENT_ID,threadId,user.userId,user.name,input.body]);
+    // A repeated request ID means an earlier attempt already committed; roll back this one and return the original.
+    const inserted=await db.query<{id:string}>(`insert into demo_feedback_comments(client_id,thread_id,author_user_id,author_name,body,request_id) values($1,$2,$3,$4,$5,$6)
+     on conflict(client_id,request_id) where request_id is not null do nothing returning id`,[DEMO_CLIENT_ID,threadId,user.userId,user.name,input.body,requestId]);
+    if(!inserted.rows[0])throw new ReplayedRequest();
     await db.query(`update demo_feedback_threads set updated_at=now() where client_id=$1 and id=$2`,[DEMO_CLIENT_ID,threadId]);
    }return threadId;
   });return NextResponse.json({id});
+  }catch(e){
+   if(e instanceof ReplayedRequest&&requestId){
+    const prior=await query<{thread_id:string}>(`select thread_id from demo_feedback_comments where client_id=$1 and request_id=$2 and author_user_id=$3`,[DEMO_CLIENT_ID,requestId,user.userId]);
+    if(prior.rows[0])return NextResponse.json({id:prior.rows[0].thread_id,replayed:true});
+    return NextResponse.json({error:'This save request was already used. Reload and try again.'},{status:409});
+   }
+   throw e;
+  }
  }catch(e){return failure(e);}
 }

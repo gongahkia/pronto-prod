@@ -10,6 +10,8 @@ GET /api/demo/feedback/export?status=all
 GET /api/demo/feedback/export?status=all&cursor=THREAD_UUID
 ```
 
+Saves are idempotent. The overlay sends a `requestId` (UUID) with every new thread and reply and reuses it when the identical save is retried, so a response lost after the server committed returns the original thread instead of adding a duplicate comment. Apply migration `055_demo_feedback_request_ids.sql` before deploying this version; older cached tabs must be reloaded because requests without a `requestId` are rejected.
+
 The export is private to the invited synthetic demo workspace. The server derives the workspace from the existing demo identity, not a supplied tenant ID. Anonymous requests are rejected; responses are not cacheable. Downloading does not notify Codex or publish comments elsewhere.
 
 The versioned structure contains:

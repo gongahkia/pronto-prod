@@ -4,6 +4,7 @@ import {usePathname} from 'next/navigation';
 import {Check,CornerDownRight,Download,LocateFixed,MessageCircle,MousePointer2,Plus,X} from 'lucide-react';
 import {useDraftEditor} from '@/components/use-draft-editor';
 import type {FeedbackAnchor,FeedbackThread} from '@/lib/feedback/types';
+import {createRequestIdTracker} from '@/lib/feedback/request-id';
 function selectorFor(element:Element){
  if(element.id)return `#${CSS.escape(element.id)}`;
  const parts:string[]=[];let node:Element|null=element;
@@ -22,7 +23,7 @@ function DemoFeedbackPanel({path}:{path:string}){
  const [threads,setThreads]=useState<FeedbackThread[]>([]);const [selected,setSelected]=useState('');const [anchor,setAnchor]=useState<FeedbackAnchor|null>(null);
  const [error,setError]=useState('');const [saving,setSaving]=useState(false);const [loading,setLoading]=useState(false);const [showResolved,setShowResolved]=useState(false);
  const [hover,setHover]=useState<{left:number;top:number;width:number;height:number}|null>(null);
- const [positions,setPositions]=useState<Record<string,{left:number;top:number}>>({});const textarea=useRef<HTMLTextAreaElement>(null);
+ const [positions,setPositions]=useState<Record<string,{left:number;top:number}>>({});const textarea=useRef<HTMLTextAreaElement>(null);const requests=useRef(createRequestIdTracker());
  const draft=useDraftEditor('',0);const visible=threads.filter(t=>showResolved||t.status==='open');
  const load=useCallback(async(signal?:AbortSignal)=>{
   setLoading(true);try{const response=await fetch(`/api/demo/feedback?path=${encodeURIComponent(path)}`,{cache:'no-store',signal});const body=await response.json();
@@ -49,8 +50,8 @@ function DemoFeedbackPanel({path}:{path:string}){
  function newComment(pin:boolean){if(draft.dirty&&!window.confirm('Discard your unsent comment?'))return;draft.reset();setSelected('');setError('');
   if(pin){setAnchor(null);setOpen(false);setPinning(true);}else{setAnchor({selector:document.querySelector('#main-content')?'#main-content':'main',label:'This page',quote:'',x:0.98,y:0});setTimeout(()=>textarea.current?.focus(),0);}}
  async function mutate(payload:Record<string,unknown>){setSaving(true);setError('');try{
-  const response=await fetch('/api/demo/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const body=await response.json();if(!response.ok)throw Error(body.error??'Could not save feedback.');
-  if(payload.action!=='status')draft.reset();setAnchor(null);setSelected(body.id);await load();
+  const response=await fetch('/api/demo/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload.action==='status'?payload:{...payload,requestId:requests.current.idFor(payload)})});const body=await response.json();if(!response.ok)throw Error(body.error??'Could not save feedback.');
+  requests.current.clear();if(payload.action!=='status')draft.reset();setAnchor(null);setSelected(body.id);await load();
  }catch(e){setError(e instanceof Error?e.message:'Could not save feedback.');}finally{setSaving(false);}}
  const current=threads.find(t=>t.id===selected);
  return <div data-feedback-ui data-feedback-open={open||pinning?true:undefined}>
