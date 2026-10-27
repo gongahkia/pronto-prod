@@ -56,12 +56,12 @@ export function extractGroundedValues(text: string): Fact[] {
     const currency = ({ "S$": "SGD", "US$": "USD", "€": "EUR", "£": "GBP" } as Record<string, string>)[symbol] ?? symbol;
     add("price", `${currency}:${Number(m[3].replace(/,/g, "")).toFixed(2)}`, m.index!, m[0].length);
   }
-  for (const m of text.matchAll(/\b(\d{1,2})(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?|pagi|petang|malam)\b/gi))
-    add("time", clock(Number(m[1]), Number(m[2] ?? 0), m[3].replace(/\./g, "")), m.index!, m[0].length);
-  for (const m of text.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g))
-    add("time", clock(Number(m[1]), Number(m[2])), m.index!, m[0].length);
+  for (const m of text.matchAll(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|pagi|petang|malam)\b/gi))
+    add("time", clock(Number(m[1]), Number(m[2] ?? 0), m[3].replace(/\./g, "")) ?? "invalid-time", m.index!, m[0].length);
+  for (const m of text.matchAll(/\b(\d{1,2}):(\d{2})\b/g))
+    add("time", clock(Number(m[1]), Number(m[2])) ?? "invalid-time", m.index!, m[0].length);
   for (const m of text.matchAll(/(上午|早上|中午|下午|晚上|傍晚)?(\d{1,2})[点點时時](?:(\d{1,2})分?)?/g))
-    add("time", clock(Number(m[2]), Number(m[3] ?? 0), m[1]), m.index!, m[0].length);
+    add("time", clock(Number(m[2]), Number(m[3] ?? 0), m[1]) ?? "invalid-time", m.index!, m[0].length);
   for (const m of text.matchAll(/\b(noon|midnight)\b/gi))
     add("time", m[1].toLowerCase() === "noon" ? "12:00" : "00:00", m.index!, m[0].length);
   return facts.sort((a, b) => a.start - b.start);
@@ -70,7 +70,7 @@ export function extractGroundedValues(text: string): Fact[] {
 function sameValue(claim: Fact, evidence: Fact): boolean {
   if (claim.kind !== evidence.kind) return false;
   if (claim.value === evidence.value) return true;
-  if (claim.kind === "date" && (claim.value.startsWith("*") || evidence.value.startsWith("*")))
+  if (claim.kind === "date" && claim.value.startsWith("*"))
     return claim.value.slice(-5) === evidence.value.slice(-5);
   // A bare dollar symbol is acceptable wording for an explicitly sourced dollar
   // price; an explicit currency never changes into another explicit currency.
@@ -81,7 +81,7 @@ function sameValue(claim: Fact, evidence: Fact): boolean {
 function timeRole(text: string, fact: Fact): "open" | "close" | null {
   if (fact.kind !== "time" && fact.kind !== "date") return null;
   const before = text.slice(Math.max(0, fact.start - 100), fact.start);
-  const labels = [...before.matchAll(/\b(open(?:s|ed|ing)?|clos(?:e|es|ed|ing))\b/gi)];
+  const labels = [...before.matchAll(/\b(open(?:s|ed|ing)?|clos(?:e|es|ed|ing)|buka|tutup)\b|开门|開門|关门|關門|闭店|閉店/gi)];
   const last = labels.at(-1);
   const times = extractGroundedValues(text).filter(value => value.kind === "time");
   const index = times.findIndex(value => value.start === fact.start);
@@ -91,7 +91,9 @@ function timeRole(text: string, fact: Fact): "open" | "close" | null {
   if (next && range(fact, next) && /\b(open(?:ing)?|hours)\b/i.test(before)) return "open";
   if (/\b(?:open\s+)?(?:until|till)\s*$/i.test(before)) return "close";
   if (last && !/[.!?\n]/.test(before.slice(last.index! + last[0].length)))
-    return last[1].toLowerCase().startsWith("open") ? "open" : "close";
+    return /^(?:open|buka|开门|開門)/i.test(last[0]) ? "open" : "close";
+  const following = text.slice(fact.end).match(/^\s*(开门|開門|关门|關門|闭店|閉店)/);
+  if (following) return /开门|開門/.test(following[1]) ? "open" : "close";
   return null;
 }
 
@@ -114,7 +116,9 @@ export function unsupportedGroundedValue(input: {
     if (claim.kind === "url" && allowedUrls.has(claim.value)) continue;
     const role = timeRole(input.answer, claim);
     const subject = claim.kind === "price" ? priceSubject(input.answer, claim) : null;
-    if (evidence.some(source => source.facts.some(fact => sameValue(claim, fact) &&
+    const ambiguousPrice = claim.kind === "price" && !subject &&
+      new Set(evidence.flatMap(source => source.facts.filter(fact => fact.kind === "price").map(fact => fact.value))).size > 1;
+    if (!ambiguousPrice && evidence.some(source => source.facts.some(fact => sameValue(claim, fact) &&
       (!role || !timeRole(source.text, fact) || role === timeRole(source.text, fact)) &&
       (!subject || !priceSubject(source.text, fact) || subject === priceSubject(source.text, fact))))) continue;
     // Customer details may be repeated in a clarification/question or an
