@@ -49,6 +49,35 @@ export async function requireUser(role?: UserRole): Promise<SessionUser> {
   return user;
 }
 
+export async function establishSession(
+  user: Pick<User, "id" | "email" | "name" | "role" | "client_id" | "session_version">,
+): Promise<SessionUser> {
+  const sessionUser: SessionUser = {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    clientId: user.client_id,
+  };
+  const cookieStore = await cookies();
+  cookieStore.set(
+    COOKIE_NAME,
+    encodeSession({
+      ...sessionUser,
+      exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
+      sv: user.session_version,
+    }),
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production" && appBaseUrl().startsWith("https://"),
+      maxAge: SESSION_TTL_SECONDS,
+      path: "/",
+    },
+  );
+  return sessionUser;
+}
+
 export async function login(email: string, password: string): Promise<SessionUser | null> {
   const normalizedEmail = email.trim().toLowerCase();
   const result = await query<User>("select * from users where email = $1", [
@@ -79,30 +108,7 @@ export async function login(email: string, password: string): Promise<SessionUse
     return null;
   }
 
-  const sessionUser: SessionUser = {
-    userId: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    clientId: user.client_id,
-  };
-
-  const cookieStore = await cookies();
-  cookieStore.set(
-    COOKIE_NAME,
-    encodeSession({
-      ...sessionUser,
-      exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
-      sv: user.session_version,
-    }),
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production" && appBaseUrl().startsWith("https://"),
-      maxAge: SESSION_TTL_SECONDS,
-      path: "/",
-    },
-  );
+  const sessionUser = await establishSession(user);
 
   await recordAuditLog({
     clientId: user.client_id,

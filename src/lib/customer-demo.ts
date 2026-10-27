@@ -6,6 +6,7 @@ import { ingestInboundMessage } from "@/lib/channels/inbox";
 import { assertCustomerDemoEnabled, DEMO_CHANNEL_ID, DEMO_CLIENT_ID, DEMO_SLUG, DemoError } from "@/lib/customer-demo-boundary";
 import { requireRealDemoConfiguration, profileForDemoChoice, storedDemoProfile, demoModelAvailability } from "@/lib/customer-demo-ai";
 import { DEFAULT_DEMO_MODEL, demoModelChoice, type DemoAiProfile } from "@/lib/llm/demo-models";
+import { guestAccessEnabled, isGuestEmail } from "@/lib/guest-policy";
 import { protectedDemoConfiguration, protectedDemoDeployment, requestDrivenDemoProcessing } from "@/lib/deployment-profile";
 import type { AiExecutionMode } from "@/lib/llm/execution-mode";
 
@@ -13,7 +14,9 @@ export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9
 
 export async function assertDemoActor(actor: SessionUser, db: Queryable = { query }) {
   await assertCustomerDemoEnabled(db);
-  if (protectedDemoDeployment() && !protectedDemoConfiguration().allowedUserIds.includes(actor.userId))
+  // Guest reviewers are created by the explicitly enabled guest flow, so they are not on the named-user list.
+  const guest = guestAccessEnabled() && isGuestEmail(actor.email);
+  if (protectedDemoDeployment() && !guest && !protectedDemoConfiguration().allowedUserIds.includes(actor.userId))
     throw new DemoError("This account is not invited to the protected demo.", 403);
   if (actor.role !== "operator" && actor.clientId !== DEMO_CLIENT_ID) throw new DemoError("Forbidden.", 403);
   const identity = await db.query<{ id: string }>(`select c.id from clients c join users u on u.id=$2

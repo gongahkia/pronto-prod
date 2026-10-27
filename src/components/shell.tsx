@@ -7,6 +7,7 @@ import { DEMO_CLIENT_ID } from "@/lib/customer-demo-boundary";
 import { PsCafeLogo } from "@/components/ps-cafe-logo";
 import { WorkspaceMenu } from "@/components/workspace-menu";
 import { DemoFeedback } from "@/components/demo-feedback";
+import { guestMayRequest, isGuestEmail } from "@/lib/guest-policy";
 import {DemoQueuePump} from '@/components/demo-queue-pump';
 import {requestDrivenDemoProcessing} from '@/lib/deployment-profile';
 
@@ -26,20 +27,24 @@ export function AppShell({ user, children, clientActive = "inbox", workspaceName
   const psCafe = user.clientId === DEMO_CLIENT_ID;
   const displayName = psCafe ? (workspaceName ?? "PS.Cafe Raffles City").replace(/\s+\((?:unofficial )?demo\)$/, "")
     : workspaceName ?? "Client workspace";
+  // Guests are read-only reviewers: show their name rather than a placeholder address, and don't run the simulator queue they cannot post to.
+  const guest = isGuestEmail(user.email);
+  const shownEmail = guest ? `${user.name} (guest reviewer)` : user.email;
+  const canRunQueue = !guest || guestMayRequest("POST", "/api/demo/process");
   return <>
     <AutoRefresh/>
-    {psCafe&&requestDrivenDemoProcessing()&&<DemoQueuePump/>}
+    {psCafe&&requestDrivenDemoProcessing()&&canRunQueue&&<DemoQueuePump/>}
     <a href="#main-content" className="skip-link">Skip to main content</a>
     <div className="min-h-screen bg-background text-foreground lg:flex">
-      <ClientSidebar active={clientActive} email={user.email} workspaceName={displayName} psCafe={psCafe}/>
+      <ClientSidebar active={clientActive} email={shownEmail} workspaceName={displayName} psCafe={psCafe}/>
       <div className="min-w-0 flex-1">
         <header className="border-b border-line bg-panel/95 backdrop-blur lg:hidden">
           <div className="flex items-center justify-between px-4 py-3">
-            <WorkspaceMenu name={displayName} email={user.email} className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold text-foreground">
+            <WorkspaceMenu name={displayName} email={shownEmail} className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-semibold text-foreground">
               {psCafe ? <PsCafeLogo/> : <><span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white">P</span>Pronto</>}
             <span className="min-w-0 flex-1 px-1">
               <span className="block truncate text-sm font-medium">{displayName}</span>
-              <span className="block truncate text-xs text-muted">{user.email}</span>
+              <span className="block truncate text-xs text-muted">{shownEmail}</span>
             </span>
             </WorkspaceMenu>
             <form action="/api/auth/logout" method="post">
