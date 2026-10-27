@@ -82,7 +82,7 @@ function DemoFeedbackPanel({path}:{path:string}){
        <button type="submit" disabled={saving||!draft.value.trim()} className="ui-primary-button inline-flex items-center gap-2 px-3 py-2 text-sm"><CornerDownRight size={15} aria-hidden="true"/>{saving?'Saving…':anchor?'Post comment':'Post reply'}</button>
       </form>
      </>}
-    </div><div className="space-y-3 border-t border-line p-4"><a href="/api/demo/feedback/export?status=all" download className="ui-button inline-flex items-center gap-2 px-3 py-2 text-xs"><Download size={14} aria-hidden="true"/>Export workspace feedback</a><p className="text-xs leading-5 text-muted">Private prototype feedback, saved to this demo workspace. No message is sent to customers.</p></div>
+    </div><div className="space-y-3 border-t border-line p-4"><a href="/api/demo/feedback/export?status=all&complete=1" download className="ui-button inline-flex items-center gap-2 px-3 py-2 text-xs"><Download size={14} aria-hidden="true"/>Export workspace feedback</a><p className="text-xs leading-5 text-muted">Private prototype feedback, saved to this demo workspace. No message is sent to customers.</p></div>
    </aside>
   </>}
  </div>;

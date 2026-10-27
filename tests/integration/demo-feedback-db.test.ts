@@ -8,6 +8,7 @@ const mock=vi.hoisted(()=>({user:vi.fn()}));
 vi.mock('@/lib/auth',()=>({getSessionUser:mock.user}));
 vi.mock('@/lib/customer-demo',()=>({assertDemoActor:vi.fn()}));
 import {GET,POST} from '@/app/api/demo/feedback/route';
+import {GET as EXPORT} from '@/app/api/demo/feedback/export/route';
 const dbDescribe=process.env.PRONTO_RUN_DB_TESTS==='1'?describe:describe.skip;
 const actor:SessionUser={userId:PS_CAFE_DEMO_RESPONDER_ID,role:'client',clientId:DEMO_CLIENT_ID,name:'QA reviewer',email:'qa@demo.test'};
 const anchor={selector:'#brand-voice',label:'Brand voice',quote:'',x:0.5,y:0.5};
@@ -40,6 +41,21 @@ dbDescribe('prototype feedback against an isolated database',()=>{
   const other=(await getPool().query(`insert into users(client_id,email,name,role,password_hash) values($1,$2,'Other reviewer','client','x') returning id`,[DEMO_CLIENT_ID,`other-${randomUUID()}@demo.test`])).rows[0];
   mock.user.mockResolvedValue({...actor,userId:other.id});
   expect((await post({action:'create',requestId,path:'/client/knowledge',anchor,body:'Theirs.'})).status).toBe(409);expect(await counts()).toEqual({threads:1,comments:1});
+ });
+ it('exports every thread and comment in one download, while the paged export stays bounded',async()=>{
+  const pool=getPool();
+  for(let i=0;i<30;i+=1){const t=(await pool.query(`insert into demo_feedback_threads(client_id,page_path,anchor,created_at) values($1,'/client/knowledge',$2,now()-($3||' seconds')::interval) returning id`,[DEMO_CLIENT_ID,anchor,String(i)])).rows[0];
+   await pool.query(`insert into demo_feedback_comments(client_id,thread_id,author_name,body) select $1,$2,'QA','c'||g from generate_series(1,$3::int) g`,[DEMO_CLIENT_ID,t.id,i===0?120:1]);}
+  const paged=await (await EXPORT(new Request('http://localhost:3000/api/demo/feedback/export?status=all'))).json();
+  expect(paged.threads).toHaveLength(25);expect(paged.pagination.hasMore).toBe(true);
+  const full=await (await EXPORT(new Request('http://localhost:3000/api/demo/feedback/export?status=all&complete=1'))).json();
+  expect(full).toMatchObject({complete:true,pagination:{hasMore:false}});expect(full.threads).toHaveLength(30);
+  expect(new Set(full.threads.map((t:{id:string})=>t.id)).size).toBe(30);
+  expect(full.threads.reduce((n:number,t:{comments:unknown[]})=>n+t.comments.length,0)).toBe(149);expect(full.threads.some((t:{commentsTruncated:boolean})=>t.commentsTruncated)).toBe(false);
+  expect(paged.threads.find((t:{commentCount:number})=>t.commentCount===120)).toMatchObject({commentsTruncated:true});
+ });
+ it('rejects an export cursor that does not exist',async()=>{
+  expect((await EXPORT(new Request(`http://localhost:3000/api/demo/feedback/export?status=all&cursor=${randomUUID()}`))).status).toBe(400);
  });
  it('lists saved threads for the page',async()=>{
   await post({action:'create',requestId:randomUUID(),path:'/client/knowledge',anchor,body:'Visible.'});

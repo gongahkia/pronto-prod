@@ -8,6 +8,7 @@ Open **Feedback → Export workspace feedback** to download JSON, or use the aut
 GET /api/demo/feedback/export?status=open
 GET /api/demo/feedback/export?status=all
 GET /api/demo/feedback/export?status=all&cursor=THREAD_UUID
+GET /api/demo/feedback/export?status=all&complete=1
 ```
 
 Saves are idempotent. The overlay sends a `requestId` (UUID) with every new thread and reply and reuses it when the identical save is retried, so a response lost after the server committed returns the original thread instead of adding a duplicate comment. Apply migration `055_demo_feedback_request_ids.sql` before deploying this version; older cached tabs must be reloaded because requests without a `requestId` are rejected.
@@ -43,7 +44,9 @@ The versioned structure contains:
 }
 ```
 
-Each page contains up to 25 threads and the latest 100 comments per thread, ordered chronologically within a thread. Follow `pagination.nextCursor` when `hasMore` is true. `commentsTruncated` explicitly flags unusually long threads; use database access to read the remaining comments rather than assuming the export is complete. New exports use current thread state, not an immutable archival snapshot.
+The **Export workspace feedback** button uses `complete=1`: the server follows every page and returns all threads with **all** comments in one file (`complete: true`). It stops at 2,000 threads as a safety cap; then `complete` is `false` and `pagination.nextCursor` continues from there with the cursor form. An unknown `cursor` returns 400 rather than an empty file.
+
+Without `complete=1`, each page contains up to 25 threads and the latest 100 comments per thread, ordered chronologically within a thread. Follow `pagination.nextCursor` when `hasMore` is true. `commentsTruncated` explicitly flags unusually long threads; use database access to read the remaining comments rather than assuming the export is complete. New exports use current thread state, not an immutable archival snapshot.
 
 With database access, the underlying tables are `demo_feedback_threads` and `demo_feedback_comments`. Join on **both** `client_id` and `thread_id`, bind the authorized workspace ID, filter `status='open'` if appropriate, and order comments by `created_at,id`. Stable thread/comment IDs allow a later review to identify what is new. Keep database credentials in private local configuration or a connector, never inside the exported file or Git.
 
