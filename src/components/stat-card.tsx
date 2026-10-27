@@ -1,3 +1,5 @@
+import { feedbackId } from "@/lib/feedback/anchor";
+
 export function StatCard({
   label,
   value,
@@ -8,7 +10,7 @@ export function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="ui-panel p-6">
+    <div className="ui-panel p-6" data-feedback-id={feedbackId("stat", label)}>
       <p className="text-sm font-medium leading-[18px] text-muted">{label}</p>
       <p className="mt-3 text-[30px] font-normal leading-9 text-foreground">{value}</p>
       {hint ? <p className="mt-1 text-sm text-muted">{hint}</p> : null}

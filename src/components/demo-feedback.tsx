@@ -5,18 +5,11 @@ import {Check,CornerDownRight,Download,LocateFixed,MessageCircle,MousePointer2,P
 import {useDraftEditor} from '@/components/use-draft-editor';
 import type {FeedbackAnchor,FeedbackThread} from '@/lib/feedback/types';
 import {createRequestIdTracker} from '@/lib/feedback/request-id';
+import {PAGE_LABEL,anchorWarning,buildAnchor,pickTarget,resolveAnchor} from '@/lib/feedback/anchor';
+import type {AnchorState,ResolvedAnchor} from '@/lib/feedback/anchor';
 import {clearDraft,loadDraft,remainderAfterSave,saveDraft} from '@/lib/feedback/draft-storage';
-function selectorFor(element:Element){
- if(element.id)return `#${CSS.escape(element.id)}`;
- const parts:string[]=[];let node:Element|null=element;
- while(node&&node.tagName!=='BODY'&&parts.length<7){
-  if(node.id){parts.unshift(`#${CSS.escape(node.id)}`);break;}
-  const tag=node.tagName.toLowerCase();const siblings=node.parentElement?[...node.parentElement.children].filter(e=>e.tagName===node!.tagName):[];
-  parts.unshift(`${tag}:nth-of-type(${siblings.indexOf(node)+1})`);node=node.parentElement;
- }return parts.join(' > ');
-}
-function pageAnchor():FeedbackAnchor{return {selector:document.querySelector('#main-content')?'#main-content':'main',label:'This page',quote:'',x:0.98,y:0};}
-function findAnchor(anchor:FeedbackAnchor){try{return document.querySelector(anchor.selector);}catch{return null;}}
+function pageAnchor():FeedbackAnchor{return {selector:document.querySelector('#main-content')?'#main-content':'main',label:PAGE_LABEL,quote:'',x:0.98,y:0};}
+type Placed={left:number;top:number;state:AnchorState;pin:boolean};
 export function DemoFeedback(){
  const path=usePathname();return <DemoFeedbackPanel key={path} path={path}/>;
 }
@@ -25,7 +18,7 @@ function DemoFeedbackPanel({path}:{path:string}){
  const [threads,setThreads]=useState<FeedbackThread[]>([]);const [selected,setSelected]=useState('');const [anchor,setAnchor]=useState<FeedbackAnchor|null>(null);
  const [error,setError]=useState('');const [saving,setSaving]=useState(false);const [loading,setLoading]=useState(false);const [showResolved,setShowResolved]=useState(false);const [hasMoreThreads,setHasMoreThreads]=useState(false);
  const [hover,setHover]=useState<{left:number;top:number;width:number;height:number}|null>(null);
- const [positions,setPositions]=useState<Record<string,{left:number;top:number}>>({});const textarea=useRef<HTMLTextAreaElement>(null);const requests=useRef(createRequestIdTracker());
+ const [positions,setPositions]=useState<Record<string,Placed>>({});const textarea=useRef<HTMLTextAreaElement>(null);const requests=useRef(createRequestIdTracker());
  const draft=useDraftEditor('',0);const visible=threads.filter(t=>showResolved||t.status==='open');
  const [restored,setRestored]=useState(false);
  const valueRef=useRef('');const ctxRef=useRef<{anchor:FeedbackAnchor|null;selected:string}>({anchor:null,selected:''});const restoredRef=useRef(false);const restoredThread=useRef('');
@@ -39,20 +32,29 @@ function DemoFeedbackPanel({path}:{path:string}){
  },[path]);
  useEffect(()=>{if(!open)return;const abort=new AbortController();const start=setTimeout(()=>void load(abort.signal),0);const timer=setInterval(()=>void load(abort.signal),15000);return()=>{abort.abort();clearTimeout(start);clearInterval(timer);};},[load,open]);
  useEffect(()=>{if(!pinning)return;
-  const move=(event:PointerEvent)=>{const target=event.target instanceof Element?event.target:null;if(!target||target.closest('[data-feedback-ui]')){setHover(null);return;}const r=target.getBoundingClientRect();setHover({left:r.left,top:r.top,width:r.width,height:r.height});};
+  const move=(event:PointerEvent)=>{const target=event.target instanceof Element?event.target:null;if(!target||target.closest('[data-feedback-ui]')){setHover(null);return;}const r=pickTarget(target).getBoundingClientRect();setHover({left:r.left,top:r.top,width:r.width,height:r.height});};
   const click=(event:MouseEvent)=>{const target=event.target instanceof Element?event.target:null;if(!target||target.closest('[data-feedback-ui]'))return;
-   event.preventDefault();event.stopPropagation();const element=target.closest('button,a,input,textarea,select,h1,h2,h3,p,li,section')??target;const r=element.getBoundingClientRect();
-   const label=(element.getAttribute('aria-label')||element.getAttribute('placeholder')||element.textContent||element.tagName).trim().replace(/\s+/g,' ').slice(0,120)||'Page element';
-   setAnchor({selector:selectorFor(element),label,quote:(window.getSelection()?.toString()??'').trim().slice(0,300),x:Math.max(0,Math.min(1,(event.clientX-r.left)/Math.max(1,r.width))),y:Math.max(0,Math.min(1,(event.clientY-r.top)/Math.max(1,r.height)))});
+   event.preventDefault();event.stopPropagation();const element=pickTarget(target);const r=element.getBoundingClientRect();
+   setAnchor(buildAnchor(element,{quote:(window.getSelection()?.toString()??'').trim().slice(0,300),x:Math.max(0,Math.min(1,(event.clientX-r.left)/Math.max(1,r.width))),y:Math.max(0,Math.min(1,(event.clientY-r.top)/Math.max(1,r.height)))}));
    setSelected('');setPinning(false);setHover(null);setOpen(true);setError('');setTimeout(()=>textarea.current?.focus(),0);
   };
   const key=(event:KeyboardEvent)=>{if(event.key==='Escape'){setPinning(false);setHover(null);setOpen(true);}};
   window.addEventListener('pointermove',move);window.addEventListener('click',click,true);window.addEventListener('keydown',key);
   return()=>{window.removeEventListener('pointermove',move);window.removeEventListener('click',click,true);window.removeEventListener('keydown',key);};
  },[pinning]);
- useEffect(()=>{if(!open)return;const position=()=>{const result:Record<string,{left:number;top:number}>={};for(const thread of threads){if(thread.status==='resolved'&&!showResolved)continue;const el=findAnchor(thread.anchor);if(!el)continue;const r=el.getBoundingClientRect();if(r.width&&r.height)result[thread.id]={left:Math.min(innerWidth-32,Math.max(0,r.left+r.width*thread.anchor.x)),top:r.top+r.height*thread.anchor.y};}setPositions(result);};
-  position();window.addEventListener('scroll',position,true);window.addEventListener('resize',position);return()=>{window.removeEventListener('scroll',position,true);window.removeEventListener('resize',position);};
- },[threads,open,showResolved]);
+ useEffect(()=>{if(!open)return;
+  // Full resolution can scan the page, so it runs on data changes and a slow timer; scrolling only re-measures.
+  const resolved=new Map<string,ResolvedAnchor>();
+  const resolve=()=>{resolved.clear();for(const thread of threads){if(thread.status==='resolved'&&!showResolved&&thread.id!==selected)continue;resolved.set(thread.id,resolveAnchor(thread.anchor));}};
+  const position=()=>{const result:Record<string,Placed>={};
+   for(const thread of threads){const found=resolved.get(thread.id);if(!found)continue;
+    const el=found.element;const r=el&&el.isConnected?el.getBoundingClientRect():null;
+    if(!el||!r||!r.width||!r.height||found.state==='missing'||found.state==='hidden'){result[thread.id]={left:0,top:0,state:found.state==='missing'?'missing':'hidden',pin:false};continue;}
+    result[thread.id]={left:Math.min(innerWidth-32,Math.max(0,r.left+r.width*thread.anchor.x)),top:r.top+r.height*thread.anchor.y,state:found.state,pin:true};}
+   setPositions(result);};
+  resolve();position();const refresh=setInterval(()=>{resolve();position();},3000);
+  window.addEventListener('scroll',position,true);window.addEventListener('resize',position);return()=>{clearInterval(refresh);window.removeEventListener('scroll',position,true);window.removeEventListener('resize',position);};
+ },[threads,open,showResolved,selected]);
  useEffect(()=>{valueRef.current=draft.value;ctxRef.current={anchor,selected};});
  // Bring back an unsent comment after a reload, crash or tab restore.
  useEffect(()=>{const start=setTimeout(()=>{const saved=loadDraft(path);
@@ -83,8 +85,8 @@ function DemoFeedbackPanel({path}:{path:string}){
   {pinning&&<><div className="pointer-events-none fixed inset-x-4 bottom-4 z-[80] mx-auto flex max-w-xl items-center justify-between gap-3 rounded-lg bg-accent px-4 py-3 text-sm text-white shadow-lg"><span className="inline-flex items-center gap-2"><MousePointer2 size={17} aria-hidden="true"/>Click a part of the page to comment. Esc to cancel.</span><button type="button" aria-label="Cancel pinning" className="pointer-events-auto" onClick={()=>{setPinning(false);setOpen(true);setHover(null);}}><X size={18}/></button></div>
    {hover&&<div className="pointer-events-none fixed z-[60] rounded-sm border-2 border-accent bg-accent/5" style={hover}/>}</>}
   {open&&<>
-   {visible.map((thread,index)=>positions[thread.id]&&<button key={thread.id} type="button" aria-label={`Open feedback ${index+1}: ${thread.anchor.label}`} onClick={()=>switchThread(thread.id)}
-    className="fixed z-40 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-accent text-xs font-semibold text-white shadow-md" style={positions[thread.id]}>{index+1}</button>)}
+   {visible.map((thread,index)=>{const place=positions[thread.id];return place?.pin&&<button key={thread.id} type="button" aria-label={`Open feedback ${index+1}: ${thread.anchor.label}${place.state==='ok'?'':' (check target)'}`} title={place.state==='ok'?undefined:anchorWarning[place.state as Exclude<AnchorState,'ok'>]} onClick={()=>switchThread(thread.id)}
+    className={`fixed z-40 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white ${place.state==='ok'?'bg-accent':'bg-amber-600'} text-xs font-semibold text-white shadow-md`} style={{left:place.left,top:place.top}}>{index+1}</button>;})}
    <aside role="complementary" aria-label="Prototype feedback" className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-sm flex-col border-l border-line bg-panel text-foreground shadow-xl">
     <div className="border-b border-line p-4"><div className="flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-lg font-semibold"><MessageCircle size={18} className="text-accent" aria-hidden="true"/>POC feedback</h2><button type="button" aria-label="Close feedback" onClick={()=>setOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-surface-hover"><X size={18}/></button></div>
      <p className="mt-1 text-xs text-muted">Leave a note for this page, or pin it to a specific element.</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={()=>newComment(true)} className="ui-primary-button inline-flex items-center gap-2 px-3 py-2 text-sm"><MousePointer2 size={15} aria-hidden="true"/>Pin a comment</button><button type="button" onClick={()=>newComment(false)} className="ui-button inline-flex items-center gap-2 px-3 py-2 text-sm"><Plus size={15} aria-hidden="true"/>Page comment</button></div>
@@ -93,14 +95,15 @@ function DemoFeedbackPanel({path}:{path:string}){
      {restored&&!error&&(anchor||current)&&<p role="status" className="rounded-md bg-surface p-3 text-xs text-muted">Restored your unsent comment from this device.</p>}
      {error&&<p role="alert" className="rounded-md bg-danger-bg p-3 text-sm text-danger">{error}</p>}
      {!anchor&&!current&&<><label className="flex items-center gap-2 text-xs text-muted"><input type="checkbox" checked={showResolved} onChange={e=>setShowResolved(e.target.checked)}/>Show resolved</label>
-      {visible.map((thread,index)=><button key={thread.id} type="button" onClick={()=>switchThread(thread.id)} className="block w-full rounded-lg border border-line p-3 text-left hover:bg-surface-hover"><span className="flex items-center gap-2 text-xs font-medium text-accent"><span>{index+1}</span><span className="truncate">{thread.anchor.label}</span>{thread.status==='resolved'&&<Check size={14} className="ml-auto text-success" aria-label="Resolved"/>}</span>
+      {visible.map((thread,index)=><button key={thread.id} type="button" onClick={()=>switchThread(thread.id)} className="block w-full rounded-lg border border-line p-3 text-left hover:bg-surface-hover"><span className="flex items-center gap-2 text-xs font-medium text-accent"><span>{index+1}</span><span className="truncate">{thread.anchor.label}</span>{positions[thread.id]&&positions[thread.id].state!=='ok'&&<span className="shrink-0 rounded-sm bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">{positions[thread.id].state==='missing'?'Target missing':positions[thread.id].state==='hidden'?'Not visible':'Check target'}</span>}{thread.status==='resolved'&&<Check size={14} className="ml-auto text-success" aria-label="Resolved"/>}</span>
        <span className="mt-2 block whitespace-pre-wrap text-sm leading-6">{thread.comments[thread.comments.length-1]?.body.slice(0,200)}</span><span className="mt-2 block text-xs text-muted">{thread.comments[thread.comments.length-1]?.author_name} · {thread.comments.length} comment{thread.comments.length===1?'':'s'}</span></button>)}
       {hasMoreThreads&&<p className="text-xs leading-5 text-muted">Showing the 100 most recently updated threads on this page. Export the workspace feedback to see the rest.</p>}
       {!visible.length&&<p className="py-5 text-sm leading-6 text-muted">{loading?'Loading feedback…':'No comments on this page yet. Add a note or pin one to the interface.'}</p>}</>}
      {(anchor||current)&&<>
       <button type="button" onClick={()=>switchThread('')} className="text-xs text-accent">All page comments</button>
       <div className="rounded-md bg-surface p-3 text-sm"><p className="font-medium">{(anchor??current?.anchor)?.label}</p>{(anchor??current?.anchor)?.quote&&<blockquote className="mt-2 border-l-2 border-accent/30 pl-3 text-xs leading-5 text-muted">{(anchor??current?.anchor)?.quote}</blockquote>}
-       {current&&<button type="button" onClick={()=>findAnchor(current.anchor)?.scrollIntoView({behavior:'auto',block:'center'})} className="mt-2 inline-flex items-center gap-1 text-xs text-accent"><LocateFixed size={14} aria-hidden="true"/>Locate on page</button>}</div>
+       {current&&<button type="button" onClick={()=>{const found=resolveAnchor(current.anchor);if(found.element)found.element.scrollIntoView({behavior:'auto',block:'center'});else setError(anchorWarning.missing);}} className="mt-2 inline-flex items-center gap-1 text-xs text-accent"><LocateFixed size={14} aria-hidden="true"/>Locate on page</button>}
+       {current&&positions[current.id]&&positions[current.id].state!=='ok'&&<p role="note" className="mt-2 rounded-md bg-amber-50 p-2 text-xs leading-5 text-amber-900">{anchorWarning[positions[current.id].state as Exclude<AnchorState,'ok'>]}</p>}</div>
       {current&&(current.comment_count??0)>current.comments.length&&<p className="text-xs leading-5 text-muted">Showing the latest {current.comments.length} of {current.comment_count} comments. Export the workspace feedback for the full history.</p>}
       {current?.comments.map(comment=><article key={comment.id} className="border-b border-line pb-4"><p className="text-xs font-medium">{comment.author_name}</p><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6">{comment.body}</p><time className="mt-2 block text-xs text-muted" dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleString('en-SG',{dateStyle:'medium',timeStyle:'short'})}</time></article>)}
       {current&&<button type="button" disabled={saving} onClick={()=>void mutate({action:'status',threadId:current.id,status:current.status==='open'?'resolved':'open'})} className="ui-button inline-flex items-center gap-2 px-3 py-2 text-xs"><Check size={14} aria-hidden="true"/>{current.status==='open'?'Resolve thread':'Reopen thread'}</button>}
