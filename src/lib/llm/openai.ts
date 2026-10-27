@@ -3,7 +3,7 @@ import { z } from "zod";
 import { shouldUseMockAi } from "@/lib/env";
 import { logInfo, logWarn } from "@/lib/logger";
 import { resolveProviderApiKey } from "@/lib/llm/credentials";
-import { LlmConfigurationError } from "@/lib/llm/errors";
+import { LlmConfigurationError, normalizeProviderError, ProviderRequestError } from "@/lib/llm/errors";
 import { parseReservationExtraction, reservationExtractionJsonSchema } from "@/lib/llm/reservation-extraction";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import {
@@ -98,9 +98,9 @@ export class OpenAiProvider implements LlmProvider {
         provider: this.provider,
         model: resolvedModel,
         inputCount: texts.length,
-        error,
+        error: normalizeProviderError(this.provider,error),
       });
-      throw error;
+      throw normalizeProviderError(this.provider,error);
     }
   }
 
@@ -189,15 +189,18 @@ export class OpenAiProvider implements LlmProvider {
         conversationId: input.conversationId,
         provider: this.provider,
         model,
-        error,
+        error: normalizeProviderError(this.provider,error),
       });
-      throw error;
+      throw normalizeProviderError(this.provider,error);
     } finally {
       clearTimeout(timeout);
     }
 
-    const parsedJson = input.reservationExtraction ? parseReservationExtraction(responseOutputText(response)) : parseJsonObject(responseOutputText(response));
-    const parsed = answerDecisionSchema.parse(parsedJson);
+    let parsed: z.infer<typeof answerDecisionSchema>;
+    try {
+      const parsedJson = input.reservationExtraction ? parseReservationExtraction(responseOutputText(response)) : parseJsonObject(responseOutputText(response));
+      parsed = answerDecisionSchema.parse(parsedJson);
+    } catch { throw new ProviderRequestError(this.provider,"invalid_response"); }
 
     if (parsed.action === "answer" && (!parsed.answer || (!parsed.citedChunkIds.length && !input.conversationalTurn))) {
       return {

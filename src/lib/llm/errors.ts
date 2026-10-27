@@ -37,6 +37,6 @@ export function normalizeProviderError(provider: string, error: unknown): Provid
     ? headers.get("retry-after") : headers && typeof headers === "object" ? (headers as Record<string,unknown>)["retry-after"] : undefined;
   const failure: ProviderFailure = quota ? "quota_exhausted" : status === 429 ? "rate_limited" :
     status === 401 || status === 403 ? "authentication" : /Abort|Timeout/.test(name) || status === 408 ? "timeout" :
-    status && status >= 400 && status < 500 ? "invalid_response" : "unavailable";
+    /SyntaxError|ZodError/.test(name) || status && status >= 400 && status < 500 ? "invalid_response" : "unavailable";
   return new ProviderRequestError(provider, failure, status, providerRetryAfter(retryAfter));
 }

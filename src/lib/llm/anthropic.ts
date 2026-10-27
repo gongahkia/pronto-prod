@@ -2,7 +2,7 @@ import { z } from "zod";
 import { shouldUseMockAi } from "@/lib/env";
 import { logInfo, logWarn } from "@/lib/logger";
 import { resolveProviderApiKey } from "@/lib/llm/credentials";
-import { LlmConfigurationError } from "@/lib/llm/errors";
+import { LlmConfigurationError, normalizeProviderError, ProviderRequestError } from "@/lib/llm/errors";
 import { parseReservationExtraction } from "@/lib/llm/reservation-extraction";
 import { mockGroundedAnswer } from "@/lib/llm/mock";
 import {
@@ -88,26 +88,14 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
         conversationId: input.conversationId,
         provider: "anthropic",
         model: input.responseModel,
-        error,
+        error: normalizeProviderError("anthropic",error),
       });
-      throw error;
+      throw normalizeProviderError("anthropic",error);
     } finally {
       clearTimeout(timeout);
     }
 
-    if (!response.ok) {
-      const body = await response.text();
-      logWarn("llm.generation_failed", {
-        requestId: input.requestId,
-        clientId: input.clientId,
-        conversationId: input.conversationId,
-        provider: "anthropic",
-        model: input.responseModel,
-        status: response.status,
-        error: body,
-      });
-      throw new Error(`Anthropic message failed: ${response.status} ${body}`);
-    }
+    if (!response.ok) throw normalizeProviderError("anthropic",{status:response.status,headers:response.headers});
 
     const body = (await response.json()) as AnthropicMessageResponse;
     const text = body.content
@@ -124,10 +112,12 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
         model: input.responseModel,
         reason: "empty_text",
       });
-      throw new Error("Anthropic response did not include text content.");
+      throw new ProviderRequestError("anthropic","invalid_response");
     }
 
-    const parsed = anthropicDecisionSchema.parse(input.reservationExtraction ? parseReservationExtraction(text) : parseJsonObject(text));
+    let parsed: z.infer<typeof anthropicDecisionSchema>;
+    try { parsed = anthropicDecisionSchema.parse(input.reservationExtraction ? parseReservationExtraction(text) : parseJsonObject(text)); }
+    catch { throw new ProviderRequestError("anthropic","invalid_response"); }
     if (parsed.action === "answer" && (!parsed.answer || (!parsed.citedChunkIds.length && !input.conversationalTurn))) {
       return {
         action: "escalate",
