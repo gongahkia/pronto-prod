@@ -78,6 +78,17 @@ describe("Chope browser reader with a simulated browser transport", () => {
     expect(fixture.browser.close).toHaveBeenCalledOnce();
   });
 
+  it("closes an in-flight browser when the shared turn expires", async()=>{
+    const fixture=browserFixture();
+    fixture.page.goto.mockImplementation(()=>new Promise(()=>{}));
+    const {withAgentTurn}=await import("@/lib/agent/turn-budget");
+    const {readChopeBrowserAvailability}=await import("@/lib/reservations/chope-browser");
+    const work=withAgentTurn(()=>readChopeBrowserAvailability(request,config),{timeoutMs:10});
+    const rejected=expect(work).rejects.toMatchObject({reason:"deadline"});
+    await vi.advanceTimersByTimeAsync(11);await rejected;
+    expect(fixture.browser.close).toHaveBeenCalled();
+  });
+
   it("reads date/party availability without fabricating a preferred time", async () => {
     const fixture = browserFixture();
     const { readChopeBrowserAvailability } = await import("@/lib/reservations/chope-browser");

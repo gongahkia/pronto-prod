@@ -1,3 +1,4 @@
+import { assertTurnActive, currentTurnSignal } from "@/lib/agent/turn-budget";
 import type { AvailabilityResult, ReservationAvailabilityRequest, ReservationConnector, ReservationResult } from "@/lib/reservations/types";
 import { approvedChopeBookingLink, validateAvailabilityRequest } from "@/lib/reservations/chope";
 import { logInfo, logWarn } from "@/lib/logger";
@@ -113,12 +114,17 @@ export async function readChopeBrowserAvailability(request: ReservationAvailabil
   nextReadAt = now + MIN_READ_INTERVAL_MS;
 
   let browser: Awaited<ReturnType<(typeof import("playwright-core"))["chromium"]["launch"]>> | null = null;
+  const turnSignal = currentTurnSignal();
+  const abortRead = () => { void browser?.close(); };
+  turnSignal?.addEventListener("abort", abortRead, { once: true });
   let timedOut = false;
   let timeout: ReturnType<typeof setTimeout> | null = null;
   try {
+    assertTurnActive();
     const { chromium } = await import("playwright-core");
     browser = await chromium.launch({ headless: true, timeout: 10_000,
       executablePath: process.env.PRONTO_CHOPE_CHROMIUM_PATH || undefined });
+    assertTurnActive();
     const context = await browser.newContext({ timezoneId: "Asia/Singapore", locale: "en-SG",
       serviceWorkers: "block" });
     const page = await context.newPage();
@@ -226,6 +232,7 @@ export async function readChopeBrowserAvailability(request: ReservationAvailabil
     return errorResult(request, timedOut || error instanceof Error && /timeout/i.test(error.message)
       ? "provider_timeout" : "network_error");
   } finally {
+    turnSignal?.removeEventListener("abort", abortRead);
     if (timeout) clearTimeout(timeout);
     await browser?.close().catch(() => undefined);
   }

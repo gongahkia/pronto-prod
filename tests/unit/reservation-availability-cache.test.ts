@@ -1,3 +1,4 @@
+import { withAgentTurn } from "@/lib/agent/turn-budget";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AvailabilityResult, ReservationConnector } from "@/lib/reservations/types";
 const mocks=vi.hoisted(()=>({query:vi.fn(),transaction:vi.fn()}));
@@ -63,6 +64,15 @@ describe("shared Chope availability cache",()=>{
   const result=await getCachedChopeAvailability(request,reader);
   expect(result.result).toMatchObject({status:"unknown",availableSlots:[],observedAt:null,errorCode:"provider_timeout"});
   expect(mocks.query.mock.calls.some(([sql])=>String(sql).startsWith("insert into reservation_availability_observations"))).toBe(true);
+ });
+ it("discards a late connector result after the shared turn deadline",async()=>{
+  const reader=connector();let finish!:(result:AvailabilityResult)=>void;
+  vi.mocked(reader.getAvailability).mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+  const work=withAgentTurn(()=>getCachedChopeAvailability(request,reader),{timeoutMs:10});
+  const rejected=expect(work).rejects.toMatchObject({reason:"deadline"});
+  await vi.advanceTimersByTimeAsync(11);await rejected;
+  finish(observed);await vi.advanceTimersByTimeAsync(0);
+  expect(mocks.query.mock.calls.some(([sql])=>String(sql).startsWith("insert into reservation_availability_observations"))).toBe(false);
  });
  it("does not query the database for invalid requests or unsupported connectors",async()=>{
   const reader=connector();await getCachedChopeAvailability({...request,date:"2026-02-30"},reader);

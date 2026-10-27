@@ -1,3 +1,4 @@
+import { assertTurnActive } from "@/lib/agent/turn-budget";
 import { query, transaction } from "@/lib/db";
 import { configuredChopeBrowserConnector } from "@/lib/reservations/chope-browser";
 import { invalidObservation, validateAvailabilityRequest } from "@/lib/reservations/chope";
@@ -22,6 +23,7 @@ export function usableObservation(result: AvailabilityResult | null, request: Re
 
 export async function getCachedChopeAvailability(request: ReservationAvailabilityRequest,
   connector: ReservationConnector, options: { scheduled?: boolean } = {}): Promise<CachedAvailability> {
+  assertTurnActive();
   if (connector.provider !== "chope" || !connector.capabilities.availability)
     return { result: unknown(request, "missing_authorization"), cacheHit: false };
   if (!validateAvailabilityRequest(request)) return { result: unknown(request, "invalid_request"), cacheHit: false };
@@ -51,6 +53,7 @@ export async function getCachedChopeAvailability(request: ReservationAvailabilit
   if (claim.kind === "waiting") {
     // Coalesce simultaneous enquiries for the same date and party size.
     for (let attempt = 0; attempt < 42; attempt++) {
+      assertTurnActive();
       await new Promise(resolve => setTimeout(resolve, 500));
       const row = (await query<CacheRow>(`select result, checked_at, lease_until from reservation_availability_cache
         where ${predicate}`, keys(request))).rows[0];
@@ -66,7 +69,9 @@ export async function getCachedChopeAvailability(request: ReservationAvailabilit
     result = usableObservation(observed, dateRequest) ? observed
       : unknown(request, observed?.errorCode ?? "unexpected_response");
   } catch { result = unknown(request, "network_error"); }
+  assertTurnActive();
   const observationId = await transaction(async db => {
+    assertTurnActive();
     const observation = await db.query<{ id: string }>(`insert into reservation_availability_observations
       (client_id, outlet_id, reservation_date, party_size, result) values ($1,$2,$3,$4,$5) returning id`, [...keys(request), result]);
     await db.query(`update reservation_availability_cache set result = $5, checked_at = now(), lease_until = null,

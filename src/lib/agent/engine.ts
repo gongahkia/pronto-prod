@@ -46,7 +46,7 @@ import {
 } from "@/lib/llm/prompt";
 import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
 import type { GroundedAnswerDecision } from "@/lib/llm/types";
-import type { AgentConfig, ChannelKind, Client, KnowledgeChunk, Message } from "@/lib/types";
+import type { AgentConfig, ChannelKind, Client, KnowledgeChunk } from "@/lib/types";
 import type { ReservationConnector } from "@/lib/reservations/types";
 
 export type AgentRunResult = {
@@ -420,6 +420,14 @@ async function runAgentTurn(input: AgentRunInput): Promise<AgentRunResult> {
       });
       if (reservationContext) trace.addStep("chope_availability_checked", reservationContext.metadata);
     } catch (error) { reservationPlanningError = error; }
+  }
+  if (reservationPlanningError) {
+    const failure = processingFailure(reservationPlanningError).code === "processing_error"
+      ? normalizeProviderError(responseModel.provider,reservationPlanningError) : reservationPlanningError;
+    await trace.finalize({status:"failed",reasonCode:processingFailure(failure).code,confidence:0,
+      responseProvider:responseModel.provider,responseModel:responseModel.model,
+      errorMessage:providerErrorMessage(failure)});
+    throw failure;
   }
   const chunks = [...(reservationContext ? [reservationContext.chunk] : []), ...integrationChunks, ...staticChunks];
   trace.addStep("knowledge_context", { sources: chunks.map(chunk => ({ chunkId: chunk.id,
