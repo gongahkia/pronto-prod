@@ -6,6 +6,21 @@ on:
     branches: [main]
 
 jobs:
+  render-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # Build before any host-side Next command can create ignored generated files.
+      - name: Build the Render image from a clean checkout
+        run: docker build --file deploy/render-web.Dockerfile --target runner --tag pronto-render:ci .
+      - name: Smoke the Render image
+        run: |
+          trap 'docker logs pronto-render-ci; docker rm -f pronto-render-ci' EXIT
+          docker run -d --name pronto-render-ci -p 127.0.0.1:10000:10000 pronto-render:ci
+          curl --fail --retry 20 --retry-connrefused --retry-delay 1 http://127.0.0.1:10000/api/health
+          curl --fail http://127.0.0.1:10000/login > /dev/null
+
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20

@@ -39,6 +39,8 @@ Playwright Chromium was used because Browser/IAB was unavailable. The existing f
 
 ## Remaining deployment steps
 
-Use the [Free-only Blueprint example](../../deploy/render-free.blueprint.yaml.example) and [web-only Dockerfile](../../deploy/render-web.Dockerfile). Apply migrations through **052** with a direct Neon owner connection, then bootstrap fresh private synthetic accounts; use the pooled restricted role URL at runtime. Keep Groq as the only model provider, mock output off, live Chope off, booking writes off and external channel/SMTP credentials absent.
+Use the [Free-only Blueprint example](../../deploy/render-free.blueprint.yaml.example) and [web-only Dockerfile](../../deploy/render-web.Dockerfile). Apply migrations through **053** with a direct Neon owner connection, then bootstrap fresh private synthetic accounts; use the pooled restricted role URL at runtime. Keep Groq as the only model provider, mock output off, live Chope off, booking writes off and external channel/SMTP credentials absent.
 
 Before any cloud write, obtain the explicit approval requested by Gabriel for provisioning/deployment and any commit/push. Verify Render's existing workspace has sufficient shared free hours/bandwidth/build minutes and enforceable S$0 exhaustion behavior; the separate `tanabata` service may consume those shared allowances. Do not modify it or upgrade a plan. Complete the [cloud acceptance plan](render-neon-free-assessment.md), including an external-device test with Gabriel's laptop off.
+
+The subsequent [POC deployment fixes](deployment-fixes.md) add clean-checkout image verification, Groq-only knowledge publication and model/knowledge readiness checks. The verification table above describes the earlier preparation run.

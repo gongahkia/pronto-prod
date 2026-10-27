@@ -105,6 +105,7 @@ export async function retrieveKnowledge(
               ${vectorDistance} as distance
             from ${chunkRelation} kc
             where client_id = $1
+              and embedding is not null
               and embedding_dimensions = $6
               and ($7::text is null or embedding_model = $7)
               ${providerFilter()}
@@ -126,6 +127,7 @@ export async function retrieveKnowledge(
               ${vectorDistance.split("embedding").join("kc.embedding")} as distance
             from ${chunkRelation} kc, fts_query
             where kc.client_id = $1
+              and kc.embedding is not null
               and kc.embedding_dimensions = $6
               and ($7::text is null or kc.embedding_model = $7)
               ${providerFilter("kc.")}
@@ -190,6 +192,7 @@ export async function retrieveKnowledge(
               ${vectorDistance} as distance
             from ${chunkRelation} kc
             where client_id = $1
+              and embedding is not null
               and embedding_dimensions = $4
               and ($5::text is null or embedding_model = $5)
               ${providerFilter()}

@@ -1,13 +1,14 @@
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 import { z } from "zod";
-import { getPool, transaction, vectorLiteral } from "../../src/lib/db";
+import { getPool, transaction } from "../../src/lib/db";
 import { protectedDemoConfiguration } from "../../src/lib/deployment-profile";
 import { assertCustomerDemoEnabled, DEMO_CLIENT_ID, DEMO_CHANNEL_ID, DEMO_SLUG } from "../../src/lib/customer-demo-boundary";
 import { prepareRealDemoEmbeddings } from "../../src/lib/customer-demo-setup";
 import { requireRealDemoConfiguration, profileForDemoChoice } from "../../src/lib/customer-demo-ai";
 import { hashPassword } from "../../src/lib/password";
-import { deterministicEmbedding } from "../../src/lib/llm/mock";
+import { LOCAL_TEXT_RETRIEVAL_PROFILE } from "../../src/lib/llm/demo-models";
+import { hasOnlyProtectedDemoKnowledge } from "../../src/lib/knowledge/protected-demo";
 import { chunkText } from "../../src/lib/knowledge/chunk";
 import { recordAuditLog } from "../../src/lib/audit";
 import { psCafeDemoSources } from "../demo/ps-cafe-raffles-city";
@@ -57,9 +58,9 @@ async function bootstrap(path: string) {
         values($1,$2,$3,'curated_demo',$4,$5::jsonb)`,[source.id,DEMO_CLIENT_ID,source.title,source.content,JSON.stringify(metadata)]);
       for (const [index,chunk] of chunkText(source.content,{maxCharacters:900,overlap:120}).entries())
         await db.query(`insert into knowledge_chunks(source_id,client_id,chunk_index,content,token_estimate,embedding,embedding_model,embedding_dimensions,metadata)
-          values($1,$2,$3,$4,$5,$6::vector,'text-embedding-3-small',1536,$7::jsonb)`,
-          [source.id,DEMO_CLIENT_ID,index,chunk.content,chunk.tokenEstimate,vectorLiteral(deterministicEmbedding(chunk.content)),
-            JSON.stringify({...metadata,embeddingProvider:"mock"})]);
+          values($1,$2,$3,$4,$5,null,'none',0,$6::jsonb)`,
+          [source.id,DEMO_CLIENT_ID,index,chunk.content,chunk.tokenEstimate,
+            JSON.stringify({...metadata,retrievalMode:"local_text",retrievalProfile:LOCAL_TEXT_RETRIEVAL_PROFILE})]);
     }
     await recordAuditLog({clientId:DEMO_CLIENT_ID,actorUserId:accounts.find(a=>a.role==="operator")!.id,
       action:"demo.protected_bootstrapped",targetType:"client",targetId:DEMO_CLIENT_ID,
@@ -84,11 +85,11 @@ try {
       (select count(*) from users where (role='client' and client_id is distinct from $1::uuid)
         or (role='operator' and client_id is not null) or email !~ '\\.(test|invalid)$')+
       (select count(*) from conversations where client_id<>$1 or channel_id<>$2
-        or customer_handle is null or customer_handle not like 'demo:%')+
-      (select count(*) from knowledge_sources where client_id<>$1 or source_type<>'curated_demo'
-        or metadata->>'demoSeed' is distinct from 'true' or metadata->>'approvedByRestaurant' is distinct from 'false')
+        or customer_handle is null or customer_handle not like 'demo:%')
       )::int as count`,[DEMO_CLIENT_ID,DEMO_CHANNEL_ID]);
     if(unsafe.rows[0].count) throw new Error("Protected demo contains identities, conversations or knowledge outside its synthetic boundary.");
+    if (!await hasOnlyProtectedDemoKnowledge())
+      throw new Error("Protected demo knowledge must be curated fixtures or reviewed, published synthetic sources.");
     const users=await db.query<{id:string}>("select id from users");
     if(users.rows.some(user=>!settings.allowedUserIds.includes(user.id)) ||
       settings.allowedUserIds.some(id=>!users.rows.some(user=>user.id===id))) throw new Error("Demo account allowlist does not match persisted accounts.");

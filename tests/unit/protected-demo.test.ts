@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/db",()=>({query:vi.fn()}));
 import { query } from "@/lib/db";
 import { protectedDemoConfiguration } from "@/lib/deployment-profile";
-import { assertCustomerDemoEnabled } from "@/lib/customer-demo-boundary";
+import { assertCustomerDemoEnabled, usesDemoTextKnowledge, DEMO_CLIENT_ID } from "@/lib/customer-demo-boundary";
 import { allowLoginAttempt } from "@/lib/login-throttle";
 
 const id="00000000-0000-4000-8000-00000000d001";
@@ -30,6 +30,17 @@ describe("protected hosted demo identity",()=>{
   ])("fails closed for unsafe %s",(key,value)=>{vi.stubEnv(key,value);expect(()=>protectedDemoConfiguration()).toThrow(/configuration/);});
   it("ordinary production still refuses customer injection",async()=>{
     vi.stubEnv("PRONTO_DEPLOYMENT_PROFILE","");await expect(assertCustomerDemoEnabled()).rejects.toMatchObject({status:404});
+  });
+  it("selects text-only knowledge only inside the verified synthetic demo boundary",async()=>{
+    vi.mocked(query).mockResolvedValue({rows:[{safe:true}]} as never);
+    expect(await usesDemoTextKnowledge(DEMO_CLIENT_ID)).toBe(true);
+    vi.mocked(query).mockClear();
+    expect(await usesDemoTextKnowledge(id)).toBe(false);
+    expect(query).not.toHaveBeenCalled();
+    vi.mocked(query).mockResolvedValue({rows:[{safe:false}]} as never);
+    await expect(usesDemoTextKnowledge(DEMO_CLIENT_ID)).rejects.toThrow(/identity/);
+    vi.stubEnv("PRONTO_DEPLOYMENT_PROFILE","");vi.stubEnv("PRONTO_CUSTOMER_DEMO_ENABLED","0");
+    expect(await usesDemoTextKnowledge(DEMO_CLIENT_ID)).toBe(false);
   });
   it("stores hashed login keys and enforces persistent limits",async()=>{
     vi.mocked(query).mockResolvedValue({rows:[{attempts:1}]} as never);

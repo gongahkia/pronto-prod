@@ -11,6 +11,8 @@ import {
 } from "@/lib/triage-flow";
 import type { AgentConfigUpdate } from "@/lib/agent/config";
 import { normalizeVoiceDraft } from "@/lib/voice-draft";
+import { usesDemoTextKnowledge } from "@/lib/customer-demo-boundary";
+import { LOCAL_TEXT_RETRIEVAL_PROFILE } from "@/lib/llm/demo-models";
 
 export type KnowledgeDraftChange = {
   sourceId: string;
@@ -151,6 +153,7 @@ export async function stageKnowledge(input: {
     const actor = await query<{ role: string }>("select role from users where id = $1", [input.actorUserId]);
     if (actor.rows[0]?.role !== "operator") throw new Error("Only Pronto may prepare an approved suggestion.");
   }
+  const localText = await usesDemoTextKnowledge(input.clientId);
   await ensureDraft(input.clientId, input.actorUserId);
   const sourceId = input.sourceId ?? randomUUID();
   const draft = await getAssistantDraft(input.clientId);
@@ -183,6 +186,7 @@ export async function stageKnowledge(input: {
         sourceReference: String(input.metadata?.sourceUrl ?? input.metadata?.sourceReference ??
           input.metadata?.fileName ?? input.metadata?.filename ?? input.metadata?.entryMode ?? existingChange?.metadata?.sourceReference ?? source?.metadata?.sourceUrl ??
           source?.source_type ?? input.sourceType ?? "manual_proposal"),
+        ...(localText ? { syntheticDemo: true, approvedByRestaurant: false } : {}),
       },
     };
   }
@@ -190,19 +194,19 @@ export async function stageKnowledge(input: {
   if (change?.action === "upsert" && (!change.title || !change.content)) {
     throw new Error("A source title and content are required.");
   }
-  const config = change?.action === "upsert"
+  const config = change?.action === "upsert" && !localText
     ? await query<{ embedding_model: string; embedding_provider: string }>(
         "select embedding_model, embedding_provider from agent_configs where client_id = $1",
         [input.clientId],
       )
     : null;
-  const embeddingModel = process.env.PRONTO_EMBEDDING_MODEL ??
+  const embeddingModel = localText ? "none" : process.env.PRONTO_EMBEDDING_MODEL ??
     config?.rows[0]?.embedding_model ?? process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
   const provider = process.env.PRONTO_EMBEDDING_PROVIDER ?? config?.rows[0]?.embedding_provider;
   const chunks = change?.action === "upsert"
     ? chunkText(change.content, { maxCharacters: 900, overlap: 120 })
     : [];
-  const embeddings = chunks.length
+  const embeddings = chunks.length && !localText
     ? await getEmbeddingProvider(provider).embed(chunks.map((chunk) => chunk.content), embeddingModel)
     : [];
 
@@ -221,10 +225,11 @@ export async function stageKnowledge(input: {
     for (const [index, chunk] of chunks.entries()) {
       await db.query(
         `insert into assistant_draft_chunks
-         (client_id, source_id, chunk_index, content, token_estimate, embedding, embedding_model, embedding_dimensions)
-         values ($1, $2, $3, $4, $5, $6::vector, $7, $8)`,
+         (client_id, source_id, chunk_index, content, token_estimate, embedding, embedding_model, embedding_dimensions, metadata)
+         values ($1, $2, $3, $4, $5, $6::vector, $7, $8, $9::jsonb)`,
         [input.clientId, sourceId, index, chunk.content, chunk.tokenEstimate,
-          vectorLiteral(embeddings[index]), embeddingModel, embeddings[index].length],
+          localText ? null : vectorLiteral(embeddings[index]), embeddingModel, localText ? 0 : embeddings[index].length,
+          JSON.stringify(localText ? { retrievalMode: "local_text", retrievalProfile: LOCAL_TEXT_RETRIEVAL_PROFILE } : {})],
       );
     }
     await db.query(
@@ -354,8 +359,8 @@ export async function publishAssistantDraft(clientId: string, actorUserId: strin
       }
       await db.query(
         `insert into knowledge_chunks
-         (source_id, client_id, chunk_index, content, token_estimate, embedding, embedding_model, embedding_dimensions)
-         select source_id, client_id, chunk_index, content, token_estimate, embedding, embedding_model, embedding_dimensions
+         (source_id, client_id, chunk_index, content, token_estimate, embedding, embedding_model, embedding_dimensions, metadata)
+         select source_id, client_id, chunk_index, content, token_estimate, embedding, embedding_model, embedding_dimensions, metadata
          from assistant_draft_chunks where client_id = $1 and source_id = $2`,
         [clientId, change.sourceId],
       );

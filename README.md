@@ -78,6 +78,8 @@ The intended independent S$0 POC is Render Free + Neon Free + the existing Groq 
 
 The [completed preparation checks](docs/poc/free-hosting-preparation.md) include patched dependencies, durable request processing, isolated PostgreSQL recovery tests and a real Groq workflow under 512 MiB / 0.1 CPU locally.
 
+The deployment fixes in [the POC deployment notes](docs/poc/deployment-fixes.md) remove the generated-file Docker dependency, add a clean-checkout Render image CI job, and support reviewed knowledge publication without an embedding service. Apply migrations through **053** before bootstrapping or updating the hosted demo. Readiness checks the Groq configuration and approved published knowledge without making a provider call.
+
 Smart-triage JSON supports per-channel overrides under decision nodes, so clients can tune WhatsApp messages, Telegram bot messages, Instagram DMs, Messenger messages, and email differently.
 
 ## Local Release Checks

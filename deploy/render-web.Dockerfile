@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Review artifact for the S$0 POC. Read docs/poc/render-neon-free-assessment.md
-# before deployment: the request-driven queue adapter is still required.
+# before deployment for the protected request-driven processing profile.
 FROM node:24-bookworm-slim AS builder
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
@@ -14,7 +14,7 @@ RUN pnpm install --frozen-lockfile
 # Explicit input list excludes dotenv files, private deployment JSON and Git.
 COPY src ./src
 COPY public ./public
-COPY next.config.ts next-env.d.ts tsconfig.json postcss.config.mjs ./
+COPY next.config.ts tsconfig.json postcss.config.mjs ./
 RUN pnpm exec next build --webpack
 
 FROM node:24-bookworm-slim AS runner

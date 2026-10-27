@@ -117,15 +117,25 @@ dbDescribe("free-provider demo profiles with explicit fake inference and real is
     await getPool().query("update knowledge_sources set metadata=(metadata-'archived')||'{\"reviewStatus\":\"pending\"}'::jsonb where client_id=$1",[DEMO_CLIENT_ID]);
     expect(await retrieveKnowledgeText(DEMO_CLIENT_ID,"hours OR close")).toEqual([]);
   });
-  it("Groq-only mode fails safely for missing answers and known conflicting policy without inference",async()=>{
+  it("Groq-only mode hands off unknown facts and declared policy conflicts without embeddings",async()=>{
     vi.stubEnv("GEMINI_API_KEY","");
-    for(const text of ["Do you offer helicopter parking?","What is the weekend reservation cutoff?"]) {
+    // Real mode consults the model with public fallback context when lexical
+    // retrieval misses. Model the unknown-fact decision instead of returning
+    // the unrelated opening-hours answer used by the happy-path fixture.
+    vi.mocked(FreeTierProvider.prototype.generateGroundedAnswer).mockImplementation(async input=>({
+      action:"escalate",answer:null,confidence:0.2,reasonCode:"knowledge_gap",
+      reasonDetail:"The supplied public facts do not answer this synthetic enquiry.",
+      citedChunkIds:[],actualModel:input.responseModel,providerResponseId:"fixture-unknown-fact"}));
+    for(const [text,reason] of [["Do you offer helicopter parking?","knowledge_gap"],
+      ["What is the weekend reservation cutoff?","knowledge_conflict"]]) {
       const session=await createDemoSession(actor,"real");
       const job=await sendDemoMessage(actor,{sessionId:session.id,requestId:randomUUID(),text});
       expect(await processInboundJob({jobId:job.jobId})).toMatchObject({outcome:"escalated"});
+      expect((await getPool().query("select reason_code from escalations where client_id=$1 and conversation_id=$2",
+        [DEMO_CLIENT_ID,session.conversationId])).rows[0].reason_code).toBe(reason);
     }
     expect(FreeTierProvider.prototype.embed).not.toHaveBeenCalled();
-    expect(FreeTierProvider.prototype.generateGroundedAnswer).not.toHaveBeenCalled();
+    expect(FreeTierProvider.prototype.generateGroundedAnswer).toHaveBeenCalled();
   });
   it("Groq requires published local knowledge, not a prepared embedding index",async()=>{
     vi.stubEnv("GEMINI_API_KEY","");

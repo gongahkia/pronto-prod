@@ -4,6 +4,8 @@ import { getPool } from "@/lib/db";
 import { protectedDemoDeployment,requestDrivenDemoProcessing } from "@/lib/deployment-profile";
 import {getDemoProcessingStatus} from '@/lib/demo-processing-status';
 import { assertCustomerDemoEnabled } from "@/lib/customer-demo-boundary";
+import { requireRealDemoConfiguration, profileForDemoChoice } from "@/lib/customer-demo-ai";
+import { DEFAULT_DEMO_MODEL } from "@/lib/llm/demo-models";
 
 type ReadinessCheck = {
   name: string;
@@ -13,8 +15,10 @@ type ReadinessCheck = {
 
 export async function GET() {
   const checks: ReadinessCheck[] = [];
+  let demoIdentityVerified = false;
   if (protectedDemoDeployment()) {
-    try { await assertCustomerDemoEnabled(); checks.push({ name: "Demo identity", status: "pass", detail: "Protected demo identity verified." }); }
+    try { await assertCustomerDemoEnabled(); demoIdentityVerified = true;
+      checks.push({ name: "Demo identity", status: "pass", detail: "Protected demo identity verified." }); }
     catch { checks.push({ name: "Demo identity", status: "fail", detail: "Protected demo identity/configuration failed." }); }
   }
 
@@ -33,7 +37,7 @@ export async function GET() {
   checks.push({
     name: "PRONTO_USE_MOCK_AI",
     status:
-      process.env.NODE_ENV === "production" && shouldUseMockAi() && !protectedDemoDeployment() ? "fail" : "pass",
+      process.env.NODE_ENV === "production" && shouldUseMockAi() ? "fail" : "pass",
     detail: shouldUseMockAi()
       ? "Mock AI is enabled."
       : "Mock AI override is disabled.",
@@ -58,6 +62,16 @@ export async function GET() {
     checks.push({ name: "Database", status: "fail", detail: "Database is unavailable." });
   }
   if (checks.at(-1)?.status === "pass") {
+    if (demoIdentityVerified) {
+      try {
+        // Local configuration and published-knowledge checks only: no inference,
+        // embedding call, or provider health request is made by this probe.
+        await requireRealDemoConfiguration(true, profileForDemoChoice(DEFAULT_DEMO_MODEL));
+        checks.push({ name: "Demo AI and knowledge", status: "pass", detail: "Demo prerequisites are configured." });
+      } catch {
+        checks.push({ name: "Demo AI and knowledge", status: "fail", detail: "Demo prerequisites are unavailable." });
+      }
+    }
     try {
       if(requestDrivenDemoProcessing()){
         const state=await getDemoProcessingStatus();

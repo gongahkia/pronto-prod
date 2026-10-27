@@ -39,3 +39,16 @@ export function isCustomerDemoChannel(channel: Pick<Channel, "id" | "client_id" 
   return channel.id === DEMO_CHANNEL_ID && channel.client_id === DEMO_CLIENT_ID &&
     channel.kind === "console" && channel.settings.transport === "customer_simulator";
 }
+
+// Knowledge authoring shares the same verified synthetic boundary as chat.
+// Missing provider keys never select this mode for an ordinary business.
+export async function usesDemoTextKnowledge(clientId: string): Promise<boolean> {
+  if (clientId !== DEMO_CLIENT_ID ||
+      (!protectedDemoDeployment() && process.env.PRONTO_CUSTOMER_DEMO_ENABLED !== "1")) return false;
+  await assertCustomerDemoEnabled();
+  const identity = await query<{ safe: boolean }>(`select exists(select 1 from clients
+    where id = $1 and slug = $2 and business_profile->>'demoSeed' = 'ps-cafe-raffles-city-v1') as safe`,
+  [DEMO_CLIENT_ID, DEMO_SLUG]);
+  if (!identity.rows[0]?.safe) throw new DemoError("Synthetic knowledge tenant identity verification failed.", 503);
+  return true;
+}
