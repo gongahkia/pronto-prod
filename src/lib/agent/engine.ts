@@ -30,7 +30,8 @@ import {
 } from "@/lib/agent/runtime-limits";
 import { estimateTokens } from "@/lib/knowledge/chunk";
 import { retrieveKnowledge, retrieveKnowledgeText } from "@/lib/knowledge/retrieve";
-import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
+import { normalizeKnowledgeQuery, conversationKnowledgeQuery } from "@/lib/knowledge/query";
+import { loadConversationContext } from "@/lib/agent/conversation-context";
 import { appBaseUrl, shouldUseMockAi } from "@/lib/env";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
 import { selectModel } from "@/lib/llm/catalog";
@@ -87,16 +88,7 @@ export async function runAgentForMessage(input: {
     query<AgentConfig>("select * from agent_configs where client_id = $1", [
       input.clientId,
     ]),
-    query<Message>(
-      `
-        select * from messages
-        where conversation_id = $1
-          and client_id = $2
-        order by created_at desc
-        limit 8
-      `,
-      [input.conversationId, input.clientId],
-    ),
+    loadConversationContext(input),
     getPromptBrandVoiceProfile(input.clientId),
   ]);
 
@@ -106,7 +98,10 @@ export async function runAgentForMessage(input: {
     throw new Error("Agent cannot run without client and config records.");
   }
 
-  const normalizedKnowledgeQuery = normalizeKnowledgeQuery(input.customerMessage);
+  const recentMessages = [...recentMessagesResult].reverse().map(message => ({ senderRole: message.sender_role, body: message.body }));
+  const normalizedKnowledgeQuery = conversationKnowledgeQuery(input.customerMessage, recentMessages);
+  trace.addStep("conversation_context", { currentMessageId: input.customerMessageId,
+    historyMessageIds: recentMessagesResult.map(message => message.id), usedForRetrieval: normalizedKnowledgeQuery.usedConversationContext });
   const requireModelReply = !shouldUseMockAi();
   // A tenant-declared policy conflict is a review signal, not customer-facing evidence.
   // Check before the restaurant booking path, which otherwise interprets a timing
@@ -316,9 +311,11 @@ export async function runAgentForMessage(input: {
       sources: staticChunks.map(chunk => ({ chunkId: chunk.id, sourceId: chunk.source_id,
         version: chunk.metadata.sourceVersion ?? null, contentHash: chunk.metadata.sourceContentHash,
         approvalEvidence: chunk.metadata.approvalEvidence })) });
-    if (requireModelReply && !staticChunks.length) {
+    if (requireModelReply && !staticChunks.length && (smallTalkGreeting.shouldAnswer || aiDisclosure.shouldDisclose)) {
       staticChunks = await retrieveKnowledgeText(input.clientId, normalizeKnowledgeQuery(client.name).searchQuery, 5,
         { requestId: input.requestId, conversationId: input.conversationId });
+      staticChunks = staticChunks.map(chunk => ({ ...chunk, metadata: { ...chunk.metadata, retrievalPurpose: "identity_fallback" } }));
+      trace.addStep("identity_fallback", { supportsBusinessAnswer: false, chunkIds: staticChunks.map(chunk => chunk.id) });
     }
   } else {
     let embedding: number[];
@@ -407,7 +404,6 @@ export async function runAgentForMessage(input: {
   );
   let reservationContext: ReservationModelContext | null = null;
   let reservationPlanningError: unknown;
-  const recentMessages = [...recentMessagesResult.rows].reverse().map(message => ({ senderRole: message.sender_role, body: message.body }));
   if (requireModelReply && ["fnb", "restaurant", "food_and_beverage"].includes((client.vertical ?? "").toLowerCase()) &&
       mayNeedReservationContext(input.customerMessage, recentMessages)) {
     try {
@@ -461,7 +457,7 @@ export async function runAgentForMessage(input: {
   const conversationTokenEstimate = estimateTokens(
     [
       input.customerMessage,
-      ...recentMessagesResult.rows.map((message) => message.body),
+      ...recentMessagesResult.map((message) => message.body),
       ...chunks.map((chunk) => chunk.content),
     ].join("\n"),
   );
@@ -492,7 +488,7 @@ export async function runAgentForMessage(input: {
     return escalation;
   }
 
-  if (retrievalCheck.shouldEscalate) {
+  if (retrievalCheck.shouldEscalate && !(smallTalkGreeting.shouldAnswer || aiDisclosure.shouldDisclose)) {
     const escalation = await createEscalation({
       ...input,
       reasonCode: retrievalCheck.reasonCode,

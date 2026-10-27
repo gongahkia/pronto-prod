@@ -84,6 +84,7 @@ vi.mock("@/lib/knowledge/retrieve", () => ({
 }));
 
 vi.mock("@/lib/knowledge/query", () => ({
+  conversationKnowledgeQuery: () => ({ embeddingText: "opening hours", searchQuery: "opening hours", categories: ["hours"] }),
   normalizeKnowledgeQuery: () => ({
     embeddingText: "opening hours",
     searchQuery: "opening hours",

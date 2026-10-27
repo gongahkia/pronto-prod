@@ -2,7 +2,19 @@ export type NormalizedKnowledgeQuery = {
   embeddingText: string;
   searchQuery: string;
   categories: string[];
+  usedConversationContext?: boolean;
 };
+
+export function conversationKnowledgeQuery(message: string, recent: { senderRole: string; body: string }[]): NormalizedKnowledgeQuery {
+  const current = normalizeKnowledgeQuery(message);
+  const followUp = /^(?:and\b|also\b|what about\b|how about\b|does (?:that|it)\b|is (?:that|it)\b|for \d+\b|那|还有|還有)/i.test(message.trim()) ||
+    /\b(that option|this option|the other one|instead|same one|does that|does it)\b/i.test(message);
+  // An explicit new topic wins; a weekday alone is not a topic switch.
+  const explicitTopic = /\b(opening hours|closing time|refund|complaint|address|directions|allerg(?:y|ic)|halal|menu|prices?)\b/i.test(message);
+  const prior = recent.filter(row => row.senderRole === "customer").slice(-2).map(row => row.body.slice(0, 1000));
+  if (!followUp || explicitTopic || !prior.length) return { ...current, usedConversationContext: false };
+  return { ...normalizeKnowledgeQuery([...prior, message].join("\n")), usedConversationContext: true };
+}
 
 type QueryCategory = {
   id: string;

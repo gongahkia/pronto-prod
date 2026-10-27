@@ -126,7 +126,7 @@ dbDescribe("free-provider demo profiles with explicit fake inference and real is
       action:"escalate",answer:null,confidence:0.2,reasonCode:"knowledge_gap",
       reasonDetail:"The supplied public facts do not answer this synthetic enquiry.",
       citedChunkIds:[],actualModel:input.responseModel,providerResponseId:"fixture-unknown-fact"}));
-    for(const [text,reason] of [["Do you offer helicopter parking?","knowledge_gap"],
+    for(const [text,reason] of [["Do you offer helicopter parking?","low_retrieval_confidence"],
       ["What is the weekend reservation cutoff?","knowledge_conflict"]]) {
       const session=await createDemoSession(actor,"real");
       const job=await sendDemoMessage(actor,{sessionId:session.id,requestId:randomUUID(),text});

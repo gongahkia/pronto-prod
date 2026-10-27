@@ -3,7 +3,8 @@ import { plainMessageText } from "@/lib/message-text";
 import { shouldUseMockAi } from "@/lib/env";
 import { getPromptBrandVoiceProfile } from "@/lib/brand-voice";
 import { retrieveKnowledge, retrieveKnowledgeText } from "@/lib/knowledge/retrieve";
-import { normalizeKnowledgeQuery } from "@/lib/knowledge/query";
+import { normalizeKnowledgeQuery, conversationKnowledgeQuery } from "@/lib/knowledge/query";
+import { loadConversationContext } from "@/lib/agent/conversation-context";
 import { estimateTokens } from "@/lib/knowledge/chunk";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
 import { selectModel } from "@/lib/llm/catalog";
@@ -57,12 +58,12 @@ async function generate(input: Parameters<typeof generateHandoffIntake>[0]): Pro
   const [clients, configs, recent, voice] = await Promise.all([
     query<Client>("select * from clients where id=$1", [clientId]),
     query<AgentConfig>("select * from agent_configs where client_id=$1", [clientId]),
-    query<Message>("select * from messages where client_id=$1 and conversation_id=$2 order by created_at desc limit 8", [clientId, conversationId]),
+    loadConversationContext({ clientId, conversationId, customerMessageId: input.customerMessageId, includeCurrent: true }),
     getPromptBrandVoiceProfile(clientId),
   ]);
   const client = clients.rows[0];
   const config = configs.rows[0];
-  const customer = recent.rows.find(message => message.id === input.customerMessageId && message.sender_role === "customer");
+  const customer = recent.find(message => message.id === input.customerMessageId && message.sender_role === "customer");
   if (!client || !config || !customer) return null;
   const critical = evaluatePreGenerationGuardrails(customer.body, { ...config.escalation_rules,
     disabledReasonCodes: intakeReasons }, input.channel.kind);
@@ -73,7 +74,8 @@ async function generate(input: Parameters<typeof generateHandoffIntake>[0]): Pro
   const selected = selectModel({ provider, configuredModel: profile?.model ?? config.response_model,
     ignoreEnvironment: Boolean(profile?.model), task: "agent_answer" });
   const localText = profile?.retrievalMode === "local_text";
-  const normalized = normalizeKnowledgeQuery(customer.body);
+  const normalized = conversationKnowledgeQuery(customer.body, [...recent].reverse().filter(message => message.id !== customer.id)
+    .map(message => ({ senderRole: message.sender_role, body: message.body })));
   const embeddingProvider = profile?.embeddingProvider ?? process.env.PRONTO_EMBEDDING_PROVIDER ?? config.embedding_provider;
   const embeddingModel = profile?.embeddingModel ?? process.env.PRONTO_EMBEDDING_MODEL ?? config.embedding_model;
   let chunks = localText ? await retrieveKnowledgeText(clientId, normalized.searchQuery, 5, { conversationId })
@@ -85,15 +87,16 @@ async function generate(input: Parameters<typeof generateHandoffIntake>[0]): Pro
       return retrieveKnowledge(clientId, vector, 5, { conversationId, queryText: normalized.searchQuery,
         embeddingProvider, embeddingModel });
     })();
-  if (!chunks.length && localText) chunks = await retrieveKnowledgeText(clientId, normalizeKnowledgeQuery(client.name).searchQuery, 5, { conversationId });
+  if (!chunks.length && localText) chunks = (await retrieveKnowledgeText(clientId, normalizeKnowledgeQuery(client.name).searchQuery, 5, { conversationId }))
+    .map(chunk => ({ ...chunk, metadata: { ...chunk.metadata, retrievalPurpose: "identity_fallback" } }));
   if (!chunks.length || (chunks[0].score ?? 0) < Number(config.retrieval_threshold)) return null;
-  if (estimateTokens([customer.body, ...recent.rows.map(message => message.body), ...chunks.map(chunk => chunk.content)].join("\n"))
+  if (estimateTokens([customer.body, ...recent.map(message => message.body), ...chunks.map(chunk => chunk.content)].join("\n"))
       > agentMaxConversationTokens()) return null;
 
   const generationInput = {
     clientId, conversationId, clientName: client.name, brandVoice: client.brand_voice,
     brandVoiceDocument: voice.document?.content ?? null, promptPreamble: config.prompt_preamble,
-    customerMessage: customer.body, recentMessages: [...recent.rows].reverse().map(message => ({ senderRole: message.sender_role, body: message.body })),
+    customerMessage: customer.body, recentMessages: [...recent].reverse().filter(message => message.id !== customer.id).map(message => ({ senderRole: message.sender_role, body: message.body })),
     retrievedChunks: chunks, responseModel: selected.model, maxOutputTokens: agentMaxOutputTokens(),
     maxPromptTokens: agentMaxPromptTokens(), timeoutMs: agentTimeoutMs(), handoffReason: input.escalation.reason_code,
     handoffAskForDetails: askForDetails,

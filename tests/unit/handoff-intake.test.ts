@@ -56,7 +56,7 @@ describe("model-driven handoff intake", () => {
     await run();
     expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
       customerMessage: "Receipt ABC123: one drink is missing.",
-      recentMessages: [{ senderRole: "customer", body: "Receipt ABC123: one drink is missing." }],
+      recentMessages: [],
       retrievedChunks: [source],
     }));
   });
