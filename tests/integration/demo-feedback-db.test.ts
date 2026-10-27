@@ -63,6 +63,18 @@ dbDescribe('prototype feedback against an isolated database',()=>{
   expect(body.threads[0]).toMatchObject({comment_count:60});expect(body.threads[0].comments).toHaveLength(50);expect(body.threads[0].comments.at(-1).body).toBe('c60');
   expect(body.threads[1]).toMatchObject({comment_count:1});
  });
+ it('lets a reviewer see every reviewer\'s threads on every page, or narrow to one page',async()=>{
+  const other=(await getPool().query(`insert into users(client_id,email,name,role,password_hash) values($1,$2,'Keith','client','x') returning id`,[DEMO_CLIENT_ID,`keith-${randomUUID()}@demo.test`])).rows[0];
+  await post({action:'create',requestId:randomUUID(),path:'/client/knowledge',anchor,body:'Mine on knowledge.'});
+  mock.user.mockResolvedValue({...actor,userId:other.id,name:'Keith'});
+  await post({action:'create',requestId:randomUUID(),path:'/client/inbox',anchor,body:'Keith on inbox.'});
+  mock.user.mockResolvedValue(actor);
+  const all=await (await GET(new Request('http://localhost:3000/api/demo/feedback'))).json();
+  expect(all.viewerId).toBe(actor.userId);expect(all.threads.map((t:{page_path:string})=>t.page_path).sort()).toEqual(['/client/inbox','/client/knowledge']);
+  expect(all.threads.find((t:{page_path:string})=>t.page_path==='/client/inbox').comments[0]).toMatchObject({author_name:'Keith',author_user_id:other.id});
+  const one=await (await GET(new Request('http://localhost:3000/api/demo/feedback?path=/client/inbox'))).json();expect(one.threads).toHaveLength(1);
+  expect((await GET(new Request('http://localhost:3000/api/demo/feedback?path=/api/operator'))).status).toBe(400);
+ });
  it('rejects an export cursor that does not exist',async()=>{
   expect((await EXPORT(new Request(`http://localhost:3000/api/demo/feedback/export?status=all&cursor=${randomUUID()}`))).status).toBe(400);
  });

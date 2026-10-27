@@ -11,15 +11,17 @@ const THREAD_LIMIT=100,COMMENT_LIMIT=50;
 class ReplayedRequest extends Error{}
 async function actor(){const user=await getSessionUser();if(!user)throw new DemoError('Sign in to leave prototype feedback.',401);enterTenantContext(user);await assertDemoActor(user);return user;}
 function failure(error:unknown){return NextResponse.json({error:error instanceof DemoError?error.message:'Could not save prototype feedback.'},{status:error instanceof DemoError?error.status:500});}
+// No path means every prototype page, so reviewers see each other's comments workspace-wide.
 export async function GET(request:Request){
- try{await actor();const parsed=feedbackPath.safeParse(new URL(request.url).searchParams.get('path'));
+ try{const user=await actor();const requested=new URL(request.url).searchParams.get('path');
+  const parsed=requested===null?{success:true as const,data:null}:feedbackPath.safeParse(requested);
   if(!parsed.success)return NextResponse.json({error:'Choose a valid prototype page.'},{status:400});
   const result=await query<FeedbackThread>(`select t.id,t.page_path,t.anchor,t.status,t.created_at,t.updated_at,
    (select count(*)::int from demo_feedback_comments where client_id=t.client_id and thread_id=t.id) comment_count,
    (select coalesce(jsonb_agg(row_to_json(c) order by c.created_at,c.id),'[]'::jsonb) from
     (select id,author_user_id,author_name,body,created_at from demo_feedback_comments where client_id=t.client_id and thread_id=t.id order by created_at desc,id desc limit ${COMMENT_LIMIT})c) comments
-   from demo_feedback_threads t where t.client_id=$1 and t.page_path=$2 order by t.updated_at desc,t.id desc limit ${THREAD_LIMIT+1}`,[DEMO_CLIENT_ID,parsed.data]);
-  return NextResponse.json({threads:result.rows.slice(0,THREAD_LIMIT),hasMoreThreads:result.rows.length>THREAD_LIMIT},{headers:{'Cache-Control':'private, no-store'}});
+   from demo_feedback_threads t where t.client_id=$1 and ($2::text is null or t.page_path=$2) order by t.updated_at desc,t.id desc limit ${THREAD_LIMIT+1}`,[DEMO_CLIENT_ID,parsed.data]);
+  return NextResponse.json({viewerId:user.userId,threads:result.rows.slice(0,THREAD_LIMIT),hasMoreThreads:result.rows.length>THREAD_LIMIT},{headers:{'Cache-Control':'private, no-store'}});
  }catch(e){return failure(e);}
 }
 export async function POST(request:Request){
