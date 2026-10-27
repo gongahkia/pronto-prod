@@ -13,6 +13,8 @@ GET /api/demo/feedback/export?status=all&complete=1
 
 Saves are idempotent. The overlay sends a `requestId` (UUID) with every new thread and reply and reuses it when the identical save is retried, so a response lost after the server committed returns the original thread instead of adding a duplicate comment. Apply migration `055_demo_feedback_request_ids.sql` before deploying this version; older cached tabs must be reloaded because requests without a `requestId` are rejected.
 
+Unsent comments are kept in the reviewer's browser (`localStorage`, one draft per page, 14 days) and restored after a reload or crash; if the thread being replied to has since disappeared the text becomes a page comment. Text typed while a save is still in flight is kept after the save completes. A draft is cleared only when its exact text was saved, so another tab's newer draft is not removed. Drafts live on that device only: they are not a backup, and clearing site data removes them.
+
 The export is private to the invited synthetic demo workspace. The server derives the workspace from the existing demo identity, not a supplied tenant ID. Anonymous requests are rejected; responses are not cacheable. Downloading does not notify Codex or publish comments elsewhere.
 
 The versioned structure contains:

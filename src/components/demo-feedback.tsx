@@ -5,6 +5,7 @@ import {Check,CornerDownRight,Download,LocateFixed,MessageCircle,MousePointer2,P
 import {useDraftEditor} from '@/components/use-draft-editor';
 import type {FeedbackAnchor,FeedbackThread} from '@/lib/feedback/types';
 import {createRequestIdTracker} from '@/lib/feedback/request-id';
+import {clearDraft,loadDraft,remainderAfterSave,saveDraft} from '@/lib/feedback/draft-storage';
 function selectorFor(element:Element){
  if(element.id)return `#${CSS.escape(element.id)}`;
  const parts:string[]=[];let node:Element|null=element;
@@ -14,6 +15,7 @@ function selectorFor(element:Element){
   parts.unshift(`${tag}:nth-of-type(${siblings.indexOf(node)+1})`);node=node.parentElement;
  }return parts.join(' > ');
 }
+function pageAnchor():FeedbackAnchor{return {selector:document.querySelector('#main-content')?'#main-content':'main',label:'This page',quote:'',x:0.98,y:0};}
 function findAnchor(anchor:FeedbackAnchor){try{return document.querySelector(anchor.selector);}catch{return null;}}
 export function DemoFeedback(){
  const path=usePathname();return <DemoFeedbackPanel key={path} path={path}/>;
@@ -25,9 +27,14 @@ function DemoFeedbackPanel({path}:{path:string}){
  const [hover,setHover]=useState<{left:number;top:number;width:number;height:number}|null>(null);
  const [positions,setPositions]=useState<Record<string,{left:number;top:number}>>({});const textarea=useRef<HTMLTextAreaElement>(null);const requests=useRef(createRequestIdTracker());
  const draft=useDraftEditor('',0);const visible=threads.filter(t=>showResolved||t.status==='open');
+ const [restored,setRestored]=useState(false);
+ const valueRef=useRef('');const ctxRef=useRef<{anchor:FeedbackAnchor|null;selected:string}>({anchor:null,selected:''});const restoredRef=useRef(false);const restoredThread=useRef('');
  const load=useCallback(async(signal?:AbortSignal)=>{
   setLoading(true);try{const response=await fetch(`/api/demo/feedback?path=${encodeURIComponent(path)}`,{cache:'no-store',signal});const body=await response.json();
    if(!response.ok)throw Error(body.error??'Could not load feedback.');setThreads(body.threads);setHasMoreThreads(Boolean(body.hasMoreThreads));
+   // A restored reply whose thread no longer exists becomes a page comment rather than disappearing.
+   if(restoredThread.current){const id=restoredThread.current;restoredThread.current='';
+    if(ctxRef.current.selected===id&&!(body.threads as FeedbackThread[]).some(t=>t.id===id)){setSelected('');setAnchor(pageAnchor());setError('The thread you were replying to is no longer available. Your comment is kept as a page comment.');}}
   }catch(e){if(!signal?.aborted)setError(e instanceof Error?e.message:'Could not load feedback.');}finally{if(!signal?.aborted)setLoading(false);}
  },[path]);
  useEffect(()=>{if(!open)return;const abort=new AbortController();const start=setTimeout(()=>void load(abort.signal),0);const timer=setInterval(()=>void load(abort.signal),15000);return()=>{abort.abort();clearTimeout(start);clearInterval(timer);};},[load,open]);
@@ -46,13 +53,30 @@ function DemoFeedbackPanel({path}:{path:string}){
  useEffect(()=>{if(!open)return;const position=()=>{const result:Record<string,{left:number;top:number}>={};for(const thread of threads){if(thread.status==='resolved'&&!showResolved)continue;const el=findAnchor(thread.anchor);if(!el)continue;const r=el.getBoundingClientRect();if(r.width&&r.height)result[thread.id]={left:Math.min(innerWidth-32,Math.max(0,r.left+r.width*thread.anchor.x)),top:r.top+r.height*thread.anchor.y};}setPositions(result);};
   position();window.addEventListener('scroll',position,true);window.addEventListener('resize',position);return()=>{window.removeEventListener('scroll',position,true);window.removeEventListener('resize',position);};
  },[threads,open,showResolved]);
+ useEffect(()=>{valueRef.current=draft.value;ctxRef.current={anchor,selected};});
+ // Bring back an unsent comment after a reload, crash or tab restore.
+ useEffect(()=>{const start=setTimeout(()=>{const saved=loadDraft(path);
+   if(saved){draft.setValue(saved.body);if(saved.target.kind==='anchor')setAnchor(saved.target.anchor);else{setSelected(saved.target.threadId);restoredThread.current=saved.target.threadId;}setOpen(true);setRestored(true);}
+   restoredRef.current=true;},0);return()=>clearTimeout(start);
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[path]);
+ useEffect(()=>{if(!restoredRef.current)return;if(!draft.value.trim()){clearDraft(path);return;}
+  const target=anchor?{kind:'anchor' as const,anchor}:selected?{kind:'thread' as const,threadId:selected}:null;if(target)saveDraft(path,{target,body:draft.value});
+ },[draft.value,anchor,selected,path]);
  function switchThread(id:string){if(draft.dirty&&!window.confirm('Discard your unsent comment?'))return;draft.reset();setSelected(id);setAnchor(null);setError('');}
  function newComment(pin:boolean){if(draft.dirty&&!window.confirm('Discard your unsent comment?'))return;draft.reset();setSelected('');setError('');
-  if(pin){setAnchor(null);setOpen(false);setPinning(true);}else{setAnchor({selector:document.querySelector('#main-content')?'#main-content':'main',label:'This page',quote:'',x:0.98,y:0});setTimeout(()=>textarea.current?.focus(),0);}}
- async function mutate(payload:Record<string,unknown>){setSaving(true);setError('');try{
+  if(pin){setAnchor(null);setOpen(false);setPinning(true);}else{setAnchor(pageAnchor());setTimeout(()=>textarea.current?.focus(),0);}}
+ async function mutate(payload:Record<string,unknown>){setSaving(true);setError('');const started=ctxRef.current;const sent=typeof payload.body==='string'?payload.body:null;try{
   const response=await fetch('/api/demo/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload.action==='status'?payload:{...payload,requestId:requests.current.idFor(payload)})});const body=await response.json();if(!response.ok)throw Error(body.error??'Could not save feedback.');
-  requests.current.clear();if(payload.action!=='status')draft.reset();setAnchor(null);setSelected(body.id);await load();
- }catch(e){setError(e instanceof Error?e.message:'Could not save feedback.');}finally{setSaving(false);}}
+  requests.current.clear();if(sent!==null)clearDraft(path,sent);
+  // Only follow the saved thread if the reviewer is still where they submitted from.
+  const unchanged=ctxRef.current.anchor===started.anchor&&ctxRef.current.selected===started.selected;
+  if(unchanged){
+   if(sent!==null){const rest=remainderAfterSave(valueRef.current,sent);draft.reset();if(rest.trim())draft.setValue(rest);}
+   setAnchor(null);setSelected(body.id);
+  }
+  await load();
+ }catch(e){setError(e instanceof TypeError?'Could not reach the server. Your comment is kept on this device; try again when you are back online.':e instanceof Error?e.message:'Could not save feedback.');}finally{setSaving(false);}}
  const current=threads.find(t=>t.id===selected);
  return <div data-feedback-ui data-feedback-open={open||pinning?true:undefined}>
   {!open&&!pinning&&<button type="button" onClick={()=>setOpen(true)} aria-label="Open prototype feedback" className="ui-primary-button fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm shadow-lg"><MessageCircle size={17} aria-hidden="true"/>Feedback</button>}
@@ -66,6 +90,7 @@ function DemoFeedbackPanel({path}:{path:string}){
      <p className="mt-1 text-xs text-muted">Leave a note for this page, or pin it to a specific element.</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={()=>newComment(true)} className="ui-primary-button inline-flex items-center gap-2 px-3 py-2 text-sm"><MousePointer2 size={15} aria-hidden="true"/>Pin a comment</button><button type="button" onClick={()=>newComment(false)} className="ui-button inline-flex items-center gap-2 px-3 py-2 text-sm"><Plus size={15} aria-hidden="true"/>Page comment</button></div>
     </div>
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+     {restored&&!error&&(anchor||current)&&<p role="status" className="rounded-md bg-surface p-3 text-xs text-muted">Restored your unsent comment from this device.</p>}
      {error&&<p role="alert" className="rounded-md bg-danger-bg p-3 text-sm text-danger">{error}</p>}
      {!anchor&&!current&&<><label className="flex items-center gap-2 text-xs text-muted"><input type="checkbox" checked={showResolved} onChange={e=>setShowResolved(e.target.checked)}/>Show resolved</label>
       {visible.map((thread,index)=><button key={thread.id} type="button" onClick={()=>switchThread(thread.id)} className="block w-full rounded-lg border border-line p-3 text-left hover:bg-surface-hover"><span className="flex items-center gap-2 text-xs font-medium text-accent"><span>{index+1}</span><span className="truncate">{thread.anchor.label}</span>{thread.status==='resolved'&&<Check size={14} className="ml-auto text-success" aria-label="Resolved"/>}</span>
