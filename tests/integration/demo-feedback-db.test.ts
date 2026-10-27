@@ -54,6 +54,15 @@ dbDescribe('prototype feedback against an isolated database',()=>{
   expect(full.threads.reduce((n:number,t:{comments:unknown[]})=>n+t.comments.length,0)).toBe(149);expect(full.threads.some((t:{commentsTruncated:boolean})=>t.commentsTruncated)).toBe(false);
   expect(paged.threads.find((t:{commentCount:number})=>t.commentCount===120)).toMatchObject({commentsTruncated:true});
  });
+ it('tells the overlay when the page list omits comments or threads',async()=>{
+  const pool=getPool();
+  for(let i=0;i<101;i+=1){const t=(await pool.query(`insert into demo_feedback_threads(client_id,page_path,anchor,updated_at) values($1,'/client/inbox',$2,now()-($3||' seconds')::interval) returning id`,[DEMO_CLIENT_ID,anchor,String(i)])).rows[0];
+   await pool.query(`insert into demo_feedback_comments(client_id,thread_id,author_name,body,created_at) select $1,$2,'QA','c'||g,now()+g*interval '1 second' from generate_series(1,$3::int) g`,[DEMO_CLIENT_ID,t.id,i===0?60:1]);}
+  const body=await (await GET(new Request('http://localhost:3000/api/demo/feedback?path=/client/inbox'))).json();
+  expect(body.threads).toHaveLength(100);expect(body.hasMoreThreads).toBe(true);
+  expect(body.threads[0]).toMatchObject({comment_count:60});expect(body.threads[0].comments).toHaveLength(50);expect(body.threads[0].comments.at(-1).body).toBe('c60');
+  expect(body.threads[1]).toMatchObject({comment_count:1});
+ });
  it('rejects an export cursor that does not exist',async()=>{
   expect((await EXPORT(new Request(`http://localhost:3000/api/demo/feedback/export?status=all&cursor=${randomUUID()}`))).status).toBe(400);
  });

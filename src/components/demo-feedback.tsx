@@ -21,13 +21,13 @@ export function DemoFeedback(){
 function DemoFeedbackPanel({path}:{path:string}){
  const [open,setOpen]=useState(false);const [pinning,setPinning]=useState(false);
  const [threads,setThreads]=useState<FeedbackThread[]>([]);const [selected,setSelected]=useState('');const [anchor,setAnchor]=useState<FeedbackAnchor|null>(null);
- const [error,setError]=useState('');const [saving,setSaving]=useState(false);const [loading,setLoading]=useState(false);const [showResolved,setShowResolved]=useState(false);
+ const [error,setError]=useState('');const [saving,setSaving]=useState(false);const [loading,setLoading]=useState(false);const [showResolved,setShowResolved]=useState(false);const [hasMoreThreads,setHasMoreThreads]=useState(false);
  const [hover,setHover]=useState<{left:number;top:number;width:number;height:number}|null>(null);
  const [positions,setPositions]=useState<Record<string,{left:number;top:number}>>({});const textarea=useRef<HTMLTextAreaElement>(null);const requests=useRef(createRequestIdTracker());
  const draft=useDraftEditor('',0);const visible=threads.filter(t=>showResolved||t.status==='open');
  const load=useCallback(async(signal?:AbortSignal)=>{
   setLoading(true);try{const response=await fetch(`/api/demo/feedback?path=${encodeURIComponent(path)}`,{cache:'no-store',signal});const body=await response.json();
-   if(!response.ok)throw Error(body.error??'Could not load feedback.');setThreads(body.threads);
+   if(!response.ok)throw Error(body.error??'Could not load feedback.');setThreads(body.threads);setHasMoreThreads(Boolean(body.hasMoreThreads));
   }catch(e){if(!signal?.aborted)setError(e instanceof Error?e.message:'Could not load feedback.');}finally{if(!signal?.aborted)setLoading(false);}
  },[path]);
  useEffect(()=>{if(!open)return;const abort=new AbortController();const start=setTimeout(()=>void load(abort.signal),0);const timer=setInterval(()=>void load(abort.signal),15000);return()=>{abort.abort();clearTimeout(start);clearInterval(timer);};},[load,open]);
@@ -70,11 +70,13 @@ function DemoFeedbackPanel({path}:{path:string}){
      {!anchor&&!current&&<><label className="flex items-center gap-2 text-xs text-muted"><input type="checkbox" checked={showResolved} onChange={e=>setShowResolved(e.target.checked)}/>Show resolved</label>
       {visible.map((thread,index)=><button key={thread.id} type="button" onClick={()=>switchThread(thread.id)} className="block w-full rounded-lg border border-line p-3 text-left hover:bg-surface-hover"><span className="flex items-center gap-2 text-xs font-medium text-accent"><span>{index+1}</span><span className="truncate">{thread.anchor.label}</span>{thread.status==='resolved'&&<Check size={14} className="ml-auto text-success" aria-label="Resolved"/>}</span>
        <span className="mt-2 block whitespace-pre-wrap text-sm leading-6">{thread.comments[thread.comments.length-1]?.body.slice(0,200)}</span><span className="mt-2 block text-xs text-muted">{thread.comments[thread.comments.length-1]?.author_name} · {thread.comments.length} comment{thread.comments.length===1?'':'s'}</span></button>)}
+      {hasMoreThreads&&<p className="text-xs leading-5 text-muted">Showing the 100 most recently updated threads on this page. Export the workspace feedback to see the rest.</p>}
       {!visible.length&&<p className="py-5 text-sm leading-6 text-muted">{loading?'Loading feedback…':'No comments on this page yet. Add a note or pin one to the interface.'}</p>}</>}
      {(anchor||current)&&<>
       <button type="button" onClick={()=>switchThread('')} className="text-xs text-accent">All page comments</button>
       <div className="rounded-md bg-surface p-3 text-sm"><p className="font-medium">{(anchor??current?.anchor)?.label}</p>{(anchor??current?.anchor)?.quote&&<blockquote className="mt-2 border-l-2 border-accent/30 pl-3 text-xs leading-5 text-muted">{(anchor??current?.anchor)?.quote}</blockquote>}
        {current&&<button type="button" onClick={()=>findAnchor(current.anchor)?.scrollIntoView({behavior:'auto',block:'center'})} className="mt-2 inline-flex items-center gap-1 text-xs text-accent"><LocateFixed size={14} aria-hidden="true"/>Locate on page</button>}</div>
+      {current&&(current.comment_count??0)>current.comments.length&&<p className="text-xs leading-5 text-muted">Showing the latest {current.comments.length} of {current.comment_count} comments. Export the workspace feedback for the full history.</p>}
       {current?.comments.map(comment=><article key={comment.id} className="border-b border-line pb-4"><p className="text-xs font-medium">{comment.author_name}</p><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6">{comment.body}</p><time className="mt-2 block text-xs text-muted" dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleString('en-SG',{dateStyle:'medium',timeStyle:'short'})}</time></article>)}
       {current&&<button type="button" disabled={saving} onClick={()=>void mutate({action:'status',threadId:current.id,status:current.status==='open'?'resolved':'open'})} className="ui-button inline-flex items-center gap-2 px-3 py-2 text-xs"><Check size={14} aria-hidden="true"/>{current.status==='open'?'Resolve thread':'Reopen thread'}</button>}
       <form onSubmit={event=>{event.preventDefault();if(!draft.value.trim())return;void mutate(anchor?{action:'create',path,anchor,body:draft.value}:{action:'reply',threadId:selected,body:draft.value});}} className="space-y-3">
