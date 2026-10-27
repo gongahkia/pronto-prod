@@ -22,6 +22,7 @@ export type TraceFinalize = {
   retrievalChunks?: KnowledgeChunk[];
   citedChunkIds?: string[];
   promptText?: string;
+  promptHash?: string;
   promptTokenEstimate?: number;
   responseTokenEstimate?: number;
   agentMessageId?: string;
@@ -64,9 +65,9 @@ export class AgentTraceBuilder {
       id: chunk.id,
       score: chunk.score ?? null,
     }));
-    const promptHash = input.promptText
+    const promptHash = input.promptHash ?? (input.promptText
       ? createHash("sha256").update(input.promptText).digest("hex")
-      : null;
+      : null);
 
     try {
       await query(

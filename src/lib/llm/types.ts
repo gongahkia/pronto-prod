@@ -10,6 +10,9 @@ export type GroundedAnswerDecision = {
   usage?: LlmTokenUsage;
   providerResponseId?: string;
   actualModel?: string;
+  contextChunkIds?: string[];
+  promptTokenEstimate?: number;
+  promptHash?: string;
 };
 
 export type LlmTokenUsage = {

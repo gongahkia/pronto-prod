@@ -4,9 +4,6 @@ import { VOICE_EXAMPLE_LIMIT } from "@/lib/voice-style";
 
 const DEFAULT_MAX_PROMPT_TOKENS = 6_000;
 const BRAND_VOICE_BUDGET = 900;
-const EXAMPLES_BUDGET = 1_100;
-const SOURCES_BUDGET = 2_700;
-const RECENT_MESSAGES_BUDGET = 900;
 
 export function buildGroundedAnswerInstructions(input: GenerateAnswerInput): string {
   if (input.reservationExtraction) return `You extract a restaurant availability query for ${input.clientName}.
@@ -20,26 +17,24 @@ Return strict JSON containing exactly these fields (no surrounding text or Markd
 {"intent":"booking"|"availability"|"staff_action"|"other","outlet":"current"|"other"|"unspecified","date":"YYYY-MM-DD"|null,"time":"HH:mm"|null,"partySize":integer|null,"children":integer|null,"confidence":0..1,"reasonDetail":"brief extraction explanation"}.
 Use staff_action for cancelling/changing an existing booking or requesting staff. Use other for policy/informational questions or unrelated topics. Use outlet other for a different restaurant/outlet. Use children 0 when no child breakdown is mentioned, otherwise the explicitly supplied count (null if unclear). Party size is the total group. Never invent a diner breakdown.`;
   const maxPromptTokens = input.maxPromptTokens ?? DEFAULT_MAX_PROMPT_TOKENS;
-  const sources = budgetedJoin(
+  const sources = (
     input.retrievedChunks.map(
       (chunk) => `<source_chunk chunk_id="${escapeAttribute(
         chunk.id,
       )}" score="${chunk.score?.toFixed(3) ?? "n/a"}">\n${escapeSourceText(
         chunk.content,
       )}\n</source_chunk>`,
-    ),
-    Math.min(SOURCES_BUDGET, Math.floor(maxPromptTokens * 0.45)),
-  );
+    )
+  ).join("\n\n");
   const examples = input.fewShotExamples?.length
-    ? budgetedJoin(
+    ? (
         input.fewShotExamples.slice(0, VOICE_EXAMPLE_LIMIT).map(
           (example, index) =>
             `<style_example index="${index + 1}">\nCustomer: ${escapeSourceText(example.customerMessage)}\nPreferred wording: ${escapeSourceText(example.idealResponse)}${
               example.notes ? `\nStyle notes: ${escapeSourceText(example.notes)}` : ""
             }\n</style_example>`,
-        ),
-        Math.min(EXAMPLES_BUDGET, Math.floor(maxPromptTokens * 0.2)),
-      )
+        )
+      ).join("\n\n")
     : "No few-shot examples configured.";
   const brandVoiceDocument = trimToTokenBudget(
     input.brandVoiceDocument || input.brandVoice || "Use clear, courteous wording.",
@@ -119,15 +114,14 @@ ${sources || "No source chunks returned."}
 }
 
 export function buildGroundedAnswerUserInput(input: GenerateAnswerInput): string {
-  const recentMessages = budgetedJoin(
+  const recentMessages = (
     input.recentMessages.map(
       (message) =>
         `<message sender_role="${escapeAttribute(message.senderRole)}">\n${escapeSourceText(
           message.body,
         )}\n</message>`,
-    ),
-    Math.min(RECENT_MESSAGES_BUDGET, Math.floor((input.maxPromptTokens ?? DEFAULT_MAX_PROMPT_TOKENS) * 0.15)),
-  );
+    )
+  ).join("\n\n");
   return `Untrusted recent messages:\n${recentMessages || "No recent messages."}\n\nCurrent customer message:\n${escapeSourceText(input.customerMessage)}`;
 }
 
@@ -141,21 +135,6 @@ export function parseJsonObject(text: string): unknown {
     }
     return JSON.parse(match[0]);
   }
-}
-
-function budgetedJoin(values: string[], tokenBudget: number): string {
-  const selected: string[] = [];
-  let used = 0;
-  for (const value of values) {
-    const cost = estimateTokens(value);
-    if (selected.length && used + cost > tokenBudget) {
-      break;
-    }
-    selected.push(trimToTokenBudget(value, Math.max(1, tokenBudget - used)));
-    used += cost;
-    if (used >= tokenBudget) break;
-  }
-  return selected.join("\n\n");
 }
 
 function trimToTokenBudget(value: string, tokenBudget: number): string {

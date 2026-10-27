@@ -6,6 +6,7 @@ import { aiExecutionMode } from "@/lib/llm/execution-mode";
 import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import { OpenAiProvider } from "@/lib/llm/openai";
 import { FreeTierProvider } from "@/lib/llm/free-providers";
+import { prepareGenerationInput } from "@/lib/llm/prompt-budget";
 import type {
   GenerateAnswerInput,
   GroundedAnswerDecision,
@@ -59,7 +60,7 @@ export function normalizeProviderName(value: string | null | undefined): LlmProv
   return "openai";
 }
 
-export function getGenerationProvider(provider: string | null | undefined): LlmProvider {
+function generationProvider(provider: string | null | undefined): LlmProvider {
   const normalized = normalizeProviderName(provider);
   if (aiExecutionMode() === "real" && normalized === "mock")
     throw new LlmConfigurationError("mock", "Real demo mode requires a real generation provider.");
@@ -81,6 +82,16 @@ export function getGenerationProvider(provider: string | null | undefined): LlmP
     };
   }
   return openAiProvider;
+}
+
+export function getGenerationProvider(provider: string | null | undefined): LlmProvider {
+  const selected = generationProvider(provider);
+  return { embed: (...args) => selected.embed(...args), generateGroundedAnswer: async input => {
+    const prepared = prepareGenerationInput(input);
+    const decision = await selected.generateGroundedAnswer(prepared.input);
+    return { ...decision, contextChunkIds: prepared.input.retrievedChunks.map(chunk => chunk.id),
+      promptTokenEstimate: prepared.tokenEstimate, promptHash: prepared.hash };
+  } };
 }
 
 export function getEmbeddingProvider(provider: string | null | undefined): LlmProvider {

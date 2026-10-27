@@ -583,7 +583,8 @@ export async function runAgentForMessage(input: {
   // Normalize formatting before validation, persistence and outbound delivery.
   const originalAnswer = decision.answer;
   if (decision.answer) decision = { ...decision, answer: plainMessageText(decision.answer) };
-  const citedChunks = chunks.filter((chunk) =>
+  const effectiveChunks = decision.contextChunkIds ? chunks.filter(chunk => decision.contextChunkIds!.includes(chunk.id)) : chunks;
+  const citedChunks = effectiveChunks.filter((chunk) =>
     decision.citedChunkIds.includes(chunk.id),
   );
   const promptText = `${buildGroundedAnswerInstructions(generationInput)}\n\n${buildGroundedAnswerUserInput(generationInput)}`;
@@ -621,7 +622,7 @@ export async function runAgentForMessage(input: {
     reasonDetail: decision.reasonDetail, confidence: decision.confidence, citedChunkCount: decision.citedChunkIds.length });
   let selfCheck = evaluatePostGenerationSelfCheck({
     decision,
-    retrievedChunks: chunks,
+    retrievedChunks: effectiveChunks,
     customerContext: [input.customerMessage, ...recentMessages.filter(message => message.senderRole === "customer").map(message => message.body)].join("\n"),
     ...(generationInput.conversationalTurn ? { operationalContext:
       `Business identity: ${client.name}. Role: AI assistant. Scope: greet and welcome customers; help with enquiries; direct customers to our team when needed.` } : {}),
@@ -663,6 +664,7 @@ export async function runAgentForMessage(input: {
       retrievalChunks: chunks,
       citedChunkIds: decision.citedChunkIds,
       promptText,
+      promptHash: decision.promptHash, promptTokenEstimate: decision.promptTokenEstimate,
       escalationId: escalation.escalationId,
     });
     return escalation;
@@ -708,6 +710,7 @@ export async function runAgentForMessage(input: {
       retrievalChunks: chunks,
       citedChunkIds: decision.citedChunkIds,
       promptText,
+      promptHash: decision.promptHash, promptTokenEstimate: decision.promptTokenEstimate,
       escalationId: escalation.escalationId,
     });
     return escalation;
@@ -789,6 +792,7 @@ export async function runAgentForMessage(input: {
     retrievalChunks: chunks,
     citedChunkIds: decision.citedChunkIds,
     promptText,
+    promptHash: decision.promptHash, promptTokenEstimate: decision.promptTokenEstimate,
     agentMessageId: agentMessage.rows[0].id,
   });
 

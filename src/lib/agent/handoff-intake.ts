@@ -104,6 +104,7 @@ async function generate(input: Parameters<typeof generateHandoffIntake>[0]): Pro
   };
   const generated = await getGenerationProvider(selected.provider).generateGroundedAnswer(generationInput);
   const decision = { ...generated, answer: generated.answer ? plainMessageText(generated.answer) : null };
+  const effectiveChunks = decision.contextChunkIds ? chunks.filter(chunk => decision.contextChunkIds!.includes(chunk.id)) : chunks;
   const prompt = `${buildGroundedAnswerInstructions(generationInput)}\n${buildGroundedAnswerUserInput(generationInput)}`;
   await recordUsage({ clientId, conversationId, channelId: input.channel.id, provider: selected.provider, model: selected.model,
     operation: "generation", estimate: decision.usage ? estimateGenerationCostFromTokens({ ...decision.usage, costLabel: selected.costLabel })
@@ -112,7 +113,7 @@ async function generate(input: Parameters<typeof generateHandoffIntake>[0]): Pro
       usageSource: decision.usage ? "provider" : "estimate" } });
   // Validate source citations and mutation claims before sending intake text.
   // Optional questions may also be grounded in the customer's own description.
-  const check = evaluatePostGenerationSelfCheck({ decision: { ...decision, action: "answer" }, retrievedChunks: chunks,
+  const check = evaluatePostGenerationSelfCheck({ decision: { ...decision, action: "answer" }, retrievedChunks: effectiveChunks,
     clarificationContext: `${customer.body}\nOur team will review this enquiry. The assistant is paused.`,
     requireQuestion: false });
   if (decision.action !== "escalate" || !decision.answer?.trim() || !check.passed || (!askForDetails && /[?？]/.test(decision.answer))) {
