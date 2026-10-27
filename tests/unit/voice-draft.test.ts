@@ -34,6 +34,6 @@ describe("style-only voice settings", () => {
   expect(prompt.match(/STYLEMARKER/g)).toHaveLength(1);
   expect(prompt.length).toBeLessThan(11000);
   expect(prompt).toContain("Facts, prices, policies and decisions in an example are not evidence");
-  expect(prompt).toContain("<\\/style_example>");
+  expect(prompt).toContain("&lt;/style_example&gt;");
  });
 });

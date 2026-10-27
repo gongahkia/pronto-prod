@@ -146,7 +146,7 @@ function trimToTokenBudget(value: string, tokenBudget: number): string {
 }
 
 function escapeSourceText(value: string): string {
-  return value.replace(/<\/(source_chunk|message|voice_style_reference|style_example)>/gi, "<\\/$1>");
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function escapeAttribute(value: string): string {
