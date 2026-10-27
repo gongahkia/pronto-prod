@@ -2,7 +2,7 @@ import { BotMessageSquare } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { safeReturnTo, signedInDestination } from "@/lib/auth-navigation";
-import { guestAccessEnabled, guestSimulatorEnabled } from "@/lib/guest-policy";
+import { guestAccessEnabled } from "@/lib/guest-policy";
 
 export default async function EnterDemoPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
   if (!guestAccessEnabled()) notFound();
@@ -19,8 +19,8 @@ export default async function EnterDemoPage({ searchParams }: { searchParams: Pr
         </div>
         <h1 id="enter-heading" className="text-xl font-semibold">Review the demo</h1>
         <p className="mb-6 mt-1 text-sm leading-6 text-muted">
-          Look around the PS Cafe prototype and leave comments for the team. This is a read-only preview of synthetic data
-          {guestSimulatorEnabled() ? "; you can also try the customer chat" : ""}. Nothing you do here is sent to real customers.
+          Explore the PS Cafe prototype as a customer and as the business, and leave comments for the team. Everything here is
+          synthetic data shared with other reviewers, and nothing is sent to real customers.
         </p>
         {params.error ? <p role="alert" className="mb-4 rounded-md border border-danger/25 bg-danger-bg px-3 py-2 text-sm text-danger">{params.error}</p> : null}
         <form action="/api/auth/guest" method="post" className="space-y-4">

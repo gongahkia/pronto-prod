@@ -7,6 +7,7 @@ import { assertCustomerDemoEnabled, DEMO_CLIENT_ID, DEMO_CHANNEL_ID, DEMO_SLUG }
 import { prepareRealDemoEmbeddings } from "../../src/lib/customer-demo-setup";
 import { requireRealDemoConfiguration, profileForDemoChoice } from "../../src/lib/customer-demo-ai";
 import { hashPassword } from "../../src/lib/password";
+import { staffCapabilities } from "../../src/lib/staff-permissions";
 import { LOCAL_TEXT_RETRIEVAL_PROFILE } from "../../src/lib/llm/demo-models";
 import { hasOnlyProtectedDemoKnowledge } from "../../src/lib/knowledge/protected-demo";
 import { chunkText } from "../../src/lib/knowledge/chunk";
@@ -44,7 +45,7 @@ async function bootstrap(path: string) {
     for (const [index,account] of accounts.entries()) {
       await db.query("insert into users(id,client_id,email,name,role,password_hash) values($1,$2,$3,$4,$5,$6)",
         [account.id,account.role === "client" ? DEMO_CLIENT_ID : null,account.email.toLowerCase(),account.name,account.role,passwords[index]]);
-      if (account.role === "client") for (const permission of ["conversation.respond","conversation.release"])
+      if (account.role === "client") for (const permission of staffCapabilities)
         await db.query("insert into staff_permission_grants(client_id,user_id,permission) values($1,$2,$3)",[DEMO_CLIENT_ID,account.id,permission]);
     }
     await db.query(`insert into agent_configs(client_id,prompt_preamble,retrieval_threshold)

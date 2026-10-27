@@ -107,8 +107,8 @@ The new hosted marker must not equal `pronto:isolated-test-database:v1`.
 Never point `PRONTO_TEST_DATABASE_URL` at the hosted database or allow regression
 fixture deletion there. Do not upload the persistent local database wholesale.
 Allowlist only Gabriel's approved demo staff identities; keep actor-owned simulator
-history and tenant-scoped business access. Keith's business account should have
-only `conversation.respond` and `conversation.release` unless separately approved.
+history and tenant-scoped business access. Keith's business account holds all six staff
+capabilities (updated 27 October 2026: public POC, so no capability restrictions).
 No automatic operator impersonation, public registration or provider webhooks.
 
 The existing signed session, database membership/session-version checks,

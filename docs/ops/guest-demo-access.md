@@ -1,28 +1,16 @@
-# Guest reviewer access to the hosted demo
+# Reviewer access to the hosted demo (public POC)
 
-By default the hosted demo needs a named, allowlisted account (`PRONTO_DEMO_ALLOWED_USER_IDS`). For reviewers who should only need the URL, enable **guest reviewer access**. It is off unless you set it.
-
-```text
-PRONTO_DEMO_GUEST_ACCESS=1       # enables /enter and guest sessions (protected-demo or customer-demo deployments only)
-PRONTO_DEMO_GUEST_SIMULATOR=1    # optional: also let guests chat with the customer simulator (spends LLM credit)
-```
+This is a public proof of concept on synthetic data, so reviewers do not need an account. There is no setting to turn it on: it is available on any demo deployment (the same `PRONTO_CUSTOMER_DEMO_ENABLED=1` / protected-demo profile the demo already requires) and never on an ordinary deployment, where `/enter` returns 404.
 
 ## What a visitor sees
-Opening the URL sends them to **/enter**, where they type a name and continue. Nothing else is asked. They get a 7-day session as a new demo-tenant user (`guest-<uuid>@guest.invalid`, no password, no staff capability grants). Their comments are attributed to the name they typed, and other reviewers' comments appear for them like any other. The "Sign in instead" link remains for team accounts.
+Opening the URL sends them to **/enter**, where they type a name. They get a 7-day session as a new demo-tenant user (`guest-<uuid>@guest.invalid`, no password) and are attributed by that name in feedback. A "Sign in instead" link remains for named accounts.
 
-## What a guest can and cannot do
-- **Can:** read every page of the synthetic PS Cafe demo and leave, reply to, resolve and export feedback.
-- **Cannot:** any other write. The request proxy refuses every non-GET request from a guest session except feedback, sign-in and sign-out (and, only with `PRONTO_DEMO_GUEST_SIMULATOR=1`, the two simulator endpoints), returning 403 before any route runs. New API routes are therefore read-only for guests by default.
-- Guests hold none of the staff capabilities (approve knowledge, activate channels, respond to or release conversations, manage permissions or escalation policy), so they cannot open real conversations either.
-- Operator routes remain operator-only.
+## What they can do
+Everything a business user can do in the PS Cafe demo: use the customer chat, work the Inbox (respond, take over, release), approve knowledge, activate channels, manage permissions and escalation policy, and leave, reply to, resolve and export feedback. Every guest and every named bootstrap account holds all six staff capabilities. Operator routes stay operator-only.
 
-## Abuse limits
-- Creating a guest is limited to 8 per visitor and 60 in total per 15 minutes (production, or when `PRONTO_LOGIN_THROTTLE=1`), using keyed hashes rather than raw IPs.
-- At most 500 guest users exist in the demo tenant; further visits are refused until old guests are deleted.
-- Guest sessions cannot sign in with a password. Delete them with `delete from users where email like '%@guest.invalid'` (their feedback stays, with the author link cleared).
-
-## Know before you enable it
-- Anyone who has the URL can enter and read the demo data and add feedback. Keep the data synthetic. Feedback comments are visible to every reviewer and exports include author names.
-- Without `PRONTO_DEMO_GUEST_SIMULATOR`, the customer simulator page is viewable but sending messages returns an error. Enabling it lets any visitor trigger LLM calls; per-call limits exist but there is no dollar ceiling, so set a provider-side spend limit first.
-- The login form's attempt limiter does not cover this flow; the limits above do.
-- To turn it off, unset `PRONTO_DEMO_GUEST_ACCESS`: `/enter` returns 404 and existing guest sessions no longer pass the demo check.
+## Know before sharing the URL
+- Anyone with the URL can change the demo data and see everyone's changes and comments. Reset or re-bootstrap the database if it gets messy.
+- Customer chat uses the provider's quota (Groq Free is shared by all visitors). When it runs out, chat stops until it resets.
+- Real delivery is still impossible: the deployment's synthetic-only delivery flags apply regardless of who is signed in.
+- Guest creation is limited to 8 per visitor and 60 in total per 15 minutes in production (or with `PRONTO_LOGIN_THROTTLE=1`), and to 500 guest users. Remove them with `delete from users where email like '%@guest.invalid'` (their feedback stays, author link cleared).
+- To take the demo offline, stop or suspend the service.

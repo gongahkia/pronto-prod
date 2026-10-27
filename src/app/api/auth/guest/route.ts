@@ -7,7 +7,7 @@ import { guestAccessEnabled } from "@/lib/guest-policy";
 import { assertSameOrigin } from "@/lib/http/csrf";
 import { publicAppUrl } from "@/lib/http/redirect";
 
-// Starts a read-only reviewer session for the shared demo. Disabled unless PRONTO_DEMO_GUEST_ACCESS=1.
+// Starts a reviewer session for the shared demo. Only exists on demo deployments (see guestAccessEnabled).
 export async function POST(request: Request) {
   if (!guestAccessEnabled()) return NextResponse.json({ error: "Not found." }, { status: 404 });
   const csrf = assertSameOrigin(request);

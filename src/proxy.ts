@@ -2,8 +2,7 @@ import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeReturnTo } from "@/lib/auth-navigation";
 import { publicAppUrl } from "@/lib/http/redirect";
-import { guestAccessEnabled, guestMayRequest, isGuestEmail } from "@/lib/guest-policy";
-import { decodeSession } from "@/lib/session-token";
+import { guestAccessEnabled } from "@/lib/guest-policy";
 
 const SESSION_COOKIE = "pronto_session";
 const PROTECTED_PREFIXES = [
@@ -34,13 +33,6 @@ export function proxy(request: NextRequest) {
     return response;
   }
 
-  // Guest reviewers may read the demo and leave feedback; any other write is refused here, before any route runs.
-  if (guestAccessEnabled() && isGuestSession(request) && !guestMayRequest(request.method, pathname)) {
-    const response = NextResponse.json({ error: "This is a read-only preview. You can leave feedback comments." }, { status: 403 });
-    applySecurityHeaders(response, nonce);
-    return response;
-  }
-
   const response = NextResponse.next({
     request: {
       headers: requestHeaders,
@@ -59,13 +51,6 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
-
-function isGuestSession(request: NextRequest): boolean {
-  try {
-    const payload = decodeSession(request.cookies.get(SESSION_COOKIE)?.value);
-    return Boolean(payload && isGuestEmail(payload.email));
-  } catch { return false; }
-}
 
 function redirectToLogin(request: NextRequest): NextResponse {
   const url = publicAppUrl(guestAccessEnabled() ? "/enter" : "/login", request.url);

@@ -11,7 +11,7 @@ GET /api/demo/feedback/export?status=all&cursor=THREAD_UUID
 GET /api/demo/feedback/export?status=all&complete=1
 ```
 
-Reviewers can enter with just the URL and a name when guest access is enabled; see [Guest reviewer access](guest-demo-access.md).
+Reviewers can enter with just the URL and a name; see [Reviewer access](guest-demo-access.md).
 
 Comments are shared across the whole demo workspace. Every reviewer sees every other reviewer's threads and replies, on any page (`GET /api/demo/feedback` without `path` returns all pages; `?path=` narrows to one). The overlay checks for changes every 4 seconds while open and every 10 seconds while closed, pauses when the tab is hidden, and refreshes immediately when the tab regains focus. The Feedback button shows how many threads have new comments from someone else, and those threads are tagged "New" until opened. Read state is remembered per browser (`localStorage`), and anything that already existed on a browser's first visit counts as read. Pins and numbers stay per page; "Comments from all pages" lists the rest with a link to the page they belong to. This is polling, not a push channel, so a comment can take a few seconds to appear.
 

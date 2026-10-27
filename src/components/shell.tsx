@@ -7,7 +7,7 @@ import { DEMO_CLIENT_ID } from "@/lib/customer-demo-boundary";
 import { PsCafeLogo } from "@/components/ps-cafe-logo";
 import { WorkspaceMenu } from "@/components/workspace-menu";
 import { DemoFeedback } from "@/components/demo-feedback";
-import { guestMayRequest, isGuestEmail } from "@/lib/guest-policy";
+import { isGuestEmail } from "@/lib/guest-policy";
 import {DemoQueuePump} from '@/components/demo-queue-pump';
 import {requestDrivenDemoProcessing} from '@/lib/deployment-profile';
 
@@ -27,13 +27,11 @@ export function AppShell({ user, children, clientActive = "inbox", workspaceName
   const psCafe = user.clientId === DEMO_CLIENT_ID;
   const displayName = psCafe ? (workspaceName ?? "PS.Cafe Raffles City").replace(/\s+\((?:unofficial )?demo\)$/, "")
     : workspaceName ?? "Client workspace";
-  // Guests are read-only reviewers: show their name rather than a placeholder address, and don't run the simulator queue they cannot post to.
-  const guest = isGuestEmail(user.email);
-  const shownEmail = guest ? `${user.name} (guest reviewer)` : user.email;
-  const canRunQueue = !guest || guestMayRequest("POST", "/api/demo/process");
+  // Guests have a placeholder address; show their name instead.
+  const shownEmail = isGuestEmail(user.email) ? `${user.name} (guest reviewer)` : user.email;
   return <>
     <AutoRefresh/>
-    {psCafe&&requestDrivenDemoProcessing()&&canRunQueue&&<DemoQueuePump/>}
+    {psCafe&&requestDrivenDemoProcessing()&&<DemoQueuePump/>}
     <a href="#main-content" className="skip-link">Skip to main content</a>
     <div className="min-h-screen bg-background text-foreground lg:flex">
       <ClientSidebar active={clientActive} email={shownEmail} workspaceName={displayName} psCafe={psCafe}/>

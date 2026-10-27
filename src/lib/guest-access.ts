@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { recordAuditLog } from "@/lib/audit";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
+import { staffCapabilities } from "@/lib/staff-permissions";
 import { DEMO_CLIENT_ID, DemoError } from "@/lib/customer-demo-boundary";
 import { GUEST_EMAIL_DOMAIN } from "@/lib/guest-policy";
 import type { User } from "@/lib/types";
@@ -30,7 +31,7 @@ async function allowGuestCreation(visitor: string, now = new Date()): Promise<bo
   return true;
 }
 
-// A guest is an ordinary demo-tenant business user with no password and no staff capability grants.
+// A guest is a demo-tenant business user with no password and every staff capability: this is a public, synthetic POC.
 export async function createGuestReviewer(rawName: unknown, visitor: string): Promise<User> {
   const name = cleanGuestName(rawName);
   if (!name) throw new DemoError("Enter your name so your comments are attributed to you.", 400);
@@ -38,10 +39,14 @@ export async function createGuestReviewer(rawName: unknown, visitor: string): Pr
   const count = await query<{ n: number }>(
     `select count(*)::int n from users where client_id=$1 and email like $2`, [DEMO_CLIENT_ID, `%@${GUEST_EMAIL_DOMAIN}`]);
   if (count.rows[0].n >= MAX_GUESTS) throw new DemoError("The demo has reached its visitor limit. Please ask the host for access.", 503);
-  const created = await query<User>(
-    `insert into users(client_id,email,name,role,password_hash) values($1,$2,$3,'client','!') returning *`,
-    [DEMO_CLIENT_ID, `guest-${randomUUID()}@${GUEST_EMAIL_DOMAIN}`, name]);
-  const user = created.rows[0];
+  const user = await transaction(async (db) => {
+    const created = await db.query<User>(
+      `insert into users(client_id,email,name,role,password_hash) values($1,$2,$3,'client','!') returning *`,
+      [DEMO_CLIENT_ID, `guest-${randomUUID()}@${GUEST_EMAIL_DOMAIN}`, name]);
+    await db.query(`insert into staff_permission_grants(client_id,user_id,permission,granted_by)
+      select $1,$2,p,$2 from unnest($3::text[]) p`, [DEMO_CLIENT_ID, created.rows[0].id, [...staffCapabilities]]);
+    return created.rows[0];
+  });
   await recordAuditLog({ clientId: DEMO_CLIENT_ID, actorUserId: user.id, action: "auth.guest_reviewer_created",
     targetType: "user", targetId: user.id, metadata: { name } });
   return user;
