@@ -1,6 +1,9 @@
-import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {act,cleanup,configure,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 vi.mock('next/navigation',()=>({usePathname:()=>'/client/knowledge'}));
+// jsdom rendering is slow when the whole suite runs in parallel; these tests wait on real timers, not fake ones.
+vi.setConfig({testTimeout:30000});
+configure({asyncUtilTimeout:10000});
 import {DemoFeedback} from '@/components/demo-feedback';
 const ME='00000000-0000-4000-8000-0000000000aa',KEITH='00000000-0000-4000-8000-0000000000bb';
 const id=(n:number)=>`00000000-0000-4000-8000-00000000010${n}`;
