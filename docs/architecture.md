@@ -34,6 +34,8 @@ conversation is unfinished, and reclaims expired leases up to five attempts.
 Agent messages and escalation records are keyed to the customer message; a
 worker restart reuses the recorded outcome and outbox idempotency key.
 
+The turn shares one deadline/call/token budget across extraction, answer and handoff. Retrieval history is bounded by the current job sequence. Factual values and links must match cited evidence included in the packed prompt. Provider outages retry as processing errors and preserve AI ownership; exhausted quota/configuration and budget failures stop without creating a staff task. See [agent behavior and quality checks](poc/agent-engineering.md) for limits, recovery and the synthetic evaluation runner.
+
 The outbox is persistent but external providers cannot generally promise
 exactly-once delivery. A stale `sending` row becomes `uncertain` and requires
 manual reconciliation before retry. A successful provider response ID is

@@ -67,6 +67,22 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test:coverage
+      - name: Evaluate answer quality through the real agent path with stubbed provider HTTP
+        # Sharing PostgreSQL's network namespace makes the server-side address
+        # loopback too, satisfying the existing local customer-demo guard.
+        run: |
+          docker run --rm --network container:${{ job.services.postgres.id }} \
+            -v "$GITHUB_WORKSPACE:/app" -w /app \
+            -e DATABASE_URL=postgres://pronto:pronto@127.0.0.1:5432/pronto_test \
+            -e PRONTO_TEST_DATABASE_URL=postgres://pronto:pronto@127.0.0.1:5432/pronto_test \
+            -e GITHUB_SHA="$GITHUB_SHA" \
+            node:20-bookworm-slim sh -c 'npm install --global pnpm@10.33.0 && pnpm eval'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-answer-quality
+          path: output/agent-quality/*.json
+          if-no-files-found: ignore
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e

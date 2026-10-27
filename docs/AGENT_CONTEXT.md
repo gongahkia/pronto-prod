@@ -16,6 +16,7 @@ Minimal repo map for coding agents. Pair with `docs/architecture.md` for request
 - `pnpm test:e2e` -> Playwright smoke after build + migrated/seeded DB.
 - `pnpm outbox:retry` -> one-shot outbound retry worker.
 - `pnpm worker` -> long-running outbound retry worker.
+- `pnpm eval` -> 30 synthetic conversations on the real worker/SDK path, stubbed HTTP, verified disposable DB only. See `docs/poc/agent-engineering.md`.
 - `pnpm staging:preflight` -> env + DB + credential readiness.
 - `pnpm channels:encrypt-credentials` -> backfills plaintext channel credentials.
 
@@ -32,7 +33,9 @@ Minimal repo map for coding agents. Pair with `docs/architecture.md` for request
 ## Core Libraries
 - `src/lib/agent/engine.ts` -> small-talk, disclosure, guardrails, retrieval, integrations, provider call, self-check, escalation/answer.
 - `src/lib/agent/guardrails.ts` -> pre-generation topic, sentiment, action, and scope checks from `agent_configs.escalation_rules`.
-- `src/lib/agent/self-check.ts` -> citation and traceability check.
+- `src/lib/agent/{self-check,grounded-values}.ts` -> cited/packed evidence and targeted factual-value validation.
+- `src/lib/agent/{conversation-context,turn-budget,processing-error}.ts` -> job-bounded history, shared limits, operational errors.
+- `src/lib/llm/{prompt-budget,recovery}.ts` -> complete prompt packing and tenant/provider cooldown.
 - `src/lib/agent/trace.ts` -> per-run telemetry to `agent_traces`.
 - `src/lib/knowledge/{ingest,parse-upload,chunk,retrieve,query,manage,metadata,refresh}.ts` -> file/manual knowledge ingestion, pgvector retrieval, and refresh requests.
 - `src/lib/channels/*` -> WhatsApp, Telegram, Messenger, Instagram, Email adapters, dispatch, outbox, health, credentials, and inbound processing.
@@ -73,9 +76,11 @@ Minimal repo map for coding agents. Pair with `docs/architecture.md` for request
 - `027` outbound idempotency scope.
 - `028` drops deprecated scope-cut tables.
 
+Latest agent migration: `054_agent_processing_recovery.sql` adds job failure codes and provider cooldowns. Apply all intervening migrations too.
+
 ## Scripts
 - `scripts/migrate.ts`, `scripts/seed.ts`.
-- `scripts/eval.ts`.
+- `scripts/{eval,quality-eval}.ts`, `evals/agent-answer-quality.json`, `tests/evals/answer-quality.test.ts`.
 - `scripts/staging-preflight.ts`.
 - `scripts/encrypt-channel-credentials.ts`.
 - `scripts/retry-outbox.ts`, `scripts/worker.ts`.
