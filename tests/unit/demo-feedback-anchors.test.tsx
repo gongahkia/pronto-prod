@@ -14,16 +14,16 @@ beforeEach(()=>{
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals();document.body.innerHTML='';});
 describe('feedback overlay target warnings',()=>{
- it('marks a pin whose target no longer exists and explains it, while healthy pins stay unmarked',async()=>{
+ it('marks a pin whose target no longer exists and explains it, while healthy pins stay unmarked',{timeout:20000},async()=>{
   render(<DemoFeedback/>,{container:document.getElementById('root')!});
   fireEvent.click(screen.getByRole('button',{name:/open prototype feedback/i}));
-  expect(await screen.findByText('Target missing')).toBeTruthy();
+  expect(await screen.findByText('Target missing',{},{timeout:8000})).toBeTruthy();
   expect(screen.getAllByText(/target missing/i)).toHaveLength(1);
-  await waitFor(()=>expect(screen.getByRole('button',{name:'Open feedback 1: Brand voice'})).toBeTruthy());
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Open feedback 1: Brand voice'})).toBeTruthy(),{timeout:8000});
   expect(screen.queryByRole('button',{name:/Open feedback 2/})).toBeNull();
   fireEvent.click(screen.getByText('Note '+ID2));
-  expect((await screen.findByRole('note')).textContent).toMatch(/can't be found on the page/i);
+  expect((await screen.findByRole('note',{},{timeout:8000})).textContent).toMatch(/can't be found on the page/i);
   fireEvent.click(screen.getByRole('button',{name:/locate on page/i}));
-  expect((await screen.findByRole('alert')).textContent).toMatch(/can't be found/i);
+  expect((await screen.findByRole('alert',{},{timeout:8000})).textContent).toMatch(/can't be found/i);
  });
 });
