@@ -4,6 +4,9 @@ import { getSessionUser } from "@/lib/auth";
 import { safeReturnTo, signedInDestination } from "@/lib/auth-navigation";
 import { guestAccessEnabled } from "@/lib/guest-policy";
 
+// The guest switch depends on server settings that do not exist at build time, so never prerender this page.
+export const dynamic = "force-dynamic";
+
 export default async function EnterDemoPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
   if (!guestAccessEnabled()) notFound();
   const params = await searchParams;
