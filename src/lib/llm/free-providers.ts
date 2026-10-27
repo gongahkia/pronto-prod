@@ -51,7 +51,7 @@ export class FreeTierProvider implements LlmProvider {
         reasoning_effort: "low",
         response_format: { type: "json_schema", json_schema: { name: input.reservationExtraction ? "pronto_reservation_query" : "pronto_agent_decision", strict: true,
           schema: input.reservationExtraction ? reservationExtractionJsonSchema : jsonSchema } },
-      }, { signal: AbortSignal.timeout(input.timeoutMs ?? 25_000) });
+      }, { signal: input.signal ? AbortSignal.any([input.signal, AbortSignal.timeout(input.timeoutMs ?? 25_000)]) : AbortSignal.timeout(input.timeoutMs ?? 25_000) });
       if (typeof response.model !== "string" || response.model.replace(/^models\//, "") !== input.responseModel)
         throw new ProviderRequestError(this.provider, "invalid_response");
       const choice = response.choices[0];
@@ -83,7 +83,7 @@ export class FreeTierProvider implements LlmProvider {
     for (const text of texts) {
       try {
         const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent", {
-          method: "POST", redirect: "error", signal: AbortSignal.timeout(25_000),
+          method: "POST", redirect: "error", signal: context.signal ? AbortSignal.any([context.signal, AbortSignal.timeout(context.timeoutMs ?? 25000)]) : AbortSignal.timeout(context.timeoutMs ?? 25000),
           headers: { "Content-Type": "application/json", "x-goog-api-key": key },
           body: JSON.stringify({ content: { parts: [{ text: context.embeddingTask === "query"
             ? `task: question answering | query: ${text}` : `title: none | text: ${text}` }] }, output_dimensionality: 1536 }),

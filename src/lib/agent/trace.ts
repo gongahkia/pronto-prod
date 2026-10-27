@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { query } from "@/lib/db";
 import { logWarn } from "@/lib/logger";
 import type { KnowledgeChunk } from "@/lib/types";
+import { turnBudgetSnapshot } from "@/lib/agent/turn-budget";
 
 export type TraceStep = {
   at: string;
@@ -60,6 +61,8 @@ export class AgentTraceBuilder {
   }
 
   async finalize(input: TraceFinalize): Promise<void> {
+    const budget = turnBudgetSnapshot();
+    if (budget) this.addStep("turn_budget", budget);
     const latencyMs = Date.now() - this.startedAt;
     const chunkScores = (input.retrievalChunks ?? []).map((chunk) => ({
       id: chunk.id,

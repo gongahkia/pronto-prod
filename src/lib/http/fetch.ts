@@ -1,3 +1,5 @@
+import { currentTurnSignal } from "@/lib/agent/turn-budget";
+
 const DEFAULT_TIMEOUT_MS = 10_000;
 
 export async function fetchWithTimeout(
@@ -7,7 +9,8 @@ export async function fetchWithTimeout(
 ): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const upstreamSignal = init.signal;
+  const signals = [init.signal, currentTurnSignal()].filter((signal): signal is AbortSignal => Boolean(signal));
+  const upstreamSignal = signals.length ? AbortSignal.any(signals) : undefined;
   const abortFromUpstream = () => controller.abort();
 
   if (upstreamSignal) {

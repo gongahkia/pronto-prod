@@ -67,7 +67,7 @@ export class AnthropicProvider implements Pick<LlmProvider, "generateGroundedAns
             "x-api-key": apiKey,
             "anthropic-version": "2023-06-01",
           },
-          signal: abort.signal,
+          signal: input.signal ? AbortSignal.any([abort.signal, input.signal]) : abort.signal,
           body: JSON.stringify({
             model: input.responseModel,
             max_tokens: input.maxOutputTokens ?? 800,

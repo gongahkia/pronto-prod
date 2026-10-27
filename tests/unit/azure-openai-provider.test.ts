@@ -92,6 +92,7 @@ describe("Azure OpenAI provider", () => {
 
     expect(mocks.openAiConstructor).toHaveBeenCalledWith({
       apiKey: "azure-key",
+      maxRetries: 0,
       baseURL: "https://example.openai.azure.com/openai/v1/",
     });
     expect(mocks.responsesCreate).toHaveBeenCalledWith(
@@ -120,7 +121,7 @@ describe("Azure OpenAI provider", () => {
     expect(mocks.embeddingsCreate).toHaveBeenCalledWith({
       model: "embedding-deployment",
       input: ["opening hours"],
-    });
+    }, { signal: undefined, timeout: undefined });
     expect(embeddings).toEqual([[0.1, 0.2]]);
   });
 });

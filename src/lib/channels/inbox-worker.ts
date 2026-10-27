@@ -17,6 +17,7 @@ import { protectedDemoDeployment } from "@/lib/deployment-profile";
 import { recordConversationOutcome } from "@/lib/conversation-actions";
 import { generateHandoffIntake } from "@/lib/agent/handoff-intake";
 import { shouldUseMockAi } from "@/lib/env";
+import { withAgentTurn, assertTurnActive } from "@/lib/agent/turn-budget";
 
 export async function processInboundJob(input: { jobId?: string; requestId?: string; clientId?: string; channelId?: string;
   reservationConnector?: ReservationConnector } = {}): Promise<
@@ -25,7 +26,7 @@ export async function processInboundJob(input: { jobId?: string; requestId?: str
   const job = await claimInboundJob({ jobId: input.jobId, clientId: input.clientId, channelId: input.channelId });
   if (!job) return null;
   try {
-    const outcome = await execute(job, input.requestId, input.reservationConnector);
+    const outcome = await withAgentTurn(() => execute(job, input.requestId, input.reservationConnector), { clientId: job.client_id });
     await recordConversationOutcome(job.client_id, job.conversation_id, outcome);
     await finishInboundJob(job, outcome === "skipped" ? "skipped" : "completed");
     return { jobId: job.id, outcome };
@@ -145,6 +146,7 @@ async function execute(job: InboundJob, requestId?: string,
 }
 
 async function queueAnswer(job: InboundJob, conversation: Conversation, answer: Message): Promise<void> {
+  assertTurnActive();
   if (process.env.NODE_ENV !== "test" && !shouldUseMockAi() &&
       (answer.metadata.generationMode !== "real" || answer.metadata.responseProvider === "mock"))
     throw new Error("Only genuine model responses can be delivered.");
@@ -159,6 +161,7 @@ async function queueAnswer(job: InboundJob, conversation: Conversation, answer: 
       [job.client_id, conversation.id],
     );
     if (open.rows[0]) return;
+    assertTurnActive();
     const csatUrl = typeof answer.metadata.csatUrl === "string"
       ? `${answer.metadata.csatUrl}?messageId=${answer.id}` : null;
     await enqueueOutboundMessage(db, {
@@ -176,6 +179,7 @@ async function queueAnswer(job: InboundJob, conversation: Conversation, answer: 
 async function queueHandoff(
   job: InboundJob, channel: Channel, conversation: Conversation, escalation: Escalation,
 ): Promise<void> {
+  assertTurnActive();
   const policy = await query<{ policy: { timezone: string; staffedHours: Record<string, { start: string; end: string }>;
     outOfHoursAcknowledgement: string | null } }>(
     "select policy from escalation_policy_versions where client_id = $1 order by version desc limit 1", [job.client_id]);
@@ -193,6 +197,7 @@ async function queueHandoff(
     : await generateHandoffIntake({ channel, conversation, escalation, customerMessageId: job.message_id });
   const body = existing.rows[0]?.body ?? intake?.body ?? (requireRealReply ? null : outOfHours ?? getEscalationHoldingReply(channel.settings));
   await transaction(async (db) => {
+    assertTurnActive();
     if (body) {
       const recorded = await db.query<Message>(
         `insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)

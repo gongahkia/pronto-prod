@@ -7,6 +7,8 @@ import { mockEmbed, mockGroundedAnswer } from "@/lib/llm/mock";
 import { OpenAiProvider } from "@/lib/llm/openai";
 import { FreeTierProvider } from "@/lib/llm/free-providers";
 import { prepareGenerationInput } from "@/lib/llm/prompt-budget";
+import { runTurnModelCall } from "@/lib/agent/turn-budget";
+import { estimateTokens } from "@/lib/knowledge/chunk";
 import type {
   GenerateAnswerInput,
   GroundedAnswerDecision,
@@ -88,13 +90,15 @@ export function getGenerationProvider(provider: string | null | undefined): LlmP
   const selected = generationProvider(provider);
   return { embed: (...args) => selected.embed(...args), generateGroundedAnswer: async input => {
     const prepared = prepareGenerationInput(input);
-    const decision = await selected.generateGroundedAnswer(prepared.input);
+    const decision = await runTurnModelCall(input.reservationExtraction ? "reservation_extract" : input.handoffReason ? "handoff_intake" : "answer",
+      prepared.tokenEstimate, input.maxOutputTokens ?? 800, control => selected.generateGroundedAnswer({ ...prepared.input,
+        signal: control.signal ?? input.signal, timeoutMs: Math.min(input.timeoutMs ?? 25000, control.timeoutMs ?? Infinity) }));
     return { ...decision, contextChunkIds: prepared.input.retrievedChunks.map(chunk => chunk.id),
       promptTokenEstimate: prepared.tokenEstimate, promptHash: prepared.hash };
   } };
 }
 
-export function getEmbeddingProvider(provider: string | null | undefined): LlmProvider {
+function embeddingProvider(provider: string | null | undefined): LlmProvider {
   const normalized = normalizeProviderName(provider);
   if (aiExecutionMode() === "real" && normalized === "mock")
     throw new LlmConfigurationError("mock", "Real demo mode requires real embeddings.");
@@ -110,4 +114,12 @@ export function getEmbeddingProvider(provider: string | null | undefined): LlmPr
     return new UnsupportedEmbeddingProvider(normalized);
   }
   return openAiProvider;
+}
+
+export function getEmbeddingProvider(provider: string | null | undefined): LlmProvider {
+  const selected = embeddingProvider(provider);
+  return { generateGroundedAnswer: input => selected.generateGroundedAnswer(input),
+    embed: (texts, model, context = {}) => runTurnModelCall("embedding", estimateTokens(texts.join("\n")), 0,
+      control => selected.embed(texts, model, { ...context, signal: control.signal ?? context.signal,
+        timeoutMs: Math.min(context.timeoutMs ?? 25000, control.timeoutMs ?? Infinity) })) };
 }

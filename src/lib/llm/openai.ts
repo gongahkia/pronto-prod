@@ -82,7 +82,7 @@ export class OpenAiProvider implements LlmProvider {
       const response = await client.embeddings.create({
         model: resolvedModel,
         input: texts,
-      });
+      }, { signal: context.signal, timeout: context.timeoutMs });
       logInfo("llm.embedding.completed", {
         ...context,
         provider: this.provider,
@@ -181,7 +181,7 @@ export class OpenAiProvider implements LlmProvider {
             },
           },
         },
-      }, { signal: abort.signal });
+      }, { signal: input.signal ? AbortSignal.any([abort.signal, input.signal]) : abort.signal });
     } catch (error) {
       logWarn("llm.generation_failed", {
         requestId: input.requestId,
@@ -234,6 +234,7 @@ export class OpenAiProvider implements LlmProvider {
     }
     return new OpenAI({
       apiKey,
+      maxRetries: 0,
       baseURL: this.baseURL(),
     });
   }

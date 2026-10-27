@@ -17,12 +17,34 @@ import { evaluatePostGenerationSelfCheck } from "@/lib/agent/self-check";
 import { agentMaxConversationTokens, agentMaxOutputTokens, agentMaxPromptTokens, agentTimeoutMs } from "@/lib/agent/runtime-limits";
 import { buildGroundedAnswerInstructions, buildGroundedAnswerUserInput } from "@/lib/llm/prompt";
 import { estimateEmbeddingCost, estimateGenerationCost, estimateGenerationCostFromTokens, recordAgentUsageEvent } from "@/lib/costing";
-import { logInfo, logWarn, redactErrorMessage } from "@/lib/logger";
-import type { AgentConfig, Channel, Client, Conversation, Escalation, Message } from "@/lib/types";
+import { logWarn, redactErrorMessage } from "@/lib/logger";
+import type { AgentConfig, Channel, ChannelKind, Client, Conversation, Escalation, KnowledgeChunk, Message } from "@/lib/types";
+import type { GroundedAnswerDecision } from "@/lib/llm/types";
 
 const intakeReasons = ["complaint_or_refund", "transactional_action", "private_lookup_unverified"];
 
 export type HandoffIntakeReply = { body: string; metadata: Message["metadata"] };
+
+export function handoffQuestionsAllowed(message: string, rules: Record<string, unknown>, channelKind?: ChannelKind): boolean {
+  return !evaluatePreGenerationGuardrails(message, { ...rules, disabledReasonCodes: intakeReasons }, channelKind).shouldEscalate;
+}
+
+export function handoffReplyFromDecision(input: {
+  decision: GroundedAnswerDecision; chunks: KnowledgeChunk[]; customerMessage: string;
+  askForDetails: boolean; provider: string; model: string; generationMode?: "real" | "mock"; retrievalMode: string;
+}): HandoffIntakeReply | null {
+  const decision = { ...input.decision, answer: input.decision.answer ? plainMessageText(input.decision.answer) : null };
+  const check = evaluatePostGenerationSelfCheck({ decision: { ...decision, action: "answer" }, retrievedChunks: input.chunks,
+    clarificationContext: `${input.customerMessage}\nOur team will review this enquiry. The assistant is paused.`, requireQuestion: false });
+  if (decision.action !== "escalate" || !decision.answer?.trim() || !check.passed || (!input.askForDetails && /[?？]/.test(decision.answer))) return null;
+  const cited = input.chunks.filter(chunk => decision.citedChunkIds.includes(chunk.id));
+  return { body: decision.answer.trim(), metadata: { generationMode: input.generationMode ?? "real", responseProvider: input.provider,
+    responseModel: decision.actualModel ?? input.model, providerResponseId: decision.providerResponseId ?? null,
+    citedChunkIds: decision.citedChunkIds, retrievalMode: input.retrievalMode, handoffIntake: true,
+    intakeContextChunkIds: input.chunks.map(chunk => chunk.id),
+    sourceProvenance: cited.map(chunk => ({ chunkId: chunk.id, sourceId: chunk.source_id,
+      version: chunk.metadata.sourceVersion ?? null, contentHash: chunk.metadata.sourceContentHash ?? null })) } };
+}
 
 // Generate one acknowledgement/intake question for the handoff. Ownership stays
 // with staff; later customer details are saved without restarting the assistant.
@@ -65,9 +87,7 @@ async function generate(input: Parameters<typeof generateHandoffIntake>[0]): Pro
   const config = configs.rows[0];
   const customer = recent.find(message => message.id === input.customerMessageId && message.sender_role === "customer");
   if (!client || !config || !customer) return null;
-  const critical = evaluatePreGenerationGuardrails(customer.body, { ...config.escalation_rules,
-    disabledReasonCodes: intakeReasons }, input.channel.kind);
-  const askForDetails = !critical.shouldEscalate;
+  const askForDetails = handoffQuestionsAllowed(customer.body, config.escalation_rules, input.channel.kind);
 
   const profile = aiExecutionProfile();
   const provider = profile?.provider ?? process.env.PRONTO_LLM_PROVIDER ?? config.response_provider;
@@ -111,23 +131,8 @@ async function generate(input: Parameters<typeof generateHandoffIntake>[0]): Pro
       : estimateGenerationCost({ inputText: prompt, outputText: JSON.stringify(decision), costLabel: selected.costLabel }),
     metadata: { purpose: "handoff_intake", customerMessageId: customer.id, providerResponseId: decision.providerResponseId ?? null,
       usageSource: decision.usage ? "provider" : "estimate" } });
-  // Validate source citations and mutation claims before sending intake text.
-  // Optional questions may also be grounded in the customer's own description.
-  const check = evaluatePostGenerationSelfCheck({ decision: { ...decision, action: "answer" }, retrievedChunks: effectiveChunks,
-    clarificationContext: `${customer.body}\nOur team will review this enquiry. The assistant is paused.`,
-    requireQuestion: false });
-  if (decision.action !== "escalate" || !decision.answer?.trim() || !check.passed || (!askForDetails && /[?？]/.test(decision.answer))) {
-    logInfo("agent.handoff_intake_rejected", { clientId, conversationId, action: decision.action,
-      hasAnswer: Boolean(decision.answer?.trim()), reasonCode: check.reasonCode });
-    return null;
-  }
-  const cited = chunks.filter(chunk => decision.citedChunkIds.includes(chunk.id));
-  return { body: decision.answer.trim(), metadata: { generationMode: "real", responseProvider: selected.provider,
-    responseModel: decision.actualModel ?? selected.model, providerResponseId: decision.providerResponseId ?? null,
-    citedChunkIds: decision.citedChunkIds, retrievalMode: localText ? "local_text" : "hybrid_vector", handoffIntake: true,
-    intakeContextChunkIds: chunks.map(chunk => chunk.id),
-    sourceProvenance: cited.map(chunk => ({ chunkId: chunk.id, sourceId: chunk.source_id,
-      version: chunk.metadata.sourceVersion ?? null, contentHash: chunk.metadata.sourceContentHash ?? null })) } };
+  return handoffReplyFromDecision({ decision, chunks: effectiveChunks, customerMessage: customer.body,
+    askForDetails, provider: selected.provider, model: selected.model, retrievalMode: localText ? "local_text" : "hybrid_vector" });
 }
 
 async function recordUsage(input: Parameters<typeof recordAgentUsageEvent>[0]) {

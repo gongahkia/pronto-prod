@@ -74,6 +74,23 @@ dbDescribe("free-provider demo profiles with explicit fake inference and real is
     await prepareRealDemoEmbeddings("gemini");await getPool().query("update knowledge_sources set metadata=metadata||'{\"archived\":true}'::jsonb where client_id=$1",[DEMO_CLIENT_ID]);
     expect(await retrieveKnowledge(DEMO_CLIENT_ID,deterministicEmbedding("closing hours"),5,options)).toEqual([]);
   });
+  it("reuses a validated primary handoff acknowledgement and recovers it without another model call",async()=>{
+    const session=await createDemoSession(actor,"real","groq-oss");
+    vi.mocked(FreeTierProvider.prototype.generateGroundedAnswer).mockImplementation(async input=>({
+      action:"escalate",answer:"Our team will review your enquiry. Could you share the order details?",confidence:0.8,
+      reasonCode:"complaint_or_refund",reasonDetail:"A staff decision is required.",citedChunkIds:[],actualModel:input.responseModel}));
+    const job=await sendDemoMessage(actor,{sessionId:session.id,requestId:randomUUID(),text:"I want a refund for my coffee order."});
+    expect(await processInboundJob({jobId:job.jobId})).toMatchObject({outcome:"escalated"});
+    expect(FreeTierProvider.prototype.generateGroundedAnswer).toHaveBeenCalledTimes(1);
+    const replies=await getPool().query("select body,metadata from messages where client_id=$1 and conversation_id=$2 and sender_role='agent'",[DEMO_CLIENT_ID,session.conversationId]);
+    expect(replies.rows).toHaveLength(1);
+    expect(replies.rows[0].metadata).toMatchObject({reusedPrimaryDecision:true,policy:"escalation_holding_reply",generationMode:"real"});
+    // Simulate a worker crash after persistence: recovery must reuse the same reply/outbox identity.
+    await getPool().query("update inbound_jobs set status='failed',available_at=now() where id=$1",[job.jobId]);
+    expect(await processInboundJob({jobId:job.jobId})).toMatchObject({outcome:"escalated"});
+    expect(FreeTierProvider.prototype.generateGroundedAnswer).toHaveBeenCalledTimes(1);
+    expect((await getPool().query("select id from outbound_messages where client_id=$1 and conversation_id=$2",[DEMO_CLIENT_ID,session.conversationId])).rows).toHaveLength(1);
+  });
   it("does not switch providers or retry a quota failure",async()=>{
     vi.stubEnv("GEMINI_API_KEY","");const session=await createDemoSession(actor,"real","groq-oss");
     vi.mocked(FreeTierProvider.prototype.generateGroundedAnswer).mockRejectedValue(new ProviderRequestError("groq","quota_exhausted",429));

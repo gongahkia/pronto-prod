@@ -41,6 +41,7 @@ export type GenerateAnswerInput = {
   maxOutputTokens?: number;
   timeoutMs?: number;
   maxPromptTokens?: number;
+  signal?: AbortSignal;
   handoffReason?: string;
   handoffAskForDetails?: boolean;
   conversationalTurn?: boolean;
@@ -51,6 +52,8 @@ export type GenerateAnswerInput = {
 };
 
 export type LlmCallContext = {
+  signal?: AbortSignal;
+  timeoutMs?: number;
   requestId?: string;
   clientId?: string;
   conversationId?: string;

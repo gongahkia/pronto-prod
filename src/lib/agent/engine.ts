@@ -32,6 +32,8 @@ import { estimateTokens } from "@/lib/knowledge/chunk";
 import { retrieveKnowledge, retrieveKnowledgeText } from "@/lib/knowledge/retrieve";
 import { normalizeKnowledgeQuery, conversationKnowledgeQuery } from "@/lib/knowledge/query";
 import { loadConversationContext } from "@/lib/agent/conversation-context";
+import { withAgentTurn, assertTurnActive } from "@/lib/agent/turn-budget";
+import { handoffQuestionsAllowed, handoffReplyFromDecision, type HandoffIntakeReply } from "@/lib/agent/handoff-intake";
 import { appBaseUrl, shouldUseMockAi } from "@/lib/env";
 import { getEmbeddingProvider, getGenerationProvider } from "@/lib/llm";
 import { selectModel } from "@/lib/llm/catalog";
@@ -57,7 +59,7 @@ export type AgentRunResult = {
   csatUrl?: string;
 };
 
-export async function runAgentForMessage(input: {
+export type AgentRunInput = {
   clientId: string;
   channelId: string;
   channelKind?: ChannelKind;
@@ -66,7 +68,11 @@ export async function runAgentForMessage(input: {
   customerMessage: string;
   requestId?: string;
   reservationConnector?: ReservationConnector;
-}): Promise<AgentRunResult> {
+};
+export async function runAgentForMessage(input: AgentRunInput): Promise<AgentRunResult> {
+  return withAgentTurn(() => runAgentTurn(input), { clientId: input.clientId });
+}
+async function runAgentTurn(input: AgentRunInput): Promise<AgentRunResult> {
   logInfo("agent.run_started", {
     requestId: input.requestId,
     clientId: input.clientId,
@@ -690,6 +696,10 @@ export async function runAgentForMessage(input: {
     });
     const escalation = await createEscalation({
       ...input,
+      handoffReply: handoffReplyFromDecision({ decision, chunks: effectiveChunks, customerMessage: input.customerMessage,
+        askForDetails: handoffQuestionsAllowed(input.customerMessage, config.escalation_rules, input.channelKind),
+        provider: responseModel.provider, model: responseModel.model, generationMode: shouldUseMockAi() ? "mock" : "real",
+        retrievalMode: localTextRetrieval ? "local_text" : "hybrid_vector" }) ?? undefined,
       reasonCode: decision.reasonCode,
       reasonDetail:
         decision.action === "answer" && !citedChunks.length
@@ -717,6 +727,7 @@ export async function runAgentForMessage(input: {
   }
 
   const csatUrl = buildCsatUrl(input.conversationId);
+  assertTurnActive();
   const agentMessage = await query<{ id: string }>(
     `
       insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
@@ -818,13 +829,16 @@ export async function createEscalation(input: {
   reasonDetail: string;
   confidence: number;
   requestId?: string;
+  handoffReply?: HandoffIntakeReply;
 }): Promise<AgentRunResult> {
+  assertTurnActive();
   return transaction(async (client) => {
     const customerMessage = await client.query<{ id: string }>(
       "select id from messages where id = $1 and client_id = $2 and conversation_id = $3 for update",
       [input.customerMessageId, input.clientId, input.conversationId],
     );
     if (!customerMessage.rows[0]) throw new Error("Escalation customer message was not found.");
+    assertTurnActive();
     await client.query(
       `update conversations set status = 'escalated', last_message_at = now(), ai_should_respond=false,
        owner_action_required=true, urgency=coalesce(urgency,
@@ -854,6 +868,14 @@ export async function createEscalation(input: {
       ],
     );
 
+    if (input.handoffReply) {
+      assertTurnActive();
+      await client.query(`insert into messages(conversation_id,client_id,channel_id,external_message_id,sender_role,body,metadata)
+        values($1,$2,$3,$4,'agent',$5,$6::jsonb) on conflict(channel_id,external_message_id) do nothing`,
+      [input.conversationId, input.clientId, input.channelId, `agent-handoff-${escalation.rows[0].id}`, input.handoffReply.body,
+        JSON.stringify({ ...input.handoffReply.metadata, policy: "escalation_holding_reply", customerMessageId: input.customerMessageId,
+          escalationId: escalation.rows[0].id, reusedPrimaryDecision: true })]);
+    }
     if (!existing.rows[0]) {
       await client.query(
         "insert into metric_events (client_id, event_type, value, metadata) values ($1, 'agent_escalated', $2, $3)",
@@ -904,6 +926,7 @@ async function recordDirectAgentAnswer(
   },
 ): Promise<{ agentMessageId: string; csatUrl: string }> {
   const csatUrl = buildCsatUrl(input.conversationId);
+  assertTurnActive();
   const agentMessage = await query<{ id: string }>(
     `
       insert into messages (conversation_id, client_id, channel_id, external_message_id, sender_role, body, metadata)
