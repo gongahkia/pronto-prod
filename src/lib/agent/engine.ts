@@ -626,6 +626,7 @@ export async function runAgentForMessage(input: {
   let selfCheck = evaluatePostGenerationSelfCheck({
     decision,
     retrievedChunks: chunks,
+    customerContext: [input.customerMessage, ...recentMessages.filter(message => message.senderRole === "customer").map(message => message.body)].join("\n"),
     ...(generationInput.conversationalTurn ? { operationalContext:
       `Business identity: ${client.name}. Role: AI assistant. Scope: greet and welcome customers; help with enquiries; direct customers to our team when needed.` } : {}),
   });

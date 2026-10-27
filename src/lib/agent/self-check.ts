@@ -1,5 +1,6 @@
 import type { GroundedAnswerDecision } from "@/lib/llm/types";
 import type { KnowledgeChunk } from "@/lib/types";
+import { unsupportedGroundedValue } from "@/lib/agent/grounded-values";
 
 export type PostGenerationSelfCheckResult = {
   passed: boolean;
@@ -51,6 +52,7 @@ export function evaluatePostGenerationSelfCheck(input: {
   clarificationContext?: string;
   operationalContext?: string;
   requireQuestion?: boolean;
+  customerContext?: string;
 }): PostGenerationSelfCheckResult {
   if (input.decision.action === "escalate") {
     return {
@@ -86,6 +88,9 @@ export function evaluatePostGenerationSelfCheck(input: {
   if (input.clarificationContext && input.requireQuestion !== false && !/[?？]/.test(input.decision.answer)) {
     return failed("post_check_missing_question", "The handoff intake did not ask a clarification question.");
   }
+  const unsupported = unsupportedGroundedValue({ answer: input.decision.answer,
+    citedChunks, customerContext: input.customerContext ?? input.clarificationContext });
+  if (unsupported) return failed("post_check_unsupported_fact", unsupported);
   const overlap = sourceOverlapScore(input.decision.answer, citedChunks,
     [input.clarificationContext, input.operationalContext].filter(Boolean).join("\n"));
   if (overlap < 0.08) {
