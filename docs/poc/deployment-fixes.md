@@ -12,7 +12,7 @@ command, then checks the container's health and login routes.
 
 ## Groq-only knowledge publication
 
-Apply migrations through **053_demo_text_knowledge.sql** with the direct
+Apply migrations through **055_demo_feedback_request_ids.sql** (053 added text knowledge) with the direct
 administrative database connection before updating the app or bootstrapping a
 new demo. Existing vectors and indexes are preserved. The migration permits a
 missing vector only for this exact synthetic tenant's explicitly marked
@@ -28,9 +28,10 @@ Optional Gemini indexing remains a separate, explicitly configured operation.
 
 Source review, assistant-revision approval and operator publication remain
 separate gates. Pending edits leave the last published version active. The
-protected bootstrap still grants responders only conversation capabilities;
-an operator must separately grant an invited business reviewer
-`knowledge.approve` with authorization evidence to demonstrate publication.
+protected bootstrap now grants every staff capability to its business
+accounts (the deployment is a public synthetic POC), so a reviewer can
+demonstrate publication without a separate grant. See
+[deployed demo overview](deployed-demo-overview.md).
 
 Protected preflight accepts curated fixtures and synthetic sources with real
 review/publication provenance. It checks the retained source version, reviewed

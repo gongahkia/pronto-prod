@@ -38,6 +38,8 @@ In the enabled synthetic POC, **Feedback** on business pages and customer chat o
 
 **Export workspace feedback** downloads versioned JSON for Codex review, including page/element context, authors, replies and status. Codex can also query the structured tables directly with authorized database access. See [feedback serialization and ingestion](docs/ops/prototype-feedback.md) for authentication, pagination and the schema.
 
+For what is deployed, how to run it, and its strengths and limits, see the [deployed demo overview](docs/poc/deployed-demo-overview.md).
+
 See [verification evidence and UI checks](docs/poc/insights-feedback-verification.md) for the model, persistence, permission and responsive checks behind these changes.
 
 Restaurant booking enquiries in the real-model path can check Chope and return a booking link with the requested date, time and party size. PostgreSQL stores availability observations and a shared cache; the worker refreshes recently requested combinations hourly and enquiries require observations no older than five minutes before claiming availability. See [Chope setup, scheduling and storage](docs/integrations/chope-live-read.md) for the required flags, tenant mapping, Chromium and worker setup.
